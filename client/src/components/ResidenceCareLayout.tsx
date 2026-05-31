@@ -13,6 +13,7 @@ export function ResidenceCareLayout({ children }: { children: React.ReactNode })
     { label: "Học viên lưu trú", path: "/members", icon: "👥" },
     { label: "Phòng ở", path: "/rooms", icon: "🏢" },
     { label: "Công tác", path: "/duties", icon: "✓" },
+    { label: "Tài chính", path: "/financial", icon: "💵" },
     { label: "Phí lưu trú", path: "/fees", icon: "💰" },
     { label: "Thông tin học & Lịch học", path: "/schedule", icon: "📚" },
     { label: "Hoạt động", path: "/activities", icon: "🎉" },

@@ -5,6 +5,7 @@ import { dashboardRouter } from "./routers/modules/dashboard";
 import { membersRouter } from "./routers/modules/members";
 import { roomsRouter } from "./routers/modules/rooms";
 import { dutiesRouter } from "./routers/modules/duties";
+import { financialRouter } from "./routers/financial";
 
 export const appRouter = router({
   system: systemRouter,
@@ -13,6 +14,7 @@ export const appRouter = router({
   members: membersRouter,
   rooms: roomsRouter,
   duties: dutiesRouter,
+  financial: financialRouter,
 });
 
 export type AppRouter = typeof appRouter;

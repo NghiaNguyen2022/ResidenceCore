@@ -36,6 +36,13 @@
       "when": 1780046169320,
       "tag": "0004_left_omega_red",
       "breakpoints": true
-    }
+    },
+    {
+  "idx": 5,
+  "version": "5",
+  "when": 1780124827160,
+  "tag": "0004_add_financial_tables",
+  "breakpoints": true
+}
   ]
 }

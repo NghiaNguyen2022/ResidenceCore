@@ -651,3 +651,398 @@ export const scheduleConflictsRelations = relations(scheduleConflicts, ({ one })
   resident: one(residents, { fields: [scheduleConflicts.residentId], references: [residents.id] }),
   dutyConfig: one(dutyConfigs, { fields: [scheduleConflicts.dutyConfigId], references: [dutyConfigs.id] }),
 }));
+
+
+// ============================================================================
+// FINANCIAL MANAGEMENT TABLES
+// ============================================================================
+
+/**
+ * ResidentFeeTypes table - Loại phí cho học viên (Loại 1, 2, 3)
+ */
+export const residentFeeTypes = mysqlTable("residentFeeTypes", {
+  id: int("id").autoincrement().primaryKey(),
+  code: varchar("code", { length: 50 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  roomFee: decimal("roomFee", { precision: 12, scale: 2 }).notNull().default("0"),
+  mealFee: decimal("mealFee", { precision: 12, scale: 2 }).notNull().default("0"),
+  activitiesFee: decimal("activitiesFee", { precision: 12, scale: 2 }).notNull().default("0"),
+  totalMonthlyFee: decimal("totalMonthlyFee", { precision: 12, scale: 2 }).notNull().default("0"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ResidentFeeType = typeof residentFeeTypes.$inferSelect;
+export type InsertResidentFeeType = typeof residentFeeTypes.$inferInsert;
+
+/**
+ * ResidentFeeAssignments table - Gán loại phí cho học viên
+ */
+export const residentFeeAssignments = mysqlTable("residentFeeAssignments", {
+  id: int("id").autoincrement().primaryKey(),
+  residentId: int("residentId").notNull().references(() => residents.id, { onDelete: "cascade" }),
+  feeTypeId: int("feeTypeId").notNull().references(() => residentFeeTypes.id, { onDelete: "restrict" }),
+  assignedDate: date("assignedDate").notNull(),
+  effectiveFromMonth: int("effectiveFromMonth").notNull(),
+  effectiveFromYear: int("effectiveFromYear").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ResidentFeeAssignment = typeof residentFeeAssignments.$inferSelect;
+export type InsertResidentFeeAssignment = typeof residentFeeAssignments.$inferInsert;
+
+/**
+ * FeeChangeHistory table - Lịch sử thay đổi phí
+ */
+export const feeChangeHistory = mysqlTable("feeChangeHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  residentId: int("residentId").notNull().references(() => residents.id, { onDelete: "cascade" }),
+  oldFeeTypeId: int("oldFeeTypeId").references(() => residentFeeTypes.id, { onDelete: "set null" }),
+  newFeeTypeId: int("newFeeTypeId").notNull().references(() => residentFeeTypes.id, { onDelete: "restrict" }),
+  changeReason: varchar("changeReason", { length: 255 }),
+  changeDate: date("changeDate").notNull(),
+  effectiveFromMonth: int("effectiveFromMonth").notNull(),
+  effectiveFromYear: int("effectiveFromYear").notNull(),
+  changedBy: int("changedBy").references(() => users.id, { onDelete: "set null" }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FeeChangeHistory = typeof feeChangeHistory.$inferSelect;
+export type InsertFeeChangeHistory = typeof feeChangeHistory.$inferInsert;
+
+/**
+ * AdditionalFees table - Phí khác (từ hoạt động, khoá học)
+ */
+export const additionalFees = mysqlTable("additionalFees", {
+  id: int("id").autoincrement().primaryKey(),
+  residentId: int("residentId").notNull().references(() => residents.id, { onDelete: "cascade" }),
+  feeCategory: varchar("feeCategory", { length: 100 }).notNull(),
+  description: text("description"),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  billingMonth: int("billingMonth").notNull(),
+  billingYear: int("billingYear").notNull(),
+  reason: varchar("reason", { length: 255 }),
+  relatedActivityId: int("relatedActivityId"),
+  relatedCourseId: int("relatedCourseId"),
+  status: mysqlEnum("status", ["pending", "approved", "rejected", "cancelled"]).default("pending").notNull(),
+  approvedBy: int("approvedBy").references(() => users.id, { onDelete: "set null" }),
+  approvedAt: timestamp("approvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AdditionalFee = typeof additionalFees.$inferSelect;
+export type InsertAdditionalFee = typeof additionalFees.$inferInsert;
+
+/**
+ * BorrowedFees table - Phí mượn/ứng
+ */
+export const borrowedFees = mysqlTable("borrowedFees", {
+  id: int("id").autoincrement().primaryKey(),
+  residentId: int("residentId").notNull().references(() => residents.id, { onDelete: "cascade" }),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  borrowDate: date("borrowDate").notNull(),
+  reason: text("reason"),
+  status: mysqlEnum("status", ["pending", "added_to_fee", "paid"]).default("pending").notNull(),
+  addedToMonthlyFeeMonth: int("addedToMonthlyFeeMonth"),
+  addedToMonthlyFeeYear: int("addedToMonthlyFeeYear"),
+  paidDate: date("paidDate"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BorrowedFee = typeof borrowedFees.$inferSelect;
+export type InsertBorrowedFee = typeof borrowedFees.$inferInsert;
+
+/**
+ * Revenues table - Phí thu hàng tháng
+ */
+export const revenues = mysqlTable("revenues", {
+  id: int("id").autoincrement().primaryKey(),
+  residentId: int("residentId").notNull().references(() => residents.id, { onDelete: "cascade" }),
+  billingMonth: int("billingMonth").notNull(),
+  billingYear: int("billingYear").notNull(),
+  baseFee: decimal("baseFee", { precision: 12, scale: 2 }).notNull(),
+  additionalFeeAmount: decimal("additionalFeeAmount", { precision: 12, scale: 2 }).notNull().default("0"),
+  borrowedFeeAddition: decimal("borrowedFeeAddition", { precision: 12, scale: 2 }).notNull().default("0"),
+  totalAmount: decimal("totalAmount", { precision: 12, scale: 2 }).notNull(),
+  status: mysqlEnum("status", ["pending", "due", "overdue", "paid", "partial", "cancelled"]).default("pending").notNull(),
+  dueDate: date("dueDate").notNull(),
+  paidAmount: decimal("paidAmount", { precision: 12, scale: 2 }).notNull().default("0"),
+  paidDate: date("paidDate"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  uniqueResidentMonth: unique().on(table.residentId, table.billingMonth, table.billingYear),
+}));
+
+export type Revenue = typeof revenues.$inferSelect;
+export type InsertRevenue = typeof revenues.$inferInsert;
+
+/**
+ * RevenuePayments table - Ghi nhận thanh toán
+ */
+export const revenuePayments = mysqlTable("revenuePayments", {
+  id: int("id").autoincrement().primaryKey(),
+  revenueId: int("revenueId").notNull().references(() => revenues.id, { onDelete: "cascade" }),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  paymentMethod: mysqlEnum("paymentMethod", ["cash", "bank_transfer", "check", "other"]).notNull(),
+  paymentDate: date("paymentDate").notNull(),
+  reference: varchar("reference", { length: 255 }),
+  notes: text("notes"),
+  recordedBy: int("recordedBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type RevenuePayment = typeof revenuePayments.$inferSelect;
+export type InsertRevenuePayment = typeof revenuePayments.$inferInsert;
+
+/**
+ * RevenueHistory table - Lịch sử thay đổi phí thu
+ */
+export const revenueHistory = mysqlTable("revenueHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  revenueId: int("revenueId").notNull().references(() => revenues.id, { onDelete: "cascade" }),
+  fieldChanged: varchar("fieldChanged", { length: 100 }).notNull(),
+  oldValue: text("oldValue"),
+  newValue: text("newValue"),
+  changeReason: varchar("changeReason", { length: 255 }),
+  changedBy: int("changedBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type RevenueHistory = typeof revenueHistory.$inferSelect;
+export type InsertRevenueHistory = typeof revenueHistory.$inferInsert;
+
+/**
+ * ExpenseCategories table - Danh mục chi phí
+ */
+export const expenseCategories = mysqlTable("expenseCategories", {
+  id: int("id").autoincrement().primaryKey(),
+  code: varchar("code", { length: 50 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  budgetAmount: decimal("budgetAmount", { precision: 12, scale: 2 }),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ExpenseCategory = typeof expenseCategories.$inferSelect;
+export type InsertExpenseCategory = typeof expenseCategories.$inferInsert;
+
+/**
+ * Expenses table - Chi phí vận hành
+ */
+export const expenses = mysqlTable("expenses", {
+  id: int("id").autoincrement().primaryKey(),
+  categoryId: int("categoryId").notNull().references(() => expenseCategories.id, { onDelete: "restrict" }),
+  department: mysqlEnum("department", ["general", "store", "library", "other"]).default("general").notNull(),
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  expenseDate: date("expenseDate").notNull(),
+  paymentMethod: mysqlEnum("paymentMethod", ["cash", "bank_transfer", "check", "other"]).notNull(),
+  invoiceNumber: varchar("invoiceNumber", { length: 100 }),
+  invoiceFile: varchar("invoiceFile", { length: 255 }),
+  status: mysqlEnum("status", ["draft", "submitted", "approved", "rejected", "paid"]).default("draft").notNull(),
+  approvedBy: int("approvedBy").references(() => users.id, { onDelete: "set null" }),
+  approvedAt: timestamp("approvedAt"),
+  rejectionReason: text("rejectionReason"),
+  notes: text("notes"),
+  createdBy: int("createdBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Expense = typeof expenses.$inferSelect;
+export type InsertExpense = typeof expenses.$inferInsert;
+
+/**
+ * StoreRevenues table - Doanh thu cửa hàng
+ */
+export const storeRevenues = mysqlTable("storeRevenues", {
+  id: int("id").autoincrement().primaryKey(),
+  revenueDate: date("revenueDate").notNull(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  quantity: int("quantity").notNull(),
+  unitPrice: decimal("unitPrice", { precision: 12, scale: 2 }).notNull(),
+  totalAmount: decimal("totalAmount", { precision: 12, scale: 2 }).notNull(),
+  notes: text("notes"),
+  recordedBy: int("recordedBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type StoreRevenue = typeof storeRevenues.$inferSelect;
+export type InsertStoreRevenue = typeof storeRevenues.$inferInsert;
+
+/**
+ * StoreSaleItems table - Chi tiết sản phẩm bán
+ */
+export const storeSaleItems = mysqlTable("storeSaleItems", {
+  id: int("id").autoincrement().primaryKey(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  totalQuantitySold: int("totalQuantitySold").notNull().default(0),
+  totalRevenue: decimal("totalRevenue", { precision: 12, scale: 2 }).notNull().default("0"),
+  averageUnitPrice: decimal("averageUnitPrice", { precision: 12, scale: 2 }),
+  lastSaleDate: date("lastSaleDate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type StoreSaleItem = typeof storeSaleItems.$inferSelect;
+export type InsertStoreSaleItem = typeof storeSaleItems.$inferInsert;
+
+/**
+ * StoreExpenses table - Chi phí cửa hàng
+ */
+export const storeExpenses = mysqlTable("storeExpenses", {
+  id: int("id").autoincrement().primaryKey(),
+  expenseDate: date("expenseDate").notNull(),
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  expenseType: mysqlEnum("expenseType", ["purchase", "rent", "utilities", "staff", "other"]).notNull(),
+  notes: text("notes"),
+  recordedBy: int("recordedBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type StoreExpense = typeof storeExpenses.$inferSelect;
+export type InsertStoreExpense = typeof storeExpenses.$inferInsert;
+
+/**
+ * LibraryRevenues table - Doanh thu thư viện
+ */
+export const libraryRevenues = mysqlTable("libraryRevenues", {
+  id: int("id").autoincrement().primaryKey(),
+  revenueDate: date("revenueDate").notNull(),
+  revenueType: mysqlEnum("revenueType", ["rental", "photocopy", "printing", "registration", "other"]).notNull(),
+  description: text("description"),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  notes: text("notes"),
+  recordedBy: int("recordedBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type LibraryRevenue = typeof libraryRevenues.$inferSelect;
+export type InsertLibraryRevenue = typeof libraryRevenues.$inferInsert;
+
+/**
+ * LibraryExpenses table - Chi phí thư viện
+ */
+export const libraryExpenses = mysqlTable("libraryExpenses", {
+  id: int("id").autoincrement().primaryKey(),
+  expenseDate: date("expenseDate").notNull(),
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  expenseType: mysqlEnum("expenseType", ["books", "maintenance", "utilities", "staff", "other"]).notNull(),
+  notes: text("notes"),
+  recordedBy: int("recordedBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type LibraryExpense = typeof libraryExpenses.$inferSelect;
+export type InsertLibraryExpense = typeof libraryExpenses.$inferInsert;
+
+/**
+ * ExpenseHistory table - Lịch sử thay đổi chi phí
+ */
+export const expenseHistory = mysqlTable("expenseHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  expenseId: int("expenseId").notNull().references(() => expenses.id, { onDelete: "cascade" }),
+  fieldChanged: varchar("fieldChanged", { length: 100 }).notNull(),
+  oldValue: text("oldValue"),
+  newValue: text("newValue"),
+  changeReason: varchar("changeReason", { length: 255 }),
+  changedBy: int("changedBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ExpenseHistory = typeof expenseHistory.$inferSelect;
+export type InsertExpenseHistory = typeof expenseHistory.$inferInsert;
+
+// ============================================================================
+// FINANCIAL MANAGEMENT RELATIONS
+// ============================================================================
+
+export const residentFeeTypesRelations = relations(residentFeeTypes, ({ many }) => ({
+  assignments: many(residentFeeAssignments),
+  feeChangeHistory: many(feeChangeHistory),
+}));
+
+export const residentFeeAssignmentsRelations = relations(residentFeeAssignments, ({ one }) => ({
+  resident: one(residents, { fields: [residentFeeAssignments.residentId], references: [residents.id] }),
+  feeType: one(residentFeeTypes, { fields: [residentFeeAssignments.feeTypeId], references: [residentFeeTypes.id] }),
+}));
+
+export const feeChangeHistoryRelations = relations(feeChangeHistory, ({ one }) => ({
+  resident: one(residents, { fields: [feeChangeHistory.residentId], references: [residents.id] }),
+  oldFeeType: one(residentFeeTypes, { fields: [feeChangeHistory.oldFeeTypeId], references: [residentFeeTypes.id] }),
+  newFeeType: one(residentFeeTypes, { fields: [feeChangeHistory.newFeeTypeId], references: [residentFeeTypes.id] }),
+  changedByUser: one(users, { fields: [feeChangeHistory.changedBy], references: [users.id] }),
+}));
+
+export const additionalFeesRelations = relations(additionalFees, ({ one }) => ({
+  resident: one(residents, { fields: [additionalFees.residentId], references: [residents.id] }),
+  approvedByUser: one(users, { fields: [additionalFees.approvedBy], references: [users.id] }),
+}));
+
+export const borrowedFeesRelations = relations(borrowedFees, ({ one }) => ({
+  resident: one(residents, { fields: [borrowedFees.residentId], references: [residents.id] }),
+}));
+
+export const revenuesRelations = relations(revenues, ({ one, many }) => ({
+  resident: one(residents, { fields: [revenues.residentId], references: [residents.id] }),
+  payments: many(revenuePayments),
+  history: many(revenueHistory),
+}));
+
+export const revenuePaymentsRelations = relations(revenuePayments, ({ one }) => ({
+  revenue: one(revenues, { fields: [revenuePayments.revenueId], references: [revenues.id] }),
+  recordedByUser: one(users, { fields: [revenuePayments.recordedBy], references: [users.id] }),
+}));
+
+export const revenueHistoryRelations = relations(revenueHistory, ({ one }) => ({
+  revenue: one(revenues, { fields: [revenueHistory.revenueId], references: [revenues.id] }),
+  changedByUser: one(users, { fields: [revenueHistory.changedBy], references: [users.id] }),
+}));
+
+export const expenseCategoriesRelations = relations(expenseCategories, ({ many }) => ({
+  expenses: many(expenses),
+}));
+
+export const expensesRelations = relations(expenses, ({ one, many }) => ({
+  category: one(expenseCategories, { fields: [expenses.categoryId], references: [expenseCategories.id] }),
+  approvedByUser: one(users, { fields: [expenses.approvedBy], references: [users.id] }),
+  createdByUser: one(users, { fields: [expenses.createdBy], references: [users.id] }),
+  history: many(expenseHistory),
+}));
+
+export const storeRevenuesRelations = relations(storeRevenues, ({ one }) => ({
+  recordedByUser: one(users, { fields: [storeRevenues.recordedBy], references: [users.id] }),
+}));
+
+export const storeSaleItemsRelations = relations(storeSaleItems, ({}));
+
+export const storeExpensesRelations = relations(storeExpenses, ({ one }) => ({
+  recordedByUser: one(users, { fields: [storeExpenses.recordedBy], references: [users.id] }),
+}));
+
+export const libraryRevenuesRelations = relations(libraryRevenues, ({ one }) => ({
+  recordedByUser: one(users, { fields: [libraryRevenues.recordedBy], references: [users.id] }),
+}));
+
+export const libraryExpensesRelations = relations(libraryExpenses, ({ one }) => ({
+  recordedByUser: one(users, { fields: [libraryExpenses.recordedBy], references: [users.id] }),
+}));
+
+export const expenseHistoryRelations = relations(expenseHistory, ({ one }) => ({
+  expense: one(expenses, { fields: [expenseHistory.expenseId], references: [expenses.id] }),
+  changedByUser: one(users, { fields: [expenseHistory.changedBy], references: [users.id] }),
+}));

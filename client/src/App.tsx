@@ -17,6 +17,7 @@ import Members from "./pages/Members";
 import Schedule from "./pages/Schedule";
 import Activities from "./pages/Activities";
 import DutiesPage from "./pages/Duties";
+import Financial from "./pages/Financial";
 
 
 function Router() {
@@ -30,7 +31,8 @@ function Router() {
       <Route path="/members" component={Members} />
       <Route path="/rooms" component={Rooms} />
       <Route path="/attendance" component={Attendance} />
-      <Route path="/duties" component={DutiesPage} />
+      <Route path="/duties" component={DutiesPage} />      
+      <Route path="/financial" component={Financial} />
       <Route path="/fees" component={Fees} />
       <Route path="/schedule" component={Schedule} />
       <Route path="/activities" component={Activities} />
