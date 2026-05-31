@@ -250,6 +250,18 @@ export async function updateResident(id: number, data: Partial<any>) {
   }
 }
 
+export async function markResidentAsLeft(id: number, departureDate: Date) {
+  try {
+    await db
+      .update(residents)
+      .set({ status: "transferred_out", departureDate, updatedAt: new Date() })
+      .where(eq(residents.id, id));
+  } catch (error) {
+    console.error("[markResidentAsLeft] Error:", error);
+    throw error;
+  }
+}
+
 /**
  * Xóa học viên
  */
@@ -352,6 +364,10 @@ export async function getParentsByResident(residentId: number) {
     console.error("[getParentsByResident] Error:", error);
     return [];
   }
+}
+
+export async function getParentsByResidentId(residentId: number) {
+  return getParentsByResident(residentId);
 }
 
 /**
@@ -689,6 +705,25 @@ export async function getCurrentRoomLeader(roomId: number) {
   } catch (error) {
     console.error("[getCurrentRoomLeader] Error:", error);
     return null;
+  }
+}
+
+export async function getRoomLeader(roomId: number) {
+  return getCurrentRoomLeader(roomId);
+}
+
+export async function getRoomLeaderHistory(roomId: number) {
+  try {
+    const result = await db
+      .select()
+      .from(roomLeaders)
+      .where(eq(roomLeaders.roomId, roomId))
+      .orderBy(desc(roomLeaders.appointedDate));
+
+    return result;
+  } catch (error) {
+    console.error("[getRoomLeaderHistory] Error:", error);
+    return [];
   }
 }
 
