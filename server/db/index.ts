@@ -3,11 +3,9 @@
  * Tập hợp tất cả database functions từ các modules
  */
 
-// Export user functions
+export * from "./connection";
 export * from "./user";
-
-// Export duty functions
+export * from "./resident";
+export * from "./room";
 export * from "./duty";
-
-// Export financial functions
 export * from "./financial";

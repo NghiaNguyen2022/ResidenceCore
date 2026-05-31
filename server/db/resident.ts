@@ -1,5 +1,5 @@
 import { getDb } from "./connection";
-import { eq } from "drizzle-orm";
+import { eq, or, like, count } from "drizzle-orm";
 import { InsertParent, InsertResident, parents, residents } from "../../drizzle/schema";
 
 export async function createResident(data: InsertResident) {

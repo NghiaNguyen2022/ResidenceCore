@@ -1,4 +1,6 @@
-import mysql from "mysql2/promise";
+import * as mysql from "mysql2/promise";
+import type * as schema from "../../drizzle/schema";
+import type { MySql2Database } from "drizzle-orm/mysql2";
 import { drizzle } from "drizzle-orm/mysql2";
 
 const pool = mysql.createPool({
@@ -11,8 +13,8 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
-export const db = drizzle(pool);
+export const db = drizzle<typeof schema>(pool as any);
 
-export function getDb() {
+export function getDb(): MySql2Database<typeof schema> {
   return db;
 }

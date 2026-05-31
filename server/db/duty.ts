@@ -3,7 +3,7 @@
  * Các hàm liên quan đến quản lý công tác
  */
 
-import { getDb } from "./user";
+import { getDb } from "./connection";
 import {
   dutyTemplates,
   dutyConfigs,
@@ -21,7 +21,7 @@ import {
   InsertDutyEvaluation,
   InsertScheduleConflict,
 } from "../../drizzle/schema";
-import { eq, and, or, gte, lte, between, inArray } from "drizzle-orm";
+import { eq, and, or, gte, lte, between, like } from "drizzle-orm";
 
 // ============================================================================
 // 2.1 DUTY TEMPLATE FUNCTIONS
@@ -187,7 +187,7 @@ export async function listDutyConfigs(filters?: { dutyType?: string; isActive?: 
   if (!db) throw new Error("Database not available");
 
   try {
-    let query = db.select().from(dutyConfigs);
+    let query: any = db.select().from(dutyConfigs);
 
     const conditions = [];
     if (filters?.dutyType) {
@@ -347,7 +347,7 @@ export async function getAssignmentsByResident(
   if (!db) throw new Error("Database not available");
 
   try {
-    let query = db
+    let query: any = db
       .select()
       .from(dutyAssignments)
       .where(eq(dutyAssignments.residentId, residentId));
@@ -403,7 +403,7 @@ export async function getAssignmentsByDuty(
   if (!db) throw new Error("Database not available");
 
   try {
-    let query = db
+    let query: any = db
       .select()
       .from(dutyAssignments)
       .where(eq(dutyAssignments.dutyConfigId, dutyConfigId));
@@ -539,7 +539,7 @@ export async function getEvaluationsByResident(
   if (!db) throw new Error("Database not available");
 
   try {
-    let query = db
+    let query: any = db
       .select()
       .from(dutyEvaluations)
       .innerJoin(dutyAssignments, eq(dutyEvaluations.assignmentId, dutyAssignments.id))
@@ -569,7 +569,7 @@ export async function getEvaluationStats(filters?: {
   if (!db) throw new Error("Database not available");
 
   try {
-    let query = db
+    let query: any = db
       .select()
       .from(dutyEvaluations)
       .innerJoin(dutyAssignments, eq(dutyEvaluations.assignmentId, dutyAssignments.id));
@@ -589,11 +589,11 @@ export async function getEvaluationStats(filters?: {
     const evaluations = await query;
 
     const avgQuality =
-      evaluations.reduce((sum, e) => sum + (e.dutyEvaluations.quality || 0), 0) / (evaluations.length || 1);
+      evaluations.reduce((sum: number, e: any) => sum + (e.dutyEvaluations.quality || 0), 0) / (evaluations.length || 1);
     const avgPunctuality =
-      evaluations.reduce((sum, e) => sum + (e.dutyEvaluations.punctuality || 0), 0) / (evaluations.length || 1);
-    const avgScore =
-      evaluations.reduce((sum, e) => sum + (e.dutyEvaluations.totalScore || 0), 0) / (evaluations.length || 1);
+      evaluations.reduce((sum: number, e: any) => sum + (e.dutyEvaluations.punctuality || 0), 0) / (evaluations.length || 1);
+    const avgTotalScore =
+      evaluations.reduce((sum: number, e: any) => sum + (e.dutyEvaluations.totalScore || 0), 0) / (evaluations.length || 1);
 
     return {
       totalEvaluations: evaluations.length,
@@ -697,7 +697,7 @@ export async function getDutyStats(filters?: { startDate?: Date; endDate?: Date 
   if (!db) throw new Error("Database not available");
 
   try {
-    let query = db.select().from(dutyAssignments);
+    let query: any = db.select().from(dutyAssignments);
 
     if (filters?.startDate && filters?.endDate) {
       query = query.where(between(dutyAssignments.assignedDate, filters.startDate, filters.endDate));
@@ -707,12 +707,12 @@ export async function getDutyStats(filters?: { startDate?: Date; endDate?: Date 
 
     return {
       total: assignments.length,
-      pending: assignments.filter((a) => a.status === "pending").length,
-      confirmed: assignments.filter((a) => a.status === "confirmed").length,
-      inProgress: assignments.filter((a) => a.status === "in_progress").length,
-      completed: assignments.filter((a) => a.status === "completed").length,
-      skipped: assignments.filter((a) => a.status === "skipped").length,
-      cancelled: assignments.filter((a) => a.status === "cancelled").length,
+      pending: assignments.filter((a: any) => a.status === "pending").length,
+      confirmed: assignments.filter((a: any) => a.status === "confirmed").length,
+      inProgress: assignments.filter((a: any) => a.status === "in_progress").length,
+      completed: assignments.filter((a: any) => a.status === "completed").length,
+      skipped: assignments.filter((a: any) => a.status === "skipped").length,
+      cancelled: assignments.filter((a: any) => a.status === "cancelled").length,
     };
   } catch (error) {
     console.error("[Database] Failed to get duty stats:", error);
@@ -728,7 +728,7 @@ export async function getResidentDutyStats(residentId: number, filters?: { start
   if (!db) throw new Error("Database not available");
 
   try {
-    let query = db
+    let query: any = db
       .select()
       .from(dutyAssignments)
       .where(eq(dutyAssignments.residentId, residentId));
@@ -759,4 +759,71 @@ export async function getResidentDutyStats(residentId: number, filters?: { start
     console.error("[Database] Failed to get resident duty stats:", error);
     return { totalDuties: 0, completedCount: 0, averageScore: 0, excellentCount: 0 };
   }
+}
+
+export async function getDutyConfigs(filters?: {
+  dutyType?: string;
+  search?: string;
+  isActive?: boolean;
+  limit?: number;
+  offset?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  let query: any = db.select().from(dutyConfigs);
+  const conditions = [];
+
+  if (filters?.dutyType) {
+    conditions.push(eq(dutyConfigs.dutyType, filters.dutyType as any));
+  }
+
+  if (filters?.isActive !== undefined) {
+    conditions.push(eq(dutyConfigs.isActive, filters.isActive));
+  }
+
+  if (filters?.search) {
+    conditions.push(
+      or(
+        like(dutyConfigs.dutyCode, `%${filters.search}%`),
+        like(dutyConfigs.dutyName, `%${filters.search}%`)
+      )
+    );
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions));
+  }
+
+  if (filters?.limit) {
+    query = query.limit(filters.limit);
+  }
+
+  if (filters?.offset) {
+    query = query.offset(filters.offset);
+  }
+
+  return await query;
+}
+
+export async function getDutyTemplates() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return await db
+    .select()
+    .from(dutyTemplates)
+    .where(eq(dutyTemplates.isActive, true))
+    .orderBy(dutyTemplates.dutyType, dutyTemplates.templateCode);
+}
+
+export async function getDutyTemplatesByType(dutyType: "daily" | "weekly" | "monthly") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return await db
+    .select()
+    .from(dutyTemplates)
+    .where(and(eq(dutyTemplates.dutyType, dutyType), eq(dutyTemplates.isActive, true)))
+    .orderBy(dutyTemplates.templateCode);
 }

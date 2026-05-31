@@ -3,26 +3,9 @@
  * Các hàm liên quan đến user management
  */
 
-import { drizzle } from "drizzle-orm/mysql2";
 import { eq } from "drizzle-orm";
+import { db, getDb } from "./connection";
 import { InsertUser, users } from "../../drizzle/schema";
-
-let _db: ReturnType<typeof drizzle> | null = null;
-
-/**
- * Get database instance (lazy initialization)
- */
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
-  }
-  return _db;
-}
 
 /**
  * Upsert user (insert or update)

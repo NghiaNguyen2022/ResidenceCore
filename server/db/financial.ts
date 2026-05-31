@@ -3,7 +3,7 @@
  * Phí Thu & Phí Trả
  */
 
-import { getDb } from "./user";
+import { getDb } from "./connection";
 import { eq, and, gte, lte, sum, desc, asc } from "drizzle-orm";
 import {
   residentFeeTypes,
@@ -470,7 +470,10 @@ export async function createExpenseCategory(data: {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  return await db.insert(expenseCategories).values(data);
+  return await db.insert(expenseCategories).values({
+    ...data,
+    budgetAmount: data.budgetAmount?.toString(),
+  });
 }
 
 /**
@@ -505,6 +508,7 @@ export async function createExpense(data: {
 
   return await db.insert(expenses).values({
     ...data,
+    amount: data.amount.toString(),
     status: "draft",
   });
 }
@@ -633,8 +637,9 @@ export async function recordStoreRevenue(data: {
   // Record revenue
   await db.insert(storeRevenues).values({
     ...data,
+    unitPrice: data.unitPrice.toString(),
     revenueDate: new Date(),
-    totalAmount,
+    totalAmount: totalAmount.toString(),
   });
 
   // Update or create sale item
@@ -683,6 +688,7 @@ export async function recordStoreExpense(data: {
 
   return await db.insert(storeExpenses).values({
     ...data,
+    amount: data.amount.toString(),
     expenseDate: new Date(),
   });
 }
@@ -702,6 +708,7 @@ export async function recordLibraryRevenue(data: {
 
   return await db.insert(libraryRevenues).values({
     ...data,
+    amount: data.amount.toString(),
     revenueDate: new Date(),
   });
 }
@@ -721,6 +728,7 @@ export async function recordLibraryExpense(data: {
 
   return await db.insert(libraryExpenses).values({
     ...data,
+    amount: data.amount.toString(),
     expenseDate: new Date(),
   });
 }
