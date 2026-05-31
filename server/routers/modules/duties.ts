@@ -1,7 +1,8 @@
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import * as db from "../db";
+import * as db from "../../db";
+import { dutyAssignments } from "../../../drizzle/schema";
 
 /**
  * ============================================
@@ -558,20 +559,36 @@ export const dutiesRouter = router({
     }
   }),
   createAssignments: protectedProcedure
-  .input(
-    z.object({
-      assignments: z.array(
-        z.object({
-          dutyConfigId: z.number(),
-          residentId: z.number(),
-          assignedWeek: z.number(),
-          status: z.enum(["assigned", "completed", "cancelled"]),
-        })
-      ),
-    })
-  )
-  .mutation(async ({ input }) => {
-    // Insert multiple assignments vào dutyAssignments table
-  }),
+    .input(
+      z.object({
+        assignments: z.array(
+          z.object({
+            dutyConfigId: z.number(),
+            residentId: z.number(),
+            assignedWeek: z.number(),
+            status: z.enum(["pending", "completed", "cancelled"]),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const assignmentsToInsert = input.assignments.map((assignment) => ({
+          dutyConfigId: assignment.dutyConfigId,
+          residentId: assignment.residentId,
+          assignedDate: new Date(),
+          status: assignment.status,
+        }));
+
+        await db.db.insert(dutyAssignments).values(assignmentsToInsert);
+        return { success: true };
+      } catch (error) {
+        console.error("[duties.createAssignments] Error:", error);
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error instanceof Error ? error.message : "Failed to create assignments",
+        });
+      }
+    }),
 });
 

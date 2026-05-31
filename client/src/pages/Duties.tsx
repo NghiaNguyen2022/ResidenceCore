@@ -1,20 +1,8 @@
-/**
- * DUTIES PAGE - QUẢN LÝ CÔNG TÁC (FULL VERSION V3)
- * Phase 4-6: Danh sách công tác + DutyConfigForm + DutyRotation
- * 
- * Cách sử dụng:
- * 1. Copy file này vào: client/src/pages/Duties.tsx
- * 2. Copy DutyConfigForm.tsx vào: client/src/components/DutyConfigForm.tsx
- * 3. Copy DutyRotation.tsx vào: client/src/components/DutyRotation.tsx
- * 4. Thêm route trong router
- * 5. Thêm menu item trong sidebar
- */
-
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
-import DutyConfigForm from "../components/DutyConfigForm";
-import DutyRotation from "../components/DutyRotation";
-import { ResidenceCareLayout } from "../components/ResidenceCareLayout";
+import DutyConfigForm from "@/components/DutyConfigForm";
+import DutyRotation from "@/components/DutyRotation";
+import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 
 interface DutyConfig {
   id: number;

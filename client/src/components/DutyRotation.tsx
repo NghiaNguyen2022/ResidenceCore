@@ -1,16 +1,3 @@
-/**
- * DUTY ROTATION COMPONENT - CHIA CÔNG TÁC TỰ ĐỘNG
- * Phase 6: Chia công tác theo tuần, kiểm tra xung đột lịch học
- * 
- * Tính năng:
- * - Chọn công tác để chia
- * - Chọn tuần bắt đầu
- * - Chọn danh sách học viên
- * - Kiểm tra xung đột lịch học
- * - Xem preview trước khi lưu
- * - Lưu vào DB
- */
-
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 
@@ -141,7 +128,7 @@ export default function DutyRotation({ onClose, onSuccess }: DutyRotationProps) 
           dutyConfigId: selectedDutyId,
           residentId: resident.residentId,
           assignedWeek: week.week,
-          status: "assigned" as const,
+          status: "pending" as const,
         }))
       );
 

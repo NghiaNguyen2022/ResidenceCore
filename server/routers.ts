@@ -4,7 +4,7 @@ import { authRouter } from "./routers/modules/auth";
 import { dashboardRouter } from "./routers/modules/dashboard";
 import { membersRouter } from "./routers/modules/members";
 import { roomsRouter } from "./routers/modules/rooms";
-import { dutiesRouter } from "./routers/duties";
+import { dutiesRouter } from "./routers/modules/duties";
 
 export const appRouter = router({
   system: systemRouter,

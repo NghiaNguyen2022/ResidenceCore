@@ -1,18 +1,3 @@
-/**
- * DUTY CONFIG FORM - FORM TẠO/SỬA CÔNG TÁC (V2 - TÍch hợp TemplateSelector)
- * Phase 5: Tạo/sửa công tác, quản lý checklist + chọn mẫu
- * 
- * Cách sử dụng:
- * 1. Import vào Duties.tsx
- * 2. Thay thế modal form bằng component này
- * 3. Truyền props: duty, onSave, onCancel
- * 
- * Tính năng mới:
- * - Nút "📋 Chọn Mẫu" để auto-fill form từ template
- * - Modal TemplateSelector để chọn công tác mẫu
- * - Auto-fill: dutyCode, dutyName, startTime, endTime, minPersons, maxPersons, dutyType
- */
-
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import TemplateSelector from "./TemplateSelector";

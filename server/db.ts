@@ -24,7 +24,6 @@ import {
   InsertScheduleConflict,
 } from "../drizzle/schema";
 import { eq, like, and, isNull, count, sql, desc, between } from "drizzle-orm";
-import { db } from "./index";
 /**
  * ============================================
  * DATABASE CONNECTION

@@ -10,7 +10,8 @@ import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { ResidentFormFields } from "@/components/forms/ResidentFormFields";
 import { toast } from "sonner";
 
 const residentSchema = z.object({
@@ -115,58 +116,7 @@ export default function Residents() {
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Họ tên</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nhập họ tên" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="phoneNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Số điện thoại</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nhập số điện thoại" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="idNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Số CMND/CCCD</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nhập số CMND/CCCD" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="permanentAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Địa chỉ thường trú</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nhập địa chỉ" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                      <ResidentFormFields control={form.control} />
                   <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending}>
                     {createMutation.isPending || updateMutation.isPending ? "Đang xử lý..." : editingId ? "Cập nhật" : "Thêm mới"}
                   </Button>
