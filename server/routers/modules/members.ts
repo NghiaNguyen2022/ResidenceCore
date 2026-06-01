@@ -17,12 +17,14 @@ const parentSchema = z.object({
 export const membersRouter = router({
   list: protectedProcedure
     .input(
-      z.object({
-        status: z.enum(["active", "inactive", "transferred_out"]).optional(),
-        search: z.string().optional(),
-        limit: z.number().default(50),
-        offset: z.number().default(0),
-      }).optional()
+      z
+        .object({
+          status: z.enum(["active", "inactive", "transferred_out"]).optional(),
+          search: z.string().optional(),
+          limit: z.number().default(50),
+          offset: z.number().default(0),
+        })
+        .optional()
     )
     .query(async ({ input }) => {
       return await memberService.listMembers({
@@ -40,10 +42,15 @@ export const membersRouter = router({
         return await memberService.getMemberById(input.id);
       } catch (error) {
         console.error("[members.getById] Error:", error);
+
         if (error instanceof Error && error.message === "Member not found") {
           throw new TRPCError({ code: "NOT_FOUND", message: error.message });
         }
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch member" });
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch member",
+        });
       }
     }),
 
@@ -98,9 +105,11 @@ export const membersRouter = router({
         return await memberService.updateMember(id, updateData);
       } catch (error) {
         console.error("[members.update] Error:", error);
+
         if (error instanceof Error && error.message === "Member not found") {
           throw new TRPCError({ code: "NOT_FOUND", message: error.message });
         }
+
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: error instanceof Error ? error.message : "Failed to update member",
@@ -136,7 +145,8 @@ export const membersRouter = router({
         console.error("[members.markAsLeft] Error:", error);
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: error instanceof Error ? error.message : "Failed to mark member as left",
+          message:
+            error instanceof Error ? error.message : "Failed to mark member as left",
         });
       }
     }),
@@ -146,7 +156,9 @@ export const membersRouter = router({
       z.object({
         id: z.number(),
         roomId: z.number(),
-        eventType: z.enum(["new_entry", "transfer", "temporary_leave", "left"]).default("new_entry"),
+        eventType: z
+          .enum(["new_entry", "transfer", "temporary_leave", "left"])
+          .default("new_entry"),
         reason: z.string().optional(),
       })
     )
@@ -155,9 +167,11 @@ export const membersRouter = router({
         return await memberService.assignRoom(input);
       } catch (error) {
         console.error("[members.assignRoom] Error:", error);
+
         if (error instanceof Error && error.message === "Member not found") {
           throw new TRPCError({ code: "NOT_FOUND", message: error.message });
         }
+
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: error instanceof Error ? error.message : "Failed to assign room",
@@ -191,6 +205,36 @@ export const membersRouter = router({
       }
     }),
 
+  listParents: protectedProcedure
+    .input(
+      z
+        .object({
+          search: z.string().optional(),
+          parentType: z.enum(["father", "mother", "guardian"]).optional(),
+          residentId: z.number().optional(),
+          limit: z.number().default(200),
+          offset: z.number().default(0),
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
+      try {
+        return await memberService.listParents({
+          search: input?.search,
+          parentType: input?.parentType,
+          residentId: input?.residentId,
+          limit: input?.limit,
+          offset: input?.offset,
+        });
+      } catch (error) {
+        console.error("[members.listParents] Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch all parents",
+        });
+      }
+    }),
+
   createParent: protectedProcedure
     .input(parentSchema.extend({ residentId: z.number() }))
     .mutation(async ({ input }) => {
@@ -200,15 +244,14 @@ export const membersRouter = router({
         console.error("[members.createParent] Error:", error);
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: error instanceof Error ? error.message : "Failed to create parent",
+          message:
+            error instanceof Error ? error.message : "Failed to create parent",
         });
       }
     }),
 
   updateParent: protectedProcedure
-    .input(
-      parentSchema.partial().extend({ id: z.number() })
-    )
+    .input(parentSchema.partial().extend({ id: z.number() }))
     .mutation(async ({ input }) => {
       try {
         const { id, ...updateData } = input;
@@ -217,7 +260,8 @@ export const membersRouter = router({
         console.error("[members.updateParent] Error:", error);
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: error instanceof Error ? error.message : "Failed to update parent",
+          message:
+            error instanceof Error ? error.message : "Failed to update parent",
         });
       }
     }),
@@ -231,7 +275,8 @@ export const membersRouter = router({
         console.error("[members.deleteParent] Error:", error);
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: error instanceof Error ? error.message : "Failed to delete parent",
+          message:
+            error instanceof Error ? error.message : "Failed to delete parent",
         });
       }
     }),

@@ -7,6 +7,14 @@ export type ResidentFilters = {
   offset?: number;
 };
 
+export type ParentFilters = {
+  search?: string;
+  parentType?: "father" | "mother" | "guardian";
+  residentId?: number;
+  limit?: number;
+  offset?: number;
+};
+
 export type ParentInput = {
   parentType: "father" | "mother" | "guardian";
   fullName: string;
@@ -49,7 +57,6 @@ export type UpdateMemberData = Partial<{
 function generateResidentCode(admissionDate?: Date) {
   const year = (admissionDate || new Date()).getFullYear();
   const timePart = Date.now().toString().slice(-6);
-
   return `LX${year}${timePart}`;
 }
 
@@ -72,9 +79,12 @@ async function validateParentBeforeSave(params: {
   editingParentId?: number;
 }) {
   const { residentId, data, editingParentId } = params;
-
   const fullName = normalizeText(data.fullName);
   const phoneNumber = normalizePhone(data.phoneNumber);
+
+  if (!residentId) {
+    throw new Error("Vui lòng chọn học viên cho liên hệ gia đình.");
+  }
 
   if (!fullName) {
     throw new Error("Vui lòng nhập họ tên liên hệ.");
@@ -89,7 +99,6 @@ async function validateParentBeforeSave(params: {
   }
 
   const existingParents = await db.getParentsByResidentId(residentId);
-
   const otherParents = existingParents.filter(
     (parent: any) => parent.id !== editingParentId
   );
@@ -209,13 +218,11 @@ export class MemberService {
 
   async deleteMember(id: number) {
     await db.deleteResident(id);
-
     return { success: true } as const;
   }
 
   async markAsLeft(id: number, departureDate: Date) {
     await db.markResidentAsLeft(id, departureDate);
-
     return { success: true } as const;
   }
 
@@ -250,7 +257,17 @@ export class MemberService {
     return db.getParentsByResidentId(residentId);
   }
 
+  async listParents(filters?: ParentFilters) {
+    return db.getAllParents(filters);
+  }
+
   async createParent(data: ParentInput & { residentId: number }) {
+    const resident = await db.getResidentById(data.residentId);
+
+    if (!resident) {
+      throw new Error("Không tìm thấy học viên cần gắn liên hệ.");
+    }
+
     await validateParentBeforeSave({
       residentId: data.residentId,
       data,
@@ -269,7 +286,6 @@ export class MemberService {
     });
 
     const parentId = result.insertId;
-
     return db.getParentById(parentId);
   }
 
@@ -284,11 +300,11 @@ export class MemberService {
       parentType: data.parentType || currentParent.parentType,
       fullName: data.fullName || currentParent.fullName,
       phoneNumber: data.phoneNumber || currentParent.phoneNumber,
-      email: data.email || currentParent.email,
-      idNumber: data.idNumber || currentParent.idNumber,
-      occupation: data.occupation || currentParent.occupation,
-      address: data.address || currentParent.address,
-      notes: data.notes || currentParent.notes,
+      email: data.email ?? currentParent.email,
+      idNumber: data.idNumber ?? currentParent.idNumber,
+      occupation: data.occupation ?? currentParent.occupation,
+      address: data.address ?? currentParent.address,
+      notes: data.notes ?? currentParent.notes,
     };
 
     await validateParentBeforeSave({
@@ -298,13 +314,11 @@ export class MemberService {
     });
 
     await db.updateParent(id, data);
-
     return db.getParentById(id);
   }
 
   async deleteParent(id: number) {
     await db.deleteParent(id);
-
     return { success: true } as const;
   }
 }

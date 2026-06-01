@@ -1,7 +1,5 @@
 import { getDb } from "./connection";
-
-import { and, count, eq, like, or } from "drizzle-orm";
-
+import { and, asc, count, eq, like, or } from "drizzle-orm";
 import {
   InsertParent,
   InsertResident,
@@ -11,7 +9,6 @@ import {
 
 export async function createResident(data: InsertResident) {
   const db = getDb();
-
   try {
     return await db.insert(residents).values(data);
   } catch (error) {
@@ -22,7 +19,6 @@ export async function createResident(data: InsertResident) {
 
 export async function getResidentById(id: number) {
   const db = getDb();
-
   const result = await db
     .select()
     .from(residents)
@@ -39,12 +35,10 @@ export async function getResidents(filters?: {
   offset?: number;
 }) {
   const db = getDb();
-
   const conditions: any[] = [];
 
   if (filters?.search?.trim()) {
     const keyword = `%${filters.search.trim()}%`;
-
     conditions.push(
       or(
         like(residents.fullName, keyword),
@@ -58,7 +52,7 @@ export async function getResidents(filters?: {
     conditions.push(eq(residents.status, filters.status as any));
   }
 
-  let query = db.select().from(residents);
+  let query: any = db.select().from(residents);
 
   if (conditions.length > 0) {
     query = query.where(and(...conditions) as any);
@@ -80,7 +74,6 @@ export async function updateResident(
   data: Partial<InsertResident>
 ) {
   const db = getDb();
-
   return await db
     .update(residents)
     .set({
@@ -90,12 +83,8 @@ export async function updateResident(
     .where(eq(residents.id, id));
 }
 
-export async function markResidentAsLeft(
-  id: number,
-  departureDate: Date
-) {
+export async function markResidentAsLeft(id: number, departureDate: Date) {
   const db = getDb();
-
   return await db
     .update(residents)
     .set({
@@ -108,7 +97,6 @@ export async function markResidentAsLeft(
 
 export async function deleteResident(id: number) {
   const db = getDb();
-
   return await db.delete(residents).where(eq(residents.id, id));
 }
 
@@ -116,17 +104,14 @@ export async function getResidentsStats() {
   const db = getDb();
 
   const total = await db.select({ count: count() }).from(residents);
-
   const active = await db
     .select({ count: count() })
     .from(residents)
     .where(eq(residents.status, "active"));
-
   const inactive = await db
     .select({ count: count() })
     .from(residents)
     .where(eq(residents.status, "inactive"));
-
   const transferredOut = await db
     .select({ count: count() })
     .from(residents)
@@ -142,13 +127,11 @@ export async function getResidentsStats() {
 
 export async function createParent(data: InsertParent) {
   const db = getDb();
-
   return await db.insert(parents).values(data);
 }
 
 export async function getParentById(id: number) {
   const db = getDb();
-
   const result = await db
     .select()
     .from(parents)
@@ -160,7 +143,6 @@ export async function getParentById(id: number) {
 
 export async function getParentsByResident(residentId: number) {
   const db = getDb();
-
   return await db
     .select()
     .from(parents)
@@ -171,12 +153,83 @@ export async function getParentsByResidentId(residentId: number) {
   return getParentsByResident(residentId);
 }
 
+export async function getAllParents(filters?: {
+  search?: string;
+  parentType?: "father" | "mother" | "guardian";
+  residentId?: number;
+  limit?: number;
+  offset?: number;
+}) {
+  const db = getDb();
+  const conditions: any[] = [];
+
+  if (filters?.residentId) {
+    conditions.push(eq(parents.residentId, filters.residentId));
+  }
+
+  if (filters?.parentType) {
+    conditions.push(eq(parents.parentType, filters.parentType));
+  }
+
+  if (filters?.search?.trim()) {
+    const keyword = `%${filters.search.trim()}%`;
+    conditions.push(
+      or(
+        like(parents.fullName, keyword),
+        like(parents.phoneNumber, keyword),
+        like(parents.email, keyword),
+        like(parents.idNumber, keyword),
+        like(parents.occupation, keyword),
+        like(parents.address, keyword),
+        like(parents.notes, keyword),
+        like(residents.fullName, keyword),
+        like(residents.residentCode, keyword)
+      )
+    );
+  }
+
+  let query: any = db
+    .select({
+      id: parents.id,
+      residentId: parents.residentId,
+      parentType: parents.parentType,
+      fullName: parents.fullName,
+      phoneNumber: parents.phoneNumber,
+      email: parents.email,
+      idNumber: parents.idNumber,
+      occupation: parents.occupation,
+      address: parents.address,
+      notes: parents.notes,
+      createdAt: parents.createdAt,
+      updatedAt: parents.updatedAt,
+      residentFullName: residents.fullName,
+      residentCode: residents.residentCode,
+      residentStatus: residents.status,
+    })
+    .from(parents)
+    .innerJoin(residents, eq(parents.residentId, residents.id))
+    .orderBy(asc(residents.fullName), asc(parents.parentType), asc(parents.fullName));
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions) as any);
+  }
+
+  if (filters?.limit) {
+    query = query.limit(filters.limit);
+  }
+
+  if (filters?.offset) {
+    query = query.offset(filters.offset);
+  }
+
+  return await query;
+}
+
 export async function updateParent(
   id: number,
   data: Partial<InsertParent>
 ) {
   const db = getDb();
-
   return await db
     .update(parents)
     .set({
@@ -188,6 +241,5 @@ export async function updateParent(
 
 export async function deleteParent(id: number) {
   const db = getDb();
-
   return await db.delete(parents).where(eq(parents.id, id));
 }
