@@ -2,63 +2,112 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
+
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+
 import Residents from "./pages/Residents";
+import Members from "./pages/Members";
 import Rooms from "./pages/Rooms";
+import Parents from "./pages/Parents";
+
+import AcademicInfo from "./pages/AcademicInfo";
+import AcademicEvaluations from "./pages/AcademicEvaluations";
+
+import LiturgySchedule from "./pages/LiturgySchedule";
+import LiturgyAttendance from "./pages/LiturgyAttendance";
+import LiturgyAssignments from "./pages/LiturgyAssignments";
+
+import Skills from "./pages/Skills";
+import SkillClasses from "./pages/SkillClasses";
+import SkillResults from "./pages/SkillResults";
+
+import ActivityPlans from "./pages/ActivityPlans";
+import Clubs from "./pages/Clubs";
+
+import OrganizationTerms from "./pages/OrganizationTerms";
+import OrganizationRoles from "./pages/OrganizationRoles";
+import OrganizationStructure from "./pages/OrganizationStructure";
+
+import DisciplineRules from "./pages/DisciplineRules";
+import DisciplineCases from "./pages/DisciplineCases";
+
 import Attendance from "./pages/Attendance";
 import Tasks from "./pages/Tasks";
-import Fees from "./pages/Fees";
-import Reports from "./pages/Reports";
-import Members from "./pages/Members";
 import Schedule from "./pages/Schedule";
 import Activities from "./pages/Activities";
 import DutiesPage from "./pages/Duties";
 import Financial from "./pages/Financial";
-
+import Fees from "./pages/Fees";
+import Reports from "./pages/Reports";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
       <Route path="/dashboard" component={Dashboard} />
+
+      {/* Quản lý lưu trú */}
       <Route path="/residents" component={Residents} />
       <Route path="/members" component={Members} />
       <Route path="/rooms" component={Rooms} />
+      <Route path="/parents" component={Parents} />
+
+      {/* Học vụ */}
+      <Route path="/academic-info" component={AcademicInfo} />
+      <Route path="/academic-evaluations" component={AcademicEvaluations} />
+
+      {/* Phụng vụ & Cộng đoàn */}
+      <Route path="/liturgy-schedule" component={LiturgySchedule} />
+      <Route path="/liturgy-attendance" component={LiturgyAttendance} />
+      <Route path="/liturgy-assignments" component={LiturgyAssignments} />
+
+      {/* Đào tạo & Kỹ năng */}
+      <Route path="/skills" component={Skills} />
+      <Route path="/skill-classes" component={SkillClasses} />
+      <Route path="/skill-results" component={SkillResults} />
+
+      {/* Hoạt động & Sự kiện */}
+      <Route path="/activity-plans" component={ActivityPlans} />
+      <Route path="/clubs" component={Clubs} />
+
+      {/* Tổ chức lưu xá */}
+      <Route path="/organization-terms" component={OrganizationTerms} />
+      <Route path="/organization-roles" component={OrganizationRoles} />
+      <Route path="/organization-structure" component={OrganizationStructure} />
+
+      {/* Nội quy & Kỷ luật */}
+      <Route path="/discipline-rules" component={DisciplineRules} />
+      <Route path="/discipline-cases" component={DisciplineCases} />
+
+      {/* Các route cũ đang có trong dự án */}
       <Route path="/attendance" component={Attendance} />
-      <Route path="/duties" component={DutiesPage} />      
-      <Route path="/financial" component={Financial} />
-      <Route path="/fees" component={Fees} />
+      <Route path="/tasks" component={Tasks} />
       <Route path="/schedule" component={Schedule} />
       <Route path="/activities" component={Activities} />
+      <Route path="/duties" component={DutiesPage} />
+      <Route path="/financial" component={Financial} />
+      <Route path="/fees" component={Fees} />
       <Route path="/reports" component={Reports} />
-      <Route path="/404" component={NotFound} />
+
       {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider>
         <TooltipProvider>
-          <Toaster />
           <Router />
+          <Toaster />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
