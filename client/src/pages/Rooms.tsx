@@ -4,16 +4,17 @@
  * ============================================
  * Quản lý phòng - danh sách phòng, thêm/sửa/xóa
  * File: client/src/pages/Rooms.tsx
+ *
+ * Update notes:
+ * - Fix lỗi combobox/select trong form thêm/sửa phòng bằng native select giống style Members.
+ * - Không dùng SelectItem value="" nên tránh lỗi Radix Select.
+ * - Không cho sửa sức chứa nhỏ hơn số học viên đang ở.
+ * - Không cho xóa phòng đang có học viên.
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 
 import { ResidenceCareLayout } from "../components/ResidenceCareLayout";
-import { RoomFormFields } from "../components/forms/RoomFormFields";
-import { Form } from "@/components/ui/form";
 import { trpc } from "../lib/trpc";
 
 interface Room {
@@ -50,6 +51,13 @@ interface RoomsStats {
   totalRooms: number;
 }
 
+type RoomFormData = {
+  roomCode: string;
+  capacity: string;
+  groupId: string;
+  notes: string;
+};
+
 function getRoomCurrentOccupancy(room: Room | any) {
   return Number(
     room.currentOccupancy ??
@@ -78,9 +86,6 @@ function isRoomFull(room: Room | any) {
   return getRoomCurrentOccupancy(room) >= capacity;
 }
 
-/**
- * StatCard Component
- */
 function StatCard({
   title,
   value,
@@ -113,21 +118,18 @@ function StatCard({
   );
 }
 
-/**
- * Rooms Page Component
- */
 export default function Rooms() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [stats, setStats] = useState<RoomsStats | null>(null);
   const [search, setSearch] = useState("");
-  const [capacity, setCapacity] = useState<number | "">("");
+  const [capacityFilter, setCapacityFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
 
   const roomsListQuery = trpc.rooms.list.useQuery({
     search: search || undefined,
-    capacity: capacity ? Number(capacity) : undefined,
+    capacity: capacityFilter !== "all" ? Number(capacityFilter) : undefined,
   });
 
   const roomsStatsQuery = trpc.rooms.getStats.useQuery();
@@ -175,6 +177,14 @@ export default function Rooms() {
   const deleteRoomMutation = trpc.rooms.delete.useMutation();
 
   const handleDeleteRoom = async (roomId: number) => {
+    const room = rooms.find((item) => item.id === roomId);
+    const occupied = room ? getRoomCurrentOccupancy(room) : 0;
+
+    if (occupied > 0) {
+      alert("Không thể xóa phòng đang có học viên lưu trú. Hãy chuyển/trả phòng trước, hoặc dùng trạng thái ngưng sử dụng ở phase sau.");
+      return;
+    }
+
     if (!confirm("Bạn chắc chắn muốn xóa phòng này?")) return;
 
     try {
@@ -191,7 +201,6 @@ export default function Rooms() {
   return (
     <ResidenceCareLayout>
       <div className="space-y-6 p-6">
-        {/* Page Header */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-semibold text-blue-600">
@@ -220,7 +229,6 @@ export default function Rooms() {
           </button>
         </div>
 
-        {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
@@ -257,7 +265,6 @@ export default function Rooms() {
           </div>
         )}
 
-        {/* Search & Filter */}
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_220px_auto]">
             <div>
@@ -278,13 +285,11 @@ export default function Rooms() {
                 Lọc theo sức chứa
               </label>
               <select
-                value={capacity}
-                onChange={(event) =>
-                  setCapacity(event.target.value ? Number(event.target.value) : "")
-                }
-                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                value={capacityFilter}
+                onChange={(event) => setCapacityFilter(event.target.value)}
+                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               >
-                <option value="">Tất cả</option>
+                <option value="all">Tất cả</option>
                 <option value="4">4 chỗ</option>
                 <option value="6">6 chỗ</option>
                 <option value="8">8 chỗ</option>
@@ -297,7 +302,7 @@ export default function Rooms() {
                 type="button"
                 onClick={() => {
                   setSearch("");
-                  setCapacity("");
+                  setCapacityFilter("all");
                 }}
                 className="h-10 rounded-md border border-neutral-300 px-4 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
               >
@@ -307,7 +312,6 @@ export default function Rooms() {
           </div>
         </div>
 
-        {/* Rooms Table */}
         <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
           <div className="border-b border-neutral-200 px-5 py-4">
             <h2 className="text-lg font-bold text-neutral-900">
@@ -431,6 +435,7 @@ export default function Rooms() {
                             <button
                               type="button"
                               className="rounded-lg px-2 py-1 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
+                              title="Chi tiết phòng sẽ hoàn thiện ở bước sau"
                             >
                               👁️ Xem
                             </button>
@@ -484,9 +489,6 @@ export default function Rooms() {
   );
 }
 
-/**
- * Add/Edit Room Modal Component
- */
 function AddRoomModal({
   room,
   onClose,
@@ -496,96 +498,109 @@ function AddRoomModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const roomSchema = z.object({
-    roomCode: z.string().min(1, "Mã phòng không được để trống"),
-    capacity: z.number().min(1, "Sức chứa phải lớn hơn 0"),
-    groupId: z.preprocess((value) => {
-      if (value === "" || value === undefined || value === null) {
-        return undefined;
-      }
-
-      return Number(value);
-    }, z.number().optional()),
-    notes: z.string().optional(),
+  const [formData, setFormData] = useState<RoomFormData>({
+    roomCode: room?.roomCode || "",
+    capacity: room?.capacity ? String(room.capacity) : "4",
+    groupId: room?.group?.id ? String(room.group.id) : "none",
+    notes: room?.notes || "",
   });
-
-  type RoomFormValues = z.infer<typeof roomSchema>;
-
-  const form = useForm<RoomFormValues>({
-    resolver: zodResolver(roomSchema),
-    defaultValues: {
-      roomCode: room?.roomCode || "",
-      capacity: room?.capacity || 4,
-      groupId: room?.group?.id,
-      notes: room?.notes || "",
-    },
-  });
+  const [error, setError] = useState<string | null>(null);
 
   const createRoomMutation = trpc.rooms.create.useMutation();
   const updateRoomMutation = trpc.rooms.update.useMutation();
 
   useEffect(() => {
-    form.reset({
+    setFormData({
       roomCode: room?.roomCode || "",
-      capacity: room?.capacity || 4,
-      groupId: room?.group?.id,
+      capacity: room?.capacity ? String(room.capacity) : "4",
+      groupId: room?.group?.id ? String(room.group.id) : "none",
       notes: room?.notes || "",
     });
-  }, [room, form]);
+    setError(null);
+  }, [room]);
 
-  const onSubmit = async (data: RoomFormValues) => {
+  const capacityOptions = [
+    { value: "4", label: "4 chỗ" },
+    { value: "6", label: "6 chỗ" },
+    { value: "8", label: "8 chỗ" },
+    { value: "12", label: "12 chỗ" },
+  ];
+
+  // TODO: Phase sau nên lấy tổ/khu từ backend thay vì hard-code.
+  const groupOptions = [
+    { value: "none", label: "Không chọn" },
+    { value: "1", label: "Tổ A" },
+    { value: "2", label: "Tổ B" },
+    { value: "3", label: "Tổ C" },
+  ];
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const roomCode = formData.roomCode.trim();
+    const capacity = Number(formData.capacity);
+    const groupId = formData.groupId === "none" ? undefined : Number(formData.groupId);
+    const notes = formData.notes.trim() || undefined;
+
+    if (!roomCode) {
+      setError("Vui lòng nhập mã phòng.");
+      return;
+    }
+
+    if (!capacity || capacity <= 0) {
+      setError("Sức chứa phải lớn hơn 0.");
+      return;
+    }
+
+    if (room) {
+      const occupied = getRoomCurrentOccupancy(room);
+
+      if (capacity < occupied) {
+        setError(
+          `Không thể đặt sức chứa nhỏ hơn số học viên đang ở. Phòng hiện có ${occupied} học viên.`
+        );
+        return;
+      }
+    }
+
     try {
       if (room) {
         await updateRoomMutation.mutateAsync({
           id: room.id,
-          capacity: data.capacity,
-          groupId: data.groupId,
-          notes: data.notes,
+          capacity,
+          groupId,
+          notes,
         });
 
         alert("Cập nhật phòng thành công");
         onSuccess();
       } else {
         await createRoomMutation.mutateAsync({
-          roomCode: data.roomCode,
-          capacity: data.capacity,
-          groupId: data.groupId,
-          notes: data.notes,
+          roomCode,
+          capacity,
+          groupId,
+          notes,
         });
 
         alert("Tạo phòng thành công");
         onSuccess();
       }
-    } catch (error) {
-      console.error("Submit error:", error);
-      alert("Lỗi xử lý");
+    } catch (submitError: any) {
+      console.error("Submit error:", submitError);
+      setError(submitError?.message || "Lỗi xử lý phòng.");
     }
   };
 
-  const capacityOptions = [
-    { value: 4, label: "4 chỗ" },
-    { value: 6, label: "6 chỗ" },
-    { value: 8, label: "8 chỗ" },
-    { value: 12, label: "12 chỗ" },
-  ];
-
-  const groupOptions = [
-    { value: "", label: "Không chọn" },
-    { value: 1, label: "Tổ A" },
-    { value: 2, label: "Tổ B" },
-    { value: 3, label: "Tổ C" },
-  ];
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
           <div>
-            <h2 className="text-xl font-bold text-neutral-900">
+            <h2 className="text-2xl font-bold text-neutral-900">
               {room ? "Sửa phòng" : "Thêm phòng mới"}
             </h2>
-            <p className="text-sm text-neutral-500">
-              Sức chứa là số chỗ tối đa, không tự giảm khi có học viên vào phòng.
+            <p className="mt-1 text-sm text-neutral-500">
+              Sức chứa là số chỗ tối đa của phòng. Số chỗ còn trống sẽ được tính tự động theo số học viên đang ở.
             </p>
           </div>
 
@@ -593,45 +608,113 @@ function AddRoomModal({
             type="button"
             onClick={onClose}
             className="rounded-lg p-2 transition hover:bg-neutral-100"
+            aria-label="Đóng"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-6">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-              <RoomFormFields
-                form={form}
-                capacityOptions={capacityOptions}
-                groupOptions={groupOptions}
-                disabledRoomCode={Boolean(room)}
-              />
+        <form onSubmit={handleSubmit} className="space-y-5 p-6">
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
-              <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
-                >
-                  Hủy
-                </button>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-neutral-800">
+              Mã phòng *
+            </label>
+            <input
+              value={formData.roomCode}
+              onChange={(event) =>
+                setFormData({ ...formData, roomCode: event.target.value })
+              }
+              placeholder="VD: A101, B201..."
+              disabled={Boolean(room)}
+              className="h-11 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500"
+            />
+            {room && (
+              <p className="mt-1 text-xs text-neutral-500">
+                Mã phòng không nên đổi sau khi đã tạo.
+              </p>
+            )}
+          </div>
 
-                <button
-                  type="submit"
-                  disabled={
-                    createRoomMutation.isPending || updateRoomMutation.isPending
-                  }
-                  className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {createRoomMutation.isPending || updateRoomMutation.isPending
-                    ? "Đang xử lý..."
-                    : "Lưu"}
-                </button>
-              </div>
-            </form>
-          </Form>
-        </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-neutral-800">
+                Sức chứa *
+              </label>
+              <select
+                value={formData.capacity}
+                onChange={(event) =>
+                  setFormData({ ...formData, capacity: event.target.value })
+                }
+                className="h-11 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm text-neutral-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
+                {capacityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-neutral-800">
+                Tổ
+              </label>
+              <select
+                value={formData.groupId}
+                onChange={(event) =>
+                  setFormData({ ...formData, groupId: event.target.value })
+                }
+                className="h-11 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm text-neutral-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
+                {groupOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-neutral-800">
+              Ghi chú
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(event) =>
+                setFormData({ ...formData, notes: event.target.value })
+              }
+              placeholder="Ghi chú thêm..."
+              className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+
+          <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+            >
+              Hủy
+            </button>
+
+            <button
+              type="submit"
+              disabled={createRoomMutation.isPending || updateRoomMutation.isPending}
+              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {createRoomMutation.isPending || updateRoomMutation.isPending
+                ? "Đang xử lý..."
+                : "Lưu"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
