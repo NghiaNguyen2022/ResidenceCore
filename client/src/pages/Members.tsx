@@ -17,10 +17,11 @@ import {
   MapPin,
   CalendarDays,
   IdCard,
-  GraduationCap,
   Home,
   AlertCircle,
   Database,
+  Mail,
+  Briefcase,
 } from 'lucide-react';
 
 import { trpc } from '@/lib/trpc';
@@ -30,7 +31,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 type Gender = 'male' | 'female' | 'other';
-type RoomEventType = 'new_entry' | 'transfer' | 'temporary_leave';
+
+type RoomEventType = 'new_entry' | 'transfer' | 'temporary_leave' | 'left';
+
+type ParentType = 'father' | 'mother' | 'guardian';
 
 type MemberFormData = {
   fullName: string;
@@ -39,8 +43,19 @@ type MemberFormData = {
   idNumber: string;
   permanentAddress: string;
   phoneNumber: string;
-  schoolId: string;
   admissionDate: string;
+  notes: string;
+};
+
+type ParentFormData = {
+  parentType: ParentType;
+  fullName: string;
+  phoneNumber: string;
+  email: string;
+  idNumber: string;
+  occupation: string;
+  address: string;
+  notes: string;
 };
 
 type RoomAssignmentData = {
@@ -65,8 +80,19 @@ const defaultFormData: MemberFormData = {
   idNumber: '',
   permanentAddress: '',
   phoneNumber: '',
-  schoolId: '',
   admissionDate: new Date().toISOString().split('T')[0],
+  notes: '',
+};
+
+const defaultParentFormData: ParentFormData = {
+  parentType: 'father',
+  fullName: '',
+  phoneNumber: '',
+  email: '',
+  idNumber: '',
+  occupation: '',
+  address: '',
+  notes: '',
 };
 
 const defaultRoomAssignmentData: RoomAssignmentData = {
@@ -101,10 +127,24 @@ function StatCard({ icon, label, value, description, tone }: StatCardProps) {
   );
 }
 
+function normalizeText(value?: string) {
+  return (value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function normalizePhone(value?: string) {
+  return (value || '').replace(/[^\d]/g, '');
+}
+
 function getStatusLabel(status?: string) {
   if (status === 'active') return 'Đang ở';
   if (status === 'transferred_out') return 'Đã rời';
   if (status === 'inactive') return 'Tạm rời';
+
   return 'Chưa xác định';
 }
 
@@ -122,6 +162,137 @@ function getGenderLabel(gender?: string) {
   if (gender === 'other') return 'Khác';
 
   return '-';
+}
+
+function getParentTypeLabel(type?: string) {
+  if (type === 'father') return 'Cha';
+  if (type === 'mother') return 'Mẹ';
+  if (type === 'guardian') return 'Người giám hộ';
+
+  return 'Khác';
+}
+
+function getParentTypeClass(type?: string) {
+  if (type === 'father') return 'bg-blue-50 text-blue-700';
+  if (type === 'mother') return 'bg-pink-50 text-pink-700';
+  if (type === 'guardian') return 'bg-purple-50 text-purple-700';
+
+  return 'bg-neutral-100 text-neutral-700';
+}
+
+function getCurrentRoomIdFromMember(member: any) {
+  return member?.currentRoomId ?? member?.roomId ?? null;
+}
+
+function hasCurrentRoom(member: any) {
+  return Boolean(getCurrentRoomIdFromMember(member));
+}
+
+function getRoomActionLabel(member: any) {
+  return hasCurrentRoom(member) ? 'Chuyển / Trả phòng' : 'Gán phòng';
+}
+
+function getRoomLabelFromMember(member: any) {
+  if (member?.roomCode) return member.roomCode;
+  if (member?.currentRoomCode) return member.currentRoomCode;
+  if (member?.roomName) return member.roomName;
+  if (member?.currentRoomName) return member.currentRoomName;
+  if (member?.currentRoomId) return `Phòng ID: ${member.currentRoomId}`;
+  if (member?.roomId) return `Phòng ID: ${member.roomId}`;
+
+  return 'Chưa gán';
+}
+
+function getRoomLabel(room: any) {
+  return room.roomCode || room.name || room.roomName || `Phòng ID: ${room.id}`;
+}
+
+function getRoomCurrentOccupancy(room: any) {
+  return Number(
+    room.currentOccupancy ??
+      room.occupied ??
+      room.residentCount ??
+      room.residentsCount ??
+      room.currentResidents ??
+      0
+  );
+}
+
+function getRoomCapacity(room: any) {
+  return Number(room.capacity ?? room.maxCapacity ?? 0);
+}
+
+function getRoomAvailableSlots(room: any) {
+  const capacity = getRoomCapacity(room);
+  const occupied = getRoomCurrentOccupancy(room);
+
+  if (!capacity) return null;
+
+  return Math.max(capacity - occupied, 0);
+}
+
+function isRoomFull(room: any) {
+  const available = getRoomAvailableSlots(room);
+
+  if (available === null) return false;
+
+  return available <= 0;
+}
+
+function validateParentFormBeforeSave({
+  parents,
+  formData,
+  editingParentId,
+}: {
+  parents: any[];
+  formData: ParentFormData;
+  editingParentId?: number;
+}) {
+  const fullName = normalizeText(formData.fullName);
+  const phoneNumber = normalizePhone(formData.phoneNumber);
+
+  if (!fullName) {
+    return 'Vui lòng nhập họ tên liên hệ.';
+  }
+
+  if (!phoneNumber) {
+    return 'Vui lòng nhập số điện thoại liên hệ.';
+  }
+
+  if (phoneNumber.length < 9 || phoneNumber.length > 15) {
+    return 'Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.';
+  }
+
+  const otherParents = parents.filter(
+    (parent: any) => parent.id !== editingParentId
+  );
+
+  if (
+    (formData.parentType === 'father' || formData.parentType === 'mother') &&
+    otherParents.some((parent: any) => parent.parentType === formData.parentType)
+  ) {
+    return `Học viên này đã có thông tin ${getParentTypeLabel(
+      formData.parentType
+    )}. Không thể thêm trùng.`;
+  }
+
+  const duplicatedName = otherParents.some(
+    (parent: any) => normalizeText(parent.fullName) === fullName
+  );
+
+  if (duplicatedName) {
+    return 'Tên liên hệ này đã tồn tại cho học viên đang chọn.';
+  }
+
+  const duplicatedPhone = otherParents.some(
+    (parent: any) => normalizePhone(parent.phoneNumber) === phoneNumber
+  );
+
+  if (duplicatedPhone) {
+    return 'Số điện thoại này đã tồn tại cho học viên đang chọn.';
+  }
+
+  return null;
 }
 
 function formatDate(date?: string | Date | null) {
@@ -162,18 +333,15 @@ export default function Members() {
   const [selectedMemberForRoom, setSelectedMemberForRoom] = useState<any>(null);
 
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState<MemberFormData>(resetMemberForm());
-  const [roomAssignmentData, setRoomAssignmentData] = useState<RoomAssignmentData>(
-    resetRoomAssignmentForm()
-  );
 
-  /**
-   * CONNECTED DATA - giữ nguyên API hiện tại.
-   * Không chuyển các phần này thành mock.
-   */
+  const [formData, setFormData] = useState<MemberFormData>(resetMemberForm());
+
+  const [roomAssignmentData, setRoomAssignmentData] =
+    useState<RoomAssignmentData>(resetRoomAssignmentForm());
+
   const membersQuery = trpc.members.list.useQuery({
     search: searchTerm,
-    status: statusFilter !== 'all' ? statusFilter : undefined,
+    status: statusFilter !== 'all' ? (statusFilter as any) : undefined,
   });
 
   const statsQuery = trpc.members.getStats.useQuery();
@@ -182,6 +350,8 @@ export default function Members() {
   const createMember = trpc.members.create.useMutation();
   const updateMember = trpc.members.update.useMutation();
   const deleteMember = trpc.members.delete.useMutation();
+  const markAsLeftMutation = trpc.members.markAsLeft.useMutation();
+
   const assignRoomMutation = trpc.rooms.assignResident.useMutation();
 
   const members = membersQuery.data || [];
@@ -210,13 +380,17 @@ export default function Members() {
     try {
       const submitData = {
         fullName: formData.fullName,
-        dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : undefined,
+        dateOfBirth: formData.dateOfBirth
+          ? new Date(formData.dateOfBirth)
+          : undefined,
         gender: formData.gender as 'male' | 'female' | 'other',
         idNumber: formData.idNumber || undefined,
         permanentAddress: formData.permanentAddress || undefined,
         phoneNumber: formData.phoneNumber || undefined,
-        schoolId: formData.schoolId ? parseInt(formData.schoolId) : undefined,
-        admissionDate: formData.admissionDate ? new Date(formData.admissionDate) : new Date(),
+        admissionDate: formData.admissionDate
+          ? new Date(formData.admissionDate)
+          : new Date(),
+        notes: formData.notes || undefined,
       };
 
       await createMember.mutateAsync(submitData);
@@ -242,10 +416,10 @@ export default function Members() {
       idNumber: member.idNumber || '',
       permanentAddress: member.permanentAddress || '',
       phoneNumber: member.phoneNumber || '',
-      schoolId: member.schoolId?.toString() || '',
       admissionDate: member.admissionDate
         ? new Date(member.admissionDate).toISOString().split('T')[0]
         : '',
+      notes: member.notes || '',
     });
 
     setError(null);
@@ -262,13 +436,17 @@ export default function Members() {
       const submitData = {
         id: editingMember.id,
         fullName: formData.fullName,
-        dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : undefined,
+        dateOfBirth: formData.dateOfBirth
+          ? new Date(formData.dateOfBirth)
+          : undefined,
         gender: formData.gender as 'male' | 'female' | 'other',
         idNumber: formData.idNumber || undefined,
         permanentAddress: formData.permanentAddress || undefined,
         phoneNumber: formData.phoneNumber || undefined,
-        schoolId: formData.schoolId ? parseInt(formData.schoolId) : undefined,
-        admissionDate: formData.admissionDate ? new Date(formData.admissionDate) : new Date(),
+        admissionDate: formData.admissionDate
+          ? new Date(formData.admissionDate)
+          : new Date(),
+        notes: formData.notes || undefined,
       };
 
       await updateMember.mutateAsync(submitData);
@@ -284,7 +462,13 @@ export default function Members() {
   };
 
   const handleDeleteMember = async (id: number) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa học viên này?')) return;
+    if (
+      !confirm(
+        'Bạn có chắc chắn muốn XÓA CỨNG học viên này? Thao tác này chỉ nên dùng khi nhập sai hồ sơ.'
+      )
+    ) {
+      return;
+    }
 
     try {
       await deleteMember.mutateAsync({ id });
@@ -294,28 +478,108 @@ export default function Members() {
     }
   };
 
+  const handleMarkAsLeft = async (member: any) => {
+    if (!member?.id) {
+      setError('Không tìm thấy học viên cần ngừng lưu trú');
+      return;
+    }
+
+    const confirmed = confirm(
+      `Bạn có chắc chắn muốn chuyển "${member.fullName}" sang trạng thái Đã rời lưu xá?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await markAsLeftMutation.mutateAsync({
+        id: member.id,
+        departureDate: new Date(),
+      });
+
+      setError(null);
+      refetchMembers();
+    } catch (err: any) {
+      setError(err.message || 'Lỗi khi cập nhật trạng thái ngừng lưu trú');
+    }
+  };
+
   const handleOpenAssignRoomDialog = (member: any) => {
     setSelectedMemberForRoom(member);
-    setRoomAssignmentData(resetRoomAssignmentForm());
+
+    setRoomAssignmentData({
+      ...resetRoomAssignmentForm(),
+      roomId: '',
+      eventType: hasCurrentRoom(member) ? 'transfer' : 'new_entry',
+    });
+
     setError(null);
     setIsAssignRoomDialogOpen(true);
   };
 
   const handleAssignRoom = async () => {
     if (!selectedMemberForRoom?.id) {
-      setError('Không tìm thấy học viên cần gán phòng');
+      setError('Không tìm thấy học viên cần xử lý phòng');
       return;
     }
 
-    if (!roomAssignmentData.roomId) {
-      setError('Vui lòng chọn phòng');
+    const memberHasRoom = hasCurrentRoom(selectedMemberForRoom);
+
+    if (!memberHasRoom && roomAssignmentData.eventType !== 'new_entry') {
+      setError('Học viên chưa có phòng, chỉ được thực hiện nhập lưu trú / gán phòng mới.');
       return;
+    }
+
+    if (memberHasRoom && roomAssignmentData.eventType === 'new_entry') {
+      setError('Học viên đã có phòng, chỉ được chuyển phòng hoặc trả phòng.');
+      return;
+    }
+
+    if (roomAssignmentData.eventType === 'transfer' && !roomAssignmentData.roomId) {
+      setError('Vui lòng chọn phòng chuyển đến.');
+      return;
+    }
+
+    if (roomAssignmentData.eventType === 'new_entry' && !roomAssignmentData.roomId) {
+      setError('Vui lòng chọn phòng.');
+      return;
+    }
+
+    const effectiveRoomId =
+      roomAssignmentData.eventType === 'left'
+        ? getCurrentRoomIdFromMember(selectedMemberForRoom)
+        : roomAssignmentData.roomId;
+
+    if (!effectiveRoomId) {
+      setError('Không xác định được phòng hiện tại để trả phòng.');
+      return;
+    }
+
+    if (
+      roomAssignmentData.eventType === 'transfer' ||
+      roomAssignmentData.eventType === 'new_entry'
+    ) {
+      const selectedRoom = rooms.find(
+        (room: any) => String(room.id) === String(effectiveRoomId)
+      );
+
+      if (selectedRoom && isRoomFull(selectedRoom)) {
+        setError('Phòng đã đủ sức chứa, vui lòng chọn phòng khác.');
+        return;
+      }
+
+      if (
+        roomAssignmentData.eventType === 'transfer' &&
+        String(effectiveRoomId) === String(getCurrentRoomIdFromMember(selectedMemberForRoom))
+      ) {
+        setError('Phòng chuyển đến không được trùng với phòng hiện tại.');
+        return;
+      }
     }
 
     try {
       await assignRoomMutation.mutateAsync({
         residentId: selectedMemberForRoom.id,
-        roomId: parseInt(roomAssignmentData.roomId),
+        roomId: parseInt(String(effectiveRoomId)),
         assignedDate: new Date(roomAssignmentData.assignedDate),
         eventType: roomAssignmentData.eventType,
         reason: roomAssignmentData.reason || undefined,
@@ -329,7 +593,7 @@ export default function Members() {
       roomsQuery.refetch();
       statsQuery.refetch();
     } catch (err: any) {
-      setError(err.message || 'Lỗi khi gán phòng');
+      setError(err.message || 'Lỗi khi xử lý phòng');
     }
   };
 
@@ -346,15 +610,19 @@ export default function Members() {
   return (
     <ResidenceCareLayout>
       <div className="space-y-6 p-6">
-        {/* Page Header */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold text-blue-600">Quản lý lưu trú</p>
+            <p className="text-sm font-semibold text-blue-600">
+              Quản lý lưu trú
+            </p>
+
             <h1 className="mt-1 text-3xl font-bold text-neutral-900">
               Học viên lưu trú
             </h1>
-            <p className="mt-2 text-sm text-neutral-500">
-              Quản lý hồ sơ, trạng thái lưu trú, thông tin liên hệ và thao tác gán phòng.
+
+            <p className="mt-2 max-w-3xl text-sm text-neutral-500">
+              Quản lý hồ sơ, trạng thái lưu trú, thông tin liên hệ và thao tác
+              phòng ở.
             </p>
           </div>
 
@@ -368,20 +636,23 @@ export default function Members() {
           </button>
         </div>
 
-        {/* API Error */}
-        {(membersQuery.error || statsQuery.error) && (
-          <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
-            <div>
-              <p className="font-semibold">Có lỗi khi tải dữ liệu học viên.</p>
-              <p className="mt-1">
-                Vui lòng kiểm tra kết nối API hoặc backend. UI vẫn giữ nguyên data flow đang connect.
-              </p>
+        {(membersQuery.error || statsQuery.error || error) && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+            <div className="flex gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold">Có lỗi khi xử lý dữ liệu học viên.</p>
+                <p className="mt-1 text-sm">
+                  {error ||
+                    membersQuery.error?.message ||
+                    statsQuery.error?.message ||
+                    'Vui lòng kiểm tra kết nối API hoặc backend.'}
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Summary Cards - Connected with members.getStats */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
             icon={<Users className="h-5 w-5" />}
@@ -416,7 +687,6 @@ export default function Members() {
           />
         </div>
 
-        {/* Filters */}
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_220px_auto]">
             <div className="relative">
@@ -450,34 +720,32 @@ export default function Members() {
           </div>
         </div>
 
-        {/* Members Table - Connected with members.list */}
         <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-900">
-                Danh sách học viên
-              </h2>
-              <p className="text-sm text-neutral-500">
-                {members.length} học viên đang hiển thị từ dữ liệu hệ thống
-              </p>
-            </div>
+          <div className="border-b border-neutral-200 px-5 py-4">
+            <h2 className="text-lg font-bold text-neutral-900">
+              Danh sách học viên
+            </h2>
+            <p className="text-sm text-neutral-500">
+              {members.length} học viên đang hiển thị từ dữ liệu hệ thống
+            </p>
           </div>
 
-          {membersQuery.isLoading ? (
-            <div className="p-10 text-center text-neutral-500">Đang tải dữ liệu...</div>
-          ) : members.length === 0 ? (
-            <div className="p-10 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100">
-                <Users className="h-5 w-5 text-neutral-500" />
+          <div className="overflow-x-auto">
+            {membersQuery.isLoading ? (
+              <div className="p-10 text-center text-sm text-neutral-500">
+                Đang tải dữ liệu...
               </div>
-              <p className="font-medium text-neutral-900">Không có học viên nào</p>
-              <p className="mt-1 text-sm text-neutral-500">
-                Thử thay đổi bộ lọc hoặc thêm học viên mới.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px]">
+            ) : members.length === 0 ? (
+              <div className="p-10 text-center">
+                <p className="font-semibold text-neutral-900">
+                  Không có học viên nào
+                </p>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Thử thay đổi bộ lọc hoặc thêm học viên mới.
+                </p>
+              </div>
+            ) : (
+              <table className="w-full min-w-[1180px]">
                 <thead className="bg-neutral-50">
                   <tr>
                     <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -485,6 +753,9 @@ export default function Members() {
                     </th>
                     <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
                       Mã lưu trú
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Phòng
                     </th>
                     <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
                       Điện thoại
@@ -509,21 +780,34 @@ export default function Members() {
                     <tr key={member.id} className="transition hover:bg-neutral-50">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-sm font-bold text-blue-700">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">
                             {member.fullName?.charAt(0)?.toUpperCase() || 'H'}
                           </div>
-
                           <div>
                             <p className="font-semibold text-neutral-900">
                               {member.fullName || '-'}
                             </p>
-                            <p className="text-xs text-neutral-500">ID: {member.id}</p>
+                            <p className="text-xs text-neutral-500">
+                              ID: {member.id}
+                            </p>
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 text-sm text-neutral-700">
+                      <td className="px-5 py-4 text-sm font-medium text-neutral-700">
                         {member.residentCode || '-'}
+                      </td>
+
+                      <td className="px-5 py-4 text-sm text-neutral-700">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                            getRoomLabelFromMember(member) === 'Chưa gán'
+                              ? 'bg-orange-50 text-orange-700'
+                              : 'bg-blue-50 text-blue-700'
+                          }`}
+                        >
+                          {getRoomLabelFromMember(member)}
+                        </span>
                       </td>
 
                       <td className="px-5 py-4 text-sm text-neutral-700">
@@ -559,14 +843,16 @@ export default function Members() {
                             <Eye className="h-4 w-4" />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAssignRoomDialog(member)}
-                            className="rounded-lg p-2 text-green-600 transition hover:bg-green-50"
-                            title="Gán phòng"
-                          >
-                            <DoorOpen className="h-4 w-4" />
-                          </button>
+                          {member.status !== 'transferred_out' && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAssignRoomDialog(member)}
+                              className="rounded-lg px-2 py-1 text-xs font-semibold text-green-700 transition hover:bg-green-50"
+                              title={getRoomActionLabel(member)}
+                            >
+                              {hasCurrentRoom(member) ? 'Chuyển/Trả' : 'Gán phòng'}
+                            </button>
+                          )}
 
                           <button
                             type="button"
@@ -577,11 +863,23 @@ export default function Members() {
                             <Edit2 className="h-4 w-4" />
                           </button>
 
+                          {member.status !== 'transferred_out' && (
+                            <button
+                              type="button"
+                              onClick={() => handleMarkAsLeft(member)}
+                              className="rounded-lg px-2 py-1 text-xs font-semibold text-orange-700 transition hover:bg-orange-50"
+                              title="Ngừng lưu trú"
+                              disabled={markAsLeftMutation.isPending}
+                            >
+                              Ngừng
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => handleDeleteMember(member.id)}
-                            className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
-                            title="Xóa"
+                            className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                            title="Xóa cứng hồ sơ"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -591,13 +889,13 @@ export default function Members() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {isAddDialogOpen && (
           <MemberFormModal
-            title="Thêm học viên mới"
+            title="Thêm học viên"
             error={error}
             formData={formData}
             setFormData={setFormData}
@@ -610,7 +908,7 @@ export default function Members() {
 
         {isEditDialogOpen && (
           <MemberFormModal
-            title="Chỉnh sửa học viên"
+            title="Cập nhật học viên"
             error={error}
             formData={formData}
             setFormData={setFormData}
@@ -656,6 +954,8 @@ export default function Members() {
   );
 }
 
+/* Các component bên dưới giữ nguyên như file đang dùng */
+
 function MemberFormModal({
   title,
   error,
@@ -682,7 +982,7 @@ function MemberFormModal({
           <div>
             <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
             <p className="text-sm text-neutral-500">
-              Phần này đang ghi dữ liệu thật thông qua API học viên hiện tại.
+              Cập nhật thông tin hồ sơ học viên lưu trú.
             </p>
           </div>
 
@@ -708,30 +1008,32 @@ function MemberFormModal({
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="fullName">Tên học viên *</Label>
-              <Input
-                id="fullName"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                placeholder="Nhập họ tên"
-                required
-              />
-            </div>
+          <div>
+            <Label htmlFor="fullName">Tên học viên *</Label>
+            <Input
+              id="fullName"
+              value={formData.fullName}
+              onChange={(e) =>
+                setFormData({ ...formData, fullName: e.target.value })
+              }
+              placeholder="Nhập họ tên"
+              required
+            />
+          </div>
 
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="dateOfBirth">Ngày sinh</Label>
               <Input
                 id="dateOfBirth"
                 type="date"
                 value={formData.dateOfBirth}
-                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, dateOfBirth: e.target.value })
+                }
               />
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="gender">Giới tính</Label>
               <select
@@ -750,16 +1052,18 @@ function MemberFormModal({
                 <option value="other">Khác</option>
               </select>
             </div>
+          </div>
 
-            <div>
-              <Label htmlFor="idNumber">Số CCCD</Label>
-              <Input
-                id="idNumber"
-                value={formData.idNumber}
-                onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })}
-                placeholder="Nhập số CCCD"
-              />
-            </div>
+          <div>
+            <Label htmlFor="idNumber">Số CCCD</Label>
+            <Input
+              id="idNumber"
+              value={formData.idNumber}
+              onChange={(e) =>
+                setFormData({ ...formData, idNumber: e.target.value })
+              }
+              placeholder="Nhập số CCCD"
+            />
           </div>
 
           <div>
@@ -767,7 +1071,9 @@ function MemberFormModal({
             <Input
               id="phoneNumber"
               value={formData.phoneNumber}
-              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, phoneNumber: e.target.value })
+              }
               placeholder="Nhập số điện thoại"
             />
           </div>
@@ -788,28 +1094,30 @@ function MemberFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="schoolId">Trường học ID</Label>
-              <Input
-                id="schoolId"
-                type="number"
-                value={formData.schoolId}
-                onChange={(e) => setFormData({ ...formData, schoolId: e.target.value })}
-                placeholder="Nhập ID trường"
-              />
-            </div>
+          <div>
+            <Label htmlFor="admissionDate">Ngày vào lưu trú *</Label>
+            <Input
+              id="admissionDate"
+              type="date"
+              value={formData.admissionDate}
+              onChange={(e) =>
+                setFormData({ ...formData, admissionDate: e.target.value })
+              }
+              required
+            />
+          </div>
 
-            <div>
-              <Label htmlFor="admissionDate">Ngày vào lưu trú *</Label>
-              <Input
-                id="admissionDate"
-                type="date"
-                value={formData.admissionDate}
-                onChange={(e) => setFormData({ ...formData, admissionDate: e.target.value })}
-                required
-              />
-            </div>
+          <div>
+            <Label htmlFor="notes">Ghi chú</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) =>
+                setFormData({ ...formData, notes: e.target.value })
+              }
+              placeholder="Ghi chú thêm về học viên nếu có"
+              className="min-h-20"
+            />
           </div>
 
           <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
@@ -835,230 +1143,51 @@ function MemberFormModal({
   );
 }
 
-function MemberDetailModal({
-  member,
-  onClose,
-  onEdit,
-  onAssignRoom,
+function RoomCapacityNotice({
+  rooms,
+  selectedRoomId,
 }: {
-  member: any;
-  onClose: () => void;
-  onEdit: () => void;
-  onAssignRoom: () => void;
+  rooms: any[];
+  selectedRoomId: string;
 }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-        <div className="sticky top-0 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
-          <div>
-            <p className="text-sm font-semibold text-blue-600">Hồ sơ học viên</p>
-            <h2 className="text-2xl font-bold text-neutral-900">
-              {member.fullName || '-'}
-            </h2>
-          </div>
+  const selectedRoom = rooms.find(
+    (room: any) => String(room.id) === String(selectedRoomId)
+  );
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 transition hover:bg-neutral-100"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+  if (!selectedRoom) return null;
 
-        <div className="p-6">
-          <div className="mb-6 flex flex-col gap-4 rounded-2xl bg-neutral-50 p-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl font-bold text-blue-700">
-                {member.fullName?.charAt(0)?.toUpperCase() || 'H'}
-              </div>
+  const capacity = getRoomCapacity(selectedRoom);
+  const occupied = getRoomCurrentOccupancy(selectedRoom);
+  const available = getRoomAvailableSlots(selectedRoom);
+  const full = isRoomFull(selectedRoom);
 
-              <div>
-                <p className="text-xl font-bold text-neutral-900">
-                  {member.fullName || '-'}
-                </p>
-                <p className="text-sm text-neutral-500">
-                  Mã lưu trú: {member.residentCode || '-'}
-                </p>
-                <span
-                  className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusClass(
-                    member.status
-                  )}`}
-                >
-                  {getStatusLabel(member.status)}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={onAssignRoom}
-                className="inline-flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-100"
-              >
-                <DoorOpen className="h-4 w-4" />
-                Gán phòng
-              </button>
-
-              <button
-                type="button"
-                onClick={onEdit}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-              >
-                <Edit2 className="h-4 w-4" />
-                Sửa hồ sơ
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <DetailCard title="Thông tin cá nhân" connected>
-              <DetailItem
-                icon={<IdCard className="h-4 w-4" />}
-                label="Số CCCD"
-                value={member.idNumber || '-'}
-              />
-              <DetailItem
-                icon={<CalendarDays className="h-4 w-4" />}
-                label="Ngày sinh"
-                value={formatDate(member.dateOfBirth)}
-              />
-              <DetailItem
-                icon={<Users className="h-4 w-4" />}
-                label="Giới tính"
-                value={getGenderLabel(member.gender)}
-              />
-              <DetailItem
-                icon={<Phone className="h-4 w-4" />}
-                label="Điện thoại"
-                value={member.phoneNumber || '-'}
-              />
-              <DetailItem
-                icon={<MapPin className="h-4 w-4" />}
-                label="Địa chỉ"
-                value={member.permanentAddress || '-'}
-              />
-            </DetailCard>
-
-            <DetailCard title="Thông tin lưu trú" connected>
-              <DetailItem
-                icon={<Home className="h-4 w-4" />}
-                label="Ngày vào lưu trú"
-                value={formatDate(member.admissionDate)}
-              />
-              <DetailItem
-                icon={<Database className="h-4 w-4" />}
-                label="Trạng thái"
-                value={getStatusLabel(member.status)}
-              />
-              <DetailItem
-                icon={<GraduationCap className="h-4 w-4" />}
-                label="Trường học ID"
-                value={member.schoolId || '-'}
-              />
-            </DetailCard>
-
-            <DetailCard title="Học vụ" connected={false}>
-              <PlaceholderData
-                title="Chưa kết nối dữ liệu học vụ chi tiết"
-                description="Phần này sẽ mapping với residentAcademicInfo, schools và programs ở bước sau."
-              />
-            </DetailCard>
-
-            <DetailCard title="Phụ huynh / Người giám hộ" connected={false}>
-              <PlaceholderData
-                title="Chưa kết nối dữ liệu phụ huynh"
-                description="Phần này sẽ mapping với bảng parents và quan hệ học viên - phụ huynh ở bước sau."
-              />
-            </DetailCard>
-
-            <DetailCard title="Tài chính học viên" connected={false}>
-              <PlaceholderData
-                title="Chưa kết nối dữ liệu tài chính học viên"
-                description="Phần này sẽ mapping với Fees, Financial, công nợ và thanh toán sau khi module tài chính hoàn thiện."
-              />
-            </DetailCard>
-
-            <DetailCard title="Sinh hoạt & Nề nếp" connected={false}>
-              <PlaceholderData
-                title="Chưa kết nối dữ liệu sinh hoạt"
-                description="Phần này sẽ mapping với Attendance, Duties và Daily Routine ở các bước sau."
-              />
-            </DetailCard>
-          </div>
-        </div>
+  if (!capacity) {
+    return (
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-600">
+        Chưa có dữ liệu sức chứa chi tiết cho phòng này.
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-function DetailCard({
-  title,
-  children,
-  connected,
-}: {
-  title: string;
-  children: React.ReactNode;
-  connected: boolean;
-}) {
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-base font-bold text-neutral-900">{title}</h3>
-
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-            connected
-              ? 'bg-green-50 text-green-700'
-              : 'bg-neutral-100 text-neutral-500'
-          }`}
-        >
-          {connected ? 'Đã connect data' : 'Chưa connect'}
-        </span>
-      </div>
-
-      <div className="space-y-3">{children}</div>
+    <div
+      className={`rounded-xl border p-3 text-sm ${
+        full
+          ? 'border-red-200 bg-red-50 text-red-700'
+          : 'border-green-200 bg-green-50 text-green-700'
+      }`}
+    >
+      <p className="font-semibold">
+        {getRoomLabel(selectedRoom)}: {occupied}/{capacity} người
+      </p>
+      <p className="mt-1">
+        {full
+          ? 'Phòng này đã đủ sức chứa, không nên gán thêm học viên.'
+          : `Còn ${available} chỗ trống.`}
+      </p>
     </div>
   );
 }
-
-function DetailItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="flex gap-3">
-      <div className="mt-0.5 text-neutral-400">{icon}</div>
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-          {label}
-        </p>
-        <p className="text-sm font-medium text-neutral-800">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function PlaceholderData({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-4">
-      <p className="text-sm font-semibold text-neutral-700">{title}</p>
-      <p className="mt-1 text-sm text-neutral-500">{description}</p>
-    </div>
-  );
-}
-
 function AssignRoomModal({
   error,
   rooms,
@@ -1078,14 +1207,21 @@ function AssignRoomModal({
   onSubmit: () => void;
   isSubmitting: boolean;
 }) {
+  const memberHasRoom = hasCurrentRoom(selectedMember);
+  const isReturningRoom = roomAssignmentData.eventType === 'left';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
           <div>
-            <h2 className="text-xl font-bold text-neutral-900">Gán phòng</h2>
+            <h2 className="text-xl font-bold text-neutral-900">
+              {memberHasRoom ? 'Chuyển / Trả phòng' : 'Gán phòng'}
+            </h2>
             <p className="text-sm text-neutral-500">
-              Phần này đang ghi dữ liệu thật thông qua API gán phòng hiện tại.
+              {memberHasRoom
+                ? 'Học viên đã có phòng, chỉ được chuyển phòng hoặc trả phòng.'
+                : 'Học viên chưa có phòng, thực hiện gán phòng mới.'}
             </p>
           </div>
 
@@ -1110,6 +1246,9 @@ function AssignRoomModal({
             <p className="font-semibold text-neutral-900">
               {selectedMember?.fullName || '-'}
             </p>
+            <p className="mt-1 text-xs text-neutral-500">
+              Phòng hiện tại: {getRoomLabelFromMember(selectedMember)}
+            </p>
           </div>
 
           {error && (
@@ -1119,30 +1258,85 @@ function AssignRoomModal({
           )}
 
           <div>
-            <Label htmlFor="roomId">Chọn phòng *</Label>
+            <Label htmlFor="eventType">Loại xử lý *</Label>
             <select
-              id="roomId"
-              value={roomAssignmentData.roomId}
+              id="eventType"
+              value={roomAssignmentData.eventType}
               onChange={(e) =>
                 setRoomAssignmentData({
                   ...roomAssignmentData,
-                  roomId: e.target.value,
+                  eventType: e.target.value as RoomEventType,
+                  roomId: e.target.value === 'left' ? '' : roomAssignmentData.roomId,
                 })
               }
               className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              required
             >
-              <option value="">-- Chọn phòng --</option>
-              {rooms.map((room: any) => (
-                <option key={room.id} value={String(room.id)}>
-                  {room.roomCode} - Sức chứa: {room.capacity}
-                </option>
-              ))}
+              {!memberHasRoom && (
+                <option value="new_entry">Nhập lưu trú / Gán phòng mới</option>
+              )}
+
+              {memberHasRoom && (
+                <>
+                  <option value="transfer">Chuyển phòng</option>
+                  <option value="left">Trả phòng</option>
+                </>
+              )}
             </select>
           </div>
 
+          {!isReturningRoom && (
+            <div>
+              <Label htmlFor="roomId">
+                {memberHasRoom ? 'Phòng chuyển đến *' : 'Chọn phòng *'}
+              </Label>
+
+              <select
+                id="roomId"
+                value={roomAssignmentData.roomId}
+                onChange={(e) =>
+                  setRoomAssignmentData({
+                    ...roomAssignmentData,
+                    roomId: e.target.value,
+                  })
+                }
+                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                required={!isReturningRoom}
+              >
+                <option value="">
+                  {memberHasRoom ? '-- Chọn phòng chuyển đến --' : '-- Chọn phòng --'}
+                </option>
+
+                {rooms.map((room: any) => {
+                  const capacity = getRoomCapacity(room);
+                  const occupied = getRoomCurrentOccupancy(room);
+                  const available = getRoomAvailableSlots(room);
+                  const full = isRoomFull(room);
+                  const currentRoomId = getCurrentRoomIdFromMember(selectedMember);
+                  const isCurrentRoom = String(room.id) === String(currentRoomId);
+
+                  return (
+                    <option
+                      key={room.id}
+                      value={String(room.id)}
+                      disabled={full || isCurrentRoom}
+                    >
+                      {getRoomLabel(room)}
+                      {capacity
+                        ? ` - ${occupied}/${capacity} người${
+                            available !== null ? ` - còn ${available}` : ''
+                          }`
+                        : ''}
+                      {isCurrentRoom ? ' - Phòng hiện tại' : ''}
+                      {full ? ' - Đã đầy' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+
           <div>
-            <Label htmlFor="assignedDate">Ngày gán *</Label>
+            <Label htmlFor="assignedDate">Ngày xử lý *</Label>
             <Input
               id="assignedDate"
               type="date"
@@ -1155,25 +1349,6 @@ function AssignRoomModal({
               }
               required
             />
-          </div>
-
-          <div>
-            <Label htmlFor="eventType">Loại sự kiện *</Label>
-            <select
-              id="eventType"
-              value={roomAssignmentData.eventType}
-              onChange={(e) =>
-                setRoomAssignmentData({
-                  ...roomAssignmentData,
-                  eventType: e.target.value as RoomEventType,
-                })
-              }
-              className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="new_entry">Nhập lưu trú</option>
-              <option value="transfer">Chuyển phòng</option>
-              <option value="temporary_leave">Tạm rời</option>
-            </select>
           </div>
 
           <div>
@@ -1191,6 +1366,24 @@ function AssignRoomModal({
             />
           </div>
 
+          {!isReturningRoom && roomAssignmentData.roomId && (
+            <RoomCapacityNotice
+              rooms={rooms}
+              selectedRoomId={roomAssignmentData.roomId}
+            />
+          )}
+
+          {isReturningRoom && (
+            <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-700">
+              <p className="font-semibold">Trả phòng hiện tại</p>
+              <p className="mt-1">
+                Học viên sẽ được ghi nhận trả phòng:{' '}
+                {getRoomLabelFromMember(selectedMember)}. Sau thao tác này, học
+                viên không còn phòng hiện tại cho đến khi được gán lại.
+              </p>
+            </div>
+          )}
+
           <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
             <button
               type="button"
@@ -1205,7 +1398,13 @@ function AssignRoomModal({
               disabled={isSubmitting}
               className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? 'Đang gán...' : 'Gán phòng'}
+              {isSubmitting
+                ? 'Đang xử lý...'
+                : isReturningRoom
+                ? 'Trả phòng'
+                : memberHasRoom
+                ? 'Chuyển phòng'
+                : 'Gán phòng'}
             </button>
           </div>
         </form>

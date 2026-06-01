@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  Briefcase,
   Edit2,
-  Eye,
-  Home,
+  IdCard,
+  Mail,
   MapPin,
   Phone,
   Plus,
@@ -21,87 +22,114 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-type ParentContact = {
-  id: number;
-  residentId?: number;
-  residentName: string;
-  residentCode: string;
-  contactName: string;
-  relationship: string;
-  phone: string;
-  backupPhone?: string;
-  address: string;
-  isEmergencyContact: boolean;
-  isPrimaryContact: boolean;
-  note?: string;
-};
+type ParentType = "father" | "mother" | "guardian";
 
 type ParentFormData = {
-  residentId: string;
-  contactName: string;
-  relationship: string;
-  phone: string;
-  backupPhone: string;
+  parentType: ParentType;
+  fullName: string;
+  phoneNumber: string;
+  email: string;
+  idNumber: string;
+  occupation: string;
   address: string;
-  isEmergencyContact: boolean;
-  isPrimaryContact: boolean;
-  note: string;
+  notes: string;
 };
-
-const initialContacts: ParentContact[] = [
-  {
-    id: 1,
-    residentId: 1,
-    residentName: "Nguyễn Văn A",
-    residentCode: "HV0001",
-    contactName: "Nguyễn Văn B",
-    relationship: "Cha",
-    phone: "090xxxxxxx",
-    backupPhone: "091xxxxxxx",
-    address: "Xã Xuân Phú, Đồng Nai",
-    isEmergencyContact: true,
-    isPrimaryContact: true,
-    note: "Liên hệ chính khi có việc khẩn cấp.",
-  },
-  {
-    id: 2,
-    residentId: 1,
-    residentName: "Nguyễn Văn A",
-    residentCode: "HV0001",
-    contactName: "Nguyễn Thị C",
-    relationship: "Mẹ",
-    phone: "093xxxxxxx",
-    address: "Xã Xuân Phú, Đồng Nai",
-    isEmergencyContact: true,
-    isPrimaryContact: false,
-    note: "Liên hệ phụ.",
-  },
-  {
-    id: 3,
-    residentId: 2,
-    residentName: "Trần Thị D",
-    residentCode: "HV0002",
-    contactName: "Trần Văn E",
-    relationship: "Cha",
-    phone: "097xxxxxxx",
-    address: "Quận Bình Thạnh, TP. Hồ Chí Minh",
-    isEmergencyContact: true,
-    isPrimaryContact: true,
-    note: "Liên hệ chính.",
-  },
-];
 
 const defaultFormData: ParentFormData = {
-  residentId: "",
-  contactName: "",
-  relationship: "Cha",
-  phone: "",
-  backupPhone: "",
+  parentType: "father",
+  fullName: "",
+  phoneNumber: "",
+  email: "",
+  idNumber: "",
+  occupation: "",
   address: "",
-  isEmergencyContact: true,
-  isPrimaryContact: false,
-  note: "",
+  notes: "",
 };
+
+function normalizeText(value?: string) {
+  return (value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function normalizePhone(value?: string) {
+  return (value || "").replace(/[^\d]/g, "");
+}
+
+function getParentTypeLabel(type?: string) {
+  if (type === "father") return "Cha";
+  if (type === "mother") return "Mẹ";
+  if (type === "guardian") return "Người giám hộ";
+
+  return "Khác";
+}
+
+function getParentTypeClass(type?: string) {
+  if (type === "father") return "bg-blue-50 text-blue-700";
+  if (type === "mother") return "bg-pink-50 text-pink-700";
+  if (type === "guardian") return "bg-purple-50 text-purple-700";
+
+  return "bg-neutral-100 text-neutral-700";
+}
+
+function validateParentFormBeforeSave({
+  parents,
+  formData,
+  editingParentId,
+}: {
+  parents: any[];
+  formData: ParentFormData;
+  editingParentId?: number;
+}) {
+  const fullName = normalizeText(formData.fullName);
+  const phoneNumber = normalizePhone(formData.phoneNumber);
+
+  if (!fullName) {
+    return "Vui lòng nhập họ tên liên hệ.";
+  }
+
+  if (!phoneNumber) {
+    return "Vui lòng nhập số điện thoại liên hệ.";
+  }
+
+  if (phoneNumber.length < 9 || phoneNumber.length > 15) {
+    return "Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.";
+  }
+
+  const otherParents = parents.filter(
+    (parent: any) => parent.id !== editingParentId
+  );
+
+  if (
+    (formData.parentType === "father" || formData.parentType === "mother") &&
+    otherParents.some((parent: any) => parent.parentType === formData.parentType)
+  ) {
+    return `Học viên này đã có thông tin ${getParentTypeLabel(
+      formData.parentType
+    )}. Không thể thêm trùng.`;
+  }
+
+  const duplicatedName = otherParents.some(
+    (parent: any) => normalizeText(parent.fullName) === fullName
+  );
+
+  if (duplicatedName) {
+    return "Tên liên hệ này đã tồn tại cho học viên đang chọn.";
+  }
+
+  const duplicatedPhone = otherParents.some(
+    (parent: any) => normalizePhone(parent.phoneNumber) === phoneNumber
+  );
+
+  if (duplicatedPhone) {
+    return "Số điện thoại này đã tồn tại cho học viên đang chọn.";
+  }
+
+  return null;
+}
 
 function StatCard({
   label,
@@ -132,192 +160,183 @@ function StatCard({
 }
 
 export default function Parents() {
-  const [contacts, setContacts] = useState<ParentContact[]>(initialContacts);
+  const [selectedResidentId, setSelectedResidentId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [relationshipFilter, setRelationshipFilter] = useState("all");
+  const [parentTypeFilter, setParentTypeFilter] = useState("all");
 
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-
-  const [editingContact, setEditingContact] = useState<ParentContact | null>(
-    null
-  );
-  const [selectedContact, setSelectedContact] = useState<ParentContact | null>(
-    null
-  );
-
+  const [editingParent, setEditingParent] = useState<any>(null);
   const [formData, setFormData] = useState<ParentFormData>(defaultFormData);
+  const [error, setError] = useState<string | null>(null);
 
-  /**
-   * CONNECTED DATA
-   * Danh sách học viên lấy data thật từ API hiện tại.
-   * Liên hệ gia đình vẫn là mock UI, chưa ghi database.
-   */
   const membersQuery = trpc.members.list.useQuery({
     search: "",
     status: undefined,
+    limit: 200,
+    offset: 0,
   });
 
   const members = membersQuery.data || [];
 
-  const filteredContacts = useMemo(() => {
-    return contacts.filter((contact) => {
+  useEffect(() => {
+    if (!selectedResidentId && members.length > 0) {
+      setSelectedResidentId(String((members[0] as any).id));
+    }
+  }, [members, selectedResidentId]);
+
+  const selectedResident = useMemo(() => {
+    return members.find((member: any) => String(member.id) === selectedResidentId);
+  }, [members, selectedResidentId]);
+
+  const selectedResidentIdNumber = selectedResidentId
+    ? Number(selectedResidentId)
+    : 0;
+
+  const parentsQuery = trpc.members.getParents.useQuery(
+    {
+      residentId: selectedResidentIdNumber,
+    },
+    {
+      enabled: Boolean(selectedResidentIdNumber),
+    }
+  );
+
+  const createParentMutation = trpc.members.createParent.useMutation();
+  const updateParentMutation = trpc.members.updateParent.useMutation();
+  const deleteParentMutation = trpc.members.deleteParent.useMutation();
+
+  const parents = parentsQuery.data || [];
+
+  const filteredParents = useMemo(() => {
+    return parents.filter((parent: any) => {
       const keyword = searchTerm.trim().toLowerCase();
 
       const matchesSearch =
         !keyword ||
-        contact.residentName.toLowerCase().includes(keyword) ||
-        contact.residentCode.toLowerCase().includes(keyword) ||
-        contact.contactName.toLowerCase().includes(keyword) ||
-        contact.phone.toLowerCase().includes(keyword) ||
-        contact.address.toLowerCase().includes(keyword);
+        (parent.fullName || "").toLowerCase().includes(keyword) ||
+        (parent.phoneNumber || "").toLowerCase().includes(keyword) ||
+        (parent.email || "").toLowerCase().includes(keyword) ||
+        (parent.idNumber || "").toLowerCase().includes(keyword) ||
+        (parent.occupation || "").toLowerCase().includes(keyword) ||
+        (parent.address || "").toLowerCase().includes(keyword) ||
+        (parent.notes || "").toLowerCase().includes(keyword);
 
-      const matchesRelationship =
-        relationshipFilter === "all" ||
-        contact.relationship === relationshipFilter;
+      const matchesType =
+        parentTypeFilter === "all" || parent.parentType === parentTypeFilter;
 
-      return matchesSearch && matchesRelationship;
+      return matchesSearch && matchesType;
     });
-  }, [contacts, searchTerm, relationshipFilter]);
+  }, [parents, searchTerm, parentTypeFilter]);
 
-  const emergencyCount = contacts.filter(
-    (item) => item.isEmergencyContact
+  const fatherCount = parents.filter((item: any) => item.parentType === "father").length;
+  const motherCount = parents.filter((item: any) => item.parentType === "mother").length;
+  const guardianCount = parents.filter(
+    (item: any) => item.parentType === "guardian"
   ).length;
-
-  const primaryContactCount = contacts.filter(
-    (item) => item.isPrimaryContact
-  ).length;
-
-  const studentsWithContactsCount = new Set(
-    contacts.map((item) => item.residentId).filter(Boolean)
-  ).size;
 
   const openCreateForm = () => {
-    setEditingContact(null);
-    setFormData(defaultFormData);
-    setIsFormOpen(true);
-  };
-
-  const openEditForm = (contact: ParentContact) => {
-    setEditingContact(contact);
-    setFormData({
-      residentId: contact.residentId ? String(contact.residentId) : "",
-      contactName: contact.contactName,
-      relationship: contact.relationship,
-      phone: contact.phone,
-      backupPhone: contact.backupPhone || "",
-      address: contact.address,
-      isEmergencyContact: contact.isEmergencyContact,
-      isPrimaryContact: contact.isPrimaryContact,
-      note: contact.note || "",
-    });
-    setIsFormOpen(true);
-  };
-
-  const openDetail = (contact: ParentContact) => {
-    setSelectedContact(contact);
-    setIsDetailOpen(true);
-  };
-
-  const handleSave = () => {
-    const selectedResident = members.find(
-      (member: any) => String(member.id) === formData.residentId
-    );
-
-    if (!selectedResident) {
-      alert("Vui lòng chọn học viên từ danh sách.");
+    if (!selectedResidentIdNumber) {
+      setError("Vui lòng chọn học viên trước khi thêm liên hệ.");
       return;
     }
 
-    const residentId = selectedResident.id;
-    const residentName = selectedResident.fullName || "-";
-    const residentCode =
-      selectedResident.residentCode || `ID: ${selectedResident.id}`;
+    setEditingParent(null);
+    setFormData(defaultFormData);
+    setError(null);
+    setIsFormOpen(true);
+  };
 
-    if (editingContact) {
-      setContacts((prev) =>
-        prev.map((item) => {
-          const isSameResident = item.residentId === residentId;
-          const isCurrentEditing = item.id === editingContact.id;
+  const openEditForm = (parent: any) => {
+    setEditingParent(parent);
 
-          if (isCurrentEditing) {
-            return {
-              ...item,
-              residentId,
-              residentName,
-              residentCode,
-              contactName: formData.contactName,
-              relationship: formData.relationship,
-              phone: formData.phone,
-              backupPhone: formData.backupPhone,
-              address: formData.address,
-              isEmergencyContact: formData.isEmergencyContact,
-              isPrimaryContact: formData.isPrimaryContact,
-              note: formData.note,
-            };
-          }
+    setFormData({
+      parentType: parent.parentType || "father",
+      fullName: parent.fullName || "",
+      phoneNumber: parent.phoneNumber || "",
+      email: parent.email || "",
+      idNumber: parent.idNumber || "",
+      occupation: parent.occupation || "",
+      address: parent.address || "",
+      notes: parent.notes || "",
+    });
 
-          if (formData.isPrimaryContact && isSameResident) {
-            return {
-              ...item,
-              isPrimaryContact: false,
-            };
-          }
+    setError(null);
+    setIsFormOpen(true);
+  };
 
-          return item;
-        })
-      );
-    } else {
-      const newContact: ParentContact = {
-        id: Date.now(),
-        residentId,
-        residentName,
-        residentCode,
-        contactName: formData.contactName,
-        relationship: formData.relationship,
-        phone: formData.phone,
-        backupPhone: formData.backupPhone,
-        address: formData.address,
-        isEmergencyContact: formData.isEmergencyContact,
-        isPrimaryContact: formData.isPrimaryContact,
-        note: formData.note,
+  const handleSave = async () => {
+    if (!selectedResidentIdNumber) {
+      setError("Vui lòng chọn học viên.");
+      return;
+    }
+
+    const validationMessage = validateParentFormBeforeSave({
+      parents,
+      formData,
+      editingParentId: editingParent?.id,
+    });
+
+    if (validationMessage) {
+      setError(validationMessage);
+      return;
+    }
+
+    try {
+      const payload = {
+        parentType: formData.parentType,
+        fullName: formData.fullName.trim(),
+        phoneNumber: formData.phoneNumber.trim(),
+        email: formData.email || undefined,
+        idNumber: formData.idNumber || undefined,
+        occupation: formData.occupation || undefined,
+        address: formData.address || undefined,
+        notes: formData.notes || undefined,
       };
 
-      setContacts((prev) => {
-        const updatedContacts = formData.isPrimaryContact
-          ? prev.map((item) =>
-              item.residentId === residentId
-                ? { ...item, isPrimaryContact: false }
-                : item
-            )
-          : prev;
+      if (editingParent?.id) {
+        await updateParentMutation.mutateAsync({
+          id: editingParent.id,
+          ...payload,
+        });
+      } else {
+        await createParentMutation.mutateAsync({
+          residentId: selectedResidentIdNumber,
+          ...payload,
+        });
+      }
 
-        return [newContact, ...updatedContacts];
-      });
+      setIsFormOpen(false);
+      setEditingParent(null);
+      setFormData(defaultFormData);
+      setError(null);
+
+      parentsQuery.refetch();
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi lưu thông tin liên hệ.");
     }
-
-    setIsFormOpen(false);
-    setEditingContact(null);
-    setFormData(defaultFormData);
   };
 
-  const handleDelete = (id: number) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa liên hệ này khỏi UI mock?")) {
+  const handleDelete = async (parentId: number) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa liên hệ này?")) {
       return;
     }
 
-    setContacts((prev) => prev.filter((item) => item.id !== id));
+    try {
+      await deleteParentMutation.mutateAsync({ id: parentId });
+      parentsQuery.refetch();
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi xóa liên hệ.");
+    }
   };
 
   const clearFilters = () => {
     setSearchTerm("");
-    setRelationshipFilter("all");
+    setParentTypeFilter("all");
   };
 
   return (
     <ResidenceCareLayout>
       <div className="space-y-6 p-6">
-        {/* Header */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-semibold text-blue-600">
@@ -327,8 +346,8 @@ export default function Parents() {
               Phụ huynh / Gia đình
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-neutral-500">
-              Quản lý thông tin liên hệ gia đình, người giám hộ, địa chỉ gia
-              đình và liên hệ khẩn cấp của học viên.
+              Quản lý thông tin cha, mẹ, người giám hộ và các liên hệ gia đình
+              theo từng học viên lưu trú.
             </p>
           </div>
 
@@ -342,129 +361,149 @@ export default function Parents() {
           </button>
         </div>
 
-        {/* Data status */}
-        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-orange-800">
+        <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-green-800">
           <div className="flex gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+            <ShieldCheck className="mt-0.5 h-5 w-5 flex-shrink-0" />
             <div>
               <p className="font-semibold">
-                UI mock cho liên hệ gia đình - danh sách học viên lấy data thật
+                Đã kết nối dữ liệu thật cho liên hệ gia đình
               </p>
               <p className="mt-1 text-sm">
-                Khi thêm liên hệ, học viên được chọn từ API{" "}
-                <span className="font-semibold">members.list</span>. Một học
-                viên có thể có nhiều liên hệ. Thông tin liên hệ gia đình hiện
-                vẫn lưu bằng state mock trên UI, chưa ghi database. Sau này sẽ
-                mapping với bảng <span className="font-semibold">parents</span>{" "}
-                hoặc <span className="font-semibold">familyContacts</span>.
+                Mỗi học viên chỉ có tối đa 1 Cha, 1 Mẹ. Số điện thoại là bắt
+                buộc và không được trùng trong cùng một học viên.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Summary cards */}
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_2fr]">
+            <div>
+              <Label htmlFor="selectedResidentId">Chọn học viên *</Label>
+              <select
+                id="selectedResidentId"
+                value={selectedResidentId}
+                onChange={(event) => {
+                  setSelectedResidentId(event.target.value);
+                  setSearchTerm("");
+                  setParentTypeFilter("all");
+                  setError(null);
+                }}
+                className="mt-1 h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="">
+                  {membersQuery.isLoading
+                    ? "Đang tải danh sách học viên..."
+                    : "-- Chọn học viên --"}
+                </option>
+
+                {members.map((member: any) => (
+                  <option key={member.id} value={String(member.id)}>
+                    {member.fullName} - {member.residentCode || `ID: ${member.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="rounded-xl bg-neutral-50 p-4">
+              <p className="text-sm font-semibold text-neutral-800">
+                Học viên đang xem
+              </p>
+
+              {selectedResident ? (
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">
+                    {selectedResident.fullName?.charAt(0)?.toUpperCase() || "H"}
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-neutral-900">
+                      {selectedResident.fullName}
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      {selectedResident.residentCode || `ID: ${selectedResident.id}`}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-neutral-500">
+                  Chưa chọn học viên.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {(error || parentsQuery.error || membersQuery.error) && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+            <div className="flex gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold">Có lỗi khi xử lý dữ liệu liên hệ.</p>
+                <p className="mt-1 text-sm">
+                  {error ||
+                    parentsQuery.error?.message ||
+                    membersQuery.error?.message ||
+                    "Vui lòng kiểm tra lại kết nối."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Tổng liên hệ"
-            value={contacts.length}
-            description="Một học viên có thể có nhiều liên hệ"
+            value={parents.length}
+            description="Liên hệ của học viên đang chọn"
             icon={<Users className="h-5 w-5" />}
           />
 
           <StatCard
-            label="Học viên đã có liên hệ"
-            value={studentsWithContactsCount}
-            description="Tính theo học viên duy nhất"
-            icon={<Home className="h-5 w-5" />}
+            label="Cha"
+            value={fatherCount}
+            description="Tối đa 1 cha / học viên"
+            icon={<UserRound className="h-5 w-5" />}
           />
 
           <StatCard
-            label="Liên hệ chính"
-            value={primaryContactCount}
-            description="Mỗi học viên nên có một liên hệ chính"
+            label="Mẹ"
+            value={motherCount}
+            description="Tối đa 1 mẹ / học viên"
+            icon={<UserRound className="h-5 w-5" />}
+          />
+
+          <StatCard
+            label="Người giám hộ"
+            value={guardianCount}
+            description="Có thể nhiều nếu không trùng"
             icon={<ShieldCheck className="h-5 w-5" />}
           />
-
-          <StatCard
-            label="Liên hệ khẩn cấp"
-            value={emergencyCount}
-            description="Dùng khi cần xử lý nhanh"
-            icon={<Phone className="h-5 w-5" />}
-          />
         </div>
 
-        {/* Mapping */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold text-neutral-900">
-              Mapping checklist
-            </h2>
-            <div className="mt-4 space-y-2 text-sm text-neutral-700">
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Bổ sung địa chỉ liên hệ gia đình vào hồ sơ học viên.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Một học viên có thể có nhiều liên hệ gia đình.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Khi thêm liên hệ phải chọn học viên từ danh sách hiện có.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Có phân biệt liên hệ chính và liên hệ khẩn cấp.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Sau này hiển thị trong tab Gia đình của hồ sơ học viên.
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold text-neutral-900">
-              Mapping backend / data
-            </h2>
-            <div className="mt-4 space-y-2 text-sm text-neutral-700">
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Danh sách học viên: <b>trpc.members.list</b> - đã connect.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Liên hệ gia đình: <b>parents</b> hoặc{" "}
-                <b>familyContacts</b> - chưa connect API.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Quan hệ dữ liệu: <b>residents 1 - n familyContacts</b>.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                API cần bổ sung: list, getByResident, create, update, delete.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_180px_auto]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_220px_auto]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
               <Input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Tìm học viên, người liên hệ, số điện thoại, địa chỉ..."
+                placeholder="Tìm người liên hệ, số điện thoại, email, địa chỉ..."
                 className="pl-10"
+                disabled={!selectedResidentIdNumber}
               />
             </div>
 
             <select
-              value={relationshipFilter}
-              onChange={(event) => setRelationshipFilter(event.target.value)}
+              value={parentTypeFilter}
+              onChange={(event) => setParentTypeFilter(event.target.value)}
               className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              disabled={!selectedResidentIdNumber}
             >
-              <option value="all">Tất cả quan hệ</option>
-              <option value="Cha">Cha</option>
-              <option value="Mẹ">Mẹ</option>
-              <option value="Anh trai">Anh trai</option>
-              <option value="Chị gái">Chị gái</option>
-              <option value="Người giám hộ">Người giám hộ</option>
-              <option value="Khác">Khác</option>
+              <option value="all">Tất cả loại liên hệ</option>
+              <option value="father">Cha</option>
+              <option value="mother">Mẹ</option>
+              <option value="guardian">Người giám hộ</option>
             </select>
 
             <button
@@ -477,186 +516,165 @@ export default function Parents() {
           </div>
         </div>
 
-        {/* Table */}
         <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
-            <div>
-              <h2 className="text-lg font-bold text-neutral-900">
-                Danh sách liên hệ gia đình
-              </h2>
-              <p className="text-sm text-neutral-500">
-                {filteredContacts.length} liên hệ đang hiển thị. Dữ liệu liên
-                hệ là mock, chưa ghi database.
-              </p>
-            </div>
+          <div className="border-b border-neutral-200 px-5 py-4">
+            <h2 className="text-lg font-bold text-neutral-900">
+              Danh sách liên hệ gia đình
+            </h2>
+            <p className="text-sm text-neutral-500">
+              {filteredParents.length} liên hệ đang hiển thị cho học viên đang
+              chọn.
+            </p>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px]">
-              <thead className="bg-neutral-50">
-                <tr>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Học viên
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Người liên hệ
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Quan hệ
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Điện thoại
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Địa chỉ gia đình
-                  </th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Hành động
-                  </th>
-                </tr>
-              </thead>
+            {!selectedResidentIdNumber ? (
+              <div className="p-10 text-center text-sm text-neutral-500">
+                Vui lòng chọn học viên để xem liên hệ gia đình.
+              </div>
+            ) : parentsQuery.isLoading ? (
+              <div className="p-10 text-center text-sm text-neutral-500">
+                Đang tải danh sách liên hệ...
+              </div>
+            ) : filteredParents.length === 0 ? (
+              <div className="p-10 text-center">
+                <p className="font-semibold text-neutral-900">
+                  Chưa có liên hệ phù hợp
+                </p>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Thêm liên hệ mới cho học viên hoặc thay đổi bộ lọc.
+                </p>
+              </div>
+            ) : (
+              <table className="w-full min-w-[1080px]">
+                <thead className="bg-neutral-50">
+                  <tr>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Người liên hệ
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Loại liên hệ
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Điện thoại / Email
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Nghề nghiệp / CCCD
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Địa chỉ / Ghi chú
+                    </th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Hành động
+                    </th>
+                  </tr>
+                </thead>
 
-              <tbody className="divide-y divide-neutral-100">
-                {filteredContacts.map((contact) => (
-                  <tr key={contact.id} className="transition hover:bg-neutral-50">
-                    <td className="px-5 py-4">
-                      <div>
+                <tbody className="divide-y divide-neutral-100">
+                  {filteredParents.map((parent: any) => (
+                    <tr key={parent.id} className="transition hover:bg-neutral-50">
+                      <td className="px-5 py-4">
                         <p className="font-semibold text-neutral-900">
-                          {contact.residentName}
+                          {parent.fullName}
                         </p>
                         <p className="text-xs text-neutral-500">
-                          {contact.residentCode}
+                          Liên hệ của: {selectedResident?.fullName || "-"}
                         </p>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="px-5 py-4">
-                      <div className="flex items-start gap-2">
-                        <UserRound className="mt-0.5 h-4 w-4 text-neutral-400" />
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-medium text-neutral-800">
-                              {contact.contactName}
-                            </span>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getParentTypeClass(
+                            parent.parentType
+                          )}`}
+                        >
+                          {getParentTypeLabel(parent.parentType)}
+                        </span>
+                      </td>
 
-                            {contact.isPrimaryContact && (
-                              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
-                                Chính
-                              </span>
-                            )}
+                      <td className="px-5 py-4 text-sm text-neutral-700">
+                        <p className="flex items-center gap-1.5">
+                          <Phone className="h-3.5 w-3.5 text-neutral-400" />
+                          {parent.phoneNumber || "-"}
+                        </p>
+                        <p className="mt-1 flex items-center gap-1.5 text-xs text-neutral-500">
+                          <Mail className="h-3.5 w-3.5 text-neutral-400" />
+                          {parent.email || "-"}
+                        </p>
+                      </td>
 
-                            {contact.isEmergencyContact && (
-                              <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">
-                                Khẩn cấp
-                              </span>
-                            )}
-                          </div>
+                      <td className="px-5 py-4 text-sm text-neutral-700">
+                        <p className="flex items-center gap-1.5">
+                          <Briefcase className="h-3.5 w-3.5 text-neutral-400" />
+                          {parent.occupation || "-"}
+                        </p>
+                        <p className="mt-1 flex items-center gap-1.5 text-xs text-neutral-500">
+                          <IdCard className="h-3.5 w-3.5 text-neutral-400" />
+                          {parent.idNumber || "-"}
+                        </p>
+                      </td>
 
-                          {contact.note && (
-                            <p className="mt-1 max-w-xs truncate text-xs text-neutral-500">
-                              {contact.note}
+                      <td className="px-5 py-4 text-sm text-neutral-700">
+                        <div className="max-w-sm">
+                          <p className="flex items-start gap-1.5">
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-neutral-400" />
+                            <span>{parent.address || "-"}</span>
+                          </p>
+
+                          {parent.notes && (
+                            <p className="mt-1 line-clamp-2 text-xs text-neutral-500">
+                              {parent.notes}
                             </p>
                           )}
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="px-5 py-4 text-sm text-neutral-700">
-                      {contact.relationship}
-                    </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditForm(parent)}
+                            className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                            title="Sửa liên hệ"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
 
-                    <td className="px-5 py-4">
-                      <div className="space-y-1 text-sm text-neutral-700">
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-neutral-400" />
-                          {contact.phone}
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(parent.id)}
+                            className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
+                            title="Xóa liên hệ"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
-                        {contact.backupPhone && (
-                          <p className="pl-6 text-xs text-neutral-500">
-                            Phụ: {contact.backupPhone}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-4 text-sm text-neutral-700">
-                      <div className="max-w-xs truncate">{contact.address}</div>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openDetail(contact)}
-                          className="rounded-lg p-2 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(contact)}
-                          className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                          title="Sửa"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(contact.id)}
-                          className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
-                          title="Xóa mock"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-
-                {filteredContacts.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-5 py-10 text-center text-sm text-neutral-500"
-                    >
-                      Không có liên hệ nào phù hợp với bộ lọc.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
         {isFormOpen && (
           <ParentContactFormModal
-            title={editingContact ? "Chỉnh sửa liên hệ" : "Thêm liên hệ gia đình"}
+            title={editingParent ? "Sửa liên hệ" : "Thêm liên hệ"}
             formData={formData}
             setFormData={setFormData}
-            members={members}
-            membersLoading={membersQuery.isLoading}
+            selectedResident={selectedResident}
+            error={error}
             onClose={() => {
               setIsFormOpen(false);
-              setEditingContact(null);
+              setEditingParent(null);
+              setFormData(defaultFormData);
+              setError(null);
             }}
             onSubmit={handleSave}
-          />
-        )}
-
-        {isDetailOpen && selectedContact && (
-          <ParentContactDetailModal
-            contact={selectedContact}
-            onClose={() => {
-              setIsDetailOpen(false);
-              setSelectedContact(null);
-            }}
-            onEdit={() => {
-              setIsDetailOpen(false);
-              openEditForm(selectedContact);
-            }}
+            isSubmitting={
+              createParentMutation.isPending || updateParentMutation.isPending
+            }
           />
         )}
       </div>
@@ -668,18 +686,20 @@ function ParentContactFormModal({
   title,
   formData,
   setFormData,
-  members,
-  membersLoading,
+  selectedResident,
+  error,
   onClose,
   onSubmit,
+  isSubmitting,
 }: {
   title: string;
   formData: ParentFormData;
   setFormData: React.Dispatch<React.SetStateAction<ParentFormData>>;
-  members: any[];
-  membersLoading: boolean;
+  selectedResident: any;
+  error: string | null;
   onClose: () => void;
   onSubmit: () => void;
+  isSubmitting: boolean;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -688,8 +708,7 @@ function ParentContactFormModal({
           <div>
             <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
             <p className="text-sm text-neutral-500">
-              Chọn học viên từ danh sách thật. Một học viên có thể có nhiều liên
-              hệ. Thông tin liên hệ hiện chỉ lưu mock trên UI, chưa ghi database.
+              Liên hệ này sẽ được gắn trực tiếp với học viên đang chọn.
             </p>
           </div>
 
@@ -709,84 +728,67 @@ function ParentContactFormModal({
           }}
           className="space-y-5 p-6"
         >
+          <div className="rounded-xl bg-neutral-50 p-4">
+            <p className="text-sm text-neutral-500">Học viên</p>
+            <p className="mt-1 font-semibold text-neutral-900">
+              {selectedResident?.fullName || "-"}
+            </p>
+            <p className="text-xs text-neutral-500">
+              {selectedResident?.residentCode || `ID: ${selectedResident?.id || "-"}`}
+            </p>
+          </div>
+
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           <div>
-            <Label htmlFor="residentId">Chọn học viên *</Label>
+            <Label htmlFor="parentType">Loại liên hệ *</Label>
             <select
-              id="residentId"
-              value={formData.residentId}
+              id="parentType"
+              value={formData.parentType}
               onChange={(event) =>
                 setFormData({
                   ...formData,
-                  residentId: event.target.value,
+                  parentType: event.target.value as ParentType,
                 })
               }
               className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              required
             >
-              <option value="">
-                {membersLoading
-                  ? "Đang tải danh sách học viên..."
-                  : "-- Chọn học viên --"}
-              </option>
-
-              {members.map((member: any) => (
-                <option key={member.id} value={String(member.id)}>
-                  {member.fullName} - {member.residentCode || `ID: ${member.id}`}
-                </option>
-              ))}
+              <option value="father">Cha</option>
+              <option value="mother">Mẹ</option>
+              <option value="guardian">Người giám hộ</option>
             </select>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="contactName">Người liên hệ *</Label>
-              <Input
-                id="contactName"
-                value={formData.contactName}
-                onChange={(event) =>
-                  setFormData({
-                    ...formData,
-                    contactName: event.target.value,
-                  })
-                }
-                placeholder="Nhập họ tên người liên hệ"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="relationship">Quan hệ</Label>
-              <select
-                id="relationship"
-                value={formData.relationship}
-                onChange={(event) =>
-                  setFormData({
-                    ...formData,
-                    relationship: event.target.value,
-                  })
-                }
-                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-                <option value="Cha">Cha</option>
-                <option value="Mẹ">Mẹ</option>
-                <option value="Anh trai">Anh trai</option>
-                <option value="Chị gái">Chị gái</option>
-                <option value="Người giám hộ">Người giám hộ</option>
-                <option value="Khác">Khác</option>
-              </select>
-            </div>
+          <div>
+            <Label htmlFor="fullName">Họ tên liên hệ *</Label>
+            <Input
+              id="fullName"
+              value={formData.fullName}
+              onChange={(event) =>
+                setFormData({
+                  ...formData,
+                  fullName: event.target.value,
+                })
+              }
+              placeholder="Nhập họ tên cha/mẹ/người giám hộ"
+              required
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <Label htmlFor="phone">Số điện thoại chính *</Label>
+              <Label htmlFor="phoneNumber">Điện thoại *</Label>
               <Input
-                id="phone"
-                value={formData.phone}
+                id="phoneNumber"
+                value={formData.phoneNumber}
                 onChange={(event) =>
                   setFormData({
                     ...formData,
-                    phone: event.target.value,
+                    phoneNumber: event.target.value,
                   })
                 }
                 placeholder="Nhập số điện thoại"
@@ -795,23 +797,56 @@ function ParentContactFormModal({
             </div>
 
             <div>
-              <Label htmlFor="backupPhone">Số điện thoại phụ</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="backupPhone"
-                value={formData.backupPhone}
+                id="email"
+                type="email"
+                value={formData.email}
                 onChange={(event) =>
                   setFormData({
                     ...formData,
-                    backupPhone: event.target.value,
+                    email: event.target.value,
                   })
                 }
-                placeholder="Nếu có"
+                placeholder="Nhập email"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="idNumber">CCCD</Label>
+              <Input
+                id="idNumber"
+                value={formData.idNumber}
+                onChange={(event) =>
+                  setFormData({
+                    ...formData,
+                    idNumber: event.target.value,
+                  })
+                }
+                placeholder="Nhập CCCD nếu có"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="occupation">Nghề nghiệp</Label>
+              <Input
+                id="occupation"
+                value={formData.occupation}
+                onChange={(event) =>
+                  setFormData({
+                    ...formData,
+                    occupation: event.target.value,
+                  })
+                }
+                placeholder="Nhập nghề nghiệp"
               />
             </div>
           </div>
 
           <div>
-            <Label htmlFor="address">Địa chỉ gia đình *</Label>
+            <Label htmlFor="address">Địa chỉ</Label>
             <Textarea
               id="address"
               value={formData.address}
@@ -821,67 +856,20 @@ function ParentContactFormModal({
                   address: event.target.value,
                 })
               }
-              placeholder="Nhập địa chỉ gia đình"
+              placeholder="Nhập địa chỉ liên hệ"
               className="min-h-24"
-              required
             />
           </div>
 
-          <label className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-            <input
-              type="checkbox"
-              checked={formData.isPrimaryContact}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  isPrimaryContact: event.target.checked,
-                })
-              }
-              className="h-4 w-4"
-            />
-            <div>
-              <p className="text-sm font-semibold text-neutral-800">
-                Đánh dấu là liên hệ chính
-              </p>
-              <p className="text-xs text-neutral-500">
-                Mỗi học viên nên có một liên hệ chính. Khi chọn mục này, các
-                liên hệ khác của cùng học viên sẽ được chuyển thành liên hệ phụ
-                trong UI mock.
-              </p>
-            </div>
-          </label>
-
-          <label className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-            <input
-              type="checkbox"
-              checked={formData.isEmergencyContact}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  isEmergencyContact: event.target.checked,
-                })
-              }
-              className="h-4 w-4"
-            />
-            <div>
-              <p className="text-sm font-semibold text-neutral-800">
-                Đánh dấu là liên hệ khẩn cấp
-              </p>
-              <p className="text-xs text-neutral-500">
-                Dùng khi cần liên hệ nhanh với gia đình/người giám hộ.
-              </p>
-            </div>
-          </label>
-
           <div>
-            <Label htmlFor="note">Ghi chú</Label>
+            <Label htmlFor="notes">Ghi chú</Label>
             <Textarea
-              id="note"
-              value={formData.note}
+              id="notes"
+              value={formData.notes}
               onChange={(event) =>
                 setFormData({
                   ...formData,
-                  note: event.target.value,
+                  notes: event.target.value,
                 })
               }
               placeholder="Ghi chú thêm nếu có"
@@ -900,113 +888,14 @@ function ParentContactFormModal({
 
             <button
               type="submit"
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+              disabled={isSubmitting}
+              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Lưu mock UI
+              {isSubmitting ? "Đang lưu..." : "Lưu liên hệ"}
             </button>
           </div>
         </form>
       </div>
-    </div>
-  );
-}
-
-function ParentContactDetailModal({
-  contact,
-  onClose,
-  onEdit,
-}: {
-  contact: ParentContact;
-  onClose: () => void;
-  onEdit: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
-          <div>
-            <p className="text-sm font-semibold text-blue-600">
-              Chi tiết liên hệ gia đình
-            </p>
-            <h2 className="text-xl font-bold text-neutral-900">
-              {contact.contactName}
-            </h2>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 transition hover:bg-neutral-100"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4 p-6">
-          <div className="rounded-2xl bg-neutral-50 p-5">
-            <p className="text-sm text-neutral-500">Học viên</p>
-            <p className="mt-1 text-lg font-bold text-neutral-900">
-              {contact.residentName}
-            </p>
-            <p className="text-sm text-neutral-500">{contact.residentCode}</p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <InfoBlock label="Người liên hệ" value={contact.contactName} />
-            <InfoBlock label="Quan hệ" value={contact.relationship} />
-            <InfoBlock label="Số điện thoại" value={contact.phone} />
-            <InfoBlock
-              label="Số phụ"
-              value={contact.backupPhone || "Không có"}
-            />
-          </div>
-
-          <InfoBlock label="Địa chỉ gia đình" value={contact.address} />
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <InfoBlock
-              label="Liên hệ chính"
-              value={contact.isPrimaryContact ? "Có" : "Không"}
-            />
-
-            <InfoBlock
-              label="Liên hệ khẩn cấp"
-              value={contact.isEmergencyContact ? "Có" : "Không"}
-            />
-          </div>
-
-          <InfoBlock label="Ghi chú" value={contact.note || "Không có"} />
-
-          <div className="flex justify-end gap-3 border-t border-neutral-200 pt-5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
-            >
-              Đóng
-            </button>
-
-            <button
-              type="button"
-              onClick={onEdit}
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              Sửa liên hệ
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InfoBlock({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-medium text-neutral-800">{value}</p>
     </div>
   );
 }

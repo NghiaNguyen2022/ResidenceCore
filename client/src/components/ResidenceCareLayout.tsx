@@ -58,13 +58,6 @@ function getItemStyle({
   hasChildren: boolean;
   active: boolean;
 }) {
-  /**
-   * Mục tiêu style:
-   * - Cấp 0: nhóm chính rõ, nhưng không quá xanh.
-   * - Cấp 1: nhóm con / màn hình cấp 2 dịu hơn.
-   * - Cấp 2 trở lên: màn hình chức năng nhỏ, sạch, không dùng block xanh lớn.
-   */
-
   if (depth === 0) {
     return [
       "group relative flex w-full items-center justify-between rounded-xl px-4 py-3 transition-all",
@@ -125,7 +118,11 @@ function getChildContainerStyle(depth: number) {
   return "ml-4 mt-1 space-y-1 border-l border-slate-700/50 pl-3";
 }
 
-export function ResidenceCareLayout({ children }: { children: React.ReactNode }) {
+export function ResidenceCareLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<OpenMenusState>({});
 
@@ -226,7 +223,7 @@ export function ResidenceCareLayout({ children }: { children: React.ReactNode })
 
     if (hasChildren) {
       return (
-        <div key={itemKey} className={depth === 0 ? "space-y-1" : "space-y-1"}>
+        <div key={itemKey} className="space-y-1">
           <button
             type="button"
             onClick={() => toggleMenu(itemKey)}
@@ -273,44 +270,44 @@ export function ResidenceCareLayout({ children }: { children: React.ReactNode })
     }
 
     return (
-      <Link key={itemKey} href={item.path || "#"}>
-        <a
-          onClick={() => {
-            if (isMobile) {
-              setSidebarOpen(false);
-            }
-          }}
-          className={itemClassName}
-        >
-          {renderActiveMarker({
-            active: exactActive,
-            depth,
-            hasChildren: false,
-          })}
+      <Link
+        key={itemKey}
+        href={item.path || "#"}
+        onClick={() => {
+          if (isMobile) {
+            setSidebarOpen(false);
+          }
+        }}
+        className={itemClassName}
+      >
+        {renderActiveMarker({
+          active: exactActive,
+          depth,
+          hasChildren: false,
+        })}
 
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            {depth >= 2 ? (
-              <span
-                className={[
-                  "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
-                  exactActive ? "bg-sky-400" : "bg-slate-600",
-                ].join(" ")}
-              />
-            ) : (
-              <span className={`${iconClassName} shrink-0 opacity-90`}>
-                {item.icon}
-              </span>
-            )}
-
-            <span className={`truncate ${textClassName}`}>{item.label}</span>
-
-            {renderBadge(item.badge)}
-          </div>
-
-          {exactActive && depth < 2 && (
-            <ChevronRight className="ml-2 h-4 w-4 flex-shrink-0 text-sky-300" />
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          {depth >= 2 ? (
+            <span
+              className={[
+                "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+                exactActive ? "bg-sky-400" : "bg-slate-600",
+              ].join(" ")}
+            />
+          ) : (
+            <span className={`${iconClassName} shrink-0 opacity-90`}>
+              {item.icon}
+            </span>
           )}
-        </a>
+
+          <span className={`truncate ${textClassName}`}>{item.label}</span>
+
+          {renderBadge(item.badge)}
+        </div>
+
+        {exactActive && depth < 2 && (
+          <ChevronRight className="ml-2 h-4 w-4 flex-shrink-0 text-sky-300" />
+        )}
       </Link>
     );
   };
@@ -333,7 +330,6 @@ export function ResidenceCareLayout({ children }: { children: React.ReactNode })
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Desktop User Info */}
           <div className="hidden items-center gap-3 md:flex">
             <div className="text-right">
               <p className="text-sm font-medium text-slate-900">
@@ -347,7 +343,6 @@ export function ResidenceCareLayout({ children }: { children: React.ReactNode })
             </div>
           </div>
 
-          {/* Logout Button */}
           <button
             type="button"
             onClick={logout}
@@ -359,7 +354,6 @@ export function ResidenceCareLayout({ children }: { children: React.ReactNode })
             </span>
           </button>
 
-          {/* Mobile Menu Button */}
           <button
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -380,7 +374,6 @@ export function ResidenceCareLayout({ children }: { children: React.ReactNode })
           {navigationItems.map((item) => renderNavigationItem(item))}
         </nav>
 
-        {/* User Section - Desktop Sidebar */}
         <div className="border-t border-slate-800 px-4 py-5">
           <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-sky-500 font-bold text-white shadow-sm">
@@ -423,7 +416,6 @@ export function ResidenceCareLayout({ children }: { children: React.ReactNode })
           )}
         </nav>
 
-        {/* User Section - Mobile Sidebar */}
         <div className="border-t border-slate-800 px-4 py-5">
           <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-sky-500 font-bold text-white shadow-sm">
