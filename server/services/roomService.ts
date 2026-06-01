@@ -81,6 +81,7 @@ export class RoomService {
   async assignResident(payload: {
     residentId: number;
     roomId: number;
+    assignedDate?: Date;
     eventType: RoomAssignmentEventType;
     reason?: string;
   }) {
@@ -90,17 +91,16 @@ export class RoomService {
       throw new Error("Resident not found");
     }
 
+    const processDate = payload.assignedDate
+      ? new Date(payload.assignedDate)
+      : new Date();
+
     const currentAssignment = await db.getCurrentRoomAssignmentByResident(
       payload.residentId
     );
 
     const hasCurrentRoom = Boolean(currentAssignment);
 
-    /**
-     * Rule nghiệp vụ:
-     * - Chưa có phòng: chỉ được gán phòng mới / nhập lưu trú.
-     * - Đã có phòng: chỉ được chuyển phòng hoặc trả phòng.
-     */
     if (!hasCurrentRoom && payload.eventType !== "new_entry") {
       throw new Error(
         "Học viên chưa có phòng, chỉ được gán phòng mới / nhập lưu trú."
@@ -113,26 +113,17 @@ export class RoomService {
       );
     }
 
-    /**
-     * Trả phòng:
-     * - Không insert assignment mới.
-     * - Chỉ đóng assignment hiện tại bằng unassignedDate.
-     * - roomId truyền lên dùng để xác định phòng hiện tại từ FE, nhưng nghiệp vụ
-     *   thực tế lấy currentAssignment làm chuẩn.
-     */
     if (payload.eventType === "left") {
       if (!currentAssignment) {
         throw new Error("Không tìm thấy phòng hiện tại để trả phòng.");
       }
 
-      await db.closeCurrentRoomAssignment(currentAssignment.id, new Date());
+      await db.closeCurrentRoomAssignment(currentAssignment.id, processDate);
+      await db.updateResidentCurrentRoom(payload.residentId, null);
 
       return { success: true } as const;
     }
 
-    /**
-     * Với gán mới / chuyển phòng thì cần kiểm tra phòng đích.
-     */
     const room = await db.getRoomById(payload.roomId);
 
     if (!room) {
@@ -154,22 +145,19 @@ export class RoomService {
       throw new Error("Phòng đã đủ sức chứa, vui lòng chọn phòng khác.");
     }
 
-    /**
-     * Chuyển phòng:
-     * - Đóng assignment cũ.
-     * - Insert assignment mới cho phòng chuyển đến.
-     */
     if (payload.eventType === "transfer" && currentAssignment) {
-      await db.closeCurrentRoomAssignment(currentAssignment.id, new Date());
+      await db.closeCurrentRoomAssignment(currentAssignment.id, processDate);
     }
 
     await db.assignResidentToRoom({
       residentId: payload.residentId,
       roomId: payload.roomId,
-      assignedDate: new Date(),
+      assignedDate: processDate,
       eventType: payload.eventType,
       reason: payload.reason,
     });
+
+    await db.updateResidentCurrentRoom(payload.residentId, payload.roomId);
 
     return { success: true } as const;
   }

@@ -3,7 +3,6 @@ import { getDb } from "./connection";
 import { and, count, desc, eq, isNull, like } from "drizzle-orm";
 
 import {
-  dutyAssignments,
   InsertRoom,
   InsertRoomAssignment,
   InsertRoomLeader,
@@ -36,26 +35,32 @@ export async function getRooms(filters?: {
 }) {
   const db = getDb();
 
-  let query = db.select().from(rooms);
+  let query: any = db.select().from(rooms);
 
-  if (filters?.search) {
-    query = query.where(like(rooms.roomCode, `%${filters.search}%`)) as any;
+  const conditions = [];
+
+  if (filters?.search?.trim()) {
+    conditions.push(like(rooms.roomCode, `%${filters.search.trim()}%`));
   }
 
   if (filters?.capacity) {
-    query = query.where(eq(rooms.capacity, filters.capacity)) as any;
+    conditions.push(eq(rooms.capacity, filters.capacity));
   }
 
   if (filters?.groupId) {
-    query = query.where(eq(rooms.groupId, filters.groupId)) as any;
+    conditions.push(eq(rooms.groupId, filters.groupId));
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions));
   }
 
   if (filters?.limit) {
-    query = query.limit(filters.limit) as any;
+    query = query.limit(filters.limit);
   }
 
   if (filters?.offset) {
-    query = query.offset(filters.offset) as any;
+    query = query.offset(filters.offset);
   }
 
   return await query;
@@ -125,10 +130,6 @@ export async function assignResidentToRoom(data: InsertRoomAssignment) {
   return await db.insert(roomAssignments).values(data);
 }
 
-/**
- * Lấy assignment phòng hiện tại của một học viên.
- * Hiện tại = assignment chưa có unassignedDate.
- */
 export async function getCurrentRoomAssignmentByResident(residentId: number) {
   const db = getDb();
 
@@ -146,9 +147,6 @@ export async function getCurrentRoomAssignmentByResident(residentId: number) {
   return result.length > 0 ? result[0] : null;
 }
 
-/**
- * Đóng assignment phòng hiện tại khi học viên chuyển/trả phòng.
- */
 export async function closeCurrentRoomAssignment(
   assignmentId: number,
   unassignedDate: Date
@@ -161,6 +159,21 @@ export async function closeCurrentRoomAssignment(
       unassignedDate,
     })
     .where(eq(roomAssignments.id, assignmentId));
+}
+
+export async function updateResidentCurrentRoom(
+  residentId: number,
+  roomId: number | null
+) {
+  const db = getDb();
+
+  return await db
+    .update(residents)
+    .set({
+      currentRoomId: roomId,
+      updatedAt: new Date(),
+    })
+    .where(eq(residents.id, residentId));
 }
 
 export async function getRoomAssignmentHistory(residentId: number) {

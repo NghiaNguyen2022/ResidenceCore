@@ -1,18 +1,21 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../../_core/trpc";
 import { TRPCError } from "@trpc/server";
+
+import { router, protectedProcedure } from "../../_core/trpc";
 import { roomService } from "../../services/roomService";
 
 export const roomsRouter = router({
   list: protectedProcedure
     .input(
-      z.object({
-        search: z.string().optional(),
-        capacity: z.number().optional(),
-        groupId: z.number().optional(),
-        limit: z.number().default(50),
-        offset: z.number().default(0),
-      }).optional()
+      z
+        .object({
+          search: z.string().optional(),
+          capacity: z.number().optional(),
+          groupId: z.number().optional(),
+          limit: z.number().default(50),
+          offset: z.number().default(0),
+        })
+        .optional()
     )
     .query(async ({ input }) => {
       try {
@@ -25,6 +28,7 @@ export const roomsRouter = router({
         });
       } catch (error) {
         console.error("[rooms.list] Error:", error);
+
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch rooms",
@@ -39,9 +43,14 @@ export const roomsRouter = router({
         return await roomService.getRoomById(input.id);
       } catch (error) {
         console.error("[rooms.getById] Error:", error);
+
         if (error instanceof Error && error.message === "Room not found") {
-          throw new TRPCError({ code: "NOT_FOUND", message: error.message });
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: error.message,
+          });
         }
+
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch room details",
@@ -63,9 +72,11 @@ export const roomsRouter = router({
         return await roomService.createRoom(input);
       } catch (error) {
         console.error("[rooms.create] Error:", error);
+
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: error instanceof Error ? error.message : "Failed to create room",
+          message:
+            error instanceof Error ? error.message : "Failed to create room",
         });
       }
     }),
@@ -82,15 +93,22 @@ export const roomsRouter = router({
     .mutation(async ({ input }) => {
       try {
         const { id, ...updateData } = input;
+
         return await roomService.updateRoom(id, updateData);
       } catch (error) {
         console.error("[rooms.update] Error:", error);
+
         if (error instanceof Error && error.message === "Room not found") {
-          throw new TRPCError({ code: "NOT_FOUND", message: error.message });
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: error.message,
+          });
         }
+
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: error instanceof Error ? error.message : "Failed to update room",
+          message:
+            error instanceof Error ? error.message : "Failed to update room",
         });
       }
     }),
@@ -102,9 +120,11 @@ export const roomsRouter = router({
         return await roomService.deleteRoom(input.id);
       } catch (error) {
         console.error("[rooms.delete] Error:", error);
+
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: error instanceof Error ? error.message : "Failed to delete room",
+          message:
+            error instanceof Error ? error.message : "Failed to delete room",
         });
       }
     }),
@@ -114,6 +134,7 @@ export const roomsRouter = router({
       return await roomService.getStats();
     } catch (error) {
       console.error("[rooms.getStats] Error:", error);
+
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to fetch stats",
@@ -128,6 +149,7 @@ export const roomsRouter = router({
         return await roomService.getResidents(input.roomId);
       } catch (error) {
         console.error("[rooms.getResidents] Error:", error);
+
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch room residents",
@@ -140,7 +162,10 @@ export const roomsRouter = router({
       z.object({
         residentId: z.number(),
         roomId: z.number(),
-        eventType: z.enum(["new_entry", "transfer", "temporary_leave", "left"]).default("new_entry"),
+        assignedDate: z.date().optional(),
+        eventType: z
+          .enum(["new_entry", "transfer", "temporary_leave", "left"])
+          .default("new_entry"),
         reason: z.string().optional(),
       })
     )
@@ -149,9 +174,11 @@ export const roomsRouter = router({
         return await roomService.assignResident(input);
       } catch (error) {
         console.error("[rooms.assignResident] Error:", error);
+
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: error instanceof Error ? error.message : "Failed to assign resident",
+          message:
+            error instanceof Error ? error.message : "Failed to assign resident",
         });
       }
     }),
@@ -169,9 +196,11 @@ export const roomsRouter = router({
         return await roomService.appointLeader(input);
       } catch (error) {
         console.error("[rooms.appointLeader] Error:", error);
+
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: error instanceof Error ? error.message : "Failed to appoint leader",
+          message:
+            error instanceof Error ? error.message : "Failed to appoint leader",
         });
       }
     }),
@@ -183,6 +212,7 @@ export const roomsRouter = router({
         return await roomService.getLeader(input.roomId);
       } catch (error) {
         console.error("[rooms.getLeader] Error:", error);
+
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch room leader",
@@ -197,6 +227,7 @@ export const roomsRouter = router({
         return await roomService.getLeaderHistory(input.roomId);
       } catch (error) {
         console.error("[rooms.getLeaderHistory] Error:", error);
+
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch leader history",

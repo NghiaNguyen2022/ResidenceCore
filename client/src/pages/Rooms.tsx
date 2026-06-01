@@ -2,15 +2,15 @@
  * ============================================
  * ROOMS PAGE
  * ============================================
- * Quản Lý Phòng - Danh sách phòng, thêm/sửa/xóa
+ * Quản lý phòng - danh sách phòng, thêm/sửa/xóa
  * File: client/src/pages/Rooms.tsx
  */
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "wouter";
+
 import { ResidenceCareLayout } from "../components/ResidenceCareLayout";
 import { RoomFormFields } from "../components/forms/RoomFormFields";
 import { Form } from "@/components/ui/form";
@@ -20,26 +20,62 @@ interface Room {
   id: number;
   roomCode: string;
   capacity: number;
-  currentOccupancy: number;
-  available: number;
-  isFull: boolean;
-  leader: {
-    id: number;
-    residentId: number;
-    residentCode: string;
-    fullName: string;
-    appointedDate: string;
-  } | null;
-  group: {
-    id: number;
-    groupCode: string;
-    groupName: string;
-  } | null;
+  currentOccupancy?: number;
+  residentsCount?: number;
+  residentCount?: number;
+  occupied?: number;
+  currentResidents?: number;
+  available?: number;
+  isFull?: boolean;
+  leader:
+    | {
+        id: number;
+        residentId: number;
+        residentCode: string;
+        fullName: string;
+        appointedDate: string;
+      }
+    | null;
+  group:
+    | {
+        id: number;
+        groupCode: string;
+        groupName: string;
+      }
+    | null;
   notes: string | null;
 }
 
 interface RoomsStats {
   totalRooms: number;
+}
+
+function getRoomCurrentOccupancy(room: Room | any) {
+  return Number(
+    room.currentOccupancy ??
+      room.residentsCount ??
+      room.residentCount ??
+      room.occupied ??
+      room.currentResidents ??
+      0
+  );
+}
+
+function getRoomAvailableSlots(room: Room | any) {
+  const capacity = Number(room.capacity || 0);
+  const occupied = getRoomCurrentOccupancy(room);
+
+  if (!capacity) return 0;
+
+  return Math.max(capacity - occupied, 0);
+}
+
+function isRoomFull(room: Room | any) {
+  const capacity = Number(room.capacity || 0);
+
+  if (!capacity) return false;
+
+  return getRoomCurrentOccupancy(room) >= capacity;
 }
 
 /**
@@ -59,13 +95,20 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="stat-card">
-      <div className="stat-card-header">
-        <span className={`stat-card-icon ${color}`}>{icon}</span>
-        <h3 className="stat-card-title">{title}</h3>
+    <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-neutral-500">{title}</p>
+          <p className="mt-2 text-3xl font-bold text-neutral-900">{value}</p>
+          {subtitle && <p className="mt-1 text-xs text-neutral-500">{subtitle}</p>}
+        </div>
+
+        <div
+          className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl ${color}`}
+        >
+          {icon}
+        </div>
       </div>
-      <div className="stat-card-value">{value}</div>
-      {subtitle && <div className="stat-card-description">{subtitle}</div>}
     </div>
   );
 }
@@ -82,7 +125,6 @@ export default function Rooms() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
 
-  // tRPC queries
   const roomsListQuery = trpc.rooms.list.useQuery({
     search: search || undefined,
     capacity: capacity ? Number(capacity) : undefined,
@@ -90,16 +132,17 @@ export default function Rooms() {
 
   const roomsStatsQuery = trpc.rooms.getStats.useQuery();
 
-  // Load data
   useEffect(() => {
     if (roomsListQuery.data) {
-      setRooms(roomsListQuery.data);
+      setRooms(roomsListQuery.data as Room[]);
     }
   }, [roomsListQuery.data]);
 
   useEffect(() => {
     if (roomsStatsQuery.data) {
-      setStats({ totalRooms: roomsStatsQuery.data.total });
+      setStats({
+        totalRooms: roomsStatsQuery.data.total,
+      });
     }
   }, [roomsStatsQuery.data]);
 
@@ -107,7 +150,28 @@ export default function Rooms() {
     setLoading(roomsListQuery.isLoading || roomsStatsQuery.isLoading);
   }, [roomsListQuery.isLoading, roomsStatsQuery.isLoading]);
 
-  // Delete room
+  const summary = useMemo(() => {
+    const totalCapacity = rooms.reduce(
+      (sum, room) => sum + Number(room.capacity || 0),
+      0
+    );
+
+    const totalOccupied = rooms.reduce(
+      (sum, room) => sum + getRoomCurrentOccupancy(room),
+      0
+    );
+
+    const totalAvailable = Math.max(totalCapacity - totalOccupied, 0);
+    const fullRooms = rooms.filter((room) => isRoomFull(room)).length;
+
+    return {
+      totalCapacity,
+      totalOccupied,
+      totalAvailable,
+      fullRooms,
+    };
+  }, [rooms]);
+
   const deleteRoomMutation = trpc.rooms.delete.useMutation();
 
   const handleDeleteRoom = async (roomId: number) => {
@@ -126,83 +190,99 @@ export default function Rooms() {
 
   return (
     <ResidenceCareLayout>
-      <div className="px-6 py-8 max-w-7xl mx-auto w-full">
+      <div className="space-y-6 p-6">
         {/* Page Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-display-lg text-neutral-900 mb-2">Quản Lý Phòng</h1>
-            <p className="text-body-md text-neutral-600">
-              Quản lý thông tin phòng lưu trú, danh sách học viên, trưởng phòng
+            <p className="text-sm font-semibold text-blue-600">
+              Quản lý lưu trú
+            </p>
+
+            <h1 className="mt-1 text-3xl font-bold text-neutral-900">
+              Quản lý phòng
+            </h1>
+
+            <p className="mt-2 max-w-3xl text-sm text-neutral-500">
+              Quản lý thông tin phòng lưu trú, sức chứa, số học viên hiện tại,
+              trưởng phòng và tổ phòng.
             </p>
           </div>
+
           <button
+            type="button"
             onClick={() => {
               setEditingRoom(null);
               setShowAddForm(true);
             }}
-            className="btn-primary"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
           >
-            + Thêm Phòng
+            + Thêm phòng
           </button>
         </div>
 
         {/* Stats Cards */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
-              title="Tổng Phòng"
+              title="Tổng phòng"
               value={stats.totalRooms}
-              subtitle="Số lượng phòng đang quản lý"
-              icon="🏠"
-              color="bg-blue-100"
+              subtitle="Tổng số phòng trong hệ thống"
+              icon="🏢"
+              color="bg-blue-50 text-blue-600"
             />
+
             <StatCard
-              title="Chỗ Có Sẵn"
-              value="N/A"
-              subtitle="Chưa có dữ liệu thống kê"
-              icon="✓"
-              color="bg-green-100"
+              title="Tổng sức chứa"
+              value={summary.totalCapacity}
+              subtitle="Tổng số chỗ tối đa"
+              icon="🛏️"
+              color="bg-green-50 text-green-600"
             />
+
             <StatCard
-              title="Phòng Đầy"
-              value="N/A"
-              subtitle="Chưa có dữ liệu thống kê"
-              icon="⚠️"
-              color="bg-orange-100"
+              title="Đang ở"
+              value={summary.totalOccupied}
+              subtitle="Số học viên đang có phòng"
+              icon="👥"
+              color="bg-purple-50 text-purple-600"
             />
+
             <StatCard
-              title="Tỷ Lệ Chiếm Dụng"
-              value="N/A"
-              subtitle="Chưa có dữ liệu thống kê"
-              icon="📊"
-              color="bg-purple-100"
+              title="Còn trống"
+              value={summary.totalAvailable}
+              subtitle={`${summary.fullRooms} phòng đã đầy`}
+              icon="✅"
+              color="bg-orange-50 text-orange-600"
             />
           </div>
         )}
 
         {/* Search & Filter */}
-        <div className="card-elevated mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_220px_auto]">
             <div>
-              <label className="block text-body-sm text-neutral-700 mb-2">
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
                 Tìm kiếm mã phòng
               </label>
               <input
                 type="text"
-                placeholder="VD: A101, B201..."
+                placeholder="Nhập mã phòng..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="input-field"
+                onChange={(event) => setSearch(event.target.value)}
+                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
+
             <div>
-              <label className="block text-body-sm text-neutral-700 mb-2">
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
                 Lọc theo sức chứa
               </label>
               <select
                 value={capacity}
-                onChange={(e) => setCapacity(e.target.value ? Number(e.target.value) : "")}
-                className="input-field"
+                onChange={(event) =>
+                  setCapacity(event.target.value ? Number(event.target.value) : "")
+                }
+                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               >
                 <option value="">Tất cả</option>
                 <option value="4">4 chỗ</option>
@@ -211,134 +291,179 @@ export default function Rooms() {
                 <option value="12">12 chỗ</option>
               </select>
             </div>
+
             <div className="flex items-end">
               <button
+                type="button"
                 onClick={() => {
                   setSearch("");
                   setCapacity("");
                 }}
-                className="btn-secondary w-full"
+                className="h-10 rounded-md border border-neutral-300 px-4 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
               >
-                Xóa Bộ Lọc
+                Xóa bộ lọc
               </button>
             </div>
           </div>
         </div>
 
         {/* Rooms Table */}
-        <div className="card-elevated overflow-x-auto">
-          {loading ? (
-            <div className="p-8 text-center text-neutral-600">
-              Đang tải dữ liệu...
-            </div>
-          ) : rooms.length === 0 ? (
-            <div className="p-8 text-center text-neutral-600">
-              Không có phòng nào
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-neutral-200">
-                  <th className="px-6 py-4 text-left text-body-sm font-semibold text-neutral-900">
-                    Mã Phòng
-                  </th>
-                  <th className="px-6 py-4 text-left text-body-sm font-semibold text-neutral-900">
-                    Sức Chứa
-                  </th>
-                  <th className="px-6 py-4 text-left text-body-sm font-semibold text-neutral-900">
-                    Hiện Tại / Sức Chứa
-                  </th>
-                  <th className="px-6 py-4 text-left text-body-sm font-semibold text-neutral-900">
-                    Trưởng Phòng
-                  </th>
-                  <th className="px-6 py-4 text-left text-body-sm font-semibold text-neutral-900">
-                    Tổ
-                  </th>
-                  <th className="px-6 py-4 text-left text-body-sm font-semibold text-neutral-900">
-                    Hành Động
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rooms.map((room) => (
-                  <tr
-                    key={room.id}
-                    className="border-b border-neutral-100 hover:bg-neutral-50 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <span className="font-semibold text-neutral-900">
-                        {room.roomCode}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-body-md text-neutral-700">
-                      {room.capacity} chỗ
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-3 py-1 rounded-full text-body-sm font-medium ${
-                            room.isFull
-                              ? "bg-red-100 text-red-700"
-                              : "bg-green-100 text-green-700"
-                          }`}
-                        >
-                          {room.currentOccupancy}/{room.capacity}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-body-md text-neutral-700">
-                      {room.leader ? (
-                        <div>
-                          <div className="font-medium">{room.leader.fullName}</div>
-                          <div className="text-body-sm text-neutral-600">
-                            {room.leader.residentCode}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-neutral-500">Chưa có</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-body-md text-neutral-700">
-                      {room.group ? (
-                        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-body-sm">
-                          {room.group.groupName}
-                        </span>
-                      ) : (
-                        <span className="text-neutral-500">-</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Link to={`/rooms/${room.id}`}>
-                          <button className="btn-ghost-sm">
-                            👁️ Xem
-                          </button>
-                        </Link>
-                        <button
-                          onClick={() => {
-                            setEditingRoom(room);
-                            setShowAddForm(true);
-                          }}
-                          className="btn-ghost-sm"
-                        >
-                          ✏️ Sửa
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRoom(room.id)}
-                          className="btn-danger-sm"
-                        >
-                          🗑️ Xóa
-                        </button>
-                      </div>
-                    </td>
+        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+          <div className="border-b border-neutral-200 px-5 py-4">
+            <h2 className="text-lg font-bold text-neutral-900">
+              Danh sách phòng
+            </h2>
+            <p className="text-sm text-neutral-500">
+              {rooms.length} phòng đang hiển thị
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="p-10 text-center text-sm text-neutral-500">
+                Đang tải dữ liệu...
+              </div>
+            ) : rooms.length === 0 ? (
+              <div className="p-10 text-center">
+                <p className="font-semibold text-neutral-900">
+                  Không có phòng nào
+                </p>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Thử thay đổi bộ lọc hoặc thêm phòng mới.
+                </p>
+              </div>
+            ) : (
+              <table className="w-full min-w-[980px]">
+                <thead className="bg-neutral-50">
+                  <tr>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Mã phòng
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Sức chứa
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Hiện tại / Sức chứa
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Còn trống
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Trưởng phòng
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Tổ
+                    </th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Hành động
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                </thead>
+
+                <tbody className="divide-y divide-neutral-100">
+                  {rooms.map((room) => {
+                    const occupied = getRoomCurrentOccupancy(room);
+                    const available = getRoomAvailableSlots(room);
+                    const full = isRoomFull(room);
+
+                    return (
+                      <tr key={room.id} className="transition hover:bg-neutral-50">
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-neutral-900">
+                            {room.roomCode}
+                          </p>
+                          {room.notes && (
+                            <p className="mt-1 text-xs text-neutral-500">
+                              {room.notes}
+                            </p>
+                          )}
+                        </td>
+
+                        <td className="px-5 py-4 text-sm text-neutral-700">
+                          {room.capacity} chỗ
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
+                              full
+                                ? "bg-red-50 text-red-700"
+                                : "bg-green-50 text-green-700"
+                            }`}
+                          >
+                            {occupied}/{room.capacity}
+                          </span>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
+                              full
+                                ? "bg-red-50 text-red-700"
+                                : "bg-blue-50 text-blue-700"
+                            }`}
+                          >
+                            {full ? "Đã đầy" : `Còn ${available}`}
+                          </span>
+                        </td>
+
+                        <td className="px-5 py-4 text-sm text-neutral-700">
+                          {room.leader ? (
+                            <div>
+                              <p className="font-medium text-neutral-900">
+                                {room.leader.fullName}
+                              </p>
+                              <p className="text-xs text-neutral-500">
+                                {room.leader.residentCode}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-neutral-500">Chưa có</span>
+                          )}
+                        </td>
+
+                        <td className="px-5 py-4 text-sm text-neutral-700">
+                          {room.group ? room.group.groupName : "-"}
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              className="rounded-lg px-2 py-1 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
+                            >
+                              👁️ Xem
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingRoom(room);
+                                setShowAddForm(true);
+                              }}
+                              className="rounded-lg px-2 py-1 text-sm font-medium text-blue-700 transition hover:bg-blue-50"
+                            >
+                              ✏️ Sửa
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRoom(room.id)}
+                              className="rounded-lg px-2 py-1 text-sm font-medium text-red-700 transition hover:bg-red-50"
+                            >
+                              🗑️ Xóa
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
-        {/* Add/Edit Form Modal */}
         {showAddForm && (
           <AddRoomModal
             room={editingRoom}
@@ -378,6 +503,7 @@ function AddRoomModal({
       if (value === "" || value === undefined || value === null) {
         return undefined;
       }
+
       return Number(value);
     }, z.number().optional()),
     notes: z.string().optional(),
@@ -416,6 +542,7 @@ function AddRoomModal({
           groupId: data.groupId,
           notes: data.notes,
         });
+
         alert("Cập nhật phòng thành công");
         onSuccess();
       } else {
@@ -425,6 +552,7 @@ function AddRoomModal({
           groupId: data.groupId,
           notes: data.notes,
         });
+
         alert("Tạo phòng thành công");
         onSuccess();
       }
@@ -449,30 +577,61 @@ function AddRoomModal({
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
-        <h2 className="text-display-md text-neutral-900 mb-6">
-          {room ? "Sửa Phòng" : "Thêm Phòng Mới"}
-        </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
+          <div>
+            <h2 className="text-xl font-bold text-neutral-900">
+              {room ? "Sửa phòng" : "Thêm phòng mới"}
+            </h2>
+            <p className="text-sm text-neutral-500">
+              Sức chứa là số chỗ tối đa, không tự giảm khi có học viên vào phòng.
+            </p>
+          </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <RoomFormFields
-              control={form.control}
-              capacityOptions={capacityOptions}
-              groupOptions={groupOptions}
-            />
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 transition hover:bg-neutral-100"
+          >
+            ✕
+          </button>
+        </div>
 
-            <div className="flex gap-3 pt-4">
-              <button type="button" onClick={onClose} className="btn-secondary flex-1">
-                Hủy
-              </button>
-              <button type="submit" className="btn-primary flex-1" disabled={createRoomMutation.isPending || updateRoomMutation.isPending}>
-                {createRoomMutation.isPending || updateRoomMutation.isPending ? "Đang xử lý..." : "Lưu"}
-              </button>
-            </div>
-          </form>
-        </Form>
+        <div className="p-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <RoomFormFields
+                form={form}
+                capacityOptions={capacityOptions}
+                groupOptions={groupOptions}
+                disabledRoomCode={Boolean(room)}
+              />
+
+              <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                >
+                  Hủy
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    createRoomMutation.isPending || updateRoomMutation.isPending
+                  }
+                  className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {createRoomMutation.isPending || updateRoomMutation.isPending
+                    ? "Đang xử lý..."
+                    : "Lưu"}
+                </button>
+              </div>
+            </form>
+          </Form>
+        </div>
       </div>
     </div>
   );
