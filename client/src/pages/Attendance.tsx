@@ -1,218 +1,745 @@
-import { useState } from "react";
-import { trpc } from "@/lib/trpc";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, CheckCircle, XCircle, Clock } from "lucide-react";
-import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { toast } from "sonner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+'use client';
 
-const attendanceSchema = z.object({
-  residentId: z.number(),
-  status: z.enum(["present", "absent", "excused", "late"]),
-  notes: z.string().optional(),
-});
+import { useMemo, useState } from 'react';
+import {
+      AlertCircle,
+      CalendarDays,
+      CheckCircle2,
+      Clock3,
+      ClipboardCheck,
+      Edit2,
+      Search,
+      UserCheck,
+      UserMinus,
+      UserX,
+      Users,
+      X,
+} from 'lucide-react';
 
-type AttendanceFormData = z.infer<typeof attendanceSchema>;
+import { trpc } from '@/lib/trpc';
+import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ConfigurableStatCard } from '@/components/configurable/ConfigurableStatCard';
+import {
+      ConfigurableColumn,
+      ConfigurableDataTable,
+} from '@/components/configurable/ConfigurableDataTable';
+
+type AttendanceSessionType =
+      | 'daily_routine'
+      | 'evening_study'
+      | 'liturgy'
+      | 'community'
+      | 'duty'
+      | 'other';
+
+type AttendanceStatus = 'present' | 'late' | 'excused' | 'absent';
+
+type Resident = {
+      id: number;
+      residentCode?: string | null;
+      code?: string | null;
+      fullName?: string | null;
+      name?: string | null;
+      gender?: string | null;
+      phone?: string | null;
+      status?: string | null;
+      roomId?: number | null;
+      roomCode?: string | null;
+      roomName?: string | null;
+};
+
+type AttendanceRecord = {
+      residentId: number;
+      status: AttendanceStatus;
+      note: string;
+      checkedAt?: string | null;
+};
+
+type AttendanceRow = {
+      resident: Resident;
+      record: AttendanceRecord;
+};
+
+type QuickStatusOption = {
+      status: AttendanceStatus;
+      label: string;
+      shortLabel: string;
+      className: string;
+};
+
+const statusOptions: QuickStatusOption[] = [
+      {
+            status: 'present',
+            label: 'Có mặt',
+            shortLabel: 'Có mặt',
+            className: 'border-green-200 bg-green-50 text-green-700',
+      },
+      {
+            status: 'late',
+            label: 'Đi trễ',
+            shortLabel: 'Trễ',
+            className: 'border-amber-200 bg-amber-50 text-amber-700',
+      },
+      {
+            status: 'excused',
+            label: 'Vắng phép',
+            shortLabel: 'Phép',
+            className: 'border-blue-200 bg-blue-50 text-blue-700',
+      },
+      {
+            status: 'absent',
+            label: 'Vắng không phép',
+            shortLabel: 'Vắng',
+            className: 'border-red-200 bg-red-50 text-red-700',
+      },
+];
+
+function getTodayDateString() {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+
+      return `${year}-${month}-${day}`;
+}
+
+function normalizeText(value?: string | null) {
+      return (value || '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ');
+}
+
+function getResidentName(resident: Resident) {
+      return resident.fullName || resident.name || 'Chưa có tên';
+}
+
+function getResidentCode(resident: Resident) {
+      return resident.residentCode || resident.code || '';
+}
+
+function getRoomLabel(resident: Resident) {
+      if (resident.roomCode && resident.roomName) {
+            return `${resident.roomCode} - ${resident.roomName}`;
+      }
+
+      if (resident.roomCode) return resident.roomCode;
+      if (resident.roomName) return resident.roomName;
+      if (resident.roomId) return `Phòng ${resident.roomId}`;
+
+      return 'Chưa có phòng';
+}
+
+function getSessionTypeLabel(value: AttendanceSessionType) {
+      if (value === 'daily_routine') return 'Sinh hoạt hằng ngày';
+      if (value === 'evening_study') return 'Giờ học buổi tối';
+      if (value === 'liturgy') return 'Đi lễ / Kinh tối';
+      if (value === 'community') return 'Sinh hoạt chung';
+      if (value === 'duty') return 'Công tác / Trực nhật';
+      return 'Khác';
+}
+
+function getStatusLabel(status: AttendanceStatus) {
+      return statusOptions.find((item) => item.status === status)?.label || status;
+}
+
+function getStatusClass(status: AttendanceStatus) {
+      return (
+            statusOptions.find((item) => item.status === status)?.className ||
+            'border-slate-200 bg-slate-50 text-slate-700'
+      );
+}
+
+function buildDefaultRecords(residents: Resident[]) {
+      const next: Record<number, AttendanceRecord> = {};
+
+      residents.forEach((resident) => {
+            next[resident.id] = {
+                  residentId: resident.id,
+                  status: 'present',
+                  note: '',
+                  checkedAt: null,
+            };
+      });
+
+      return next;
+}
+
+function isActiveResident(resident: Resident) {
+      const status = normalizeText(resident.status);
+
+      if (!status) return true;
+
+      return ![
+            'inactive',
+            'left',
+            'ended',
+            'archived',
+            'da roi',
+            'nghi',
+            'ngung',
+      ].includes(status);
+}
 
 export default function Attendance() {
-  const [open, setOpen] = useState(false);
-  const { data: attendance, isLoading, refetch } = trpc.attendance.getTodayAttendance.useQuery();
-  const { data: residents } = trpc.residents.list.useQuery({ limit: 100 });
-  const createMutation = trpc.attendance.recordAttendance.useMutation();
+      const [attendanceDate, setAttendanceDate] = useState(getTodayDateString());
+      const [sessionType, setSessionType] =
+            useState<AttendanceSessionType>('daily_routine');
+      const [searchTerm, setSearchTerm] = useState('');
+      const [statusFilter, setStatusFilter] = useState<'all' | AttendanceStatus>('all');
+      const [records, setRecords] = useState<Record<number, AttendanceRecord>>({});
+      const [editingRow, setEditingRow] = useState<AttendanceRow | null>(null);
+      const [noteDraft, setNoteDraft] = useState('');
+      const [error, setError] = useState<string | null>(null);
 
-  const form = useForm<AttendanceFormData>({
-    resolver: zodResolver(attendanceSchema),
-  });
-
-  const onSubmit = async (data: AttendanceFormData) => {
-    try {
-      await createMutation.mutateAsync({
-        residentId: data.residentId,
-        scheduleId: 1,
-        attendanceDate: new Date(),
-        status: data.status,
-        notes: data.notes,
+      const membersQuery = trpc.members.list.useQuery({
+            limit: 500,
+            offset: 0,
       });
-      toast.success("Ghi nhận điểm danh thành công");
-      form.reset();
-      setOpen(false);
-      refetch();
-    } catch (error) {
-      toast.error("Có lỗi xảy ra");
-    }
-  };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "present":
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case "absent":
-        return <XCircle className="w-5 h-5 text-red-600" />;
-      case "excused":
-        return <Clock className="w-5 h-5 text-blue-600" />;
-      case "late":
-        return <Clock className="w-5 h-5 text-amber-600" />;
-      default:
-        return null;
-    }
-  };
+      const residents = useMemo(() => {
+            const data = (membersQuery.data || []) as Resident[];
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "present":
-        return "Có mặt";
-      case "absent":
-        return "Vắng";
-      case "excused":
-        return "Xin phép";
-      case "late":
-        return "Muộn";
-      default:
-        return status;
-    }
-  };
+            return data
+                  .filter(isActiveResident)
+                  .sort((a, b) =>
+                        getResidentName(a).localeCompare(getResidentName(b), 'vi')
+                  );
+      }, [membersQuery.data]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "present":
-        return "bg-green-100 text-green-700";
-      case "absent":
-        return "bg-red-100 text-red-700";
-      case "excused":
-        return "bg-blue-100 text-blue-700";
-      case "late":
-        return "bg-amber-100 text-amber-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
+      const effectiveRecords = useMemo(() => {
+            const defaultRecords = buildDefaultRecords(residents);
 
-  return (
-    <ResidenceCareLayout>
-      <div className="p-6 md:p-8 space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <h1 className="font-serif-editorial text-5xl font-bold">Điểm danh</h1>
-            <p className="text-muted-foreground detail-text">Ghi nhận điểm danh hàng ngày</p>
-          </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="btn-primary gap-2">
-                <Plus className="w-4 h-4" />
-                Ghi nhận
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Ghi nhận điểm danh</DialogTitle>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="residentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cư dân</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn cư dân" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {residents?.map((resident) => (
-                              <SelectItem key={resident.id} value={resident.id.toString()}>
-                                {resident.fullName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Trạng thái</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn trạng thái" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="present">Có mặt</SelectItem>
-                            <SelectItem value="absent">Vắng</SelectItem>
-                            <SelectItem value="excused">Xin phép</SelectItem>
-                            <SelectItem value="late">Muộn</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" className="btn-primary w-full">
-                    Ghi nhận
-                  </Button>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
+            return {
+                  ...defaultRecords,
+                  ...records,
+            };
+      }, [residents, records]);
 
-        {/* Attendance Table */}
-        <Card className="card-editorial overflow-hidden">
-          {isLoading ? (
-            <div className="p-8 text-center text-muted-foreground">Đang tải dữ liệu...</div>
-          ) : attendance && attendance.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cư dân</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Ghi chú</TableHead>
-                    <TableHead>Thời gian</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {attendance.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">Cư dân #{record.residentId}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(record.status)}
-                          <span className={`px-3 py-1 rounded-sm text-sm font-medium ${getStatusColor(record.status)}`}>
-                            {getStatusLabel(record.status)}
-                          </span>
+      const rows = useMemo<AttendanceRow[]>(() => {
+            const keyword = normalizeText(searchTerm);
+
+            return residents
+                  .map((resident) => ({
+                        resident,
+                        record: effectiveRecords[resident.id],
+                  }))
+                  .filter((row) => {
+                        if (statusFilter !== 'all' && row.record.status !== statusFilter) {
+                              return false;
+                        }
+
+                        if (!keyword) return true;
+
+                        const haystack = [
+                              getResidentName(row.resident),
+                              getResidentCode(row.resident),
+                              getRoomLabel(row.resident),
+                              row.record.note,
+                        ]
+                              .map((value) => normalizeText(value))
+                              .join(' ');
+
+                        return haystack.includes(keyword);
+                  });
+      }, [residents, effectiveRecords, searchTerm, statusFilter]);
+
+      const stats = useMemo(() => {
+            const allRows = residents.map((resident) => ({
+                  resident,
+                  record: effectiveRecords[resident.id],
+            }));
+
+            return {
+                  total: allRows.length,
+                  present: allRows.filter((row) => row.record.status === 'present').length,
+                  late: allRows.filter((row) => row.record.status === 'late').length,
+                  excused: allRows.filter((row) => row.record.status === 'excused').length,
+                  absent: allRows.filter((row) => row.record.status === 'absent').length,
+            };
+      }, [residents, effectiveRecords]);
+
+      const setStatusForResident = (
+            residentId: number,
+            status: AttendanceStatus
+      ) => {
+            setRecords((current) => ({
+                  ...current,
+                  [residentId]: {
+                        ...(effectiveRecords[residentId] || {
+                              residentId,
+                              note: '',
+                        }),
+                        residentId,
+                        status,
+                        checkedAt: new Date().toISOString(),
+                  },
+            }));
+      };
+
+      const setStatusForAll = (status: AttendanceStatus) => {
+            const next: Record<number, AttendanceRecord> = {};
+
+            residents.forEach((resident) => {
+                  next[resident.id] = {
+                        ...(effectiveRecords[resident.id] || {
+                              residentId: resident.id,
+                              note: '',
+                        }),
+                        residentId: resident.id,
+                        status,
+                        checkedAt: new Date().toISOString(),
+                  };
+            });
+
+            setRecords((current) => ({
+                  ...current,
+                  ...next,
+            }));
+      };
+
+      const openNoteModal = (row: AttendanceRow) => {
+            setEditingRow(row);
+            setNoteDraft(row.record.note || '');
+            setError(null);
+      };
+
+      const closeNoteModal = () => {
+            setEditingRow(null);
+            setNoteDraft('');
+            setError(null);
+      };
+
+      const saveNote = () => {
+            if (!editingRow) return;
+
+            const residentId = editingRow.resident.id;
+
+            setRecords((current) => ({
+                  ...current,
+                  [residentId]: {
+                        ...(effectiveRecords[residentId] || {
+                              residentId,
+                              status: 'present',
+                        }),
+                        residentId,
+                        note: noteDraft.trim(),
+                        checkedAt: new Date().toISOString(),
+                  },
+            }));
+
+            closeNoteModal();
+      };
+
+      const clearFilters = () => {
+            setSearchTerm('');
+            setStatusFilter('all');
+      };
+
+      const columns = useMemo<ConfigurableColumn<AttendanceRow>[]>(
+            () => [
+                  {
+                        key: 'resident',
+                        label: 'Học viên',
+                        sortable: true,
+                        sortValue: (row) => getResidentName(row.resident),
+                        render: (row) => (
+                              <div>
+                                    <p className="font-semibold text-slate-900">
+                                          {getResidentName(row.resident)}
+                                    </p>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                          {getResidentCode(row.resident) && (
+                                                <span>{getResidentCode(row.resident)}</span>
+                                          )}
+                                          <span>{getRoomLabel(row.resident)}</span>
+                                    </div>
+                              </div>
+                        ),
+                  },
+                  {
+                        key: 'status',
+                        label: 'Trạng thái',
+                        sortable: true,
+                        sortValue: (row) => row.record.status,
+                        render: (row) => (
+                              <span
+                                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
+                                          row.record.status
+                                    )}`}
+                              >
+                                    {getStatusLabel(row.record.status)}
+                              </span>
+                        ),
+                  },
+                  {
+                        key: 'quickActions',
+                        label: 'Điểm danh nhanh',
+                        className: 'min-w-[290px]',
+                        render: (row) => (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                    {statusOptions.map((option) => (
+                                          <button
+                                                key={option.status}
+                                                type="button"
+                                                onClick={() =>
+                                                      setStatusForResident(
+                                                            row.resident.id,
+                                                            option.status
+                                                      )
+                                                }
+                                                className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${row.record.status === option.status
+                                                      ? option.className
+                                                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                                                      }`}
+                                          >
+                                                {option.shortLabel}
+                                          </button>
+                                    ))}
+                              </div>
+                        ),
+                  },
+                  {
+                        key: 'note',
+                        label: 'Ghi chú',
+                        sortable: true,
+                        sortValue: (row) => row.record.note || '',
+                        render: (row) => (
+                              <div className="max-w-xs truncate text-sm text-slate-600">
+                                    {row.record.note || '-'}
+                              </div>
+                        ),
+                  },
+                  {
+                        key: 'checkedAt',
+                        label: 'Cập nhật',
+                        defaultVisible: false,
+                        sortable: true,
+                        sortValue: (row) => row.record.checkedAt || '',
+                        render: (row) =>
+                              row.record.checkedAt
+                                    ? new Date(row.record.checkedAt).toLocaleTimeString('vi-VN', {
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                    })
+                                    : '-',
+                  },
+                  {
+                        key: 'actions',
+                        label: 'Hành động',
+                        render: (row) => (
+                              <button
+                                    type="button"
+                                    onClick={() => openNoteModal(row)}
+                                    className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50"
+                              >
+                                    <Edit2 className="h-4 w-4" />
+                                    Ghi chú
+                              </button>
+                        ),
+                  },
+            ],
+            [effectiveRecords]
+      );
+
+      return (
+            <ResidenceCareLayout>
+                  <div className="space-y-6 p-6">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                              <div>
+                                    <p className="text-sm font-semibold text-blue-600">
+                                          Sinh hoạt & Đời sống
+                                    </p>
+                                    <h1 className="mt-1 text-3xl font-bold text-neutral-900">
+                                          Điểm danh
+                                    </h1>
+                                    <p className="mt-2 max-w-3xl text-sm text-neutral-500">
+                                          Theo dõi tình trạng tham gia của học viên trong các buổi sinh hoạt, học tập, phụng vụ và công tác chung.
+                                    </p>
+                              </div>
+
+                              <div className="flex flex-col gap-2 sm:flex-row">
+                                    <button
+                                          type="button"
+                                          onClick={() => setStatusForAll('present')}
+                                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 px-5 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100"
+                                    >
+                                          <UserCheck className="h-4 w-4" />
+                                          Tất cả có mặt
+                                    </button>
+
+                                    <button
+                                          type="button"
+                                          onClick={() => setStatusForAll('absent')}
+                                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+                                    >
+                                          <UserX className="h-4 w-4" />
+                                          Tất cả vắng
+                                    </button>
+                              </div>
                         </div>
-                      </TableCell>
-                      <TableCell>{record.notes || "-"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(record.attendanceDate).toLocaleString("vi-VN")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+
+                        {(error || membersQuery.error) && (
+                              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+                                    <div className="flex gap-3">
+                                          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                                          <div>
+                                                <p className="font-semibold">
+                                                      Có lỗi khi xử lý điểm danh.
+                                                </p>
+                                                <p className="mt-1 text-sm">
+                                                      {error ||
+                                                            membersQuery.error?.message ||
+                                                            'Vui lòng kiểm tra lại dữ liệu.'}
+                                                </p>
+                                          </div>
+                                    </div>
+                              </div>
+                        )}
+
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+                              <ConfigurableStatCard
+                                    moduleKey="attendance"
+                                    cardKey="attendance.total"
+                                    label="Tổng học viên"
+                                    value={stats.total}
+                                    description="Số học viên trong danh sách"
+                                    tone="blue"
+                                    icon={<Users className="h-6 w-6" />}
+                              />
+
+                              <ConfigurableStatCard
+                                    moduleKey="attendance"
+                                    cardKey="attendance.present"
+                                    label="Có mặt"
+                                    value={stats.present}
+                                    description="Đã ghi nhận tham gia"
+                                    tone="green"
+                                    icon={<CheckCircle2 className="h-6 w-6" />}
+                              />
+
+                              <ConfigurableStatCard
+                                    moduleKey="attendance"
+                                    cardKey="attendance.late"
+                                    label="Đi trễ"
+                                    value={stats.late}
+                                    description="Có mặt nhưng trễ giờ"
+                                    tone="orange"
+                                    icon={<Clock3 className="h-6 w-6" />}
+                              />
+
+                              <ConfigurableStatCard
+                                    moduleKey="attendance"
+                                    cardKey="attendance.excused"
+                                    label="Vắng phép"
+                                    value={stats.excused}
+                                    description="Đã có lý do"
+                                    tone="purple"
+                                    icon={<UserMinus className="h-6 w-6" />}
+                              />
+
+                              <ConfigurableStatCard
+                                    moduleKey="attendance"
+                                    cardKey="attendance.absent"
+                                    label="Vắng"
+                                    value={stats.absent}
+                                    description="Chưa có lý do"
+                                    tone="red"
+                                    icon={<UserX className="h-6 w-6" />}
+                              />
+                        </div>
+
+                        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+                              <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[220px_260px_1fr_220px_auto]">
+                                    <div>
+                                          <Label htmlFor="attendanceDate">Ngày điểm danh</Label>
+                                          <Input
+                                                id="attendanceDate"
+                                                type="date"
+                                                value={attendanceDate}
+                                                onChange={(event) =>
+                                                      setAttendanceDate(event.target.value)
+                                                }
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="sessionType">Loại điểm danh</Label>
+                                          <select
+                                                id="sessionType"
+                                                value={sessionType}
+                                                onChange={(event) =>
+                                                      setSessionType(
+                                                            event.target.value as AttendanceSessionType
+                                                      )
+                                                }
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                          >
+                                                <option value="daily_routine">
+                                                      Sinh hoạt hằng ngày
+                                                </option>
+                                                <option value="evening_study">
+                                                      Giờ học buổi tối
+                                                </option>
+                                                <option value="liturgy">Đi lễ / Kinh tối</option>
+                                                <option value="community">Sinh hoạt chung</option>
+                                                <option value="duty">Công tác / Trực nhật</option>
+                                                <option value="other">Khác</option>
+                                          </select>
+                                    </div>
+
+                                    <div>
+                                          <Label>Tìm kiếm</Label>
+                                          <div className="relative">
+                                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                                                <Input
+                                                      value={searchTerm}
+                                                      onChange={(event) =>
+                                                            setSearchTerm(event.target.value)
+                                                      }
+                                                      placeholder="Tìm học viên, mã, phòng, ghi chú..."
+                                                      className="pl-10"
+                                                />
+                                          </div>
+                                    </div>
+
+                                    <div>
+                                          <Label>Trạng thái</Label>
+                                          <select
+                                                value={statusFilter}
+                                                onChange={(event) =>
+                                                      setStatusFilter(
+                                                            event.target.value as
+                                                            | 'all'
+                                                            | AttendanceStatus
+                                                      )
+                                                }
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                          >
+                                                <option value="all">Tất cả</option>
+                                                <option value="present">Có mặt</option>
+                                                <option value="late">Đi trễ</option>
+                                                <option value="excused">Vắng phép</option>
+                                                <option value="absent">Vắng không phép</option>
+                                          </select>
+                                    </div>
+
+                                    <div className="flex items-end">
+                                          <button
+                                                type="button"
+                                                onClick={clearFilters}
+                                                className="h-10 w-full rounded-xl border border-neutral-300 px-4 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                          >
+                                                Xóa lọc
+                                          </button>
+                                    </div>
+                              </div>
+
+                              <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-blue-800">
+                                    <span className="font-semibold">
+                                          {getSessionTypeLabel(sessionType)}
+                                    </span>{' '}
+                                    · {new Date(attendanceDate).toLocaleDateString('vi-VN')}
+                              </div>
+                        </div>
+
+                        <ConfigurableDataTable
+                              moduleKey="attendance"
+                              tableKey="attendance.list"
+                              columns={columns}
+                              data={rows}
+                              getRowKey={(row) => row.resident.id}
+                              isLoading={membersQuery.isLoading}
+                              loadingText="Đang tải danh sách học viên..."
+                              emptyTitle="Không có học viên phù hợp"
+                              emptyDescription="Thử thay đổi bộ lọc hoặc kiểm tra danh sách học viên."
+                        />
+
+                        {editingRow && (
+                              <NoteModal
+                                    row={editingRow}
+                                    noteDraft={noteDraft}
+                                    setNoteDraft={setNoteDraft}
+                                    onClose={closeNoteModal}
+                                    onSave={saveNote}
+                              />
+                        )}
+                  </div>
+            </ResidenceCareLayout>
+      );
+}
+
+function NoteModal({
+      row,
+      noteDraft,
+      setNoteDraft,
+      onClose,
+      onSave,
+}: {
+      row: AttendanceRow;
+      noteDraft: string;
+      setNoteDraft: React.Dispatch<React.SetStateAction<string>>;
+      onClose: () => void;
+      onSave: () => void;
+}) {
+      return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+                  <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+                        <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
+                              <div>
+                                    <h2 className="text-xl font-bold text-neutral-900">
+                                          Ghi chú điểm danh
+                                    </h2>
+                                    <p className="text-sm text-neutral-500">
+                                          {getResidentName(row.resident)} · {getRoomLabel(row.resident)}
+                                    </p>
+                              </div>
+
+                              <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="rounded-lg p-2 transition hover:bg-neutral-100"
+                              >
+                                    <X className="h-5 w-5" />
+                              </button>
+                        </div>
+
+                        <div className="space-y-4 p-6">
+                              <div>
+                                    <Label htmlFor="attendanceNote">Nội dung ghi chú</Label>
+                                    <Textarea
+                                          id="attendanceNote"
+                                          value={noteDraft}
+                                          onChange={(event) => setNoteDraft(event.target.value)}
+                                          placeholder="Nhập lý do vắng, lý do đi trễ hoặc ghi chú cần theo dõi..."
+                                          className="min-h-32"
+                                    />
+                              </div>
+
+                              <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
+                                    <button
+                                          type="button"
+                                          onClick={onClose}
+                                          className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                    >
+                                          Hủy
+                                    </button>
+
+                                    <button
+                                          type="button"
+                                          onClick={onSave}
+                                          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                    >
+                                          Lưu ghi chú
+                                    </button>
+                              </div>
+                        </div>
+                  </div>
             </div>
-          ) : (
-            <div className="p-8 text-center text-muted-foreground">Không có bản ghi điểm danh</div>
-          )}
-        </Card>
-      </div>
-    </ResidenceCareLayout>
-  );
+      );
 }

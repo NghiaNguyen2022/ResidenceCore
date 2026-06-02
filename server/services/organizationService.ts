@@ -1,35 +1,49 @@
 import {
+      CreateOrganizationAssignmentInput,
       CreateOrganizationRoleInput,
       CreateOrganizationTermInput,
+      CreateOrganizationUnitInput,
+      createOrganizationAssignment,
       createOrganizationRole,
       createOrganizationTerm,
+      createOrganizationUnit,
+      deleteOrganizationAssignment,
       deleteOrganizationRole,
       deleteOrganizationTerm,
+      deleteOrganizationUnit,
+      endOrganizationAssignment,
       getActiveOrganizationTerm,
+      getOrganizationAssignmentById,
       getOrganizationRoleById,
       getOrganizationTermById,
+      getOrganizationUnitById,
+      listOrganizationAssignments,
       listOrganizationRoles,
       listOrganizationTerms,
-      OrganizationRoleCategory,
-      OrganizationRoleFilters,
-      OrganizationTermFilters,
-      OrganizationTermStatus,
-      setActiveOrganizationTerm,
-      updateOrganizationRole,
-      UpdateOrganizationRoleInput,
-      updateOrganizationTerm,
-      UpdateOrganizationTermInput,
-      CreateOrganizationAssignmentInput,
-      UpdateOrganizationAssignmentInput,
+      listOrganizationUnits,
       OrganizationAssignmentFilters,
       OrganizationAssignmentStatus,
-      listOrganizationAssignments,
-      getOrganizationAssignmentById,
-      createOrganizationAssignment,
+      OrganizationRoleCategory,
+      OrganizationRoleFilters,
+      OrganizationRoleType,
+      OrganizationTermFilters,
+      OrganizationTermStatus,
+      OrganizationUnitFilters,
+      OrganizationUnitType,
+      setActiveOrganizationTerm,
       updateOrganizationAssignment,
-      endOrganizationAssignment,
-      deleteOrganizationAssignment,
+      updateOrganizationRole,
+      updateOrganizationTerm,
+      updateOrganizationUnit,
+      UpdateOrganizationAssignmentInput,
+      UpdateOrganizationRoleInput,
+      UpdateOrganizationTermInput,
+      UpdateOrganizationUnitInput,
 } from "../db/organization";
+
+/* =========================================================
+ * ROLE INPUTS
+ * ======================================================= */
 
 export type ListRolesInput = {
       search?: string;
@@ -47,6 +61,13 @@ export type CreateRoleInput = {
       allowMultipleMembers?: boolean;
       isActive?: boolean;
       sortOrder?: number;
+
+      level?: number;
+      roleType?: OrganizationRoleType;
+      minAssignees?: number;
+      maxAssignees?: number | null;
+      isSystem?: boolean;
+      requiresUnit?: boolean;
 };
 
 export type UpdateRoleInput = {
@@ -58,7 +79,50 @@ export type UpdateRoleInput = {
       allowMultipleMembers?: boolean;
       isActive?: boolean;
       sortOrder?: number;
+
+      level?: number;
+      roleType?: OrganizationRoleType;
+      minAssignees?: number;
+      maxAssignees?: number | null;
+      isSystem?: boolean;
+      requiresUnit?: boolean;
 };
+
+/* =========================================================
+ * UNIT INPUTS
+ * ======================================================= */
+
+export type ListUnitsInput = {
+      search?: string;
+      unitType?: OrganizationUnitType | "all";
+      isActive?: boolean;
+      limit?: number;
+      offset?: number;
+};
+
+export type CreateUnitInput = {
+      code: string;
+      name: string;
+      unitType: OrganizationUnitType;
+      description?: string | null;
+      isActive?: boolean;
+      sortOrder?: number;
+};
+
+export type UpdateUnitInput = {
+      id: number;
+      code?: string;
+      name?: string;
+      unitType?: OrganizationUnitType;
+      description?: string | null;
+      isActive?: boolean;
+      sortOrder?: number;
+};
+
+/* =========================================================
+ * TERM INPUTS
+ * ======================================================= */
+
 export type ListTermsInput = {
       search?: string;
       status?: OrganizationTermStatus | "all";
@@ -85,7 +149,52 @@ export type UpdateTermInput = {
       description?: string | null;
 };
 
+/* =========================================================
+ * ASSIGNMENT INPUTS
+ * ======================================================= */
+
+export type ListAssignmentsInput = {
+      search?: string;
+      termId?: number;
+      roleId?: number;
+      residentId?: number;
+      status?: OrganizationAssignmentStatus | "all";
+      limit?: number;
+      offset?: number;
+};
+
+export type CreateAssignmentInput = {
+      termId: number;
+      roleId: number;
+      residentId: number;
+      roomId?: number | null;
+      unitId?: number | null;
+      assignmentTitle?: string | null;
+      startDate: string | Date;
+      endDate?: string | Date | null;
+      status?: OrganizationAssignmentStatus;
+      notes?: string | null;
+};
+
+export type UpdateAssignmentInput = {
+      id: number;
+      termId?: number;
+      roleId?: number;
+      residentId?: number;
+      roomId?: number | null;
+      unitId?: number | null;
+      assignmentTitle?: string | null;
+      startDate?: string | Date;
+      endDate?: string | Date | null;
+      status?: OrganizationAssignmentStatus;
+      notes?: string | null;
+};
+
 class OrganizationService {
+      /* =========================================================
+       * ROLES
+       * ======================================================= */
+
       async listRoles(input?: ListRolesInput) {
             const filters: OrganizationRoleFilters = {
                   search: input?.search,
@@ -129,6 +238,12 @@ class OrganizationService {
                   allowMultipleMembers: input.allowMultipleMembers ?? true,
                   isActive: input.isActive ?? true,
                   sortOrder: input.sortOrder ?? 0,
+                  level: input.level ?? 3,
+                  roleType: input.roleType ?? "custom",
+                  minAssignees: input.minAssignees ?? 0,
+                  maxAssignees: input.maxAssignees ?? null,
+                  isSystem: input.isSystem ?? false,
+                  requiresUnit: input.requiresUnit ?? false,
             };
 
             await createOrganizationRole(payload);
@@ -158,6 +273,12 @@ class OrganizationService {
                   allowMultipleMembers: input.allowMultipleMembers,
                   isActive: input.isActive,
                   sortOrder: input.sortOrder,
+                  level: input.level,
+                  roleType: input.roleType,
+                  minAssignees: input.minAssignees,
+                  maxAssignees: input.maxAssignees,
+                  isSystem: input.isSystem,
+                  requiresUnit: input.requiresUnit,
             };
 
             await updateOrganizationRole(input.id, payload);
@@ -203,6 +324,135 @@ class OrganizationService {
                         : "Đã kích hoạt vai trò.",
             };
       }
+
+      /* =========================================================
+       * UNITS
+       * ======================================================= */
+
+      async listUnits(input?: ListUnitsInput) {
+            const filters: OrganizationUnitFilters = {
+                  search: input?.search,
+                  unitType: input?.unitType,
+                  isActive: input?.isActive,
+                  limit: input?.limit ?? 200,
+                  offset: input?.offset ?? 0,
+            };
+
+            return await listOrganizationUnits(filters);
+      }
+
+      async getUnitById(id: number) {
+            if (!id || id <= 0) {
+                  throw new Error("ID Tổ/Ban không hợp lệ.");
+            }
+
+            const unit = await getOrganizationUnitById(id);
+
+            if (!unit) {
+                  throw new Error("Không tìm thấy Tổ/Ban.");
+            }
+
+            return unit;
+      }
+
+      async createUnit(input: CreateUnitInput) {
+            if (!input.code?.trim()) {
+                  throw new Error("Vui lòng nhập mã Tổ/Ban.");
+            }
+
+            if (!input.name?.trim()) {
+                  throw new Error("Vui lòng nhập tên Tổ/Ban.");
+            }
+
+            if (!input.unitType) {
+                  throw new Error("Vui lòng chọn loại Tổ/Ban.");
+            }
+
+            const payload: CreateOrganizationUnitInput = {
+                  code: input.code,
+                  name: input.name,
+                  unitType: input.unitType,
+                  description: input.description || null,
+                  isActive: input.isActive ?? true,
+                  sortOrder: input.sortOrder ?? 0,
+            };
+
+            await createOrganizationUnit(payload);
+
+            return {
+                  success: true,
+                  message: "Đã tạo Tổ/Ban.",
+            };
+      }
+
+      async updateUnit(input: UpdateUnitInput) {
+            if (!input.id || input.id <= 0) {
+                  throw new Error("ID Tổ/Ban không hợp lệ.");
+            }
+
+            const existing = await getOrganizationUnitById(input.id);
+
+            if (!existing) {
+                  throw new Error("Không tìm thấy Tổ/Ban cần cập nhật.");
+            }
+
+            const payload: UpdateOrganizationUnitInput = {
+                  code: input.code,
+                  name: input.name,
+                  unitType: input.unitType,
+                  description: input.description,
+                  isActive: input.isActive,
+                  sortOrder: input.sortOrder,
+            };
+
+            await updateOrganizationUnit(input.id, payload);
+
+            return {
+                  success: true,
+                  message: "Đã cập nhật Tổ/Ban.",
+            };
+      }
+
+      async deleteUnit(id: number) {
+            if (!id || id <= 0) {
+                  throw new Error("ID Tổ/Ban không hợp lệ.");
+            }
+
+            await deleteOrganizationUnit(id);
+
+            return {
+                  success: true,
+                  message: "Đã xóa Tổ/Ban.",
+            };
+      }
+
+      async toggleUnitActive(id: number) {
+            if (!id || id <= 0) {
+                  throw new Error("ID Tổ/Ban không hợp lệ.");
+            }
+
+            const existing = await getOrganizationUnitById(id);
+
+            if (!existing) {
+                  throw new Error("Không tìm thấy Tổ/Ban cần cập nhật.");
+            }
+
+            await updateOrganizationUnit(id, {
+                  isActive: !existing.isActive,
+            });
+
+            return {
+                  success: true,
+                  message: existing.isActive
+                        ? "Đã ngưng sử dụng Tổ/Ban."
+                        : "Đã kích hoạt Tổ/Ban.",
+            };
+      }
+
+      /* =========================================================
+       * TERMS
+       * ======================================================= */
+
       async listTerms(input?: ListTermsInput) {
             const filters: OrganizationTermFilters = {
                   search: input?.search,
@@ -315,6 +565,10 @@ class OrganizationService {
             return await setActiveOrganizationTerm(id);
       }
 
+      /* =========================================================
+       * ASSIGNMENTS
+       * ======================================================= */
+
       async listAssignments(input?: ListAssignmentsInput) {
             const filters: OrganizationAssignmentFilters = {
                   search: input?.search,
@@ -365,6 +619,8 @@ class OrganizationService {
                   roleId: input.roleId,
                   residentId: input.residentId,
                   roomId: input.roomId ?? null,
+                  unitId: input.unitId ?? null,
+                  assignmentTitle: input.assignmentTitle?.trim() || null,
                   startDate: input.startDate,
                   endDate: input.endDate ?? null,
                   status: input.status || "active",
@@ -395,6 +651,11 @@ class OrganizationService {
                   roleId: input.roleId,
                   residentId: input.residentId,
                   roomId: input.roomId,
+                  unitId: input.unitId,
+                  assignmentTitle:
+                        input.assignmentTitle !== undefined
+                              ? input.assignmentTitle?.trim() || null
+                              : undefined,
                   startDate: input.startDate,
                   endDate: input.endDate,
                   status: input.status,
@@ -437,36 +698,3 @@ class OrganizationService {
 }
 
 export const organizationService = new OrganizationService();
-
-export type ListAssignmentsInput = {
-      search?: string;
-      termId?: number;
-      roleId?: number;
-      residentId?: number;
-      status?: OrganizationAssignmentStatus | "all";
-      limit?: number;
-      offset?: number;
-};
-
-export type CreateAssignmentInput = {
-      termId: number;
-      roleId: number;
-      residentId: number;
-      roomId?: number | null;
-      startDate: string | Date;
-      endDate?: string | Date | null;
-      status?: OrganizationAssignmentStatus;
-      notes?: string | null;
-};
-
-export type UpdateAssignmentInput = {
-      id: number;
-      termId?: number;
-      roleId?: number;
-      residentId?: number;
-      roomId?: number | null;
-      startDate?: string | Date;
-      endDate?: string | Date | null;
-      status?: OrganizationAssignmentStatus;
-      notes?: string | null;
-};

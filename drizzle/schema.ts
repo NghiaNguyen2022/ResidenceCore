@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar, text, timestamp, boolean, date, mysqlEnum, decimal, time, json } from "drizzle-orm/mysql-core";
+import { mysqlTable, int, varchar, text, timestamp, boolean, date, mysqlEnum, decimal, time, json, index, unique } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -1059,39 +1059,51 @@ export const organizationRoleCategoryEnum = [
       'other',
 ] as const;
 
-export const organizationRoles = mysqlTable('organization_roles', {
-      id: int('id').primaryKey().autoincrement(),
+export const organizationRoles = mysqlTable(
+      "organization_roles",
+      {
+            id: int("id").autoincrement().primaryKey(),
 
-      code: varchar('code', { length: 50 }).notNull().unique(),
-      name: varchar('name', { length: 150 }).notNull().unique(),
+            code: varchar("code", { length: 50 }).notNull(),
+            name: varchar("name", { length: 255 }).notNull(),
 
-      category: mysqlEnum('category', organizationRoleCategoryEnum)
-            .notNull()
-            .default('other'),
+            category: varchar("category", { length: 50 }).notNull().default("other"),
+            description: text("description"),
 
-      description: text('description'),
+            allowMultipleMembers: boolean("allow_multiple_members")
+                  .notNull()
+                  .default(true),
 
-      allowMultipleMembers: boolean('allow_multiple_members')
-            .notNull()
-            .default(true),
+            isActive: boolean("is_active").notNull().default(true),
+            sortOrder: int("sort_order").notNull().default(0),
 
-      isActive: boolean('is_active')
-            .notNull()
-            .default(true),
+            // New fields for organization level/type
+            level: int("level").notNull().default(3),
 
-      sortOrder: int('sort_order')
-            .notNull()
-            .default(0),
+            roleType: varchar("role_type", { length: 50 })
+                  .notNull()
+                  .default("custom"),
 
-      createdAt: timestamp('created_at')
-            .notNull()
-            .defaultNow(),
+            minAssignees: int("min_assignees").notNull().default(0),
 
-      updatedAt: timestamp('updated_at')
-            .notNull()
-            .defaultNow()
-            .$onUpdate(() => new Date()),
-});
+            maxAssignees: int("max_assignees"),
+
+            isSystem: boolean("is_system").notNull().default(false),
+
+            requiresUnit: boolean("requires_unit").notNull().default(false),
+
+            createdAt: timestamp("created_at").defaultNow().notNull(),
+
+            updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+      },
+      (table) => ({
+            codeIdx: index("idx_organization_roles_code").on(table.code),
+            categoryIdx: index("idx_organization_roles_category").on(table.category),
+            activeIdx: index("idx_organization_roles_active").on(table.isActive),
+            levelIdx: index("idx_organization_roles_level").on(table.level),
+            roleTypeIdx: index("idx_organization_roles_role_type").on(table.roleType),
+      })
+);
 
 export type OrganizationRole = typeof organizationRoles.$inferSelect;
 export type InsertOrganizationRole = typeof organizationRoles.$inferInsert;
@@ -1135,45 +1147,96 @@ export const organizationAssignmentStatusEnum = [
       'ended',
 ] as const;
 
-export const organizationAssignments = mysqlTable('organization_assignments', {
-      id: int('id').primaryKey().autoincrement(),
+export const organizationAssignments = mysqlTable(
+      "organization_assignments",
+      {
+            id: int("id").autoincrement().primaryKey(),
 
-      termId: int('term_id')
-            .notNull()
-            .references(() => organizationTerms.id),
+            termId: int("term_id")
+                  .notNull()
+                  .references(() => organizationTerms.id, { onDelete: "cascade" }),
 
-      roleId: int('role_id')
-            .notNull()
-            .references(() => organizationRoles.id),
+            roleId: int("role_id")
+                  .notNull()
+                  .references(() => organizationRoles.id, { onDelete: "restrict" }),
 
-      residentId: int('resident_id')
-            .notNull()
-            .references(() => residents.id),
+            residentId: int("resident_id")
+                  .notNull()
+                  .references(() => residents.id, { onDelete: "restrict" }),
 
-      roomId: int('room_id')
-            .references(() => rooms.id),
+            roomId: int("room_id"),
 
-      startDate: date('start_date').notNull(),
-      endDate: date('end_date'),
+            // New: used for Tổ trưởng / Trưởng ban
+            unitId: int("unit_id").references(() => organizationUnits.id, {
+                  onDelete: "set null",
+            }),
+            assignmentTitle: varchar("assignment_title", { length: 255 }),
 
-      status: mysqlEnum('status', organizationAssignmentStatusEnum)
-            .notNull()
-            .default('active'),
+            startDate: date("start_date").notNull(),
 
-      notes: text('notes'),
+            endDate: date("end_date"),
 
-      createdAt: timestamp('created_at')
-            .notNull()
-            .defaultNow(),
+            status: varchar("status", { length: 50 }).notNull().default("active"),
 
-      updatedAt: timestamp('updated_at')
-            .notNull()
-            .defaultNow()
-            .$onUpdate(() => new Date()),
-});
+            notes: text("notes"),
+
+            createdAt: timestamp("created_at").defaultNow().notNull(),
+
+            updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+      },
+      (table) => ({
+            termIdx: index("idx_organization_assignments_term").on(table.termId),
+            roleIdx: index("idx_organization_assignments_role").on(table.roleId),
+            residentIdx: index("idx_organization_assignments_resident").on(
+                  table.residentId
+            ),
+            statusIdx: index("idx_organization_assignments_status").on(table.status),
+            unitIdx: index("idx_organization_assignments_unit").on(table.unitId),
+            titleIdx: index("idx_organization_assignments_title").on(
+                  table.assignmentTitle
+            ),
+            termRoleUnitStatusIdx: index("idx_org_assign_term_role_unit_status").on(
+                  table.termId,
+                  table.roleId,
+                  table.unitId,
+                  table.status
+            ),
+      })
+);
 
 export type OrganizationAssignment =
       typeof organizationAssignments.$inferSelect;
 
 export type InsertOrganizationAssignment =
       typeof organizationAssignments.$inferInsert;
+
+export const organizationUnits = mysqlTable(
+      "organization_units",
+      {
+            id: int("id").autoincrement().primaryKey(),
+
+            code: varchar("code", { length: 50 }).notNull(),
+            name: varchar("name", { length: 255 }).notNull(),
+
+            // team = Tổ, committee = Ban
+            unitType: varchar("unit_type", { length: 50 }).notNull(),
+
+            description: varchar("description", { length: 500 }),
+
+            isActive: boolean("is_active").notNull().default(true),
+
+            sortOrder: int("sort_order").notNull().default(0),
+
+            createdAt: timestamp("created_at").defaultNow().notNull(),
+
+            updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+      },
+      (table) => ({
+            codeIdx: index("idx_organization_units_code").on(table.code),
+            unitTypeIdx: index("idx_organization_units_type").on(table.unitType),
+            activeIdx: index("idx_organization_units_active").on(table.isActive),
+      })
+);
+
+export type OrganizationUnit = typeof organizationUnits.$inferSelect;
+export type InsertOrganizationUnit = typeof organizationUnits.$inferInsert;

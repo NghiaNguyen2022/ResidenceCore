@@ -14,6 +14,15 @@ const organizationRoleCategorySchema = z.enum([
       "life",
       "other",
 ]);
+const organizationRoleTypeSchema = z.enum([
+      "head",
+      "deputy",
+      "secretary",
+      "treasurer",
+      "team_leader",
+      "committee_head",
+      "custom",
+]);
 const organizationTermStatusSchema = z.enum([
       "active",
       "inactive",
@@ -23,6 +32,7 @@ const organizationAssignmentStatusSchema = z.enum([
       "active",
       "ended",
 ]);
+const organizationUnitTypeSchema = z.enum(["team", "committee"]);
 
 export const organizationRouter = router({
       listRoles: protectedProcedure
@@ -63,6 +73,13 @@ export const organizationRouter = router({
                         allowMultipleMembers: z.boolean().optional(),
                         isActive: z.boolean().optional(),
                         sortOrder: z.number().min(0).optional(),
+
+                        level: z.number().int().min(1).max(3).optional(),
+                        roleType: organizationRoleTypeSchema.optional(),
+                        minAssignees: z.number().int().min(0).optional(),
+                        maxAssignees: z.number().int().min(1).nullable().optional(),
+                        isSystem: z.boolean().optional(),
+                        requiresUnit: z.boolean().optional(),
                   })
             )
             .mutation(async ({ input }) => {
@@ -80,6 +97,13 @@ export const organizationRouter = router({
                         allowMultipleMembers: z.boolean().optional(),
                         isActive: z.boolean().optional(),
                         sortOrder: z.number().min(0).optional(),
+
+                        level: z.number().int().min(1).max(3).optional(),
+                        roleType: organizationRoleTypeSchema.optional(),
+                        minAssignees: z.number().int().min(0).optional(),
+                        maxAssignees: z.number().int().min(1).nullable().optional(),
+                        isSystem: z.boolean().optional(),
+                        requiresUnit: z.boolean().optional(),
                   })
             )
             .mutation(async ({ input }) => {
@@ -224,6 +248,8 @@ export const organizationRouter = router({
                         roleId: z.number().min(1, "Vui lòng chọn vai trò."),
                         residentId: z.number().min(1, "Vui lòng chọn học viên."),
                         roomId: z.number().min(1).nullable().optional(),
+                        unitId: z.number().min(1).nullable().optional(),
+                        assignmentTitle: z.string().trim().max(255).nullable().optional(),
                         startDate: z.union([z.string(), z.date()]),
                         endDate: z.union([z.string(), z.date()]).nullable().optional(),
                         status: organizationAssignmentStatusSchema.optional(),
@@ -242,6 +268,8 @@ export const organizationRouter = router({
                         roleId: z.number().min(1).optional(),
                         residentId: z.number().min(1).optional(),
                         roomId: z.number().min(1).nullable().optional(),
+                        unitId: z.number().min(1).nullable().optional(),
+                        assignmentTitle: z.string().trim().max(255).nullable().optional(),
                         startDate: z.union([z.string(), z.date()]).optional(),
                         endDate: z.union([z.string(), z.date()]).nullable().optional(),
                         status: organizationAssignmentStatusSchema.optional(),
@@ -270,5 +298,87 @@ export const organizationRouter = router({
             )
             .mutation(async ({ input }) => {
                   return await organizationService.deleteAssignment(input.id);
+            }),
+      /* =========================================================
+* UNITS - TỔ / BAN
+* ======================================================= */
+
+      listUnits: protectedProcedure
+            .input(
+                  z
+                        .object({
+                              search: z.string().optional(),
+                              unitType: z
+                                    .union([organizationUnitTypeSchema, z.literal("all")])
+                                    .optional(),
+                              isActive: z.boolean().optional(),
+                              limit: z.number().min(1).max(500).optional(),
+                              offset: z.number().min(0).optional(),
+                        })
+                        .optional()
+            )
+            .query(async ({ input }) => {
+                  return await organizationService.listUnits(input);
+            }),
+
+      getUnitById: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number().min(1),
+                  })
+            )
+            .query(async ({ input }) => {
+                  return await organizationService.getUnitById(input.id);
+            }),
+
+      createUnit: protectedProcedure
+            .input(
+                  z.object({
+                        code: z.string().min(1, "Vui lòng nhập mã Tổ/Ban."),
+                        name: z.string().min(1, "Vui lòng nhập tên Tổ/Ban."),
+                        unitType: organizationUnitTypeSchema,
+                        description: z.string().nullable().optional(),
+                        isActive: z.boolean().optional(),
+                        sortOrder: z.number().min(0).optional(),
+                  })
+            )
+            .mutation(async ({ input }) => {
+                  return await organizationService.createUnit(input);
+            }),
+
+      updateUnit: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number().min(1),
+                        code: z.string().min(1).optional(),
+                        name: z.string().min(1).optional(),
+                        unitType: organizationUnitTypeSchema.optional(),
+                        description: z.string().nullable().optional(),
+                        isActive: z.boolean().optional(),
+                        sortOrder: z.number().min(0).optional(),
+                  })
+            )
+            .mutation(async ({ input }) => {
+                  return await organizationService.updateUnit(input);
+            }),
+
+      deleteUnit: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number().min(1),
+                  })
+            )
+            .mutation(async ({ input }) => {
+                  return await organizationService.deleteUnit(input.id);
+            }),
+
+      toggleUnitActive: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number().min(1),
+                  })
+            )
+            .mutation(async ({ input }) => {
+                  return await organizationService.toggleUnitActive(input.id);
             }),
 });

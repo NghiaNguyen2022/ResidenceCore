@@ -36,6 +36,15 @@ type RoleCategory =
       | 'life'
       | 'other';
 
+type RoleType =
+      | 'head'
+      | 'deputy'
+      | 'secretary'
+      | 'treasurer'
+      | 'team_leader'
+      | 'committee_head'
+      | 'custom';
+
 type OrganizationRole = {
       id: number;
       code: string;
@@ -46,6 +55,13 @@ type OrganizationRole = {
       isActive: boolean;
       sortOrder: number;
       assignedCount?: number;
+
+      level?: number;
+      roleType?: RoleType | string;
+      minAssignees?: number;
+      maxAssignees?: number | null;
+      isSystem?: boolean;
+      requiresUnit?: boolean;
 };
 
 type RoleFormData = {
@@ -56,6 +72,12 @@ type RoleFormData = {
       allowMultipleMembers: boolean;
       isActive: boolean;
       sortOrder: string;
+
+      level: string;
+      roleType: RoleType;
+      minAssignees: string;
+      maxAssignees: string;
+      requiresUnit: boolean;
 };
 
 const defaultFormData: RoleFormData = {
@@ -66,7 +88,22 @@ const defaultFormData: RoleFormData = {
       allowMultipleMembers: false,
       isActive: true,
       sortOrder: '1',
+
+      level: '3',
+      roleType: 'custom',
+      minAssignees: '0',
+      maxAssignees: '',
+      requiresUnit: false,
 };
+
+const systemRoleCodes = [
+      'TRUONG_NHA',
+      'PHO',
+      'THU_KY',
+      'THU_QUY',
+      'TO_TRUONG',
+      'TRUONG_BAN',
+];
 
 function normalizeText(value?: string | null) {
       return (value || '')
@@ -135,6 +172,123 @@ function getCategoryClass(category: RoleCategory) {
       return 'border-neutral-200 bg-neutral-50 text-neutral-700';
 }
 
+function getRoleTypeLabel(roleType?: string | null) {
+      if (roleType === 'head') return 'Trưởng';
+      if (roleType === 'deputy') return 'Phó';
+      if (roleType === 'secretary') return 'Thư ký';
+      if (roleType === 'treasurer') return 'Thủ quỹ';
+      if (roleType === 'team_leader') return 'Tổ trưởng';
+      if (roleType === 'committee_head') return 'Trưởng ban';
+      return 'Khác';
+}
+
+function getRoleTypeClass(roleType?: string | null) {
+      if (roleType === 'head') return 'border-red-200 bg-red-50 text-red-700';
+      if (roleType === 'deputy') return 'border-orange-200 bg-orange-50 text-orange-700';
+      if (roleType === 'secretary') return 'border-blue-200 bg-blue-50 text-blue-700';
+      if (roleType === 'treasurer') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+      if (roleType === 'team_leader') return 'border-purple-200 bg-purple-50 text-purple-700';
+      if (roleType === 'committee_head') return 'border-indigo-200 bg-indigo-50 text-indigo-700';
+      return 'border-neutral-200 bg-neutral-50 text-neutral-700';
+}
+
+function getLevelLabel(level?: number | null) {
+      if (level === 1) return 'LV1';
+      if (level === 2) return 'LV2';
+      if (level === 3) return 'LV3';
+      return 'LV3';
+}
+
+function getAssigneeRuleLabel(role: OrganizationRole) {
+      if (role.maxAssignees && role.maxAssignees > 0) {
+            return `Tối đa ${role.maxAssignees} người`;
+      }
+
+      return role.allowMultipleMembers ? 'Nhiều người' : 'Một người';
+}
+
+function getDefaultRuleByRoleType(roleType: RoleType) {
+      if (roleType === 'head') {
+            return {
+                  category: 'management' as RoleCategory,
+                  level: '1',
+                  minAssignees: '1',
+                  maxAssignees: '1',
+                  allowMultipleMembers: false,
+                  requiresUnit: false,
+            };
+      }
+
+      if (roleType === 'deputy') {
+            return {
+                  category: 'management' as RoleCategory,
+                  level: '2',
+                  minAssignees: '1',
+                  maxAssignees: '2',
+                  allowMultipleMembers: true,
+                  requiresUnit: false,
+            };
+      }
+
+      if (roleType === 'secretary') {
+            return {
+                  category: 'management' as RoleCategory,
+                  level: '2',
+                  minAssignees: '1',
+                  maxAssignees: '1',
+                  allowMultipleMembers: false,
+                  requiresUnit: false,
+            };
+      }
+
+      if (roleType === 'treasurer') {
+            return {
+                  category: 'finance' as RoleCategory,
+                  level: '2',
+                  minAssignees: '1',
+                  maxAssignees: '1',
+                  allowMultipleMembers: false,
+                  requiresUnit: false,
+            };
+      }
+
+      if (roleType === 'team_leader') {
+            return {
+                  category: 'life' as RoleCategory,
+                  level: '3',
+                  minAssignees: '0',
+                  maxAssignees: '',
+                  allowMultipleMembers: true,
+                  requiresUnit: true,
+            };
+      }
+
+      if (roleType === 'committee_head') {
+            return {
+                  category: 'activity' as RoleCategory,
+                  level: '3',
+                  minAssignees: '0',
+                  maxAssignees: '',
+                  allowMultipleMembers: true,
+                  requiresUnit: true,
+            };
+      }
+
+      return {
+            category: 'other' as RoleCategory,
+            level: '3',
+            minAssignees: '0',
+            maxAssignees: '',
+            allowMultipleMembers: true,
+            requiresUnit: false,
+      };
+}
+
+function isSystemRole(role: OrganizationRole | null) {
+      if (!role) return false;
+      return Boolean(role.isSystem) || systemRoleCodes.includes(role.code);
+}
+
 function validateRoleForm({
       roles,
       formData,
@@ -154,6 +308,38 @@ function validateRoleForm({
 
       if (!Number.isFinite(sortOrder) || sortOrder < 0) {
             return 'Thứ tự hiển thị phải là số lớn hơn hoặc bằng 0.';
+      }
+
+      const level = Number(formData.level);
+
+      if (!Number.isFinite(level) || level < 1 || level > 3) {
+            return 'Cấp vai trò phải nằm trong khoảng LV1 đến LV3.';
+      }
+
+      const minAssignees = Number(formData.minAssignees || 0);
+
+      if (!Number.isFinite(minAssignees) || minAssignees < 0) {
+            return 'Số người tối thiểu phải là số lớn hơn hoặc bằng 0.';
+      }
+
+      if (formData.maxAssignees.trim()) {
+            const maxAssignees = Number(formData.maxAssignees);
+
+            if (!Number.isFinite(maxAssignees) || maxAssignees < 1) {
+                  return 'Số người tối đa phải là số lớn hơn 0 hoặc để trống.';
+            }
+
+            if (maxAssignees < minAssignees) {
+                  return 'Số người tối đa không được nhỏ hơn số người tối thiểu.';
+            }
+      }
+
+      if (
+            (formData.roleType === 'team_leader' ||
+                  formData.roleType === 'committee_head') &&
+            !formData.requiresUnit
+      ) {
+            return 'Vai trò Tổ trưởng hoặc Trưởng ban cần chọn yêu cầu Tổ/Ban.';
       }
 
       const otherRoles = roles.filter((role) => role.id !== editingId);
@@ -216,8 +402,8 @@ export default function OrganizationRoles() {
             return {
                   total: roles.length,
                   active: roles.filter((role) => role.isActive).length,
-                  singleOwner: roles.filter((role) => !role.allowMultipleMembers).length,
-                  multiOwner: roles.filter((role) => role.allowMultipleMembers).length,
+                  system: roles.filter((role) => isSystemRole(role)).length,
+                  unitRequired: roles.filter((role) => role.requiresUnit).length,
             };
       }, [roles]);
 
@@ -247,6 +433,15 @@ export default function OrganizationRoles() {
                   allowMultipleMembers: Boolean(role.allowMultipleMembers),
                   isActive: Boolean(role.isActive),
                   sortOrder: String(role.sortOrder ?? 0),
+
+                  level: String(role.level ?? 3),
+                  roleType: (role.roleType as RoleType) || 'custom',
+                  minAssignees: String(role.minAssignees ?? 0),
+                  maxAssignees:
+                        role.maxAssignees === null || role.maxAssignees === undefined
+                              ? ''
+                              : String(role.maxAssignees),
+                  requiresUnit: Boolean(role.requiresUnit),
             });
             setError(null);
             setIsFormOpen(true);
@@ -271,6 +466,10 @@ export default function OrganizationRoles() {
                   return;
             }
 
+            const maxAssignees = formData.maxAssignees.trim()
+                  ? Number(formData.maxAssignees)
+                  : null;
+
             const payload = {
                   code: normalizeRoleCode(formData.code),
                   name: formData.name.trim(),
@@ -279,6 +478,12 @@ export default function OrganizationRoles() {
                   allowMultipleMembers: formData.allowMultipleMembers,
                   isActive: formData.isActive,
                   sortOrder: Number(formData.sortOrder),
+
+                  level: Number(formData.level),
+                  roleType: formData.roleType,
+                  minAssignees: Number(formData.minAssignees || 0),
+                  maxAssignees,
+                  requiresUnit: formData.requiresUnit,
             };
 
             try {
@@ -315,6 +520,11 @@ export default function OrganizationRoles() {
       };
 
       const handleDelete = async (role: OrganizationRole) => {
+            if (isSystemRole(role)) {
+                  alert('Không thể xóa vai trò hệ thống.');
+                  return;
+            }
+
             if ((role.assignedCount || 0) > 0) {
                   alert(
                         'Không thể xóa vai trò đã có nhân sự trong cơ cấu tổ chức. Bạn có thể chuyển trạng thái sang Ngưng dùng sau khi kết thúc phân công.'
@@ -349,7 +559,14 @@ export default function OrganizationRoles() {
                         sortValue: (role) => role.name,
                         render: (role) => (
                               <div>
-                                    <p className="font-semibold text-neutral-900">{role.name}</p>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                          <p className="font-semibold text-neutral-900">{role.name}</p>
+                                          {isSystemRole(role) && (
+                                                <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                                                      Hệ thống
+                                                </span>
+                                          )}
+                                    </div>
                                     <p className="mt-1 font-mono text-xs text-neutral-500">
                                           {role.code}
                                     </p>
@@ -357,8 +574,34 @@ export default function OrganizationRoles() {
                         ),
                   },
                   {
+                        key: 'level',
+                        label: 'Cấp',
+                        sortable: true,
+                        sortValue: (role) => role.level || 3,
+                        render: (role) => (
+                              <span className="inline-flex rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs font-semibold text-neutral-700">
+                                    {getLevelLabel(role.level)}
+                              </span>
+                        ),
+                  },
+                  {
+                        key: 'roleType',
+                        label: 'Loại vai trò',
+                        sortable: true,
+                        sortValue: (role) => getRoleTypeLabel(role.roleType),
+                        render: (role) => (
+                              <span
+                                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getRoleTypeClass(
+                                          role.roleType
+                                    )}`}
+                              >
+                                    {getRoleTypeLabel(role.roleType)}
+                              </span>
+                        ),
+                  },
+                  {
                         key: 'category',
-                        label: 'Nhóm vai trò',
+                        label: 'Nhóm',
                         sortable: true,
                         sortValue: (role) => getCategoryLabel(role.category),
                         render: (role) => (
@@ -375,10 +618,31 @@ export default function OrganizationRoles() {
                         key: 'allowMultipleMembers',
                         label: 'Số người',
                         sortable: true,
-                        sortValue: (role) => (role.allowMultipleMembers ? 2 : 1),
+                        sortValue: (role) => role.maxAssignees || (role.allowMultipleMembers ? 999 : 1),
                         render: (role) => (
-                              <span className="text-sm font-medium text-neutral-800">
-                                    {role.allowMultipleMembers ? 'Nhiều người' : 'Một người'}
+                              <div>
+                                    <p className="text-sm font-medium text-neutral-800">
+                                          {getAssigneeRuleLabel(role)}
+                                    </p>
+                                    <p className="mt-1 text-xs text-neutral-500">
+                                          Tối thiểu {role.minAssignees ?? 0}
+                                    </p>
+                              </div>
+                        ),
+                  },
+                  {
+                        key: 'requiresUnit',
+                        label: 'Tổ/Ban',
+                        sortable: true,
+                        sortValue: (role) => (role.requiresUnit ? 1 : 0),
+                        render: (role) => (
+                              <span
+                                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${role.requiresUnit
+                                          ? 'border-purple-200 bg-purple-50 text-purple-700'
+                                          : 'border-neutral-200 bg-neutral-50 text-neutral-600'
+                                          }`}
+                              >
+                                    {role.requiresUnit ? 'Bắt buộc' : 'Không'}
                               </span>
                         ),
                   },
@@ -455,9 +719,13 @@ export default function OrganizationRoles() {
                                     <button
                                           type="button"
                                           onClick={() => handleDelete(role)}
-                                          disabled={deleteRoleMutation.isPending}
-                                          className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                          title="Xóa vai trò"
+                                          disabled={deleteRoleMutation.isPending || isSystemRole(role)}
+                                          className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                          title={
+                                                isSystemRole(role)
+                                                      ? 'Vai trò hệ thống không thể xóa'
+                                                      : 'Xóa vai trò'
+                                          }
                                     >
                                           <Trash2 className="h-4 w-4" />
                                     </button>
@@ -465,7 +733,7 @@ export default function OrganizationRoles() {
                         ),
                   },
             ],
-            [roles, toggleRoleActiveMutation.isPending, deleteRoleMutation.isPending]
+            [toggleRoleActiveMutation.isPending, deleteRoleMutation.isPending]
       );
 
       return (
@@ -480,7 +748,7 @@ export default function OrganizationRoles() {
                                           Vai trò / Chức danh
                                     </h1>
                                     <p className="mt-2 max-w-3xl text-sm text-neutral-500">
-                                          Quản lý các nhiệm kỳ tổ chức của lưu xá, làm cơ sở để phân công vai trò, theo dõi cơ cấu phụ trách và lưu lại lịch sử tổ chức theo từng giai đoạn.
+                                          Quản lý các vai trò trong cơ cấu tổ chức lưu xá, bao gồm cấp bậc, loại vai trò và quy tắc phân công theo từng nhiệm kỳ.
                                     </p>
                               </div>
 
@@ -503,7 +771,7 @@ export default function OrganizationRoles() {
                                                 <p className="mt-1 text-sm">
                                                       {error ||
                                                             rolesQuery.error?.message ||
-                                                            'Vui lòng kiểm tra backend hoặc kết nối database.'}
+                                                            'Vui lòng kiểm tra lại dữ liệu và thử lại.'}
                                                 </p>
                                           </div>
                                     </div>
@@ -533,20 +801,20 @@ export default function OrganizationRoles() {
 
                               <ConfigurableStatCard
                                     moduleKey="organization"
-                                    cardKey="organization.roles.singleOwner"
-                                    label="Một người"
-                                    value={stats.singleOwner}
-                                    description="Vai trò chỉ cho phép một người"
+                                    cardKey="organization.roles.system"
+                                    label="Vai trò cố định"
+                                    value={stats.system}
+                                    description="Vai trò nền của cơ cấu"
                                     tone="orange"
                                     icon={<ShieldCheck className="h-6 w-6" />}
                               />
 
                               <ConfigurableStatCard
                                     moduleKey="organization"
-                                    cardKey="organization.roles.multiOwner"
-                                    label="Nhiều người"
-                                    value={stats.multiOwner}
-                                    description="Vai trò cho phép nhiều người"
+                                    cardKey="organization.roles.unitRequired"
+                                    label="Theo Tổ/Ban"
+                                    value={stats.unitRequired}
+                                    description="Vai trò cần chọn đơn vị phụ trách"
                                     tone="purple"
                                     icon={<Users className="h-6 w-6" />}
                               />
@@ -668,15 +936,26 @@ function RoleFormModal({
       isSubmitting: boolean;
       editingRole: OrganizationRole | null;
 }) {
+      const systemRole = isSystemRole(editingRole);
+
+      const handleRoleTypeChange = (roleType: RoleType) => {
+            const defaultRule = getDefaultRuleByRoleType(roleType);
+
+            setFormData({
+                  ...formData,
+                  roleType,
+                  ...defaultRule,
+            });
+      };
+
       return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-                  <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+                  <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-xl">
                         <div className="sticky top-0 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
                               <div>
                                     <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
                                     <p className="text-sm text-neutral-500">
-                                          Vai trò dùng để gán nhân sự vào cơ cấu tổ chức trong từng nhiệm
-                                          kỳ của lưu xá.
+                                          Khai báo vai trò, cấp bậc và quy tắc phân công trong cơ cấu tổ chức lưu xá.
                                     </p>
                               </div>
 
@@ -702,34 +981,79 @@ function RoleFormModal({
                                     </div>
                               )}
 
+                              {systemRole && (
+                                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+                                          Đây là vai trò cố định của cơ cấu lưu xá. Một số thông tin nền sẽ được giữ ổn định để đảm bảo quy tắc phân công.
+                                    </div>
+                              )}
+
                               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div>
-                                          <Label htmlFor="roleCode">Mã vai trò *</Label>
+                                          <Label htmlFor="code">Mã vai trò</Label>
                                           <Input
-                                                id="roleCode"
+                                                id="code"
                                                 value={formData.code}
                                                 onChange={(event) =>
-                                                      setFormData({ ...formData, code: event.target.value })
+                                                      setFormData({
+                                                            ...formData,
+                                                            code: normalizeRoleCode(event.target.value),
+                                                      })
                                                 }
-                                                placeholder="VD: TRUONG_PHONG"
+                                                placeholder="VD: TRUONG_NHA"
+                                                disabled={systemRole}
                                                 required
                                           />
-                                          <p className="mt-1 text-xs text-neutral-500">
-                                                Khi lưu, mã sẽ được chuẩn hóa thành chữ in hoa và dấu gạch dưới.
-                                          </p>
                                     </div>
 
                                     <div>
-                                          <Label htmlFor="roleName">Tên vai trò *</Label>
+                                          <Label htmlFor="name">Tên vai trò</Label>
                                           <Input
-                                                id="roleName"
+                                                id="name"
                                                 value={formData.name}
                                                 onChange={(event) =>
                                                       setFormData({ ...formData, name: event.target.value })
                                                 }
-                                                placeholder="VD: Trưởng phòng"
+                                                placeholder="VD: Trưởng nhà"
                                                 required
                                           />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="roleType">Loại vai trò</Label>
+                                          <select
+                                                id="roleType"
+                                                value={formData.roleType}
+                                                onChange={(event) =>
+                                                      handleRoleTypeChange(event.target.value as RoleType)
+                                                }
+                                                disabled={systemRole}
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-neutral-100 disabled:text-neutral-500"
+                                          >
+                                                <option value="head">Trưởng</option>
+                                                <option value="deputy">Phó</option>
+                                                <option value="secretary">Thư ký</option>
+                                                <option value="treasurer">Thủ quỹ</option>
+                                                <option value="team_leader">Tổ trưởng</option>
+                                                <option value="committee_head">Trưởng ban</option>
+                                                <option value="custom">Khác</option>
+                                          </select>
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="level">Cấp vai trò</Label>
+                                          <select
+                                                id="level"
+                                                value={formData.level}
+                                                onChange={(event) =>
+                                                      setFormData({ ...formData, level: event.target.value })
+                                                }
+                                                disabled={systemRole}
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-neutral-100 disabled:text-neutral-500"
+                                          >
+                                                <option value="1">LV1 - Trưởng</option>
+                                                <option value="2">LV2 - Phó / Thư ký / Thủ quỹ</option>
+                                                <option value="3">LV3 - Tổ / Ban / Vai trò khác</option>
+                                          </select>
                                     </div>
 
                                     <div>
@@ -767,7 +1091,43 @@ function RoleFormModal({
                                                 onChange={(event) =>
                                                       setFormData({ ...formData, sortOrder: event.target.value })
                                                 }
+                                                placeholder="VD: 10"
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="minAssignees">Số người tối thiểu</Label>
+                                          <Input
+                                                id="minAssignees"
+                                                type="number"
+                                                min={0}
+                                                value={formData.minAssignees}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            minAssignees: event.target.value,
+                                                      })
+                                                }
                                                 placeholder="VD: 1"
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="maxAssignees">Số người tối đa</Label>
+                                          <Input
+                                                id="maxAssignees"
+                                                type="number"
+                                                min={1}
+                                                value={formData.maxAssignees}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            maxAssignees: event.target.value,
+                                                            allowMultipleMembers:
+                                                                  !event.target.value || Number(event.target.value) > 1,
+                                                      })
+                                                }
+                                                placeholder="Để trống nếu không giới hạn"
                                           />
                                     </div>
 
@@ -798,7 +1158,37 @@ function RoleFormModal({
                                     </div>
 
                                     <div>
-                                          <Label>Quy tắc số người</Label>
+                                          <Label>Yêu cầu Tổ/Ban</Label>
+                                          <div className="mt-2 flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                                                <input
+                                                      id="requiresUnit"
+                                                      type="checkbox"
+                                                      checked={formData.requiresUnit}
+                                                      onChange={(event) =>
+                                                            setFormData({
+                                                                  ...formData,
+                                                                  requiresUnit: event.target.checked,
+                                                            })
+                                                      }
+                                                      disabled={
+                                                            formData.roleType === 'team_leader' ||
+                                                            formData.roleType === 'committee_head'
+                                                      }
+                                                      className="h-4 w-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                />
+                                                <div>
+                                                      <Label htmlFor="requiresUnit" className="cursor-pointer">
+                                                            Khi phân công phải chọn Tổ/Ban
+                                                      </Label>
+                                                      <p className="text-xs text-neutral-500">
+                                                            Áp dụng cho Tổ trưởng và Trưởng ban để xác định đơn vị phụ trách.
+                                                      </p>
+                                                </div>
+                                          </div>
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                          <Label>Quy tắc nhiều người</Label>
                                           <div className="mt-2 flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
                                                 <input
                                                       id="allowMultipleMembers"
@@ -808,6 +1198,9 @@ function RoleFormModal({
                                                             setFormData({
                                                                   ...formData,
                                                                   allowMultipleMembers: event.target.checked,
+                                                                  maxAssignees: event.target.checked
+                                                                        ? formData.maxAssignees
+                                                                        : '1',
                                                             })
                                                       }
                                                       className="h-4 w-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
@@ -820,7 +1213,7 @@ function RoleFormModal({
                                                             Cho phép nhiều người cùng vai trò
                                                       </Label>
                                                       <p className="text-xs text-neutral-500">
-                                                            Dùng cho các vai trò có thể có nhiều học viên cùng đảm nhiệm trong một nhiệm kỳ.
+                                                            Dùng cho vai trò có thể có nhiều học viên cùng đảm nhiệm trong một nhiệm kỳ.
                                                       </p>
                                                 </div>
                                           </div>
@@ -848,7 +1241,6 @@ function RoleFormModal({
                                           className="min-h-24"
                                     />
                               </div>
-
 
                               <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
                                     <button

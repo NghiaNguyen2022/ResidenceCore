@@ -1,4 +1,4 @@
-﻿import { router } from "./_core/trpc";
+import { router } from "./_core/trpc";
 import { systemRouter } from "./_core/systemRouter";
 import { authRouter } from "./routers/modules/auth";
 import { dashboardRouter } from "./routers/modules/dashboard";
@@ -16,6 +16,12 @@ export const appRouter = router({
   rooms: roomsRouter,
   duties: dutiesRouter,
   financial: financialRouter,
+
+  // Tổ chức lưu xá:
+  // - roles
+  // - terms
+  // - assignments
+  // - units: Tổ / Ban
   organization: organizationRouter,
 });
 
