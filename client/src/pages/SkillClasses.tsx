@@ -1,841 +1,1473 @@
-import { useMemo, useState } from "react";
+'use client';
+
+import { useMemo, useState } from 'react';
 import {
-  AlertCircle,
-  BookOpen,
-  Edit2,
-  Music,
-  Plus,
-  Search,
-  Target,
-  Trash2,
-  UserCheck,
-  Users,
-  X,
-} from "lucide-react";
+      AlertCircle,
+      Award,
+      CalendarDays,
+      CheckCircle2,
+      Clock,
+      Edit2,
+      GraduationCap,
+      MapPin,
+      Plus,
+      Search,
+      Trash2,
+      Users,
+      X,
+} from 'lucide-react';
 
-import { trpc } from "@/lib/trpc";
-import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { trpc } from '@/lib/trpc';
+import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ConfigurableStatCard } from '@/components/configurable/ConfigurableStatCard';
+import {
+      ConfigurableColumn,
+      ConfigurableDataTable,
+} from '@/components/configurable/ConfigurableDataTable';
 
-type SkillStatus = "active" | "inactive";
-type SkillCategory =
-  | "music"
-  | "movement"
-  | "leadership"
-  | "communication"
-  | "service"
-  | "other";
+type SkillClassStatus = 'planned' | 'open' | 'in_progress' | 'completed' | 'cancelled';
+type SkillClassType = 'workshop' | 'course' | 'sharing' | 'practice' | 'retreat' | 'other';
+type AttendanceMode = 'optional' | 'recommended' | 'required';
 
-type Skill = {
-  id: number;
-  name: string;
-  category: SkillCategory;
-  description?: string;
-  ownerResidentId?: number;
-  ownerName?: string;
-  ownerCode?: string;
-  status: SkillStatus;
-  note?: string;
+type Resident = {
+      id: number;
+      residentCode?: string | null;
+      code?: string | null;
+      fullName?: string | null;
+      name?: string | null;
+      status?: string | null;
+      roomId?: number | null;
+      roomCode?: string | null;
+      roomName?: string | null;
 };
 
-type SkillFormData = {
-  name: string;
-  category: SkillCategory;
-  description: string;
-  ownerResidentId: string;
-  status: SkillStatus;
-  note: string;
+type SkillReference = {
+      id: number;
+      code: string;
+      name: string;
+      category: string;
+      level: string;
 };
 
-const initialSkills: Skill[] = [
-  {
-    id: 1,
-    name: "Đàn",
-    category: "music",
-    description: "Kỹ năng đàn căn bản phục vụ sinh hoạt, phụng vụ và văn nghệ.",
-    ownerResidentId: 1,
-    ownerName: "Nguyễn Văn A",
-    ownerCode: "HV0001",
-    status: "active",
-    note: "Ưu tiên cho nhóm phụng vụ và văn nghệ.",
-  },
-  {
-    id: 2,
-    name: "Biên đạo",
-    category: "movement",
-    description: "Kỹ năng dàn dựng tiết mục, sinh hoạt cộng đoàn.",
-    ownerResidentId: 2,
-    ownerName: "Trần Thị B",
-    ownerCode: "HV0002",
-    status: "active",
-    note: "Dùng cho hoạt động văn nghệ, Noel, Tất niên.",
-  },
-  {
-    id: 3,
-    name: "Linh hoạt viên",
-    category: "leadership",
-    description: "Kỹ năng dẫn sinh hoạt, trò chơi, kết nối nhóm.",
-    status: "active",
-    note: "Phù hợp cho các hoạt động trò chơi lớn, Mùa hè hy vọng.",
-  },
-  {
-    id: 4,
-    name: "Truyền thông",
-    category: "communication",
-    description: "Kỹ năng chụp ảnh, viết tin, truyền thông nội bộ.",
-    status: "inactive",
-    note: "Tạm để trong backlog.",
-  },
+type SkillClassItem = {
+      id: number;
+      code: string;
+      title: string;
+      skillId: number | null;
+      skillName: string;
+      classType: SkillClassType;
+      attendanceMode: AttendanceMode;
+      status: SkillClassStatus;
+      startDate: string;
+      endDate: string;
+      startTime: string;
+      endTime: string;
+      location: string;
+      facilitator: string;
+      ownerGroup: string;
+      capacity: number;
+      enrolledCount: number;
+      completedCount: number;
+      description: string;
+      objective: string;
+      note?: string | null;
+      sortOrder: number;
+};
+
+type SkillClassFormData = {
+      code: string;
+      title: string;
+      skillId: string;
+      skillName: string;
+      classType: SkillClassType;
+      attendanceMode: AttendanceMode;
+      status: SkillClassStatus;
+      startDate: string;
+      endDate: string;
+      startTime: string;
+      endTime: string;
+      location: string;
+      facilitator: string;
+      ownerGroup: string;
+      capacity: string;
+      enrolledCount: string;
+      completedCount: string;
+      description: string;
+      objective: string;
+      note: string;
+      sortOrder: string;
+};
+
+const skillReferences: SkillReference[] = [
+      {
+            id: 1,
+            code: 'COMMUNICATION_BASIC',
+            name: 'Giao tiếp căn bản',
+            category: 'Giao tiếp',
+            level: 'Cơ bản',
+      },
+      {
+            id: 2,
+            code: 'TIME_MANAGEMENT',
+            name: 'Quản lý thời gian',
+            category: 'Học tập',
+            level: 'Cơ bản',
+      },
+      {
+            id: 3,
+            code: 'TEAMWORK',
+            name: 'Làm việc nhóm',
+            category: 'Cộng đoàn',
+            level: 'Trung cấp',
+      },
 ];
 
-const defaultFormData: SkillFormData = {
-  name: "",
-  category: "music",
-  description: "",
-  ownerResidentId: "",
-  status: "active",
-  note: "",
+const initialClasses: SkillClassItem[] = [
+      {
+            id: 1,
+            code: 'CLASS-2026-001',
+            title: 'Giao tiếp căn bản trong đời sống chung',
+            skillId: 1,
+            skillName: 'Giao tiếp căn bản',
+            classType: 'workshop',
+            attendanceMode: 'recommended',
+            status: 'open',
+            startDate: '2026-06-08',
+            endDate: '2026-06-08',
+            startTime: '19:30',
+            endTime: '21:00',
+            location: 'Phòng sinh hoạt chung',
+            facilitator: 'Ban kỹ năng',
+            ownerGroup: 'Ban kỹ năng',
+            capacity: 30,
+            enrolledCount: 18,
+            completedCount: 0,
+            description: 'Buổi thực hành giao tiếp, lắng nghe và phản hồi trong môi trường lưu xá.',
+            objective: 'Giúp học viên tự tin trao đổi, biết lắng nghe và xử lý tình huống giao tiếp cơ bản.',
+            note: '',
+            sortOrder: 10,
+      },
+      {
+            id: 2,
+            code: 'CLASS-2026-002',
+            title: 'Quản lý thời gian học tập và sinh hoạt',
+            skillId: 2,
+            skillName: 'Quản lý thời gian',
+            classType: 'sharing',
+            attendanceMode: 'recommended',
+            status: 'planned',
+            startDate: '2026-06-15',
+            endDate: '2026-06-15',
+            startTime: '19:30',
+            endTime: '21:00',
+            location: 'Phòng học chung',
+            facilitator: 'Ban học tập',
+            ownerGroup: 'Ban học tập',
+            capacity: 25,
+            enrolledCount: 12,
+            completedCount: 0,
+            description: 'Chia sẻ phương pháp lập kế hoạch tuần, cân bằng giờ học, sinh hoạt và công tác chung.',
+            objective: 'Học viên có thể tự lập kế hoạch tuần và theo dõi việc thực hiện.',
+            note: '',
+            sortOrder: 20,
+      },
+      {
+            id: 3,
+            code: 'CLASS-2026-003',
+            title: 'Làm việc nhóm qua hoạt động cộng đoàn',
+            skillId: 3,
+            skillName: 'Làm việc nhóm',
+            classType: 'practice',
+            attendanceMode: 'required',
+            status: 'completed',
+            startDate: '2026-05-25',
+            endDate: '2026-05-25',
+            startTime: '08:00',
+            endTime: '11:00',
+            location: 'Sân sinh hoạt',
+            facilitator: 'Tổ chức lưu xá',
+            ownerGroup: 'Tổ chức lưu xá',
+            capacity: 40,
+            enrolledCount: 32,
+            completedCount: 30,
+            description: 'Thực hành phối hợp theo nhóm thông qua một hoạt động chung của lưu xá.',
+            objective: 'Rèn luyện phân công, phối hợp và hoàn thành phần việc được giao.',
+            note: 'Có thể dùng kết quả cho màn hình kết quả kỹ năng.',
+            sortOrder: 30,
+      },
+];
+
+const defaultFormData: SkillClassFormData = {
+      code: '',
+      title: '',
+      skillId: '',
+      skillName: '',
+      classType: 'workshop',
+      attendanceMode: 'recommended',
+      status: 'planned',
+      startDate: '',
+      endDate: '',
+      startTime: '19:30',
+      endTime: '21:00',
+      location: '',
+      facilitator: '',
+      ownerGroup: '',
+      capacity: '0',
+      enrolledCount: '0',
+      completedCount: '0',
+      description: '',
+      objective: '',
+      note: '',
+      sortOrder: '10',
 };
 
-function getCategoryLabel(category: SkillCategory) {
-  if (category === "music") return "Âm nhạc";
-  if (category === "movement") return "Biên đạo / Vận động";
-  if (category === "leadership") return "Lãnh đạo / Sinh hoạt";
-  if (category === "communication") return "Truyền thông";
-  if (category === "service") return "Phục vụ";
-  return "Khác";
+function normalizeText(value?: string | null) {
+      return (value || '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ');
 }
 
-function getCategoryClass(category: SkillCategory) {
-  if (category === "music") return "bg-purple-50 text-purple-700";
-  if (category === "movement") return "bg-pink-50 text-pink-700";
-  if (category === "leadership") return "bg-blue-50 text-blue-700";
-  if (category === "communication") return "bg-orange-50 text-orange-700";
-  if (category === "service") return "bg-green-50 text-green-700";
-  return "bg-neutral-100 text-neutral-700";
+function normalizeCode(value: string) {
+      return value
+            .trim()
+            .toUpperCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^A-Z0-9-]+/g, '-')
+            .replace(/^-+|-+$/g, '');
 }
 
-function getStatusLabel(status: SkillStatus) {
-  if (status === "active") return "Đang dùng";
-  return "Tạm ngưng";
+function buildClassCode(items: SkillClassItem[]) {
+      const year = new Date().getFullYear();
+      const nextNumber = Math.max(...items.map((item) => item.id), 0) + 1;
+
+      return `CLASS-${year}-${String(nextNumber).padStart(3, '0')}`;
 }
 
-function getStatusClass(status: SkillStatus) {
-  if (status === "active") return "bg-green-50 text-green-700";
-  return "bg-neutral-100 text-neutral-600";
+function getTodayDateString() {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+
+      return `${year}-${month}-${day}`;
 }
 
-function StatCard({
-  label,
-  value,
-  description,
-  icon,
+function getResidentName(resident?: Resident | null) {
+      return resident?.fullName || resident?.name || 'Chưa có tên';
+}
+
+function isActiveResident(resident: Resident) {
+      const status = normalizeText(resident.status);
+
+      if (!status) return true;
+
+      return !['inactive', 'left', 'ended', 'archived', 'da roi', 'nghi', 'ngung'].includes(status);
+}
+
+function formatDate(value: string) {
+      if (!value) return '-';
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) return value;
+
+      return date.toLocaleDateString('vi-VN');
+}
+
+function formatDateRange(startDate: string, endDate: string) {
+      if (!startDate && !endDate) return '-';
+      if (startDate && (!endDate || startDate === endDate)) return formatDate(startDate);
+
+      return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+}
+
+function formatTimeRange(startTime: string, endTime: string) {
+      if (startTime && endTime) return `${startTime} - ${endTime}`;
+      if (startTime) return `Từ ${startTime}`;
+      if (endTime) return `Đến ${endTime}`;
+
+      return '-';
+}
+
+function timeToMinutes(value: string) {
+      const [hour, minute] = value.split(':').map(Number);
+
+      if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
+
+      return hour * 60 + minute;
+}
+
+function getClassTypeLabel(type: SkillClassType) {
+      if (type === 'workshop') return 'Workshop';
+      if (type === 'course') return 'Khóa học';
+      if (type === 'sharing') return 'Chia sẻ';
+      if (type === 'practice') return 'Thực hành';
+      if (type === 'retreat') return 'Tĩnh tâm / Chuyên đề';
+      return 'Khác';
+}
+
+function getClassTypeClass(type: SkillClassType) {
+      if (type === 'workshop') return 'border-blue-200 bg-blue-50 text-blue-700';
+      if (type === 'course') return 'border-violet-200 bg-violet-50 text-violet-700';
+      if (type === 'sharing') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+      if (type === 'practice') return 'border-orange-200 bg-orange-50 text-orange-700';
+      if (type === 'retreat') return 'border-indigo-200 bg-indigo-50 text-indigo-700';
+      return 'border-neutral-200 bg-neutral-50 text-neutral-700';
+}
+
+function getAttendanceModeLabel(mode: AttendanceMode) {
+      if (mode === 'optional') return 'Tự chọn';
+      if (mode === 'recommended') return 'Khuyến khích';
+      return 'Bắt buộc';
+}
+
+function getAttendanceModeClass(mode: AttendanceMode) {
+      if (mode === 'optional') return 'border-slate-200 bg-slate-50 text-slate-700';
+      if (mode === 'recommended') return 'border-blue-200 bg-blue-50 text-blue-700';
+      return 'border-red-200 bg-red-50 text-red-700';
+}
+
+function getStatusLabel(status: SkillClassStatus) {
+      if (status === 'planned') return 'Dự kiến';
+      if (status === 'open') return 'Đang mở';
+      if (status === 'in_progress') return 'Đang học';
+      if (status === 'completed') return 'Hoàn thành';
+      return 'Đã hủy';
+}
+
+function getStatusClass(status: SkillClassStatus) {
+      if (status === 'planned') return 'border-slate-200 bg-slate-50 text-slate-700';
+      if (status === 'open') return 'border-blue-200 bg-blue-50 text-blue-700';
+      if (status === 'in_progress') return 'border-amber-200 bg-amber-50 text-amber-700';
+      if (status === 'completed') return 'border-green-200 bg-green-50 text-green-700';
+      return 'border-red-200 bg-red-50 text-red-700';
+}
+
+function getNextId(items: SkillClassItem[]) {
+      return Math.max(...items.map((item) => item.id), 0) + 1;
+}
+
+function getNextSortOrder(items: SkillClassItem[]) {
+      return String(Math.max(...items.map((item) => Number(item.sortOrder || 0)), 0) + 10);
+}
+
+function validateForm({
+      items,
+      formData,
+      editingId,
 }: {
-  label: string;
-  value: string | number;
-  description: string;
-  icon: React.ReactNode;
+      items: SkillClassItem[];
+      formData: SkillClassFormData;
+      editingId?: number;
 }) {
-  return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-neutral-500">{label}</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{value}</p>
-          <p className="mt-1 text-xs text-neutral-500">{description}</p>
-        </div>
+      const code = normalizeCode(formData.code);
 
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
+      if (!code) return 'Vui lòng nhập mã lớp kỹ năng.';
+      if (!formData.title.trim()) return 'Vui lòng nhập tên lớp kỹ năng.';
+      if (!formData.startDate) return 'Vui lòng nhập ngày bắt đầu.';
+
+      if (formData.startTime && formData.endTime && timeToMinutes(formData.endTime) <= timeToMinutes(formData.startTime)) {
+            return 'Giờ kết thúc phải lớn hơn giờ bắt đầu.';
+      }
+
+      const capacity = Number(formData.capacity || 0);
+      const enrolledCount = Number(formData.enrolledCount || 0);
+      const completedCount = Number(formData.completedCount || 0);
+
+      if (!Number.isFinite(capacity) || capacity < 0) return 'Sức chứa phải là số lớn hơn hoặc bằng 0.';
+      if (!Number.isFinite(enrolledCount) || enrolledCount < 0) return 'Số học viên đăng ký phải là số lớn hơn hoặc bằng 0.';
+      if (!Number.isFinite(completedCount) || completedCount < 0) return 'Số học viên hoàn thành phải là số lớn hơn hoặc bằng 0.';
+
+      if (capacity > 0 && enrolledCount > capacity) {
+            return 'Số học viên đăng ký không được vượt quá sức chứa.';
+      }
+
+      if (completedCount > enrolledCount) {
+            return 'Số học viên hoàn thành không được vượt quá số học viên đăng ký.';
+      }
+
+      const sortOrder = Number(formData.sortOrder || 0);
+
+      if (!Number.isFinite(sortOrder) || sortOrder < 0) {
+            return 'Thứ tự hiển thị phải là số lớn hơn hoặc bằng 0.';
+      }
+
+      const duplicatedCode = items
+            .filter((item) => item.id !== editingId)
+            .some((item) => normalizeText(item.code) === normalizeText(code));
+
+      if (duplicatedCode) {
+            return 'Mã lớp kỹ năng đã tồn tại. Vui lòng nhập mã khác.';
+      }
+
+      return null;
 }
 
-export default function Skills() {
-  const [skills, setSkills] = useState<Skill[]>(initialSkills);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+export default function SkillClasses() {
+      const [items, setItems] = useState<SkillClassItem[]>(initialClasses);
+      const [searchTerm, setSearchTerm] = useState('');
+      const [classTypeFilter, setClassTypeFilter] = useState<'all' | SkillClassType>('all');
+      const [attendanceModeFilter, setAttendanceModeFilter] = useState<'all' | AttendanceMode>('all');
+      const [statusFilter, setStatusFilter] = useState<'all' | SkillClassStatus>('all');
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
-  const [formData, setFormData] = useState<SkillFormData>(defaultFormData);
+      const [isFormOpen, setIsFormOpen] = useState(false);
+      const [editingItem, setEditingItem] = useState<SkillClassItem | null>(null);
+      const [formData, setFormData] = useState<SkillClassFormData>(defaultFormData);
+      const [error, setError] = useState<string | null>(null);
 
-  /**
-   * CONNECTED DATA
-   * Danh sách học viên lấy data thật từ API hiện tại.
-   * Danh mục kỹ năng hiện vẫn là mock UI, chưa ghi DB.
-   */
-  const membersQuery = trpc.members.list.useQuery({
-    search: "",
-    status: undefined,
-  });
+      const membersQuery = trpc.members.list.useQuery({
+            limit: 500,
+            offset: 0,
+      });
 
-  const members = membersQuery.data || [];
+      const activeResidentsCount = useMemo(() => {
+            const data = (membersQuery.data || []) as Resident[];
 
-  const filteredSkills = useMemo(() => {
-    return skills.filter((skill) => {
-      const keyword = searchTerm.trim().toLowerCase();
+            return data.filter(isActiveResident).length;
+      }, [membersQuery.data]);
 
-      const matchesSearch =
-        !keyword ||
-        skill.name.toLowerCase().includes(keyword) ||
-        getCategoryLabel(skill.category).toLowerCase().includes(keyword) ||
-        (skill.description || "").toLowerCase().includes(keyword) ||
-        (skill.ownerName || "").toLowerCase().includes(keyword) ||
-        (skill.note || "").toLowerCase().includes(keyword);
+      const filteredItems = useMemo(() => {
+            const keyword = normalizeText(searchTerm);
 
-      const matchesCategory =
-        categoryFilter === "all" || skill.category === categoryFilter;
+            return items
+                  .filter((item) => {
+                        if (classTypeFilter !== 'all' && item.classType !== classTypeFilter) return false;
+                        if (attendanceModeFilter !== 'all' && item.attendanceMode !== attendanceModeFilter) return false;
+                        if (statusFilter !== 'all' && item.status !== statusFilter) return false;
 
-      const matchesStatus =
-        statusFilter === "all" || skill.status === statusFilter;
+                        if (!keyword) return true;
 
-      return matchesSearch && matchesCategory && matchesStatus;
-    });
-  }, [skills, searchTerm, categoryFilter, statusFilter]);
+                        const haystack = [
+                              item.code,
+                              item.title,
+                              item.skillName,
+                              getClassTypeLabel(item.classType),
+                              getAttendanceModeLabel(item.attendanceMode),
+                              getStatusLabel(item.status),
+                              item.location,
+                              item.facilitator,
+                              item.ownerGroup,
+                              item.description,
+                              item.objective,
+                              item.note,
+                        ]
+                              .map((value) => normalizeText(value))
+                              .join(' ');
 
-  const activeCount = skills.filter((item) => item.status === "active").length;
-  const inactiveCount = skills.filter((item) => item.status === "inactive").length;
+                        return haystack.includes(keyword);
+                  })
+                  .sort((a, b) => {
+                        const dateCompare = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
 
-  const categoryStats = useMemo(() => {
-    const categories: SkillCategory[] = [
-      "music",
-      "movement",
-      "leadership",
-      "communication",
-      "service",
-      "other",
-    ];
+                        if (dateCompare !== 0) return dateCompare;
 
-    return categories
-      .map((category) => ({
-        category,
-        label: getCategoryLabel(category),
-        count: skills.filter((item) => item.category === category).length,
-      }))
-      .filter((item) => item.count > 0);
-  }, [skills]);
+                        return Number(a.sortOrder || 0) - Number(b.sortOrder || 0);
+                  });
+      }, [items, searchTerm, classTypeFilter, attendanceModeFilter, statusFilter]);
 
-  const openCreateForm = () => {
-    setEditingSkill(null);
-    setFormData(defaultFormData);
-    setIsFormOpen(true);
-  };
+      const stats = useMemo(() => {
+            return {
+                  total: items.length,
+                  open: items.filter((item) => item.status === 'open' || item.status === 'in_progress').length,
+                  enrolled: items.reduce((sum, item) => sum + (item.enrolledCount || 0), 0),
+                  completed: items.reduce((sum, item) => sum + (item.completedCount || 0), 0),
+            };
+      }, [items]);
 
-  const openEditForm = (skill: Skill) => {
-    setEditingSkill(skill);
-    setFormData({
-      name: skill.name,
-      category: skill.category,
-      description: skill.description || "",
-      ownerResidentId: skill.ownerResidentId ? String(skill.ownerResidentId) : "",
-      status: skill.status,
-      note: skill.note || "",
-    });
-    setIsFormOpen(true);
-  };
-
-  const handleSave = () => {
-    const selectedOwner = members.find(
-      (member: any) => String(member.id) === formData.ownerResidentId
-    );
-
-    if (editingSkill) {
-      setSkills((prev) =>
-        prev.map((item) =>
-          item.id === editingSkill.id
-            ? {
-                ...item,
-                name: formData.name,
-                category: formData.category,
-                description: formData.description,
-                ownerResidentId: selectedOwner?.id,
-                ownerName: selectedOwner?.fullName,
-                ownerCode: selectedOwner?.residentCode || selectedOwner?.id,
-                status: formData.status,
-                note: formData.note,
-              }
-            : item
-        )
-      );
-    } else {
-      const newSkill: Skill = {
-        id: Date.now(),
-        name: formData.name,
-        category: formData.category,
-        description: formData.description,
-        ownerResidentId: selectedOwner?.id,
-        ownerName: selectedOwner?.fullName,
-        ownerCode: selectedOwner?.residentCode || selectedOwner?.id,
-        status: formData.status,
-        note: formData.note,
+      const openCreateForm = () => {
+            setEditingItem(null);
+            setFormData({
+                  ...defaultFormData,
+                  code: buildClassCode(items),
+                  startDate: getTodayDateString(),
+                  endDate: getTodayDateString(),
+                  sortOrder: getNextSortOrder(items),
+            });
+            setError(null);
+            setIsFormOpen(true);
       };
 
-      setSkills((prev) => [newSkill, ...prev]);
-    }
+      const openEditForm = (item: SkillClassItem) => {
+            setEditingItem(item);
+            setFormData({
+                  code: item.code,
+                  title: item.title,
+                  skillId: item.skillId ? String(item.skillId) : '',
+                  skillName: item.skillName,
+                  classType: item.classType,
+                  attendanceMode: item.attendanceMode,
+                  status: item.status,
+                  startDate: item.startDate,
+                  endDate: item.endDate,
+                  startTime: item.startTime,
+                  endTime: item.endTime,
+                  location: item.location,
+                  facilitator: item.facilitator,
+                  ownerGroup: item.ownerGroup,
+                  capacity: String(item.capacity || 0),
+                  enrolledCount: String(item.enrolledCount || 0),
+                  completedCount: String(item.completedCount || 0),
+                  description: item.description,
+                  objective: item.objective,
+                  note: item.note || '',
+                  sortOrder: String(item.sortOrder || 0),
+            });
+            setError(null);
+            setIsFormOpen(true);
+      };
 
-    setIsFormOpen(false);
-    setEditingSkill(null);
-    setFormData(defaultFormData);
-  };
+      const closeForm = () => {
+            setIsFormOpen(false);
+            setEditingItem(null);
+            setFormData(defaultFormData);
+            setError(null);
+      };
 
-  const handleDelete = (id: number) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa kỹ năng này khỏi UI mock?")) {
-      return;
-    }
+      const saveItem = () => {
+            const validationMessage = validateForm({
+                  items,
+                  formData,
+                  editingId: editingItem?.id,
+            });
 
-    setSkills((prev) => prev.filter((item) => item.id !== id));
-  };
+            if (validationMessage) {
+                  setError(validationMessage);
+                  return;
+            }
 
-  const clearFilters = () => {
-    setSearchTerm("");
-    setCategoryFilter("all");
-    setStatusFilter("all");
-  };
+            const selectedSkill = formData.skillId
+                  ? skillReferences.find((skill) => skill.id === Number(formData.skillId))
+                  : null;
 
-  return (
-    <ResidenceCareLayout>
-      <div className="space-y-6 p-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-blue-600">
-              Đào tạo & Kỹ năng
-            </p>
-            <h1 className="mt-1 text-3xl font-bold text-neutral-900">
-              Danh mục kỹ năng
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm text-neutral-500">
-              Quản lý các kỹ năng đào tạo trong lưu xá như đàn, biên đạo, linh
-              hoạt viên, truyền thông, phục vụ cộng đoàn.
-            </p>
-          </div>
+            const payload: SkillClassItem = {
+                  id: editingItem?.id || getNextId(items),
+                  code: normalizeCode(formData.code),
+                  title: formData.title.trim(),
+                  skillId: selectedSkill?.id || null,
+                  skillName: selectedSkill?.name || formData.skillName.trim() || 'Chưa gắn kỹ năng',
+                  classType: formData.classType,
+                  attendanceMode: formData.attendanceMode,
+                  status: formData.status,
+                  startDate: formData.startDate,
+                  endDate: formData.endDate || formData.startDate,
+                  startTime: formData.startTime,
+                  endTime: formData.endTime,
+                  location: formData.location.trim(),
+                  facilitator: formData.facilitator.trim(),
+                  ownerGroup: formData.ownerGroup.trim(),
+                  capacity: Number(formData.capacity || 0),
+                  enrolledCount: Number(formData.enrolledCount || 0),
+                  completedCount: Number(formData.completedCount || 0),
+                  description: formData.description.trim(),
+                  objective: formData.objective.trim(),
+                  note: formData.note.trim() || null,
+                  sortOrder: Number(formData.sortOrder || 0),
+            };
 
-          <button
-            type="button"
-            onClick={openCreateForm}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            Thêm kỹ năng
-          </button>
-        </div>
+            if (editingItem) {
+                  setItems((current) =>
+                        current.map((item) => (item.id === editingItem.id ? payload : item))
+                  );
+            } else {
+                  setItems((current) => [...current, payload]);
+            }
 
-        {/* Data status */}
-        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-orange-800">
-          <div className="flex gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
-            <div>
-              <p className="font-semibold">
-                UI mock cho danh mục kỹ năng - danh sách học viên lấy data thật
-              </p>
-              <p className="mt-1 text-sm">
-                Người phụ trách kỹ năng được chọn từ{" "}
-                <span className="font-semibold">trpc.members.list</span>. Danh
-                mục kỹ năng hiện chỉ lưu bằng state mock trên UI, chưa ghi
-                database. Sau này sẽ mapping với{" "}
-                <span className="font-semibold">skillCategories</span> và{" "}
-                <span className="font-semibold">skills</span>.
-              </p>
-            </div>
-          </div>
-        </div>
+            closeForm();
+      };
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Tổng kỹ năng"
-            value={skills.length}
-            description="Dữ liệu mock hiện tại"
-            icon={<Target className="h-5 w-5" />}
-          />
+      const deleteItem = (item: SkillClassItem) => {
+            if ((item.enrolledCount || 0) > 0 || (item.completedCount || 0) > 0) {
+                  setError('Không thể xóa lớp đã có học viên đăng ký hoặc kết quả hoàn thành. Có thể chuyển lớp sang trạng thái đã hủy.');
+                  return;
+            }
 
-          <StatCard
-            label="Đang dùng"
-            value={activeCount}
-            description="Kỹ năng còn đang triển khai"
-            icon={<CheckIcon />}
-          />
+            if (!confirm(`Bạn có chắc chắn muốn xóa lớp "${item.title}"?`)) return;
 
-          <StatCard
-            label="Tạm ngưng"
-            value={inactiveCount}
-            description="Kỹ năng tạm thời chưa mở"
-            icon={<BookOpen className="h-5 w-5" />}
-          />
+            setItems((current) => current.filter((row) => row.id !== item.id));
+      };
 
-          <StatCard
-            label="Học viên"
-            value={members.length}
-            description="Nguồn từ API members.list"
-            icon={<Users className="h-5 w-5" />}
-          />
-        </div>
+      const markCompleted = (item: SkillClassItem) => {
+            setItems((current) =>
+                  current.map((row) =>
+                        row.id === item.id
+                              ? {
+                                      ...row,
+                                      status: 'completed',
+                                      completedCount: row.completedCount || row.enrolledCount || 0,
+                                }
+                              : row
+                  )
+            );
+      };
 
-        {/* Mapping */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold text-neutral-900">
-              Mapping checklist
-            </h2>
-            <div className="mt-4 space-y-2 text-sm text-neutral-700">
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Quản lý các kỹ năng: Đàn, Biên đạo, Linh hoạt viên...
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Phân nhóm kỹ năng: âm nhạc, sinh hoạt, lãnh đạo, truyền thông.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Gán người phụ trách kỹ năng từ danh sách học viên.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Làm nền cho lớp kỹ năng và kết quả hoàn thành.
-              </div>
-            </div>
-          </div>
+      const clearFilters = () => {
+            setSearchTerm('');
+            setClassTypeFilter('all');
+            setAttendanceModeFilter('all');
+            setStatusFilter('all');
+      };
 
-          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold text-neutral-900">
-              Mapping backend / data
-            </h2>
-            <div className="mt-4 space-y-2 text-sm text-neutral-700">
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Danh sách học viên: <b>trpc.members.list</b> - đã connect.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Bảng đề xuất: <b>skillCategories</b>.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Bảng đề xuất: <b>skills</b>.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Sau này liên kết với <b>skillClasses</b> và{" "}
-                <b>residentSkillEnrollments</b>.
-              </div>
-            </div>
-          </div>
-        </div>
+      const columns = useMemo<ConfigurableColumn<SkillClassItem>[]>(
+            () => [
+                  {
+                        key: 'class',
+                        label: 'Lớp kỹ năng',
+                        sortable: true,
+                        sortValue: (item) => item.title,
+                        render: (item) => (
+                              <div>
+                                    <p className="font-semibold text-slate-900">{item.title}</p>
+                                    <p className="mt-1 font-mono text-xs text-slate-500">{item.code}</p>
+                                    <p className="mt-1 text-xs text-slate-500">{item.skillName}</p>
+                              </div>
+                        ),
+                  },
+                  {
+                        key: 'type',
+                        label: 'Loại lớp',
+                        sortable: true,
+                        sortValue: (item) => getClassTypeLabel(item.classType),
+                        render: (item) => (
+                              <span
+                                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getClassTypeClass(
+                                          item.classType
+                                    )}`}
+                              >
+                                    {getClassTypeLabel(item.classType)}
+                              </span>
+                        ),
+                  },
+                  {
+                        key: 'time',
+                        label: 'Thời gian',
+                        sortable: true,
+                        sortValue: (item) => `${item.startDate}-${item.startTime}`,
+                        render: (item) => (
+                              <div>
+                                    <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                                          <CalendarDays className="h-4 w-4 text-slate-500" />
+                                          {formatDateRange(item.startDate, item.endDate)}
+                                    </div>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                          {formatTimeRange(item.startTime, item.endTime)}
+                                    </p>
+                              </div>
+                        ),
+                  },
+                  {
+                        key: 'location',
+                        label: 'Địa điểm',
+                        sortable: true,
+                        sortValue: (item) => item.location,
+                        render: (item) => (
+                              <div className="flex items-center gap-2 text-sm text-slate-700">
+                                    <MapPin className="h-4 w-4 text-slate-400" />
+                                    {item.location || '-'}
+                              </div>
+                        ),
+                  },
+                  {
+                        key: 'enrolled',
+                        label: 'Sĩ số',
+                        sortable: true,
+                        sortValue: (item) => item.enrolledCount,
+                        render: (item) => (
+                              <div>
+                                    <p className="text-sm font-semibold text-slate-900">
+                                          {item.enrolledCount || 0}/{item.capacity || 0}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                          Hoàn thành: {item.completedCount || 0}
+                                    </p>
+                              </div>
+                        ),
+                  },
+                  {
+                        key: 'attendanceMode',
+                        label: 'Tham gia',
+                        sortable: true,
+                        sortValue: (item) => getAttendanceModeLabel(item.attendanceMode),
+                        render: (item) => (
+                              <span
+                                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getAttendanceModeClass(
+                                          item.attendanceMode
+                                    )}`}
+                              >
+                                    {getAttendanceModeLabel(item.attendanceMode)}
+                              </span>
+                        ),
+                  },
+                  {
+                        key: 'status',
+                        label: 'Trạng thái',
+                        sortable: true,
+                        sortValue: (item) => getStatusLabel(item.status),
+                        render: (item) => (
+                              <span
+                                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
+                                          item.status
+                                    )}`}
+                              >
+                                    {getStatusLabel(item.status)}
+                              </span>
+                        ),
+                  },
+                  {
+                        key: 'facilitator',
+                        label: 'Phụ trách',
+                        defaultVisible: false,
+                        sortable: true,
+                        sortValue: (item) => item.facilitator,
+                        render: (item) => item.facilitator || item.ownerGroup || '-',
+                  },
+                  {
+                        key: 'actions',
+                        label: 'Hành động',
+                        className: 'min-w-[200px]',
+                        render: (item) => (
+                              <div className="flex items-center gap-1.5">
+                                    {item.status !== 'completed' && item.status !== 'cancelled' && (
+                                          <button
+                                                type="button"
+                                                onClick={() => markCompleted(item)}
+                                                className="rounded-lg px-2 py-1 text-xs font-semibold text-green-700 transition hover:bg-green-50"
+                                          >
+                                                Hoàn thành
+                                          </button>
+                                    )}
 
-        {/* Category stats */}
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-neutral-900">
-            Thống kê theo nhóm kỹ năng
-          </h2>
-          <p className="mt-1 text-sm text-neutral-500">
-            Số liệu mock dựa trên danh mục kỹ năng hiện tại.
-          </p>
+                                    <button
+                                          type="button"
+                                          onClick={() => openEditForm(item)}
+                                          className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                          title="Sửa lớp kỹ năng"
+                                    >
+                                          <Edit2 className="h-4 w-4" />
+                                    </button>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
-            {categoryStats.map((item) => (
-              <div
-                key={item.category}
-                className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4"
-              >
-                <p className="text-sm font-semibold text-neutral-700">
-                  {item.label}
-                </p>
-                <p className="mt-2 text-2xl font-bold text-neutral-900">
-                  {item.count}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
+                                    <button
+                                          type="button"
+                                          onClick={() => deleteItem(item)}
+                                          className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                                          title="Xóa lớp kỹ năng"
+                                    >
+                                          <Trash2 className="h-4 w-4" />
+                                    </button>
+                              </div>
+                        ),
+                  },
+            ],
+            [items]
+      );
 
-        {/* Filters */}
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_220px_180px_auto]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <Input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Tìm kỹ năng, nhóm kỹ năng, người phụ trách..."
-                className="pl-10"
-              />
-            </div>
+      return (
+            <ResidenceCareLayout>
+                  <div className="space-y-6 p-6">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                              <div>
+                                    <p className="text-sm font-semibold text-blue-600">
+                                          Học vụ & Phát triển
+                                    </p>
+                                    <h1 className="mt-1 text-3xl font-bold text-neutral-900">
+                                          Các lớp kỹ năng
+                                    </h1>
+                                    <p className="mt-2 max-w-3xl text-sm text-neutral-500">
+                                          Quản lý các lớp kỹ năng, chuyên đề và buổi thực hành nhằm hỗ trợ học viên phát triển bản thân trong môi trường lưu xá.
+                                    </p>
+                              </div>
 
-            <select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-              className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="all">Tất cả nhóm</option>
-              <option value="music">Âm nhạc</option>
-              <option value="movement">Biên đạo / Vận động</option>
-              <option value="leadership">Lãnh đạo / Sinh hoạt</option>
-              <option value="communication">Truyền thông</option>
-              <option value="service">Phục vụ</option>
-              <option value="other">Khác</option>
-            </select>
-
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="active">Đang dùng</option>
-              <option value="inactive">Tạm ngưng</option>
-            </select>
-
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
-            >
-              Xóa lọc
-            </button>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
-            <div>
-              <h2 className="text-lg font-bold text-neutral-900">
-                Danh sách kỹ năng
-              </h2>
-              <p className="text-sm text-neutral-500">
-                {filteredSkills.length} kỹ năng đang hiển thị. Dữ liệu hiện là
-                mock UI.
-              </p>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px]">
-              <thead className="bg-neutral-50">
-                <tr>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Kỹ năng
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Nhóm
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Người phụ trách
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Trạng thái
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Ghi chú
-                  </th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Hành động
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-neutral-100">
-                {filteredSkills.map((skill) => (
-                  <tr key={skill.id} className="transition hover:bg-neutral-50">
-                    <td className="px-5 py-4">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                          <Music className="h-5 w-5" />
+                              <button
+                                    type="button"
+                                    onClick={openCreateForm}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                              >
+                                    <Plus className="h-4 w-4" />
+                                    Thêm lớp kỹ năng
+                              </button>
                         </div>
 
+                        {(error || membersQuery.error) && (
+                              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+                                    <div className="flex gap-3">
+                                          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                                          <div>
+                                                <p className="font-semibold">
+                                                      Có lỗi khi xử lý lớp kỹ năng.
+                                                </p>
+                                                <p className="mt-1 text-sm">
+                                                      {error ||
+                                                            membersQuery.error?.message ||
+                                                            'Vui lòng kiểm tra lại dữ liệu.'}
+                                                </p>
+                                          </div>
+                                    </div>
+                              </div>
+                        )}
+
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                              <ConfigurableStatCard
+                                    moduleKey="skillClasses"
+                                    cardKey="skillClasses.total"
+                                    label="Tổng lớp"
+                                    value={stats.total}
+                                    description="Tổng số lớp kỹ năng"
+                                    tone="blue"
+                                    icon={<GraduationCap className="h-6 w-6" />}
+                              />
+
+                              <ConfigurableStatCard
+                                    moduleKey="skillClasses"
+                                    cardKey="skillClasses.open"
+                                    label="Đang mở"
+                                    value={stats.open}
+                                    description="Lớp đang mở hoặc đang học"
+                                    tone="green"
+                                    icon={<CheckCircle2 className="h-6 w-6" />}
+                              />
+
+                              <ConfigurableStatCard
+                                    moduleKey="skillClasses"
+                                    cardKey="skillClasses.enrolled"
+                                    label="Đăng ký"
+                                    value={stats.enrolled}
+                                    description="Tổng lượt học viên đăng ký"
+                                    tone="orange"
+                                    icon={<Users className="h-6 w-6" />}
+                              />
+
+                              <ConfigurableStatCard
+                                    moduleKey="skillClasses"
+                                    cardKey="skillClasses.completed"
+                                    label="Hoàn thành"
+                                    value={stats.completed}
+                                    description={`Tổng lượt hoàn thành / ${activeResidentsCount} học viên`}
+                                    tone="purple"
+                                    icon={<Award className="h-6 w-6" />}
+                              />
+                        </div>
+
+                        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+                              <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1fr_220px_220px_220px_auto]">
+                                    <div className="relative">
+                                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                                          <Input
+                                                value={searchTerm}
+                                                onChange={(event) => setSearchTerm(event.target.value)}
+                                                placeholder="Tìm lớp kỹ năng, kỹ năng, địa điểm, phụ trách..."
+                                                className="pl-10"
+                                          />
+                                    </div>
+
+                                    <select
+                                          value={classTypeFilter}
+                                          onChange={(event) =>
+                                                setClassTypeFilter(event.target.value as 'all' | SkillClassType)
+                                          }
+                                          className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                    >
+                                          <option value="all">Tất cả loại lớp</option>
+                                          <option value="workshop">Workshop</option>
+                                          <option value="course">Khóa học</option>
+                                          <option value="sharing">Chia sẻ</option>
+                                          <option value="practice">Thực hành</option>
+                                          <option value="retreat">Tĩnh tâm / Chuyên đề</option>
+                                          <option value="other">Khác</option>
+                                    </select>
+
+                                    <select
+                                          value={attendanceModeFilter}
+                                          onChange={(event) =>
+                                                setAttendanceModeFilter(event.target.value as 'all' | AttendanceMode)
+                                          }
+                                          className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                    >
+                                          <option value="all">Tất cả yêu cầu</option>
+                                          <option value="optional">Tự chọn</option>
+                                          <option value="recommended">Khuyến khích</option>
+                                          <option value="required">Bắt buộc</option>
+                                    </select>
+
+                                    <select
+                                          value={statusFilter}
+                                          onChange={(event) =>
+                                                setStatusFilter(event.target.value as 'all' | SkillClassStatus)
+                                          }
+                                          className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                    >
+                                          <option value="all">Tất cả trạng thái</option>
+                                          <option value="planned">Dự kiến</option>
+                                          <option value="open">Đang mở</option>
+                                          <option value="in_progress">Đang học</option>
+                                          <option value="completed">Hoàn thành</option>
+                                          <option value="cancelled">Đã hủy</option>
+                                    </select>
+
+                                    <button
+                                          type="button"
+                                          onClick={clearFilters}
+                                          className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                    >
+                                          Xóa lọc
+                                    </button>
+                              </div>
+                        </div>
+
+                        <SkillClassBoard items={filteredItems} />
+
+                        <ConfigurableDataTable
+                              moduleKey="skillClasses"
+                              tableKey="skillClasses.list"
+                              columns={columns}
+                              data={filteredItems}
+                              getRowKey={(item) => item.id}
+                              isLoading={membersQuery.isLoading}
+                              loadingText="Đang tải dữ liệu học viên..."
+                              emptyTitle="Chưa có lớp kỹ năng"
+                              emptyDescription="Thêm lớp kỹ năng để quản lý các buổi đào tạo và hoạt động phát triển học viên."
+                        />
+
+                        {isFormOpen && (
+                              <SkillClassFormModal
+                                    title={editingItem ? 'Cập nhật lớp kỹ năng' : 'Thêm lớp kỹ năng'}
+                                    formData={formData}
+                                    setFormData={setFormData}
+                                    error={error}
+                                    onClose={closeForm}
+                                    onSubmit={saveItem}
+                                    submitText={editingItem ? 'Cập nhật' : 'Thêm lớp'}
+                              />
+                        )}
+                  </div>
+            </ResidenceCareLayout>
+      );
+}
+
+function SkillClassBoard({ items }: { items: SkillClassItem[] }) {
+      if (items.length === 0) {
+            return (
+                  <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-500">
+                        Không có lớp kỹ năng phù hợp với bộ lọc hiện tại.
+                  </div>
+            );
+      }
+
+      return (
+            <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                         <div>
-                          <p className="font-semibold text-neutral-900">
-                            {skill.name}
-                          </p>
-                          <p className="mt-1 max-w-sm text-xs text-neutral-500">
-                            {skill.description || "-"}
-                          </p>
+                              <h2 className="text-lg font-bold text-neutral-900">
+                                    Lớp kỹ năng sắp tới
+                              </h2>
+                              <p className="mt-1 text-sm text-neutral-500">
+                                    Theo dõi nhanh các lớp đang mở, đang học hoặc chuẩn bị tổ chức.
+                              </p>
                         </div>
-                      </div>
-                    </td>
 
-                    <td className="px-5 py-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getCategoryClass(
-                          skill.category
-                        )}`}
-                      >
-                        {getCategoryLabel(skill.category)}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {skill.ownerName ? (
-                        <div>
-                          <p className="font-medium text-neutral-900">
-                            {skill.ownerName}
-                          </p>
-                          <p className="text-xs text-neutral-500">
-                            {skill.ownerCode || "-"}
-                          </p>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-neutral-500">
-                          Chưa gán
+                        <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                              {items.length} lớp
                         </span>
-                      )}
-                    </td>
+                  </div>
 
-                    <td className="px-5 py-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClass(
-                          skill.status
-                        )}`}
-                      >
-                        {getStatusLabel(skill.status)}
-                      </span>
-                    </td>
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                        {items.slice(0, 6).map((item) => (
+                              <div
+                                    key={item.id}
+                                    className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/80 p-4 shadow-sm"
+                              >
+                                    <div className="flex items-start justify-between gap-3">
+                                          <div className="min-w-0">
+                                                <p className="line-clamp-1 font-bold text-slate-900">
+                                                      {item.title}
+                                                </p>
+                                                <p className="mt-1 text-xs text-slate-500">
+                                                      {item.skillName}
+                                                </p>
+                                          </div>
 
-                    <td className="px-5 py-4 text-sm text-neutral-700">
-                      <div className="max-w-xs truncate">
-                        {skill.note || "-"}
-                      </div>
-                    </td>
+                                          <span
+                                                className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusClass(
+                                                      item.status
+                                                )}`}
+                                          >
+                                                {getStatusLabel(item.status)}
+                                          </span>
+                                    </div>
 
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(skill)}
-                          className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                          title="Sửa kỹ năng"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
+                                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                                          <span
+                                                className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${getClassTypeClass(
+                                                      item.classType
+                                                )}`}
+                                          >
+                                                {getClassTypeLabel(item.classType)}
+                                          </span>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(skill.id)}
-                          className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
-                          title="Xóa kỹ năng mock"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                                          <span
+                                                className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${getAttendanceModeClass(
+                                                      item.attendanceMode
+                                                )}`}
+                                          >
+                                                {getAttendanceModeLabel(item.attendanceMode)}
+                                          </span>
+                                    </div>
 
-                {filteredSkills.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-5 py-10 text-center text-sm text-neutral-500"
-                    >
-                      Không có kỹ năng nào phù hợp với bộ lọc.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500">
+                                          <div className="flex items-center gap-1.5">
+                                                <CalendarDays className="h-3.5 w-3.5" />
+                                                {formatDateRange(item.startDate, item.endDate)}
+                                          </div>
 
-        {isFormOpen && (
-          <SkillFormModal
-            title={editingSkill ? "Chỉnh sửa kỹ năng" : "Thêm kỹ năng"}
-            formData={formData}
-            setFormData={setFormData}
-            members={members}
-            membersLoading={membersQuery.isLoading}
-            onClose={() => {
-              setIsFormOpen(false);
-              setEditingSkill(null);
-            }}
-            onSubmit={handleSave}
-          />
-        )}
-      </div>
-    </ResidenceCareLayout>
-  );
+                                          <div className="flex items-center gap-1.5">
+                                                <Clock className="h-3.5 w-3.5" />
+                                                {formatTimeRange(item.startTime, item.endTime)}
+                                          </div>
+                                    </div>
+
+                                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
+                                          {item.objective || item.description || 'Chưa có mục tiêu lớp học.'}
+                                    </p>
+                              </div>
+                        ))}
+                  </div>
+            </div>
+      );
 }
 
-function SkillFormModal({
-  title,
-  formData,
-  setFormData,
-  members,
-  membersLoading,
-  onClose,
-  onSubmit,
+function SkillClassFormModal({
+      title,
+      formData,
+      setFormData,
+      error,
+      onClose,
+      onSubmit,
+      submitText,
 }: {
-  title: string;
-  formData: SkillFormData;
-  setFormData: React.Dispatch<React.SetStateAction<SkillFormData>>;
-  members: any[];
-  membersLoading: boolean;
-  onClose: () => void;
-  onSubmit: () => void;
+      title: string;
+      formData: SkillClassFormData;
+      setFormData: React.Dispatch<React.SetStateAction<SkillClassFormData>>;
+      error: string | null;
+      onClose: () => void;
+      onSubmit: () => void;
+      submitText: string;
 }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-        <div className="sticky top-0 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
-          <div>
-            <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
-            <p className="text-sm text-neutral-500">
-              Form này hiện chỉ lưu danh mục kỹ năng trong UI mock, chưa ghi
-              database.
-            </p>
-          </div>
+      const handleSkillChange = (skillId: string) => {
+            const selectedSkill = skillId
+                  ? skillReferences.find((skill) => skill.id === Number(skillId))
+                  : null;
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 transition hover:bg-neutral-100"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSubmit();
-          }}
-          className="space-y-5 p-6"
-        >
-          <div>
-            <Label htmlFor="skillName">Tên kỹ năng *</Label>
-            <Input
-              id="skillName"
-              value={formData.name}
-              onChange={(event) =>
-                setFormData({
+            setFormData({
                   ...formData,
-                  name: event.target.value,
-                })
-              }
-              placeholder="VD: Đàn, Biên đạo, Linh hoạt viên..."
-              required
-            />
-          </div>
+                  skillId,
+                  skillName: selectedSkill?.name || formData.skillName,
+            });
+      };
 
-          <div>
-            <Label htmlFor="category">Nhóm kỹ năng *</Label>
-            <select
-              id="category"
-              value={formData.category}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  category: event.target.value as SkillCategory,
-                })
-              }
-              className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="music">Âm nhạc</option>
-              <option value="movement">Biên đạo / Vận động</option>
-              <option value="leadership">Lãnh đạo / Sinh hoạt</option>
-              <option value="communication">Truyền thông</option>
-              <option value="service">Phục vụ</option>
-              <option value="other">Khác</option>
-            </select>
-          </div>
+      return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+                  <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+                        <div className="sticky top-0 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
+                              <div>
+                                    <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
+                                    <p className="text-sm text-neutral-500">
+                                          Khai báo thông tin lớp, thời gian, người phụ trách và số lượng học viên tham gia.
+                                    </p>
+                              </div>
 
-          <div>
-            <Label htmlFor="description">Mô tả</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  description: event.target.value,
-                })
-              }
-              placeholder="Mô tả kỹ năng, mục đích đào tạo..."
-              className="min-h-24"
-            />
-          </div>
+                              <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="rounded-lg p-2 transition hover:bg-neutral-100"
+                              >
+                                    <X className="h-5 w-5" />
+                              </button>
+                        </div>
 
-          <div>
-            <Label htmlFor="ownerResidentId">Người phụ trách</Label>
-            <select
-              id="ownerResidentId"
-              value={formData.ownerResidentId}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  ownerResidentId: event.target.value,
-                })
-              }
-              className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="">
-                {membersLoading
-                  ? "Đang tải danh sách học viên..."
-                  : "-- Chọn học viên phụ trách nếu có --"}
-              </option>
+                        <form
+                              onSubmit={(event) => {
+                                    event.preventDefault();
+                                    onSubmit();
+                              }}
+                              className="space-y-5 p-6"
+                        >
+                              {error && (
+                                    <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                          {error}
+                                    </div>
+                              )}
 
-              {members.map((member: any) => (
-                <option key={member.id} value={String(member.id)}>
-                  {member.fullName} - {member.residentCode || `ID: ${member.id}`}
-                </option>
-              ))}
-            </select>
-          </div>
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div>
+                                          <Label htmlFor="code">Mã lớp</Label>
+                                          <Input
+                                                id="code"
+                                                value={formData.code}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            code: normalizeCode(event.target.value),
+                                                      })
+                                                }
+                                                placeholder="VD: CLASS-2026-001"
+                                                required
+                                          />
+                                    </div>
 
-          <div>
-            <Label htmlFor="status">Trạng thái *</Label>
-            <select
-              id="status"
-              value={formData.status}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  status: event.target.value as SkillStatus,
-                })
-              }
-              className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="active">Đang dùng</option>
-              <option value="inactive">Tạm ngưng</option>
-            </select>
-          </div>
+                                    <div>
+                                          <Label htmlFor="title">Tên lớp kỹ năng</Label>
+                                          <Input
+                                                id="title"
+                                                value={formData.title}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            title: event.target.value,
+                                                      })
+                                                }
+                                                placeholder="VD: Giao tiếp căn bản"
+                                                required
+                                          />
+                                    </div>
 
-          <div>
-            <Label htmlFor="note">Ghi chú</Label>
-            <Textarea
-              id="note"
-              value={formData.note}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  note: event.target.value,
-                })
-              }
-              placeholder="Ghi chú thêm nếu có"
-              className="min-h-20"
-            />
-          </div>
+                                    <div>
+                                          <Label htmlFor="skillId">Kỹ năng tham chiếu</Label>
+                                          <select
+                                                id="skillId"
+                                                value={formData.skillId}
+                                                onChange={(event) => handleSkillChange(event.target.value)}
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                          >
+                                                <option value="">Chưa gắn kỹ năng</option>
+                                                {skillReferences.map((skill) => (
+                                                      <option key={skill.id} value={String(skill.id)}>
+                                                            {skill.name} · {skill.category} · {skill.level}
+                                                      </option>
+                                                ))}
+                                          </select>
+                                    </div>
 
-          <div className="flex justify-end gap-3 border-t border-neutral-200 pt-5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
-            >
-              Hủy
-            </button>
+                                    <div>
+                                          <Label htmlFor="skillName">Tên kỹ năng hiển thị</Label>
+                                          <Input
+                                                id="skillName"
+                                                value={formData.skillName}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            skillName: event.target.value,
+                                                      })
+                                                }
+                                                placeholder="Tên kỹ năng nếu chưa chọn danh mục"
+                                          />
+                                    </div>
 
-            <button
-              type="submit"
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              Lưu mock UI
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+                                    <div>
+                                          <Label htmlFor="classType">Loại lớp</Label>
+                                          <select
+                                                id="classType"
+                                                value={formData.classType}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            classType: event.target.value as SkillClassType,
+                                                      })
+                                                }
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                          >
+                                                <option value="workshop">Workshop</option>
+                                                <option value="course">Khóa học</option>
+                                                <option value="sharing">Chia sẻ</option>
+                                                <option value="practice">Thực hành</option>
+                                                <option value="retreat">Tĩnh tâm / Chuyên đề</option>
+                                                <option value="other">Khác</option>
+                                          </select>
+                                    </div>
 
-function CheckIcon() {
-  return <UserCheck className="h-5 w-5" />;
+                                    <div>
+                                          <Label htmlFor="attendanceMode">Yêu cầu tham gia</Label>
+                                          <select
+                                                id="attendanceMode"
+                                                value={formData.attendanceMode}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            attendanceMode: event.target.value as AttendanceMode,
+                                                      })
+                                                }
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                          >
+                                                <option value="optional">Tự chọn</option>
+                                                <option value="recommended">Khuyến khích</option>
+                                                <option value="required">Bắt buộc</option>
+                                          </select>
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="status">Trạng thái</Label>
+                                          <select
+                                                id="status"
+                                                value={formData.status}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            status: event.target.value as SkillClassStatus,
+                                                      })
+                                                }
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                          >
+                                                <option value="planned">Dự kiến</option>
+                                                <option value="open">Đang mở</option>
+                                                <option value="in_progress">Đang học</option>
+                                                <option value="completed">Hoàn thành</option>
+                                                <option value="cancelled">Đã hủy</option>
+                                          </select>
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="location">Địa điểm</Label>
+                                          <Input
+                                                id="location"
+                                                value={formData.location}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            location: event.target.value,
+                                                      })
+                                                }
+                                                placeholder="VD: Phòng sinh hoạt chung"
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="startDate">Ngày bắt đầu</Label>
+                                          <Input
+                                                id="startDate"
+                                                type="date"
+                                                value={formData.startDate}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            startDate: event.target.value,
+                                                      })
+                                                }
+                                                required
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="endDate">Ngày kết thúc</Label>
+                                          <Input
+                                                id="endDate"
+                                                type="date"
+                                                value={formData.endDate}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            endDate: event.target.value,
+                                                      })
+                                                }
+                                          />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                          <div>
+                                                <Label htmlFor="startTime">Giờ bắt đầu</Label>
+                                                <Input
+                                                      id="startTime"
+                                                      type="time"
+                                                      value={formData.startTime}
+                                                      onChange={(event) =>
+                                                            setFormData({
+                                                                  ...formData,
+                                                                  startTime: event.target.value,
+                                                            })
+                                                      }
+                                                />
+                                          </div>
+
+                                          <div>
+                                                <Label htmlFor="endTime">Giờ kết thúc</Label>
+                                                <Input
+                                                      id="endTime"
+                                                      type="time"
+                                                      value={formData.endTime}
+                                                      onChange={(event) =>
+                                                            setFormData({
+                                                                  ...formData,
+                                                                  endTime: event.target.value,
+                                                            })
+                                                      }
+                                                />
+                                          </div>
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="facilitator">Người hướng dẫn</Label>
+                                          <Input
+                                                id="facilitator"
+                                                value={formData.facilitator}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            facilitator: event.target.value,
+                                                      })
+                                                }
+                                                placeholder="VD: Ban kỹ năng"
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="ownerGroup">Nhóm phụ trách</Label>
+                                          <Input
+                                                id="ownerGroup"
+                                                value={formData.ownerGroup}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            ownerGroup: event.target.value,
+                                                      })
+                                                }
+                                                placeholder="VD: Ban kỹ năng"
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="capacity">Sức chứa</Label>
+                                          <Input
+                                                id="capacity"
+                                                type="number"
+                                                min={0}
+                                                value={formData.capacity}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            capacity: event.target.value,
+                                                      })
+                                                }
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="enrolledCount">Đã đăng ký</Label>
+                                          <Input
+                                                id="enrolledCount"
+                                                type="number"
+                                                min={0}
+                                                value={formData.enrolledCount}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            enrolledCount: event.target.value,
+                                                      })
+                                                }
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="completedCount">Đã hoàn thành</Label>
+                                          <Input
+                                                id="completedCount"
+                                                type="number"
+                                                min={0}
+                                                value={formData.completedCount}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            completedCount: event.target.value,
+                                                      })
+                                                }
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="sortOrder">Thứ tự hiển thị</Label>
+                                          <Input
+                                                id="sortOrder"
+                                                type="number"
+                                                min={0}
+                                                value={formData.sortOrder}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            sortOrder: event.target.value,
+                                                      })
+                                                }
+                                          />
+                                    </div>
+                              </div>
+
+                              <div>
+                                    <Label htmlFor="description">Mô tả</Label>
+                                    <Textarea
+                                          id="description"
+                                          value={formData.description}
+                                          onChange={(event) =>
+                                                setFormData({
+                                                      ...formData,
+                                                      description: event.target.value,
+                                                })
+                                          }
+                                          placeholder="Mô tả nội dung lớp kỹ năng"
+                                          className="min-h-24"
+                                    />
+                              </div>
+
+                              <div>
+                                    <Label htmlFor="objective">Mục tiêu lớp học</Label>
+                                    <Textarea
+                                          id="objective"
+                                          value={formData.objective}
+                                          onChange={(event) =>
+                                                setFormData({
+                                                      ...formData,
+                                                      objective: event.target.value,
+                                                })
+                                          }
+                                          placeholder="Mục tiêu học viên đạt được sau lớp"
+                                          className="min-h-24"
+                                    />
+                              </div>
+
+                              <div>
+                                    <Label htmlFor="note">Ghi chú</Label>
+                                    <Textarea
+                                          id="note"
+                                          value={formData.note}
+                                          onChange={(event) =>
+                                                setFormData({
+                                                      ...formData,
+                                                      note: event.target.value,
+                                                })
+                                          }
+                                          placeholder="Ghi chú bổ sung nếu có"
+                                          className="min-h-24"
+                                    />
+                              </div>
+
+                              <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
+                                    <button
+                                          type="button"
+                                          onClick={onClose}
+                                          className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                    >
+                                          Hủy
+                                    </button>
+
+                                    <button
+                                          type="submit"
+                                          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                    >
+                                          {submitText}
+                                    </button>
+                              </div>
+                        </form>
+                  </div>
+            </div>
+      );
 }
