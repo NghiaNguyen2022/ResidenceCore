@@ -240,10 +240,10 @@ function DutiesPageContent() {
                                                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                             <span
                                                                   className={`px-3 py-1 rounded-full text-xs font-medium ${duty.dutyType === "daily"
-                                                                              ? "bg-blue-100 text-blue-800"
-                                                                              : duty.dutyType === "weekly"
-                                                                                    ? "bg-green-100 text-green-800"
-                                                                                    : "bg-purple-100 text-purple-800"
+                                                                        ? "bg-blue-100 text-blue-800"
+                                                                        : duty.dutyType === "weekly"
+                                                                              ? "bg-green-100 text-green-800"
+                                                                              : "bg-purple-100 text-purple-800"
                                                                         }`}
                                                             >
                                                                   {duty.dutyType === "daily"
@@ -264,8 +264,8 @@ function DutiesPageContent() {
                                                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                             <span
                                                                   className={`px-3 py-1 rounded-full text-xs font-medium ${duty.isActive
-                                                                              ? "bg-green-100 text-green-800"
-                                                                              : "bg-gray-100 text-gray-800"
+                                                                        ? "bg-green-100 text-green-800"
+                                                                        : "bg-gray-100 text-gray-800"
                                                                         }`}
                                                             >
                                                                   {duty.isActive ? "Hoạt Động" : "Không Hoạt Động"}

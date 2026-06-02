@@ -1,989 +1,908 @@
-import { useMemo, useState } from "react";
+'use client';
+
+import { useMemo, useState } from 'react';
 import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Edit2,
-  Plus,
-  Search,
-  Trash2,
-  UserCheck,
-  Users,
-  X,
-} from "lucide-react";
+      AlertCircle,
+      CalendarDays,
+      CheckCircle2,
+      Church,
+      Edit2,
+      Mic2,
+      Plus,
+      Search,
+      Trash2,
+      Users,
+      X,
+} from 'lucide-react';
 
-import { trpc } from "@/lib/trpc";
-import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { trpc } from '@/lib/trpc';
+import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ConfigurableStatCard } from '@/components/configurable/ConfigurableStatCard';
+import {
+      ConfigurableColumn,
+      ConfigurableDataTable,
+} from '@/components/configurable/ConfigurableDataTable';
 
-type AssignmentStatus = "pending" | "in_progress" | "completed";
+type AssignmentStatus = 'planned' | 'confirmed' | 'completed' | 'cancelled';
+type ServiceRole =
+      | 'reader'
+      | 'psalm'
+      | 'choir'
+      | 'altar_service'
+      | 'usher'
+      | 'offertory'
+      | 'cleaning'
+      | 'other';
 
-type AssignmentType =
-  | "reader"
-  | "choir"
-  | "altar_preparation"
-  | "evening_prayer_lead"
-  | "general";
+type Resident = {
+      id: number;
+      residentCode?: string | null;
+      code?: string | null;
+      fullName?: string | null;
+      name?: string | null;
+      status?: string | null;
+      roomId?: number | null;
+      roomCode?: string | null;
+      roomName?: string | null;
+};
 
 type LiturgyAssignment = {
-  id: number;
-  weekName: string;
-  date: string;
-  assignmentType: AssignmentType;
-  taskName: string;
-  residentId?: number;
-  residentName?: string;
-  residentCode?: string;
-  groupName?: string;
-  status: AssignmentStatus;
-  note?: string;
-  completedAt?: string;
+      id: number;
+      code: string;
+      serviceDate: string;
+      serviceTime: string;
+      liturgyTitle: string;
+      serviceRole: ServiceRole;
+      residentId: number | null;
+      residentName: string;
+      roomLabel: string;
+      status: AssignmentStatus;
+      note?: string | null;
+      sortOrder: number;
 };
 
 type AssignmentFormData = {
-  weekName: string;
-  date: string;
-  assignmentType: AssignmentType;
-  taskName: string;
-  assignMode: "resident" | "group";
-  residentId: string;
-  groupName: string;
-  status: AssignmentStatus;
-  note: string;
+      code: string;
+      serviceDate: string;
+      serviceTime: string;
+      liturgyTitle: string;
+      serviceRole: ServiceRole;
+      residentId: string;
+      status: AssignmentStatus;
+      note: string;
+      sortOrder: string;
 };
 
 const initialAssignments: LiturgyAssignment[] = [
-  {
-    id: 1,
-    weekName: "Tuần 01",
-    date: "2026-09-07",
-    assignmentType: "evening_prayer_lead",
-    taskName: "Dẫn kinh tối",
-    residentId: 1,
-    residentName: "Nguyễn Văn A",
-    residentCode: "HV0001",
-    status: "completed",
-    note: "Đã hoàn thành.",
-    completedAt: "2026-09-07",
-  },
-  {
-    id: 2,
-    weekName: "Tuần 01",
-    date: "2026-09-10",
-    assignmentType: "altar_preparation",
-    taskName: "Chuẩn bị nhà nguyện",
-    groupName: "Phòng 1",
-    status: "in_progress",
-    note: "Nhóm phụ trách chuẩn bị trước 20:45.",
-  },
-  {
-    id: 3,
-    weekName: "Tuần 01",
-    date: "2026-09-13",
-    assignmentType: "choir",
-    taskName: "Phụ trách hát lễ",
-    groupName: "Nhóm phụng vụ",
-    status: "pending",
-    note: "Cần xác nhận danh sách tham gia.",
-  },
+      {
+            id: 1,
+            code: 'SUN_READER_01',
+            serviceDate: '2026-06-07',
+            serviceTime: '06:00',
+            liturgyTitle: 'Thánh lễ Chúa Nhật',
+            serviceRole: 'reader',
+            residentId: null,
+            residentName: 'Nguyễn Văn A',
+            roomLabel: 'Phòng 101',
+            status: 'confirmed',
+            note: 'Bài đọc 1',
+            sortOrder: 10,
+      },
+      {
+            id: 2,
+            code: 'SUN_CHOIR_01',
+            serviceDate: '2026-06-07',
+            serviceTime: '06:00',
+            liturgyTitle: 'Thánh lễ Chúa Nhật',
+            serviceRole: 'choir',
+            residentId: null,
+            residentName: 'Ca đoàn lưu xá',
+            roomLabel: '',
+            status: 'planned',
+            note: 'Chuẩn bị thánh ca nhập lễ và đáp ca.',
+            sortOrder: 20,
+      },
+      {
+            id: 3,
+            code: 'EVENING_PRAYER_01',
+            serviceDate: '2026-06-02',
+            serviceTime: '21:15',
+            liturgyTitle: 'Kinh tối cộng đoàn',
+            serviceRole: 'other',
+            residentId: null,
+            residentName: 'Tổ trực',
+            roomLabel: '',
+            status: 'confirmed',
+            note: 'Dẫn kinh tối.',
+            sortOrder: 30,
+      },
 ];
 
 const defaultFormData: AssignmentFormData = {
-  weekName: "Tuần 01",
-  date: "",
-  assignmentType: "general",
-  taskName: "",
-  assignMode: "resident",
-  residentId: "",
-  groupName: "",
-  status: "pending",
-  note: "",
+      code: '',
+      serviceDate: '',
+      serviceTime: '06:00',
+      liturgyTitle: '',
+      serviceRole: 'reader',
+      residentId: '',
+      status: 'planned',
+      note: '',
+      sortOrder: '10',
 };
 
-function getAssignmentTypeLabel(type: AssignmentType) {
-  if (type === "reader") return "Đọc sách / Lời nguyện";
-  if (type === "choir") return "Ca đoàn / Hát lễ";
-  if (type === "altar_preparation") return "Chuẩn bị nhà nguyện";
-  if (type === "evening_prayer_lead") return "Dẫn kinh tối";
-  return "Nhiệm vụ chung";
+function normalizeCode(value: string) {
+      return value
+            .trim()
+            .toUpperCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^A-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
 }
 
-function getAssignmentTypeClass(type: AssignmentType) {
-  if (type === "reader") return "bg-purple-50 text-purple-700";
-  if (type === "choir") return "bg-blue-50 text-blue-700";
-  if (type === "altar_preparation") return "bg-orange-50 text-orange-700";
-  if (type === "evening_prayer_lead") return "bg-green-50 text-green-700";
-  return "bg-neutral-100 text-neutral-700";
+function normalizeText(value?: string | null) {
+      return (value || '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ');
+}
+
+function getResidentName(resident: Resident) {
+      return resident.fullName || resident.name || 'Chưa có tên';
+}
+
+function getRoomLabel(resident: Resident) {
+      if (resident.roomCode && resident.roomName) return `${resident.roomCode} - ${resident.roomName}`;
+      if (resident.roomCode) return resident.roomCode;
+      if (resident.roomName) return resident.roomName;
+      if (resident.roomId) return `Phòng ${resident.roomId}`;
+      return 'Chưa có phòng';
+}
+
+function isActiveResident(resident: Resident) {
+      const status = normalizeText(resident.status);
+      if (!status) return true;
+      return !['inactive', 'left', 'ended', 'archived', 'da roi', 'nghi', 'ngung'].includes(status);
+}
+
+function formatDate(value: string) {
+      const date = new Date(value);
+      if (!value || Number.isNaN(date.getTime())) return '-';
+      return date.toLocaleDateString('vi-VN');
+}
+
+function getRoleLabel(role: ServiceRole) {
+      if (role === 'reader') return 'Đọc sách';
+      if (role === 'psalm') return 'Đáp ca';
+      if (role === 'choir') return 'Ca đoàn';
+      if (role === 'altar_service') return 'Giúp lễ';
+      if (role === 'usher') return 'Trật tự / Đón tiếp';
+      if (role === 'offertory') return 'Dâng lễ vật';
+      if (role === 'cleaning') return 'Chuẩn bị / vệ sinh';
+      return 'Khác';
+}
+
+function getRoleClass(role: ServiceRole) {
+      if (role === 'reader') return 'border-blue-200 bg-blue-50 text-blue-700';
+      if (role === 'psalm') return 'border-sky-200 bg-sky-50 text-sky-700';
+      if (role === 'choir') return 'border-violet-200 bg-violet-50 text-violet-700';
+      if (role === 'altar_service') return 'border-indigo-200 bg-indigo-50 text-indigo-700';
+      if (role === 'usher') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+      if (role === 'offertory') return 'border-orange-200 bg-orange-50 text-orange-700';
+      if (role === 'cleaning') return 'border-slate-200 bg-slate-50 text-slate-700';
+      return 'border-neutral-200 bg-neutral-50 text-neutral-700';
 }
 
 function getStatusLabel(status: AssignmentStatus) {
-  if (status === "completed") return "Hoàn thành";
-  if (status === "in_progress") return "Đang thực hiện";
-  return "Chưa thực hiện";
+      if (status === 'planned') return 'Đã phân công';
+      if (status === 'confirmed') return 'Đã xác nhận';
+      if (status === 'completed') return 'Hoàn thành';
+      return 'Đã hủy';
 }
 
 function getStatusClass(status: AssignmentStatus) {
-  if (status === "completed") return "bg-green-50 text-green-700";
-  if (status === "in_progress") return "bg-blue-50 text-blue-700";
-  return "bg-orange-50 text-orange-700";
+      if (status === 'planned') return 'border-blue-200 bg-blue-50 text-blue-700';
+      if (status === 'confirmed') return 'border-green-200 bg-green-50 text-green-700';
+      if (status === 'completed') return 'border-slate-200 bg-slate-50 text-slate-700';
+      return 'border-red-200 bg-red-50 text-red-700';
 }
 
-function formatDate(date?: string) {
-  if (!date) return "-";
-
-  try {
-    return new Date(date).toLocaleDateString("vi-VN");
-  } catch {
-    return "-";
-  }
+function getNextId(items: LiturgyAssignment[]) {
+      return Math.max(...items.map((item) => item.id), 0) + 1;
 }
 
-function StatCard({
-  label,
-  value,
-  description,
-  icon,
+function getNextSortOrder(items: LiturgyAssignment[]) {
+      return String(Math.max(...items.map((item) => Number(item.sortOrder || 0)), 0) + 10);
+}
+
+function validateForm({
+      items,
+      formData,
+      editingId,
 }: {
-  label: string;
-  value: string | number;
-  description: string;
-  icon: React.ReactNode;
+      items: LiturgyAssignment[];
+      formData: AssignmentFormData;
+      editingId?: number;
 }) {
-  return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-neutral-500">{label}</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{value}</p>
-          <p className="mt-1 text-xs text-neutral-500">{description}</p>
-        </div>
+      const code = normalizeCode(formData.code);
+      if (!code) return 'Vui lòng nhập mã phân công.';
+      if (!formData.serviceDate) return 'Vui lòng nhập ngày phục vụ.';
+      if (!formData.serviceTime) return 'Vui lòng nhập giờ phục vụ.';
+      if (!formData.liturgyTitle.trim()) return 'Vui lòng nhập tên buổi phụng vụ.';
 
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
+      const sortOrder = Number(formData.sortOrder || 0);
+      if (!Number.isFinite(sortOrder) || sortOrder < 0) {
+            return 'Thứ tự hiển thị phải là số lớn hơn hoặc bằng 0.';
+      }
+
+      const duplicatedCode = items
+            .filter((item) => item.id !== editingId)
+            .some((item) => normalizeText(item.code) === normalizeText(code));
+
+      if (duplicatedCode) {
+            return 'Mã phân công đã tồn tại. Vui lòng nhập mã khác.';
+      }
+
+      return null;
 }
 
 export default function LiturgyAssignments() {
-  const [assignments, setAssignments] =
-    useState<LiturgyAssignment[]>(initialAssignments);
+      const [items, setItems] = useState<LiturgyAssignment[]>(initialAssignments);
+      const [searchTerm, setSearchTerm] = useState('');
+      const [roleFilter, setRoleFilter] = useState<'all' | ServiceRole>('all');
+      const [statusFilter, setStatusFilter] = useState<'all' | AssignmentStatus>('all');
+      const [isFormOpen, setIsFormOpen] = useState(false);
+      const [editingItem, setEditingItem] = useState<LiturgyAssignment | null>(null);
+      const [formData, setFormData] = useState<AssignmentFormData>(defaultFormData);
+      const [error, setError] = useState<string | null>(null);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [weekFilter, setWeekFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+      const membersQuery = trpc.members.list.useQuery({
+            limit: 500,
+            offset: 0,
+      });
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingAssignment, setEditingAssignment] =
-    useState<LiturgyAssignment | null>(null);
-  const [formData, setFormData] =
-    useState<AssignmentFormData>(defaultFormData);
+      const residents = useMemo(() => {
+            const data = (membersQuery.data || []) as Resident[];
 
-  /**
-   * CONNECTED DATA
-   * Danh sách học viên lấy data thật từ API hiện tại.
-   * Phân công phụng vụ hiện vẫn là mock UI, chưa ghi DB.
-   */
-  const membersQuery = trpc.members.list.useQuery({
-    search: "",
-    status: undefined,
-  });
+            return data
+                  .filter(isActiveResident)
+                  .sort((a, b) => getResidentName(a).localeCompare(getResidentName(b), 'vi'));
+      }, [membersQuery.data]);
 
-  const members = membersQuery.data || [];
+      const filteredItems = useMemo(() => {
+            const keyword = normalizeText(searchTerm);
 
-  const weeks = useMemo(() => {
-    return Array.from(new Set(assignments.map((item) => item.weekName)));
-  }, [assignments]);
+            return items
+                  .filter((item) => {
+                        if (roleFilter !== 'all' && item.serviceRole !== roleFilter) return false;
+                        if (statusFilter !== 'all' && item.status !== statusFilter) return false;
 
-  const filteredAssignments = useMemo(() => {
-    return assignments.filter((item) => {
-      const keyword = searchTerm.trim().toLowerCase();
+                        if (!keyword) return true;
 
-      const matchesSearch =
-        !keyword ||
-        item.weekName.toLowerCase().includes(keyword) ||
-        item.taskName.toLowerCase().includes(keyword) ||
-        (item.residentName || "").toLowerCase().includes(keyword) ||
-        (item.residentCode || "").toLowerCase().includes(keyword) ||
-        (item.groupName || "").toLowerCase().includes(keyword) ||
-        (item.note || "").toLowerCase().includes(keyword);
+                        const haystack = [
+                              item.code,
+                              item.liturgyTitle,
+                              getRoleLabel(item.serviceRole),
+                              getStatusLabel(item.status),
+                              item.residentName,
+                              item.roomLabel,
+                              item.note,
+                        ]
+                              .map((value) => normalizeText(value))
+                              .join(' ');
 
-      const matchesWeek = weekFilter === "all" || item.weekName === weekFilter;
+                        return haystack.includes(keyword);
+                  })
+                  .sort((a, b) => {
+                        const dateCompare =
+                              new Date(a.serviceDate).getTime() - new Date(b.serviceDate).getTime();
 
-      const matchesType =
-        typeFilter === "all" || item.assignmentType === typeFilter;
+                        if (dateCompare !== 0) return dateCompare;
 
-      const matchesStatus =
-        statusFilter === "all" || item.status === statusFilter;
+                        return Number(a.sortOrder || 0) - Number(b.sortOrder || 0);
+                  });
+      }, [items, searchTerm, roleFilter, statusFilter]);
 
-      return matchesSearch && matchesWeek && matchesType && matchesStatus;
-    });
-  }, [assignments, searchTerm, weekFilter, typeFilter, statusFilter]);
+      const stats = useMemo(() => {
+            return {
+                  total: items.length,
+                  confirmed: items.filter((item) => item.status === 'confirmed').length,
+                  readers: items.filter((item) => item.serviceRole === 'reader' || item.serviceRole === 'psalm').length,
+                  choir: items.filter((item) => item.serviceRole === 'choir').length,
+            };
+      }, [items]);
 
-  const completedCount = assignments.filter(
-    (item) => item.status === "completed"
-  ).length;
-
-  const pendingCount = assignments.filter(
-    (item) => item.status === "pending"
-  ).length;
-
-  const individualAssignmentCount = assignments.filter(
-    (item) => item.residentId
-  ).length;
-
-  const groupAssignmentCount = assignments.filter((item) => item.groupName).length;
-
-  const openCreateForm = () => {
-    setEditingAssignment(null);
-    setFormData(defaultFormData);
-    setIsFormOpen(true);
-  };
-
-  const openEditForm = (assignment: LiturgyAssignment) => {
-    setEditingAssignment(assignment);
-
-    setFormData({
-      weekName: assignment.weekName,
-      date: assignment.date,
-      assignmentType: assignment.assignmentType,
-      taskName: assignment.taskName,
-      assignMode: assignment.residentId ? "resident" : "group",
-      residentId: assignment.residentId ? String(assignment.residentId) : "",
-      groupName: assignment.groupName || "",
-      status: assignment.status,
-      note: assignment.note || "",
-    });
-
-    setIsFormOpen(true);
-  };
-
-  const handleSave = () => {
-    let selectedResident: any = null;
-
-    if (formData.assignMode === "resident") {
-      selectedResident = members.find(
-        (member: any) => String(member.id) === formData.residentId
-      );
-
-      if (!selectedResident) {
-        alert("Vui lòng chọn học viên phụ trách.");
-        return;
-      }
-    }
-
-    if (formData.assignMode === "group" && !formData.groupName.trim()) {
-      alert("Vui lòng nhập nhóm/phòng phụ trách.");
-      return;
-    }
-
-    const completedAt =
-      formData.status === "completed"
-        ? new Date().toISOString().split("T")[0]
-        : undefined;
-
-    if (editingAssignment) {
-      setAssignments((prev) =>
-        prev.map((item) =>
-          item.id === editingAssignment.id
-            ? {
-                ...item,
-                weekName: formData.weekName,
-                date: formData.date,
-                assignmentType: formData.assignmentType,
-                taskName: formData.taskName,
-                residentId:
-                  formData.assignMode === "resident"
-                    ? selectedResident.id
-                    : undefined,
-                residentName:
-                  formData.assignMode === "resident"
-                    ? selectedResident.fullName || "-"
-                    : undefined,
-                residentCode:
-                  formData.assignMode === "resident"
-                    ? selectedResident.residentCode ||
-                      `ID: ${selectedResident.id}`
-                    : undefined,
-                groupName:
-                  formData.assignMode === "group"
-                    ? formData.groupName
-                    : undefined,
-                status: formData.status,
-                note: formData.note,
-                completedAt,
-              }
-            : item
-        )
-      );
-    } else {
-      const newAssignment: LiturgyAssignment = {
-        id: Date.now(),
-        weekName: formData.weekName,
-        date: formData.date,
-        assignmentType: formData.assignmentType,
-        taskName: formData.taskName,
-        residentId:
-          formData.assignMode === "resident" ? selectedResident.id : undefined,
-        residentName:
-          formData.assignMode === "resident"
-            ? selectedResident.fullName || "-"
-            : undefined,
-        residentCode:
-          formData.assignMode === "resident"
-            ? selectedResident.residentCode || `ID: ${selectedResident.id}`
-            : undefined,
-        groupName:
-          formData.assignMode === "group" ? formData.groupName : undefined,
-        status: formData.status,
-        note: formData.note,
-        completedAt,
+      const openCreateForm = () => {
+            setEditingItem(null);
+            setFormData({
+                  ...defaultFormData,
+                  sortOrder: getNextSortOrder(items),
+            });
+            setError(null);
+            setIsFormOpen(true);
       };
 
-      setAssignments((prev) => [newAssignment, ...prev]);
-    }
+      const openEditForm = (item: LiturgyAssignment) => {
+            setEditingItem(item);
+            setFormData({
+                  code: item.code,
+                  serviceDate: item.serviceDate,
+                  serviceTime: item.serviceTime,
+                  liturgyTitle: item.liturgyTitle,
+                  serviceRole: item.serviceRole,
+                  residentId: item.residentId ? String(item.residentId) : '',
+                  status: item.status,
+                  note: item.note || '',
+                  sortOrder: String(item.sortOrder || 0),
+            });
+            setError(null);
+            setIsFormOpen(true);
+      };
 
-    setIsFormOpen(false);
-    setEditingAssignment(null);
-    setFormData(defaultFormData);
-  };
+      const closeForm = () => {
+            setIsFormOpen(false);
+            setEditingItem(null);
+            setFormData(defaultFormData);
+            setError(null);
+      };
 
-  const handleDelete = (id: number) => {
-    if (
-      !confirm("Bạn có chắc chắn muốn xóa phân công phụng vụ này khỏi UI mock?")
-    ) {
-      return;
-    }
+      const handleSave = () => {
+            const validationMessage = validateForm({
+                  items,
+                  formData,
+                  editingId: editingItem?.id,
+            });
 
-    setAssignments((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const handleMarkCompleted = (assignment: LiturgyAssignment) => {
-    setAssignments((prev) =>
-      prev.map((item) =>
-        item.id === assignment.id
-          ? {
-              ...item,
-              status: "completed",
-              completedAt: new Date().toISOString().split("T")[0],
-              note: item.note || "Đã đánh dấu hoàn thành từ thao tác nhanh.",
+            if (validationMessage) {
+                  setError(validationMessage);
+                  return;
             }
-          : item
-      )
-    );
-  };
 
-  const clearFilters = () => {
-    setSearchTerm("");
-    setWeekFilter("all");
-    setTypeFilter("all");
-    setStatusFilter("all");
-  };
+            const selectedResident = formData.residentId
+                  ? residents.find((resident) => resident.id === Number(formData.residentId))
+                  : null;
 
-  return (
-    <ResidenceCareLayout>
-      <div className="space-y-6 p-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-blue-600">
-              Phụng vụ & Cộng đoàn
-            </p>
-            <h1 className="mt-1 text-3xl font-bold text-neutral-900">
-              Phân công phụng vụ
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm text-neutral-500">
-              Quản lý phân công đọc sách, dẫn kinh, chuẩn bị nhà nguyện, hát lễ
-              và các nhiệm vụ phụng vụ khác theo tuần.
-            </p>
-          </div>
+            const payload: LiturgyAssignment = {
+                  id: editingItem?.id || getNextId(items),
+                  code: normalizeCode(formData.code),
+                  serviceDate: formData.serviceDate,
+                  serviceTime: formData.serviceTime,
+                  liturgyTitle: formData.liturgyTitle.trim(),
+                  serviceRole: formData.serviceRole,
+                  residentId: selectedResident?.id || null,
+                  residentName: selectedResident ? getResidentName(selectedResident) : editingItem?.residentName || 'Chưa chọn học viên',
+                  roomLabel: selectedResident ? getRoomLabel(selectedResident) : editingItem?.roomLabel || '',
+                  status: formData.status,
+                  note: formData.note.trim() || null,
+                  sortOrder: Number(formData.sortOrder || 0),
+            };
 
-          <button
-            type="button"
-            onClick={openCreateForm}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            Thêm phân công
-          </button>
-        </div>
+            if (editingItem) {
+                  setItems((current) =>
+                        current.map((item) => (item.id === editingItem.id ? payload : item))
+                  );
+            } else {
+                  setItems((current) => [...current, payload]);
+            }
 
-        {/* Data status */}
-        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-orange-800">
-          <div className="flex gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
-            <div>
-              <p className="font-semibold">
-                UI mock cho phân công phụng vụ - danh sách học viên lấy data
-                thật
-              </p>
-              <p className="mt-1 text-sm">
-                Học viên được lấy từ{" "}
-                <span className="font-semibold">trpc.members.list</span>. Dữ
-                liệu phân công hiện chỉ lưu trong state mock trên UI, chưa ghi
-                database. Sau này sẽ mapping với{" "}
-                <span className="font-semibold">liturgyAssignments</span> và có
-                thể liên kết với{" "}
-                <span className="font-semibold">organizationRoles</span>.
-              </p>
-            </div>
-          </div>
-        </div>
+            closeForm();
+      };
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Tổng phân công"
-            value={assignments.length}
-            description="Dữ liệu mock hiện tại"
-            icon={<Users className="h-5 w-5" />}
-          />
+      const handleDelete = (item: LiturgyAssignment) => {
+            if (!confirm(`Bạn có chắc chắn muốn xóa phân công "${item.code}"?`)) {
+                  return;
+            }
 
-          <StatCard
-            label="Hoàn thành"
-            value={completedCount}
-            description="Nhiệm vụ đã hoàn thành"
-            icon={<CheckCircle2 className="h-5 w-5" />}
-          />
+            setItems((current) => current.filter((row) => row.id !== item.id));
+      };
 
-          <StatCard
-            label="Chưa thực hiện"
-            value={pendingCount}
-            description="Cần theo dõi tiếp"
-            icon={<Clock className="h-5 w-5" />}
-          />
+      const clearFilters = () => {
+            setSearchTerm('');
+            setRoleFilter('all');
+            setStatusFilter('all');
+      };
 
-          <StatCard
-            label="Cá nhân / Nhóm"
-            value={`${individualAssignmentCount}/${groupAssignmentCount}`}
-            description="Phân công cá nhân và nhóm"
-            icon={<UserCheck className="h-5 w-5" />}
-          />
-        </div>
+      const columns = useMemo<ConfigurableColumn<LiturgyAssignment>[]>(
+            () => [
+                  {
+                        key: 'service',
+                        label: 'Buổi phụng vụ',
+                        sortable: true,
+                        sortValue: (item) => item.liturgyTitle,
+                        render: (item) => (
+                              <div>
+                                    <p className="font-semibold text-slate-900">{item.liturgyTitle}</p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                          {formatDate(item.serviceDate)} · {item.serviceTime}
+                                    </p>
+                              </div>
+                        ),
+                  },
+                  {
+                        key: 'role',
+                        label: 'Phân công',
+                        sortable: true,
+                        sortValue: (item) => getRoleLabel(item.serviceRole),
+                        render: (item) => (
+                              <span
+                                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getRoleClass(
+                                          item.serviceRole
+                                    )}`}
+                              >
+                                    {getRoleLabel(item.serviceRole)}
+                              </span>
+                        ),
+                  },
+                  {
+                        key: 'resident',
+                        label: 'Người phụ trách',
+                        sortable: true,
+                        sortValue: (item) => item.residentName,
+                        render: (item) => (
+                              <div>
+                                    <p className="font-medium text-slate-800">{item.residentName}</p>
+                                    {item.roomLabel && (
+                                          <p className="mt-1 text-xs text-slate-500">{item.roomLabel}</p>
+                                    )}
+                              </div>
+                        ),
+                  },
+                  {
+                        key: 'status',
+                        label: 'Trạng thái',
+                        sortable: true,
+                        sortValue: (item) => getStatusLabel(item.status),
+                        render: (item) => (
+                              <span
+                                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
+                                          item.status
+                                    )}`}
+                              >
+                                    {getStatusLabel(item.status)}
+                              </span>
+                        ),
+                  },
+                  {
+                        key: 'note',
+                        label: 'Ghi chú',
+                        sortable: true,
+                        sortValue: (item) => item.note || '',
+                        render: (item) => item.note || '-',
+                  },
+                  {
+                        key: 'actions',
+                        label: 'Hành động',
+                        className: 'min-w-[140px]',
+                        render: (item) => (
+                              <div className="flex items-center gap-1.5">
+                                    <button
+                                          type="button"
+                                          onClick={() => openEditForm(item)}
+                                          className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                          title="Sửa phân công"
+                                    >
+                                          <Edit2 className="h-4 w-4" />
+                                    </button>
 
-        {/* Mapping */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold text-neutral-900">
-              Mapping checklist
-            </h2>
-            <div className="mt-4 space-y-2 text-sm text-neutral-700">
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Phân công nhóm hoặc học viên phụ trách phụng vụ.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Theo dõi nhiệm vụ: đọc sách, hát lễ, dẫn kinh, chuẩn bị nhà
-                nguyện.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Có trạng thái hoàn thành / đang thực hiện / chưa thực hiện.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Sau này liên kết với lịch phụng vụ và cơ cấu tổ chức.
-              </div>
-            </div>
-          </div>
+                                    <button
+                                          type="button"
+                                          onClick={() => handleDelete(item)}
+                                          className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                                          title="Xóa phân công"
+                                    >
+                                          <Trash2 className="h-4 w-4" />
+                                    </button>
+                              </div>
+                        ),
+                  },
+            ],
+            []
+      );
 
-          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold text-neutral-900">
-              Mapping backend / data
-            </h2>
-            <div className="mt-4 space-y-2 text-sm text-neutral-700">
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Danh sách học viên: <b>trpc.members.list</b> - đã connect.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Bảng đề xuất: <b>liturgyAssignments</b>.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Có thể liên kết với <b>liturgySchedules</b> theo ngày/tuần.
-              </div>
-              <div className="rounded-xl bg-neutral-50 p-3">
-                Có thể liên kết với <b>organizationRoles</b> cho vai trò phụng
-                vụ.
-              </div>
-            </div>
-          </div>
-        </div>
+      return (
+            <ResidenceCareLayout>
+                  <div className="space-y-6 p-6">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                              <div>
+                                    <p className="text-sm font-semibold text-blue-600">
+                                          Phụng vụ & Cộng đoàn
+                                    </p>
+                                    <h1 className="mt-1 text-3xl font-bold text-neutral-900">
+                                          Phân công phụng vụ
+                                    </h1>
+                                    <p className="mt-2 max-w-3xl text-sm text-neutral-500">
+                                          Quản lý phân công đọc sách, đáp ca, ca đoàn, giúp lễ, dâng lễ vật và các phần việc phụng vụ khác.
+                                    </p>
+                              </div>
 
-        {/* Filters */}
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_160px_220px_200px_auto]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <Input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Tìm tuần, nhiệm vụ, học viên, nhóm, ghi chú..."
-                className="pl-10"
-              />
-            </div>
-
-            <select
-              value={weekFilter}
-              onChange={(event) => setWeekFilter(event.target.value)}
-              className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="all">Tất cả tuần</option>
-              {weeks.map((week) => (
-                <option key={week} value={week}>
-                  {week}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
-              className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="all">Tất cả nhiệm vụ</option>
-              <option value="reader">Đọc sách / Lời nguyện</option>
-              <option value="choir">Ca đoàn / Hát lễ</option>
-              <option value="altar_preparation">Chuẩn bị nhà nguyện</option>
-              <option value="evening_prayer_lead">Dẫn kinh tối</option>
-              <option value="general">Nhiệm vụ chung</option>
-            </select>
-
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="pending">Chưa thực hiện</option>
-              <option value="in_progress">Đang thực hiện</option>
-              <option value="completed">Hoàn thành</option>
-            </select>
-
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
-            >
-              Xóa lọc
-            </button>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4">
-            <div>
-              <h2 className="text-lg font-bold text-neutral-900">
-                Danh sách phân công phụng vụ
-              </h2>
-              <p className="text-sm text-neutral-500">
-                {filteredAssignments.length} dòng đang hiển thị. Dữ liệu hiện
-                là mock UI.
-              </p>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1160px]">
-              <thead className="bg-neutral-50">
-                <tr>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Tuần / Ngày
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Nhiệm vụ
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Phụ trách
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Trạng thái
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Ghi chú
-                  </th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    Hành động
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-neutral-100">
-                {filteredAssignments.map((item) => (
-                  <tr key={item.id} className="transition hover:bg-neutral-50">
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-neutral-900">
-                        {item.weekName}
-                      </p>
-                      <p className="text-xs text-neutral-500">
-                        {formatDate(item.date)}
-                      </p>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-neutral-900">
-                        {item.taskName}
-                      </p>
-                      <span
-                        className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getAssignmentTypeClass(
-                          item.assignmentType
-                        )}`}
-                      >
-                        {getAssignmentTypeLabel(item.assignmentType)}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {item.residentId ? (
-                        <div>
-                          <p className="font-medium text-neutral-900">
-                            {item.residentName}
-                          </p>
-                          <p className="text-xs text-neutral-500">
-                            {item.residentCode}
-                          </p>
+                              <button
+                                    type="button"
+                                    onClick={openCreateForm}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                              >
+                                    <Plus className="h-4 w-4" />
+                                    Thêm phân công
+                              </button>
                         </div>
-                      ) : (
-                        <div>
-                          <p className="font-medium text-neutral-900">
-                            {item.groupName}
-                          </p>
-                          <p className="text-xs text-neutral-500">
-                            Nhóm / phòng phụ trách
-                          </p>
-                        </div>
-                      )}
-                    </td>
 
-                    <td className="px-5 py-4">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClass(
-                          item.status
-                        )}`}
-                      >
-                        {getStatusLabel(item.status)}
-                      </span>
-
-                      {item.completedAt && (
-                        <p className="mt-1 text-xs text-neutral-400">
-                          Ngày HT: {formatDate(item.completedAt)}
-                        </p>
-                      )}
-                    </td>
-
-                    <td className="px-5 py-4 text-sm text-neutral-700">
-                      <div className="max-w-xs truncate">{item.note || "-"}</div>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1">
-                        {item.status !== "completed" && (
-                          <button
-                            type="button"
-                            onClick={() => handleMarkCompleted(item)}
-                            className="rounded-lg px-2 py-1 text-xs font-semibold text-green-700 transition hover:bg-green-50"
-                          >
-                            Hoàn thành
-                          </button>
+                        {(error || membersQuery.error) && (
+                              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+                                    <div className="flex gap-3">
+                                          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                                          <div>
+                                                <p className="font-semibold">Có lỗi khi xử lý phân công phụng vụ.</p>
+                                                <p className="mt-1 text-sm">
+                                                      {error || membersQuery.error?.message || 'Vui lòng kiểm tra lại dữ liệu.'}
+                                                </p>
+                                          </div>
+                                    </div>
+                              </div>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(item)}
-                          className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                          title="Sửa phân công"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                              <ConfigurableStatCard
+                                    moduleKey="liturgyAssignments"
+                                    cardKey="liturgyAssignments.total"
+                                    label="Tổng phân công"
+                                    value={stats.total}
+                                    description="Tổng số phần việc phụng vụ"
+                                    tone="blue"
+                                    icon={<Church className="h-6 w-6" />}
+                              />
 
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
-                          title="Xóa phân công mock"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                              <ConfigurableStatCard
+                                    moduleKey="liturgyAssignments"
+                                    cardKey="liturgyAssignments.confirmed"
+                                    label="Đã xác nhận"
+                                    value={stats.confirmed}
+                                    description="Phân công đã được xác nhận"
+                                    tone="green"
+                                    icon={<CheckCircle2 className="h-6 w-6" />}
+                              />
 
-                {filteredAssignments.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-5 py-10 text-center text-sm text-neutral-500"
-                    >
-                      Không có phân công nào phù hợp với bộ lọc.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                              <ConfigurableStatCard
+                                    moduleKey="liturgyAssignments"
+                                    cardKey="liturgyAssignments.readers"
+                                    label="Đọc sách / Đáp ca"
+                                    value={stats.readers}
+                                    description="Các phần công bố Lời Chúa"
+                                    tone="orange"
+                                    icon={<Mic2 className="h-6 w-6" />}
+                              />
 
-        {isFormOpen && (
-          <LiturgyAssignmentFormModal
-            title={
-              editingAssignment
-                ? "Chỉnh sửa phân công phụng vụ"
-                : "Thêm phân công phụng vụ"
-            }
-            formData={formData}
-            setFormData={setFormData}
-            members={members}
-            membersLoading={membersQuery.isLoading}
-            onClose={() => {
-              setIsFormOpen(false);
-              setEditingAssignment(null);
-            }}
-            onSubmit={handleSave}
-          />
-        )}
-      </div>
-    </ResidenceCareLayout>
-  );
+                              <ConfigurableStatCard
+                                    moduleKey="liturgyAssignments"
+                                    cardKey="liturgyAssignments.choir"
+                                    label="Ca đoàn"
+                                    value={stats.choir}
+                                    description="Phân công liên quan đến thánh ca"
+                                    tone="purple"
+                                    icon={<Users className="h-6 w-6" />}
+                              />
+                        </div>
+
+                        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+                              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_240px_240px_auto]">
+                                    <div className="relative">
+                                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                                          <Input
+                                                value={searchTerm}
+                                                onChange={(event) => setSearchTerm(event.target.value)}
+                                                placeholder="Tìm buổi phụng vụ, người phụ trách, ghi chú..."
+                                                className="pl-10"
+                                          />
+                                    </div>
+
+                                    <select
+                                          value={roleFilter}
+                                          onChange={(event) =>
+                                                setRoleFilter(event.target.value as 'all' | ServiceRole)
+                                          }
+                                          className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                    >
+                                          <option value="all">Tất cả phân công</option>
+                                          <option value="reader">Đọc sách</option>
+                                          <option value="psalm">Đáp ca</option>
+                                          <option value="choir">Ca đoàn</option>
+                                          <option value="altar_service">Giúp lễ</option>
+                                          <option value="usher">Trật tự / Đón tiếp</option>
+                                          <option value="offertory">Dâng lễ vật</option>
+                                          <option value="cleaning">Chuẩn bị / vệ sinh</option>
+                                          <option value="other">Khác</option>
+                                    </select>
+
+                                    <select
+                                          value={statusFilter}
+                                          onChange={(event) =>
+                                                setStatusFilter(event.target.value as 'all' | AssignmentStatus)
+                                          }
+                                          className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                    >
+                                          <option value="all">Tất cả trạng thái</option>
+                                          <option value="planned">Đã phân công</option>
+                                          <option value="confirmed">Đã xác nhận</option>
+                                          <option value="completed">Hoàn thành</option>
+                                          <option value="cancelled">Đã hủy</option>
+                                    </select>
+
+                                    <button
+                                          type="button"
+                                          onClick={clearFilters}
+                                          className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                    >
+                                          Xóa lọc
+                                    </button>
+                              </div>
+                        </div>
+
+                        <ConfigurableDataTable
+                              moduleKey="liturgyAssignments"
+                              tableKey="liturgyAssignments.list"
+                              columns={columns}
+                              data={filteredItems}
+                              getRowKey={(item) => item.id}
+                              isLoading={membersQuery.isLoading}
+                              loadingText="Đang tải danh sách học viên..."
+                              emptyTitle="Chưa có phân công phụng vụ"
+                              emptyDescription="Thêm phân công để chuẩn bị cho các buổi phụng vụ."
+                        />
+
+                        {isFormOpen && (
+                              <AssignmentFormModal
+                                    title={editingItem ? 'Cập nhật phân công' : 'Thêm phân công'}
+                                    formData={formData}
+                                    setFormData={setFormData}
+                                    residents={residents}
+                                    error={error}
+                                    onClose={closeForm}
+                                    onSubmit={handleSave}
+                                    submitText={editingItem ? 'Cập nhật' : 'Thêm phân công'}
+                              />
+                        )}
+                  </div>
+            </ResidenceCareLayout>
+      );
 }
 
-function LiturgyAssignmentFormModal({
-  title,
-  formData,
-  setFormData,
-  members,
-  membersLoading,
-  onClose,
-  onSubmit,
+function AssignmentFormModal({
+      title,
+      formData,
+      setFormData,
+      residents,
+      error,
+      onClose,
+      onSubmit,
+      submitText,
 }: {
-  title: string;
-  formData: AssignmentFormData;
-  setFormData: React.Dispatch<React.SetStateAction<AssignmentFormData>>;
-  members: any[];
-  membersLoading: boolean;
-  onClose: () => void;
-  onSubmit: () => void;
+      title: string;
+      formData: AssignmentFormData;
+      setFormData: React.Dispatch<React.SetStateAction<AssignmentFormData>>;
+      residents: Resident[];
+      error: string | null;
+      onClose: () => void;
+      onSubmit: () => void;
+      submitText: string;
 }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-        <div className="sticky top-0 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
-          <div>
-            <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
-            <p className="text-sm text-neutral-500">
-              Có thể phân công cho một học viên hoặc một nhóm/phòng. Dữ liệu
-              hiện chỉ lưu mock trên UI, chưa ghi database.
-            </p>
-          </div>
+      return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+                  <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+                        <div className="sticky top-0 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
+                              <div>
+                                    <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
+                                    <p className="text-sm text-neutral-500">
+                                          Khai báo buổi phụng vụ, phần việc và người được phân công.
+                                    </p>
+                              </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 transition hover:bg-neutral-100"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+                              <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="rounded-lg p-2 transition hover:bg-neutral-100"
+                              >
+                                    <X className="h-5 w-5" />
+                              </button>
+                        </div>
 
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSubmit();
-          }}
-          className="space-y-5 p-6"
-        >
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="weekName">Tuần *</Label>
-              <Input
-                id="weekName"
-                value={formData.weekName}
-                onChange={(event) =>
-                  setFormData({
-                    ...formData,
-                    weekName: event.target.value,
-                  })
-                }
-                placeholder="VD: Tuần 01"
-                required
-              />
+                        <form
+                              onSubmit={(event) => {
+                                    event.preventDefault();
+                                    onSubmit();
+                              }}
+                              className="space-y-5 p-6"
+                        >
+                              {error && (
+                                    <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                          {error}
+                                    </div>
+                              )}
+
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div>
+                                          <Label htmlFor="code">Mã phân công</Label>
+                                          <Input
+                                                id="code"
+                                                value={formData.code}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            code: normalizeCode(event.target.value),
+                                                      })
+                                                }
+                                                placeholder="VD: SUN_READER_01"
+                                                required
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="liturgyTitle">Buổi phụng vụ</Label>
+                                          <Input
+                                                id="liturgyTitle"
+                                                value={formData.liturgyTitle}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            liturgyTitle: event.target.value,
+                                                      })
+                                                }
+                                                placeholder="VD: Thánh lễ Chúa Nhật"
+                                                required
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="serviceDate">Ngày phục vụ</Label>
+                                          <Input
+                                                id="serviceDate"
+                                                type="date"
+                                                value={formData.serviceDate}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            serviceDate: event.target.value,
+                                                      })
+                                                }
+                                                required
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="serviceTime">Giờ phục vụ</Label>
+                                          <Input
+                                                id="serviceTime"
+                                                type="time"
+                                                value={formData.serviceTime}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            serviceTime: event.target.value,
+                                                      })
+                                                }
+                                                required
+                                          />
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="serviceRole">Phần việc</Label>
+                                          <select
+                                                id="serviceRole"
+                                                value={formData.serviceRole}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            serviceRole: event.target.value as ServiceRole,
+                                                      })
+                                                }
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                          >
+                                                <option value="reader">Đọc sách</option>
+                                                <option value="psalm">Đáp ca</option>
+                                                <option value="choir">Ca đoàn</option>
+                                                <option value="altar_service">Giúp lễ</option>
+                                                <option value="usher">Trật tự / Đón tiếp</option>
+                                                <option value="offertory">Dâng lễ vật</option>
+                                                <option value="cleaning">Chuẩn bị / vệ sinh</option>
+                                                <option value="other">Khác</option>
+                                          </select>
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="residentId">Học viên phụ trách</Label>
+                                          <select
+                                                id="residentId"
+                                                value={formData.residentId}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            residentId: event.target.value,
+                                                      })
+                                                }
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                          >
+                                                <option value="">Chưa chọn học viên</option>
+                                                {residents.map((resident) => (
+                                                      <option key={resident.id} value={String(resident.id)}>
+                                                            {getResidentName(resident)} · {getRoomLabel(resident)}
+                                                      </option>
+                                                ))}
+                                          </select>
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="status">Trạng thái</Label>
+                                          <select
+                                                id="status"
+                                                value={formData.status}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            status: event.target.value as AssignmentStatus,
+                                                      })
+                                                }
+                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                          >
+                                                <option value="planned">Đã phân công</option>
+                                                <option value="confirmed">Đã xác nhận</option>
+                                                <option value="completed">Hoàn thành</option>
+                                                <option value="cancelled">Đã hủy</option>
+                                          </select>
+                                    </div>
+
+                                    <div>
+                                          <Label htmlFor="sortOrder">Thứ tự hiển thị</Label>
+                                          <Input
+                                                id="sortOrder"
+                                                type="number"
+                                                min={0}
+                                                value={formData.sortOrder}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            sortOrder: event.target.value,
+                                                      })
+                                                }
+                                          />
+                                    </div>
+                              </div>
+
+                              <div>
+                                    <Label htmlFor="note">Ghi chú</Label>
+                                    <Textarea
+                                          id="note"
+                                          value={formData.note}
+                                          onChange={(event) =>
+                                                setFormData({
+                                                      ...formData,
+                                                      note: event.target.value,
+                                                })
+                                          }
+                                          placeholder="Ghi chú về bài đọc, phần việc, chuẩn bị hoặc lưu ý phục vụ"
+                                          className="min-h-24"
+                                    />
+                              </div>
+
+                              <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
+                                    <button
+                                          type="button"
+                                          onClick={onClose}
+                                          className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                    >
+                                          Hủy
+                                    </button>
+
+                                    <button
+                                          type="submit"
+                                          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                    >
+                                          {submitText}
+                                    </button>
+                              </div>
+                        </form>
+                  </div>
             </div>
-
-            <div>
-              <Label htmlFor="date">Ngày *</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(event) =>
-                  setFormData({
-                    ...formData,
-                    date: event.target.value,
-                  })
-                }
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="assignmentType">Loại nhiệm vụ *</Label>
-            <select
-              id="assignmentType"
-              value={formData.assignmentType}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  assignmentType: event.target.value as AssignmentType,
-                })
-              }
-              className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="reader">Đọc sách / Lời nguyện</option>
-              <option value="choir">Ca đoàn / Hát lễ</option>
-              <option value="altar_preparation">Chuẩn bị nhà nguyện</option>
-              <option value="evening_prayer_lead">Dẫn kinh tối</option>
-              <option value="general">Nhiệm vụ chung</option>
-            </select>
-          </div>
-
-          <div>
-            <Label htmlFor="taskName">Tên nhiệm vụ *</Label>
-            <Input
-              id="taskName"
-              value={formData.taskName}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  taskName: event.target.value,
-                })
-              }
-              placeholder="VD: Dẫn kinh tối, chuẩn bị nhà nguyện..."
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="assignMode">Phân công cho *</Label>
-            <select
-              id="assignMode"
-              value={formData.assignMode}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  assignMode: event.target.value as "resident" | "group",
-                  residentId: "",
-                  groupName: "",
-                })
-              }
-              className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="resident">Một học viên</option>
-              <option value="group">Nhóm / Phòng</option>
-            </select>
-          </div>
-
-          {formData.assignMode === "resident" ? (
-            <div>
-              <Label htmlFor="residentId">Chọn học viên *</Label>
-              <select
-                id="residentId"
-                value={formData.residentId}
-                onChange={(event) =>
-                  setFormData({
-                    ...formData,
-                    residentId: event.target.value,
-                  })
-                }
-                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                required
-              >
-                <option value="">
-                  {membersLoading
-                    ? "Đang tải danh sách học viên..."
-                    : "-- Chọn học viên --"}
-                </option>
-
-                {members.map((member: any) => (
-                  <option key={member.id} value={String(member.id)}>
-                    {member.fullName} -{" "}
-                    {member.residentCode || `ID: ${member.id}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div>
-              <Label htmlFor="groupName">Nhóm / Phòng phụ trách *</Label>
-              <Input
-                id="groupName"
-                value={formData.groupName}
-                onChange={(event) =>
-                  setFormData({
-                    ...formData,
-                    groupName: event.target.value,
-                  })
-                }
-                placeholder="VD: Phòng 1, Nhóm phụng vụ..."
-                required
-              />
-            </div>
-          )}
-
-          <div>
-            <Label htmlFor="status">Trạng thái *</Label>
-            <select
-              id="status"
-              value={formData.status}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  status: event.target.value as AssignmentStatus,
-                })
-              }
-              className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="pending">Chưa thực hiện</option>
-              <option value="in_progress">Đang thực hiện</option>
-              <option value="completed">Hoàn thành</option>
-            </select>
-          </div>
-
-          <div>
-            <Label htmlFor="note">Ghi chú</Label>
-            <Textarea
-              id="note"
-              value={formData.note}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  note: event.target.value,
-                })
-              }
-              placeholder="Ghi chú thêm nếu có"
-              className="min-h-24"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 border-t border-neutral-200 pt-5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
-            >
-              Hủy
-            </button>
-
-            <button
-              type="submit"
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              Lưu mock UI
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+      );
 }
