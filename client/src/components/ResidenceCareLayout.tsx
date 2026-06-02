@@ -1,459 +1,355 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
-import { Menu, X, LogOut, ChevronRight, ChevronDown } from "lucide-react";
+'use client';
 import { useAuth } from "@/_core/hooks/useAuth";
-import { navigationItems, type NavigationItem } from "@/config/navigation";
+import { ReactNode, useMemo, useState } from "react";
+import { Link, useLocation } from "wouter";
+import {
+      appointmentNavigation,
+      detailedManagerNavigation,
+      residentNavigation,
+      simpleManagerNavigation,
+      type NavigationItem,
+} from "@/config/navigation";
+import { useSystemDisplayMode } from "@/hooks/useSystemDisplayMode";
 
-type OpenMenusState = Record<string, boolean>;
+type ResidenceCareLayoutProps = {
+      children: ReactNode;
+};
 
-function getItemKey(item: NavigationItem, parentKey = "") {
-      return `${parentKey}/${item.label}`;
+type CurrentUserLike =
+      | {
+            role?: string | null;
+            roles?: string[] | null;
+            name?: string | null;
+            username?: string | null;
+            email?: string | null;
+      }
+      | null
+      | undefined;
+
+const APPOINTMENT_ROLE_KEYS = [
+      "team_leader",
+      "committee_head",
+      "house_leader",
+      "deputy",
+      "secretary",
+      "treasurer",
+];
+
+function getUserRoles(user: CurrentUserLike) {
+      const roles = new Set<string>();
+
+      if (user?.role) {
+            roles.add(user.role);
+      }
+
+      user?.roles?.forEach((role) => roles.add(role));
+
+      return Array.from(roles);
 }
 
-function isItemActive(item: NavigationItem, location: string): boolean {
-      if (item.path && item.path === location) {
+function hasRole(user: CurrentUserLike, roleKey: string) {
+      return getUserRoles(user).includes(roleKey);
+}
+
+function hasAppointmentRole(user: CurrentUserLike) {
+      return getUserRoles(user).some((role) =>
+            APPOINTMENT_ROLE_KEYS.includes(role)
+      );
+}
+
+function canShowNavigationItem(item: NavigationItem, user: CurrentUserLike) {
+      if (!item.roles || item.roles.length === 0) {
             return true;
       }
 
-      if (!item.children || item.children.length === 0) {
-            return false;
-      }
+      const userRoles = getUserRoles(user);
 
-      return item.children.some((child) => isItemActive(child, location));
+      return item.roles.some((role) => userRoles.includes(role));
 }
 
-function findActiveMenuKeys(
+function filterNavigationItems(
       items: NavigationItem[],
-      location: string,
-      parentKey = ""
-): string[] {
-      const result: string[] = [];
+      user: CurrentUserLike
+): NavigationItem[] {
+      return items
+            .map((item) => {
+                  const children = item.children
+                        ? filterNavigationItems(item.children, user)
+                        : undefined;
 
-      for (const item of items) {
-            const itemKey = getItemKey(item, parentKey);
-            const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+                  const canShowSelf = canShowNavigationItem(item, user);
 
-            if (hasChildren && isItemActive(item, location)) {
-                  result.push(itemKey);
+                  if (!canShowSelf && (!children || children.length === 0)) {
+                        return null;
+                  }
 
-                  const childKeys = findActiveMenuKeys(
-                        item.children || [],
-                        location,
-                        itemKey
-                  );
-
-                  result.push(...childKeys);
-            }
-      }
-
-      return result;
+                  return {
+                        ...item,
+                        children,
+                  };
+            })
+            .filter(Boolean) as NavigationItem[];
 }
 
-function getItemStyle({
-      depth,
-      hasChildren,
-      active,
+function isItemActive(item: NavigationItem, currentPath: string): boolean {
+      if (item.path && currentPath === item.path) {
+            return true;
+      }
+
+      if (item.path && item.path !== "/" && currentPath.startsWith(item.path)) {
+            return true;
+      }
+
+      return item.children?.some((child) => isItemActive(child, currentPath)) ?? false;
+}
+function SidebarItem({
+      item,
+      currentPath,
+      depth = 0,
 }: {
-      depth: number;
-      hasChildren: boolean;
-      active: boolean;
+      item: NavigationItem;
+      currentPath: string;
+      depth?: number;
 }) {
-      if (depth === 0) {
-            return [
-                  "group relative flex w-full items-center justify-between rounded-xl px-4 py-3 transition-all",
-                  active
-                        ? "bg-white/8 text-white"
-                        : "text-slate-300 hover:bg-white/5 hover:text-white",
-            ].join(" ");
-      }
+      const [isOpen, setIsOpen] = useState(() => isItemActive(item, currentPath));
 
-      if (depth === 1) {
-            return [
-                  "group relative flex w-full items-center justify-between rounded-lg px-3 py-2.5 transition-all",
-                  active
-                        ? hasChildren
-                              ? "bg-white/6 text-slate-100"
-                              : "bg-sky-500/10 text-sky-200"
-                        : "text-slate-400 hover:bg-white/5 hover:text-slate-100",
-            ].join(" ");
-      }
+      const hasChildren = !!item.children?.length;
+      const active = isItemActive(item, currentPath);
+      const isDirectActive = item.path === currentPath;
 
-      return [
-            "group relative flex w-full items-center justify-between rounded-md px-3 py-2 transition-all",
-            active
-                  ? "bg-transparent text-sky-300"
-                  : "text-slate-500 hover:bg-white/5 hover:text-slate-200",
+      const isParent = depth === 0;
+      const isChild = depth === 1;
+      const isDeepChild = depth >= 2;
+
+      const itemClass = [
+            "group flex w-full items-center gap-3 rounded-xl transition",
+            isParent ? "px-3 py-2.5 text-[15px] font-semibold" : "",
+            isChild ? "px-3 py-2 text-sm font-medium" : "",
+            isDeepChild ? "px-3 py-1.5 text-sm" : "",
+
+            isDirectActive
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : active && hasChildren
+                        ? "bg-slate-100 text-slate-900"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+
+            depth > 0 ? "ml-2" : "",
+      ]
+            .filter(Boolean)
+            .join(" ");
+
+      const iconClass = [
+            "flex shrink-0 items-center justify-center rounded-lg text-center",
+            isParent ? "h-8 w-8 text-base" : "h-7 w-7 text-sm",
+            isDirectActive
+                  ? "bg-white/15 text-white"
+                  : isParent
+                        ? "bg-slate-100 text-slate-700 group-hover:bg-white"
+                        : "bg-transparent text-slate-400",
       ].join(" ");
-}
 
-function getTextStyle(depth: number) {
-      if (depth === 0) {
-            return "text-[15px] font-semibold";
-      }
+      const labelClass = [
+            "min-w-0 flex-1 truncate text-left",
+            isParent ? "tracking-tight" : "",
+            isChild ? "text-slate-700 group-hover:text-slate-900" : "",
+            isDeepChild ? "text-slate-500 group-hover:text-slate-800" : "",
+            isDirectActive ? "!text-white" : "",
+      ]
+            .filter(Boolean)
+            .join(" ");
 
-      if (depth === 1) {
-            return "text-[13.5px] font-medium";
-      }
+      const chevronClass = [
+            "text-xs transition-transform",
+            isOpen ? "rotate-90" : "",
+            isDirectActive ? "text-white/80" : "text-slate-400",
+      ].join(" ");
 
-      return "text-[13px] font-medium";
-}
+      const content = (
+            <>
+                  <span className={iconClass}>{item.icon}</span>
 
-function getIconStyle(depth: number) {
-      if (depth === 0) {
-            return "text-lg";
-      }
+                  <span className={labelClass}>{item.label}</span>
 
-      if (depth === 1) {
-            return "text-[15px]";
-      }
+                  {item.badge && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                              {item.badge}
+                        </span>
+                  )}
 
-      return "text-[13px]";
-}
-
-function getChildContainerStyle(depth: number) {
-      if (depth === 0) {
-            return "ml-5 mt-1 space-y-1 border-l border-slate-700/70 pl-4";
-      }
-
-      return "ml-4 mt-1 space-y-1 border-l border-slate-700/50 pl-3";
-}
-
-export function ResidenceCareLayout({
-      children,
-}: {
-      children: React.ReactNode;
-}) {
-      const [sidebarOpen, setSidebarOpen] = useState(false);
-      const [openMenus, setOpenMenus] = useState<OpenMenusState>({});
-
-      const { user, logout } = useAuth();
-      const [location] = useLocation();
-
-      const visibleNavigationItems = useMemo(() => {
-            function isItemVisible(item: NavigationItem) {
-                  if (!item.roles || item.roles.length === 0) return true;
-                  return Boolean(user?.role && item.roles.includes(user.role as any));
-            }
-
-            function filterItems(items: NavigationItem[]): NavigationItem[] {
-                  return items
-                        .filter(isItemVisible)
-                        .map((item) => ({
-                              ...item,
-                              children: item.children ? filterItems(item.children) : undefined,
-                        }))
-                        .filter((item) => item.path || (item.children && item.children.length > 0));
-            }
-
-            return filterItems(navigationItems);
-      }, [user?.role]);
-
-      useEffect(() => {
-            const activeKeys = findActiveMenuKeys(visibleNavigationItems, location);
-
-            if (activeKeys.length === 0) return;
-
-            setOpenMenus((prev) => {
-                  const next = { ...prev };
-
-                  activeKeys.forEach((key) => {
-                        next[key] = true;
-                  });
-
-                  return next;
-            });
-      }, [location, visibleNavigationItems]);
-
-      const toggleMenu = (key: string) => {
-            setOpenMenus((prev) => ({
-                  ...prev,
-                  [key]: !prev[key],
-            }));
-      };
-
-      const renderBadge = (badge?: string) => {
-            if (!badge) return null;
-
-            return (
-                  <span className="ml-auto rounded-full border border-slate-600/70 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                        {badge}
-                  </span>
-            );
-      };
-
-      const renderActiveMarker = ({
-            active,
-            depth,
-            hasChildren,
-      }: {
-            active: boolean;
-            depth: number;
-            hasChildren: boolean;
-      }) => {
-            if (!active) return null;
-
-            if (depth === 0) {
-                  return (
-                        <span className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-sky-400" />
-                  );
-            }
-
-            if (depth === 1 && !hasChildren) {
-                  return (
-                        <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-sky-400" />
-                  );
-            }
-
-            if (depth >= 2) {
-                  return (
-                        <span className="absolute left-[-18px] top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-sky-400 shadow-[0_0_0_3px_rgba(56,189,248,0.12)]" />
-                  );
-            }
-
-            return null;
-      };
-
-      const renderNavigationItem = (
-            item: NavigationItem,
-            options?: {
-                  isMobile?: boolean;
-                  depth?: number;
-                  parentKey?: string;
-            }
-      ) => {
-            const isMobile = options?.isMobile ?? false;
-            const depth = options?.depth ?? 0;
-            const parentKey = options?.parentKey ?? "";
-
-            const itemKey = getItemKey(item, parentKey);
-            const hasChildren = Array.isArray(item.children) && item.children.length > 0;
-            const itemActive = isItemActive(item, location);
-            const exactActive = item.path === location;
-            const opened = openMenus[itemKey] ?? false;
-
-            const itemClassName = getItemStyle({
-                  depth,
-                  hasChildren,
-                  active: itemActive,
-            });
-
-            const textClassName = getTextStyle(depth);
-            const iconClassName = getIconStyle(depth);
-
-            if (hasChildren) {
-                  return (
-                        <div key={itemKey} className="space-y-1">
-                              <button
-                                    type="button"
-                                    onClick={() => toggleMenu(itemKey)}
-                                    className={itemClassName}
-                              >
-                                    {renderActiveMarker({
-                                          active: itemActive,
-                                          depth,
-                                          hasChildren,
-                                    })}
-
-                                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                                          <span className={`${iconClassName} shrink-0 opacity-90`}>
-                                                {item.icon}
-                                          </span>
-
-                                          <span className={`truncate text-left ${textClassName}`}>
-                                                {item.label}
-                                          </span>
-
-                                          {renderBadge(item.badge)}
-                                    </div>
-
-                                    {opened ? (
-                                          <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform group-hover:text-slate-200" />
-                                    ) : (
-                                          <ChevronRight className="ml-2 h-4 w-4 flex-shrink-0 text-slate-500 transition-transform group-hover:text-slate-200" />
-                                    )}
-                              </button>
-
-                              {opened && (
-                                    <div className={getChildContainerStyle(depth)}>
-                                          {item.children?.map((child) =>
-                                                renderNavigationItem(child, {
-                                                      isMobile,
-                                                      depth: depth + 1,
-                                                      parentKey: itemKey,
-                                                })
-                                          )}
-                                    </div>
-                              )}
-                        </div>
-                  );
-            }
-
-            return (
-                  <Link
-                        key={itemKey}
-                        href={item.path || "#"}
-                        onClick={() => {
-                              if (isMobile) {
-                                    setSidebarOpen(false);
-                              }
-                        }}
-                        className={itemClassName}
-                  >
-                        {renderActiveMarker({
-                              active: exactActive,
-                              depth,
-                              hasChildren: false,
-                        })}
-
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                              {depth >= 2 ? (
-                                    <span
-                                          className={[
-                                                "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
-                                                exactActive ? "bg-sky-400" : "bg-slate-600",
-                                          ].join(" ")}
-                                    />
-                              ) : (
-                                    <span className={`${iconClassName} shrink-0 opacity-90`}>
-                                          {item.icon}
-                                    </span>
-                              )}
-
-                              <span className={`truncate ${textClassName}`}>{item.label}</span>
-
-                              {renderBadge(item.badge)}
-                        </div>
-
-                        {exactActive && depth < 2 && (
-                              <ChevronRight className="ml-2 h-4 w-4 flex-shrink-0 text-sky-300" />
-                        )}
-                  </Link>
-            );
-      };
+                  {hasChildren && <span className={chevronClass}>›</span>}
+            </>
+      );
 
       return (
-            <div className="flex h-screen bg-slate-50">
-                  {/* Top Bar */}
-                  <div className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
-                        <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-sky-500 text-lg font-bold text-white shadow-sm">
-                                    RC
-                              </div>
+            <div className={depth > 0 ? "relative" : ""}>
+                  {depth > 0 && (
+                        <span
+                              className={[
+                                    "absolute left-0 top-0 h-full w-px",
+                                    isDirectActive ? "bg-slate-900" : "bg-slate-200",
+                              ].join(" ")}
+                        />
+                  )}
 
-                              <div>
-                                    <h1 className="text-lg font-bold leading-tight text-slate-900">
-                                          ResidenceCore
-                                    </h1>
-                                    <p className="text-xs text-slate-500">Quản lý lưu xá</p>
+                  {hasChildren ? (
+                        <button
+                              type="button"
+                              onClick={() => setIsOpen((value) => !value)}
+                              className={itemClass}
+                        >
+                              {content}
+                        </button>
+                  ) : item.path ? (
+                        <Link href={item.path}>
+                              <a className={itemClass}>
+                                    {isDeepChild && (
+                                          <span
+                                                className={[
+                                                      "h-1.5 w-1.5 shrink-0 rounded-full",
+                                                      isDirectActive ? "bg-white" : "bg-slate-300",
+                                                ].join(" ")}
+                                          />
+                                    )}
+                                    {content}
+                              </a>
+                        </Link>
+                  ) : (
+                        <div className={itemClass}>{content}</div>
+                  )}
+
+                  {hasChildren && isOpen && (
+                        <div
+                              className={[
+                                    "mt-1 space-y-1",
+                                    depth === 0 ? "ml-3 border-l border-slate-200 pl-2" : "",
+                                    depth > 0 ? "ml-4 border-l border-slate-100 pl-2" : "",
+                              ].join(" ")}
+                        >
+                              {item.children?.map((child) => (
+                                    <SidebarItem
+                                          key={`${child.label}-${child.path ?? "group"}`}
+                                          item={child}
+                                          currentPath={currentPath}
+                                          depth={depth + 1}
+                                    />
+                              ))}
+                        </div>
+                  )}
+            </div>
+      );
+}
+
+export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
+      const [currentPath] = useLocation();
+      const { user, logout } = useAuth();
+      const { isDetailed } = useSystemDisplayMode();
+
+      const selectedNavigationItems = useMemo(() => {
+            if (hasRole(user, "manager")) {
+                  return isDetailed ? detailedManagerNavigation : simpleManagerNavigation;
+            }
+
+            if (hasRole(user, "resident")) {
+                  if (hasAppointmentRole(user)) {
+                        return [...residentNavigation, ...appointmentNavigation];
+                  }
+
+                  return residentNavigation;
+            }
+
+            if (hasAppointmentRole(user)) {
+                  return appointmentNavigation;
+            }
+
+            return [];
+      }, [user, isDetailed]);
+
+      const visibleNavigationItems = useMemo(() => {
+            return filterNavigationItems(selectedNavigationItems, user);
+      }, [selectedNavigationItems, user]);
+
+      const displayName =
+            user?.name || user?.username || user?.email || "Người dùng";
+
+      return (
+            <div className="min-h-screen bg-slate-50">
+                  <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r bg-white lg:flex lg:flex-col">
+                        <div className="border-b px-5 py-5">
+                              <div className="text-xl font-bold tracking-tight text-slate-900">
+                                    ResidenceCore
+                              </div>
+                              <div className="mt-1 text-sm text-slate-500">
+                                    Quản lý lưu xá
                               </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                              <div className="hidden items-center gap-3 md:flex">
-                                    <div className="text-right">
-                                          <p className="text-sm font-medium text-slate-900">
-                                                {user?.name || "Admin"}
-                                          </p>
-                                          <p className="text-xs text-slate-500">{user?.role || "User"}</p>
-                                    </div>
+                        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
+                              {visibleNavigationItems.map((item) => (
+                                    <SidebarItem
+                                          key={`${item.label}-${item.path ?? "group"}`}
+                                          item={item}
+                                          currentPath={currentPath}
+                                    />
+                              ))}
+                        </nav>
 
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-sky-500 font-bold text-white shadow-sm">
-                                          {user?.name?.charAt(0) || "A"}
+                        <div className="border-t p-4">
+                              <div className="mb-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <div className="truncate text-sm font-medium text-slate-900">
+                                          {displayName}
+                                    </div>
+                                    <div className="mt-0.5 text-xs text-slate-500">
+                                          {hasRole(user, "manager") ? "Quản lý lưu xá" : "Người dùng"}
                                     </div>
                               </div>
 
                               <button
                                     type="button"
                                     onClick={logout}
-                                    className="flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-white transition-colors hover:bg-red-600"
+                                    className="w-full rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                               >
-                                    <LogOut className="h-4 w-4" />
-                                    <span className="hidden text-sm font-medium md:inline">
-                                          Đăng xuất
-                                    </span>
-                              </button>
-
-                              <button
-                                    type="button"
-                                    onClick={() => setSidebarOpen(!sidebarOpen)}
-                                    className="rounded-lg p-2 transition-colors hover:bg-slate-100 md:hidden"
-                              >
-                                    {sidebarOpen ? (
-                                          <X className="h-6 w-6 text-slate-900" />
-                                    ) : (
-                                          <Menu className="h-6 w-6 text-slate-900" />
-                                    )}
+                                    Đăng xuất
                               </button>
                         </div>
-                  </div>
+                  </aside>
 
-                  {/* Sidebar - Desktop */}
-                  <div className="fixed bottom-0 left-0 top-16 hidden w-72 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 text-white md:flex">
-                        <nav className="flex-1 space-y-1.5 px-4 py-5">
-                              {visibleNavigationItems.map((item) => renderNavigationItem(item))}
-                        </nav>
-
-                        <div className="border-t border-slate-800 px-4 py-5">
-                              <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-sky-500 font-bold text-white shadow-sm">
-                                          {user?.name?.charAt(0) || "A"}
+                  <div className="lg:pl-72">
+                        <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur">
+                              <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+                                    <div>
+                                          <div className="text-sm font-medium text-slate-900">
+                                                App Lưu Xá
+                                          </div>
+                                          <div className="text-xs text-slate-500">
+                                                {isDetailed ? "Chế độ chi tiết" : "Chế độ đơn giản"}
+                                          </div>
                                     </div>
 
-                                    <div className="min-w-0 flex-1">
-                                          <p className="truncate text-sm font-medium text-white">
-                                                {user?.name || "Admin"}
-                                          </p>
-                                          <p className="truncate text-xs text-slate-400">
-                                                {user?.role || "User"}
-                                          </p>
-                                    </div>
-                              </div>
-                        </div>
-                  </div>
+                                    <div className="flex items-center gap-3">
+                                          <div className="hidden text-right sm:block">
+                                                <div className="text-sm font-medium text-slate-900">
+                                                      {displayName}
+                                                </div>
+                                                <div className="text-xs text-slate-500">
+                                                      {hasRole(user, "manager") ? "Quản lý lưu xá" : "Người dùng"}
+                                                </div>
+                                          </div>
 
-                  {/* Sidebar - Mobile Overlay */}
-                  {sidebarOpen && (
-                        <div
-                              className="fixed inset-0 top-16 z-30 bg-black/50 md:hidden"
-                              onClick={() => setSidebarOpen(false)}
-                        />
-                  )}
-
-                  {/* Sidebar - Mobile */}
-                  <div
-                        className={`fixed bottom-0 left-0 top-16 z-40 w-72 transform overflow-y-auto border-r border-slate-800 bg-slate-950 text-white transition-transform md:hidden ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
-                              }`}
-                  >
-                        <nav className="flex-1 space-y-1.5 px-4 py-5">
-                              {visibleNavigationItems.map((item) =>
-                                    renderNavigationItem(item, {
-                                          isMobile: true,
-                                          depth: 0,
-                                          parentKey: "",
-                                    })
-                              )}
-                        </nav>
-
-                        <div className="border-t border-slate-800 px-4 py-5">
-                              <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-sky-500 font-bold text-white shadow-sm">
-                                          {user?.name?.charAt(0) || "A"}
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                          <p className="truncate text-sm font-medium text-white">
-                                                {user?.name || "Admin"}
-                                          </p>
-                                          <p className="truncate text-xs text-slate-400">
-                                                {user?.role || "User"}
-                                          </p>
+                                          <button
+                                                type="button"
+                                                onClick={logout}
+                                                className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 lg:hidden"
+                                          >
+                                                Đăng xuất
+                                          </button>
                                     </div>
                               </div>
-                        </div>
-                  </div>
+                        </header>
 
-                  {/* Main Content */}
-                  <main className="mt-16 flex-1 overflow-auto md:ml-72">{children}</main>
+                        <main className="px-4 py-5 lg:px-6">{children}</main>
+                  </div>
             </div>
       );
 }
+
+export default ResidenceCareLayout;

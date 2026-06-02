@@ -47,6 +47,7 @@ import Fees from "./pages/Fees";
 import Reports from "./pages/Reports";
 import OrganizationUnits from "@/pages/OrganizationUnits";
 import DailyRoutine from "@/pages/DailyRoutine";
+import UserManagement from "@/pages/UserManagement";
 
 
 
@@ -103,6 +104,8 @@ function Router() {
 
                   <Route path="/daily-routine" component={DailyRoutine} />
                   <Route path="/my-duties" component={MyDuties} />
+
+                  <Route path="/settings/users" component={UserManagement} />
 
                   {/* Final fallback route */}
                   <Route component={NotFound} />

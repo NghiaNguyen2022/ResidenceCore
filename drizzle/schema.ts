@@ -16,6 +16,7 @@ export const users = mysqlTable("users", {
       createdAt: timestamp("createdAt").defaultNow().notNull(),
       updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
       lastSignedIn: timestamp("lastSignedIn"),
+      mustChangePassword: boolean("mustChangePassword").default(false).notNull(),
 });
 
 export type User = typeof users.$inferSelect;
@@ -1273,3 +1274,99 @@ export const organizationUnits = mysqlTable(
 
 export type OrganizationUnit = typeof organizationUnits.$inferSelect;
 export type InsertOrganizationUnit = typeof organizationUnits.$inferInsert;
+
+export const roles = mysqlTable("roles", {
+      id: int("id").autoincrement().primaryKey(),
+
+      roleKey: varchar("roleKey", { length: 50 }).notNull().unique(),
+      roleName: varchar("roleName", { length: 100 }).notNull(),
+      description: text("description"),
+
+      isSystem: boolean("isSystem").default(true).notNull(),
+      isActive: boolean("isActive").default(true).notNull(),
+      sortOrder: int("sortOrder").default(0),
+
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const userRoles = mysqlTable(
+      "userRoles",
+      {
+            id: int("id").autoincrement().primaryKey(),
+
+            userId: int("userId")
+                  .notNull()
+                  .references(() => users.id, { onDelete: "cascade" }),
+
+            roleId: int("roleId")
+                  .notNull()
+                  .references(() => roles.id, { onDelete: "cascade" }),
+
+            isPrimary: boolean("isPrimary").default(false).notNull(),
+
+            assignedBy: int("assignedBy").references(() => users.id, {
+                  onDelete: "set null",
+            }),
+
+            assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+      },
+      (table) => ({
+            uniqueUserRole: unique("uq_userRoles_user_role").on(
+                  table.userId,
+                  table.roleId
+            ),
+            userIdIdx: index("idx_userRoles_userId").on(table.userId),
+            roleIdIdx: index("idx_userRoles_roleId").on(table.roleId),
+            assignedByIdx: index("idx_userRoles_assignedBy").on(table.assignedBy),
+      })
+);
+
+export const rolePermissions = mysqlTable(
+      "rolePermissions",
+      {
+            id: int("id").autoincrement().primaryKey(),
+
+            roleId: int("roleId")
+                  .notNull()
+                  .references(() => roles.id, { onDelete: "cascade" }),
+
+            moduleKey: varchar("moduleKey", { length: 100 }).notNull(),
+            actionKey: varchar("actionKey", { length: 100 }).notNull(),
+
+            isAllowed: boolean("isAllowed").default(true).notNull(),
+
+            createdAt: timestamp("createdAt").defaultNow().notNull(),
+      },
+      (table) => ({
+            uniqueRoleModuleAction: unique(
+                  "uq_rolePermissions_role_module_action"
+            ).on(table.roleId, table.moduleKey, table.actionKey),
+
+            roleIdIdx: index("idx_rolePermissions_roleId").on(table.roleId),
+            moduleKeyIdx: index("idx_rolePermissions_moduleKey").on(table.moduleKey),
+      })
+);
+export const APP_ROLE_KEYS = [
+      "manager",
+      "resident",
+      "team_leader",
+      "committee_head",
+      "house_leader",
+      "deputy",
+      "secretary",
+      "treasurer",
+] as const;
+
+export type AppRoleKey = (typeof APP_ROLE_KEYS)[number];
+
+export const APPOINTMENT_ROLE_KEYS = [
+      "team_leader",
+      "committee_head",
+      "house_leader",
+      "deputy",
+      "secretary",
+      "treasurer",
+] as const;
+
+export type AppointmentRoleKey = (typeof APPOINTMENT_ROLE_KEYS)[number];
