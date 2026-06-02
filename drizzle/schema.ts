@@ -381,6 +381,39 @@ export const cronJobLogs = mysqlTable("cronJobLogs", {
 export type CronJobLog = typeof cronJobLogs.$inferSelect;
 export type InsertCronJobLog = typeof cronJobLogs.$inferInsert;
 
+/**
+ * Display mode enum - Application view mode for simple/detailed display.
+ */
+export const displayModes = mysqlEnum("displayModes", ["simple", "detailed"]);
+
+export type DisplayMode = "simple" | "detailed";
+
+/**
+ * AppSettings table - persistent system-level settings.
+ */
+export const appSettings = mysqlTable("appSettings", {
+      settingKey: varchar("settingKey", { length: 100 }).primaryKey(),
+      value: text("value").notNull(),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AppSetting = typeof appSettings.$inferSelect;
+export type InsertAppSetting = typeof appSettings.$inferInsert;
+
+/**
+ * ModuleDisplayModes table - per-module display mode preferences.
+ */
+export const moduleDisplayModes = mysqlTable("moduleDisplayModes", {
+      moduleKey: varchar("moduleKey", { length: 100 }).primaryKey(),
+      mode: displayModes.notNull(),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ModuleDisplayMode = typeof moduleDisplayModes.$inferSelect;
+export type InsertModuleDisplayMode = typeof moduleDisplayModes.$inferInsert;
+
 // ============================================================================
 // DUTY MANAGEMENT TABLES
 // ============================================================================

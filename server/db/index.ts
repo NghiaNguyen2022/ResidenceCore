@@ -8,5 +8,6 @@ export * from "./user";
 export * from "./resident";
 export * from "./room";
 export * from "./duty";
+export * from "./appSettings";
 export * from "./financial";
 export * from "./organization";

@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS appSettings (
+  settingKey varchar(100) NOT NULL PRIMARY KEY,
+  value text NOT NULL,
+  createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS moduleDisplayModes (
+  moduleKey varchar(100) NOT NULL PRIMARY KEY,
+  mode enum('simple','detailed') NOT NULL,
+  createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

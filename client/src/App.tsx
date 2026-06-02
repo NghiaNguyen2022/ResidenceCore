@@ -41,6 +41,7 @@ import Tasks from "./pages/Tasks";
 import Schedule from "./pages/Schedule";
 import Activities from "./pages/Activities";
 import DutiesPage from "./pages/Duties";
+import MyDuties from "./pages/MyDuties";
 import Financial from "./pages/Financial";
 import Fees from "./pages/Fees";
 import Reports from "./pages/Reports";
@@ -101,6 +102,7 @@ function Router() {
                   <Route path="/reports" component={Reports} />
 
                   <Route path="/daily-routine" component={DailyRoutine} />
+                  <Route path="/my-duties" component={MyDuties} />
 
                   {/* Final fallback route */}
                   <Route component={NotFound} />

@@ -3,6 +3,7 @@ export type NavigationItem = {
       path?: string;
       icon: string;
       badge?: string;
+      roles?: Array<"user" | "admin" | "manager" | "supervisor" | "accountant" | "resident">;
       children?: NavigationItem[];
 };
 
@@ -38,6 +39,7 @@ export const navigationItems: NavigationItem[] = [
                   { label: "Lịch sinh hoạt", path: "/daily-routine", icon: "🗓️" },
                   { label: "Điểm danh", path: "/attendance", icon: "📋" },
                   { label: "Công tác / Trực nhật", path: "/duties", icon: "✓" },
+                  { label: "Công tác của tôi", path: "/my-duties", icon: "👣", roles: ["resident"] },
                   {
                         label: "Phụng vụ & Cộng đoàn",
                         icon: "⛪",
