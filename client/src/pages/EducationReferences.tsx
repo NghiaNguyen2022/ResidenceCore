@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useMemo, useState } from 'react';
 import {
       AlertCircle,
       BookOpenCheck,
@@ -328,7 +328,7 @@ function validateMajorForm({
       return null;
 }
 
-export default function AcademicInfo() {
+export default function EducationReferences() {
       const [activeTab, setActiveTab] = useState<ActiveTab>('schools');
       const [schools, setSchools] = useState<School[]>(initialSchools);
       const [majors, setMajors] = useState<Major[]>(initialMajors);
@@ -969,6 +969,9 @@ export default function AcademicInfo() {
                                     </button>
                               </div>
                         </div>
+
+                        <EducationReferenceNote />
+
                         {activeTab === 'schools' ? (
                               <ConfigurableDataTable
                                     moduleKey="educationReferences"
@@ -1020,6 +1023,21 @@ export default function AcademicInfo() {
       );
 }
 
+function EducationReferenceNote() {
+      return (
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                  <div className="flex gap-3">
+                        <BookOpenCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-700" />
+                        <div>
+                              <p className="font-semibold text-blue-900">Phạm vi quản lý học vụ</p>
+                              <p className="mt-1 text-sm leading-6 text-blue-800">
+                                    Trường học và ngành học được quản lý như dữ liệu tham chiếu. Thông tin này dùng để gắn vào hồ sơ học viên, hỗ trợ điểm danh theo lịch học, chia công tác phù hợp và cập nhật kết quả học tập. Các nghiệp vụ học thuật chuyên sâu ngoài lưu xá không cần triển khai chi tiết ở giai đoạn này.
+                              </p>
+                        </div>
+                  </div>
+            </div>
+      );
+}
 
 function SchoolFormModal({
       title,
@@ -1032,7 +1050,7 @@ function SchoolFormModal({
 }: {
       title: string;
       formData: SchoolFormData;
-      setFormData: Dispatch<SetStateAction<SchoolFormData>>;
+      setFormData: React.Dispatch<React.SetStateAction<SchoolFormData>>;
       error: string | null;
       onClose: () => void;
       onSubmit: () => void;
@@ -1255,7 +1273,7 @@ function MajorFormModal({
 }: {
       title: string;
       formData: MajorFormData;
-      setFormData: Dispatch<SetStateAction<MajorFormData>>;
+      setFormData: React.Dispatch<React.SetStateAction<MajorFormData>>;
       schools: School[];
       error: string | null;
       onClose: () => void;
