@@ -18,41 +18,41 @@ export type ParentFilters = {
 export type ParentInput = {
       parentType: "father" | "mother" | "guardian";
       fullName: string;
-      phoneNumber?: string;
-      email?: string;
-      idNumber?: string;
-      occupation?: string;
-      address?: string;
-      notes?: string;
+      phoneNumber?: string | null;
+      email?: string | null;
+      idNumber?: string | null;
+      occupation?: string | null;
+      address?: string | null;
+      notes?: string | null;
 };
 
 export type CreateMemberData = {
       holyName?: string | null;
       fullName: string;
-      dateOfBirth?: Date;
+      dateOfBirth?: Date | null;
       gender?: "male" | "female" | "other";
-      idNumber?: string;
-      permanentAddress?: string;
-      phoneNumber?: string;
-      schoolId?: number;
-      profileImage?: string;
+      idNumber?: string | null;
+      permanentAddress?: string | null;
+      phoneNumber?: string | null;
+      schoolId?: number | null;
+      profileImage?: string | null;
       admissionDate: Date;
-      notes?: string;
+      notes?: string | null;
       parents?: ParentInput[];
 };
 
 export type UpdateMemberData = Partial<{
       holyName: string | null;
       fullName: string;
-      dateOfBirth: Date;
+      dateOfBirth: Date | null;
       gender: "male" | "female" | "other";
-      idNumber: string;
-      permanentAddress: string;
-      phoneNumber: string;
-      schoolId: number;
-      profileImage: string;
+      idNumber: string | null;
+      permanentAddress: string | null;
+      phoneNumber: string | null;
+      schoolId: number | null;
+      profileImage: string | null;
       admissionDate: Date;
-      notes: string;
+      notes: string | null;
       status: "active" | "inactive" | "transferred_out";
 }>;
 
@@ -62,7 +62,7 @@ function generateResidentCode(admissionDate?: Date) {
       return `LX${year}${timePart}`;
 }
 
-function normalizeText(value?: string) {
+function normalizeText(value?: string | null) {
       return (value || "")
             .trim()
             .toLowerCase()
@@ -71,7 +71,7 @@ function normalizeText(value?: string) {
             .replace(/\s+/g, " ");
 }
 
-function normalizePhone(value?: string) {
+function normalizePhone(value?: string | null) {
       return (value || "").replace(/[^\d]/g, "");
 }
 
@@ -153,8 +153,10 @@ export class MemberService {
       }
 
       async createMember(data: CreateMemberData) {
-            const result = await db.createResident({
-                  residentCode: generateResidentCode(data.admissionDate),
+            const residentCode = generateResidentCode(data.admissionDate);
+
+            const createdResident = await db.createResident({
+                  residentCode,
                   holyName: data.holyName ?? null,
                   fullName: data.fullName,
                   dateOfBirth: data.dateOfBirth ?? null,
@@ -162,14 +164,14 @@ export class MemberService {
                   idNumber: data.idNumber ?? null,
                   permanentAddress: data.permanentAddress ?? null,
                   phoneNumber: data.phoneNumber ?? null,
+                  schoolId: data.schoolId ?? null,
+                  profileImage: data.profileImage ?? null,
                   admissionDate: data.admissionDate,
                   notes: data.notes ?? null,
+                  status: "active",
             });
 
-            const residentId =
-                  (result as any)?.id ??
-                  (result as any)?.insertId ??
-                  (Array.isArray(result) ? (result as any)[0]?.id : null);
+            const residentId = (createdResident as any)?.id;
 
             if (!residentId) {
                   throw new Error("Không thể xác định học viên vừa tạo.");
@@ -186,12 +188,12 @@ export class MemberService {
                               residentId,
                               parentType: parent.parentType,
                               fullName: parent.fullName,
-                              phoneNumber: parent.phoneNumber,
-                              email: parent.email,
-                              idNumber: parent.idNumber,
-                              occupation: parent.occupation,
-                              address: parent.address,
-                              notes: parent.notes,
+                              phoneNumber: parent.phoneNumber ?? null,
+                              email: parent.email ?? null,
+                              idNumber: parent.idNumber ?? null,
+                              occupation: parent.occupation ?? null,
+                              address: parent.address ?? null,
+                              notes: parent.notes ?? null,
                         });
                   }
             }
@@ -206,7 +208,10 @@ export class MemberService {
       }
 
       async updateMember(id: number, data: UpdateMemberData) {
-            await db.updateResident(id, data);
+            await db.updateResident(id, {
+                  ...data,
+                  holyName: data.holyName ?? null,
+            });
 
             const resident = await db.getResidentById(id);
 
@@ -228,7 +233,18 @@ export class MemberService {
       }
 
       async markAsLeft(id: number, departureDate: Date) {
+            const resident = await db.getResidentById(id);
+
+            if (!resident) {
+                  throw new Error('Không tìm thấy học viên cần ngừng/rời lưu xá.');
+            }
+
             await db.markResidentAsLeft(id, departureDate);
+
+            if ((resident as any).userId) {
+                  await db.deactivateUser((resident as any).userId);
+            }
+
             return { success: true } as const;
       }
 
@@ -283,21 +299,18 @@ export class MemberService {
                   residentId: data.residentId,
                   parentType: data.parentType,
                   fullName: data.fullName,
-                  phoneNumber: data.phoneNumber,
-                  email: data.email,
-                  idNumber: data.idNumber,
-                  occupation: data.occupation,
-                  address: data.address,
-                  notes: data.notes,
+                  phoneNumber: data.phoneNumber ?? null,
+                  email: data.email ?? null,
+                  idNumber: data.idNumber ?? null,
+                  occupation: data.occupation ?? null,
+                  address: data.address ?? null,
+                  notes: data.notes ?? null,
             });
 
-            const parentId =
-                  (createdParent as any)?.id ??
-                  (createdParent as any)?.insertId ??
-                  (Array.isArray(createdParent) ? (createdParent as any)[0]?.id : null);
+            const parentId = (createdParent as any)?.id;
 
             if (!parentId) {
-                  throw new Error('Không thể xác định phụ huynh vừa tạo.');
+                  throw new Error("Không thể xác định phụ huynh vừa tạo.");
             }
 
             return db.getParentById(parentId);
@@ -311,14 +324,15 @@ export class MemberService {
             }
 
             const mergedData: ParentInput = {
-                  parentType: data.parentType ?? currentParent.parentType,
+                  parentType: (data.parentType ??
+                        currentParent.parentType) as ParentInput["parentType"],
                   fullName: data.fullName ?? currentParent.fullName,
-                  phoneNumber: data.phoneNumber ?? currentParent.phoneNumber ?? '',
-                  email: data.email ?? currentParent.email ?? '',
-                  idNumber: data.idNumber ?? currentParent.idNumber ?? '',
-                  occupation: data.occupation ?? currentParent.occupation ?? '',
-                  address: data.address ?? currentParent.address ?? '',
-                  notes: data.notes ?? currentParent.notes ?? '',
+                  phoneNumber: data.phoneNumber ?? currentParent.phoneNumber ?? "",
+                  email: data.email ?? currentParent.email ?? "",
+                  idNumber: data.idNumber ?? currentParent.idNumber ?? "",
+                  occupation: data.occupation ?? currentParent.occupation ?? "",
+                  address: data.address ?? currentParent.address ?? "",
+                  notes: data.notes ?? currentParent.notes ?? "",
             };
 
             await validateParentBeforeSave({
@@ -327,7 +341,17 @@ export class MemberService {
                   editingParentId: id,
             });
 
-            await db.updateParent(id, data);
+            await db.updateParent(id, {
+                  parentType: data.parentType,
+                  fullName: data.fullName,
+                  phoneNumber: data.phoneNumber ?? null,
+                  email: data.email ?? null,
+                  idNumber: data.idNumber ?? null,
+                  occupation: data.occupation ?? null,
+                  address: data.address ?? null,
+                  notes: data.notes ?? null,
+            });
+
             return db.getParentById(id);
       }
 

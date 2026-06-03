@@ -447,6 +447,7 @@ export async function deactivateUser(userId: number) {
             .update(users)
             .set({
                   isActive: false,
+                  updatedAt: new Date(),
             })
             .where(eq(users.id, userId));
 

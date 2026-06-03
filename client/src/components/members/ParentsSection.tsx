@@ -12,7 +12,13 @@ import {
       validateParentFormBeforeSave,
 } from './memberUtils';
 
-export function ParentsSection({ residentId }: { residentId: number }) {
+export function ParentsSection({
+      residentId,
+      onDataChange,
+}: {
+      residentId: number;
+      onDataChange?: () => void | Promise<void>;
+}) {
       const [isFormOpen, setIsFormOpen] = useState(false);
       const [editingParent, setEditingParent] = useState<any>(null);
       const [parentForm, setParentForm] =
@@ -95,7 +101,8 @@ export function ParentsSection({ residentId }: { residentId: number }) {
                   setEditingParent(null);
                   setParentForm(defaultParentFormData);
                   setParentError(null);
-                  parentsQuery.refetch();
+                  await parentsQuery.refetch();
+                  await onDataChange?.();
             } catch (err: any) {
                   setParentError(err.message || 'Lỗi khi lưu thông tin liên hệ.');
             }
@@ -108,7 +115,8 @@ export function ParentsSection({ residentId }: { residentId: number }) {
 
             try {
                   await deleteParentMutation.mutateAsync({ id: parentId });
-                  parentsQuery.refetch();
+                  await parentsQuery.refetch();
+                  await onDataChange?.();
             } catch (err: any) {
                   setParentError(err.message || 'Lỗi khi xóa liên hệ.');
             }

@@ -1,16 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
       AlertCircle,
       Clock,
-      Edit2,
       Eye,
       Plus,
       Search,
       Trash2,
-      UserCheck,
       Users,
+      UserCheck,
       UserX,
 } from 'lucide-react';
 
@@ -41,21 +40,80 @@ import {
 } from '@/components/members/memberTypes';
 import {
       formatDate,
-      getCurrentRoomIdFromMember,
       getGenderLabel,
       getRoomActionLabel,
       getRoomLabelFromMember,
       getStatusClass,
       getStatusLabel,
       hasCurrentRoom,
-      isRoomFull,
 } from '@/components/members/memberUtils';
 
+function SimpleStatCard({
+      label,
+      value,
+      description,
+      icon,
+      details,
+}: {
+      label: string;
+      value: number;
+      description: string;
+      icon: any;
+      details?: Array<{ label: string; value: number }>;
+}) {
+      return (
+            <div className="flex min-h-[168px] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                              <div className="text-sm font-semibold text-slate-500">
+                                    {label}
+                              </div>
+                              <div className="mt-2 text-4xl font-bold tracking-tight text-slate-800">
+                                    {value}
+                              </div>
+                        </div>
+
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                              {icon}
+                        </div>
+                  </div>
+
+                  <div className="mt-4">
+                        <div className="text-sm leading-5 text-slate-500">
+                              {description}
+                        </div>
+
+                        {details && details.length > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                    {details.map((item) => (
+                                          <span
+                                                key={item.label}
+                                                className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
+                                          >
+                                                {item.label}: {item.value}
+                                          </span>
+                                    ))}
+                              </div>
+                        )}
+                  </div>
+            </div>
+      );
+}
+
+
 export default function Members() {
-      const { isSimple } = useSystemDisplayMode();
+      const { isDetailed } = useSystemDisplayMode();
+      const isSimple = !isDetailed;
+      //const { isSimple } = useSystemDisplayMode();
 
       const [searchTerm, setSearchTerm] = useState('');
       const [statusFilter, setStatusFilter] = useState('all');
+      const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
+
+      const [simplePage, setSimplePage] = useState(1);
+      const [simplePageSize, setSimplePageSize] = useState(7);
+
+      const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
 
       const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
       const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -67,12 +125,15 @@ export default function Members() {
       const [selectedMemberForRoom, setSelectedMemberForRoom] = useState<any>(null);
 
       const [error, setError] = useState<string | null>(null);
+
       const [formData, setFormData] = useState<MemberFormData>(resetMemberForm());
       const [createUserData, setCreateUserData] = useState<CreateResidentUserFormData>(
             resetCreateResidentUserForm()
       );
+
       const [roomAssignmentData, setRoomAssignmentData] =
             useState<RoomAssignmentData>(resetRoomAssignmentForm());
+
       const [quickRoomFormData, setQuickRoomFormData] =
             useState<QuickRoomFormData>(defaultQuickRoomFormData);
 
@@ -83,6 +144,7 @@ export default function Members() {
 
       const statsQuery = trpc.members.getStats.useQuery();
       const roomsQuery = trpc.rooms.list.useQuery();
+
       const residentsWithoutUserQuery = trpc.members.listResidentsWithoutUser.useQuery(undefined, {
             refetchOnWindowFocus: false,
       });
@@ -91,10 +153,13 @@ export default function Members() {
       const updateMember = trpc.members.update.useMutation();
       const deleteMember = trpc.members.delete.useMutation();
       const markAsLeftMutation = trpc.members.markAsLeft.useMutation();
+
       const assignRoomMutation = trpc.rooms.assignResident.useMutation();
       const createRoomMutation = trpc.rooms.create.useMutation();
+
       const suggestUsernameMutation = trpc.members.suggestResidentUsername.useMutation();
       const createResidentUserMutation = trpc.members.createResidentUser.useMutation();
+
       const bulkCreateResidentUsersMutation = trpc.members.bulkCreateResidentUsers.useMutation({
             onSuccess: async () => {
                   await membersQuery.refetch();
@@ -104,6 +169,35 @@ export default function Members() {
       });
 
       const members = membersQuery.data || [];
+      const attentionSummary = members.reduce(
+            (summary: { missingRoom: number; missingUser: number; missingContact: number; total: number }, member: any) => {
+                  const missingRoom = !(
+                        member.roomId ||
+                        member.roomName ||
+                        member.roomNumber ||
+                        member.roomCode
+                  );
+
+                  const missingUser = !member.userId;
+
+                  const missingContact = !(
+                        (member.primaryContactName && member.primaryContactPhone) ||
+                        (member.primaryParentName && member.primaryParentPhone) ||
+                        (member.parentName && member.parentPhone) ||
+                        (member.contactName && member.contactPhone)
+                  );
+
+                  if (missingRoom) summary.missingRoom += 1;
+                  if (missingUser) summary.missingUser += 1;
+                  if (missingContact) summary.missingContact += 1;
+                  if (missingRoom || missingUser || missingContact) summary.total += 1;
+
+                  return summary;
+            },
+            { missingRoom: 0, missingUser: 0, missingContact: 0, total: 0 }
+      );
+
+      const needAttentionCount = attentionSummary.total;
       const rooms = roomsQuery.data || [];
 
       const stats = statsQuery.data || {
@@ -113,9 +207,53 @@ export default function Members() {
             transferred_out: 0,
       };
 
-      const refetchMembers = () => {
-            membersQuery.refetch();
-            statsQuery.refetch();
+      const selectedMembers = useMemo(
+            () => members.filter((member: any) => selectedMemberIds.includes(member.id)),
+            [members, selectedMemberIds]
+      );
+
+      const selectedMemberForAction = selectedMembers.length === 1 ? selectedMembers[0] : null;
+
+      const simpleTotalItems = members.length;
+
+      const simpleTotalPages = Math.max(
+            1,
+            Math.ceil(simpleTotalItems / simplePageSize)
+      );
+
+      const simplePagedMembers = members.slice(
+            (simplePage - 1) * simplePageSize,
+            simplePage * simplePageSize
+      );
+
+      useEffect(() => {
+            setSimplePage(1);
+            setSelectedMemberIds([]);
+      }, [searchTerm, statusFilter, simplePageSize]);
+
+      const refetchMembers = async () => {
+            await membersQuery.refetch();
+            await statsQuery.refetch();
+            await residentsWithoutUserQuery.refetch();
+      };
+
+      const clearFilters = () => {
+            setSearchTerm('');
+            setStatusFilter('all');
+      };
+
+      const handleToggleSelectMember = (member: any) => {
+            if (!member?.id) return;
+
+            setSelectedMemberIds((current) =>
+                  current.includes(member.id)
+                        ? current.filter((id) => id !== member.id)
+                        : [...current, member.id]
+            );
+      };
+
+      const clearSelectedMembers = () => {
+            setSelectedMemberIds([]);
       };
 
       const handleOpenAddDialog = () => {
@@ -124,6 +262,33 @@ export default function Members() {
             setCreateUserData(resetCreateResidentUserForm());
             setError(null);
             setIsAddDialogOpen(true);
+      };
+
+      const handleOpenDetail = (member: any) => {
+            setSelectedMember(member);
+            setIsDetailDialogOpen(true);
+      };
+
+      const handleEditMember = (member: any) => {
+            setEditingMember(member);
+            setCreateUserData(resetCreateResidentUserForm());
+            setFormData({
+                  holyName: member.holyName || '',
+                  fullName: member.fullName || '',
+                  dateOfBirth: member.dateOfBirth
+                        ? new Date(member.dateOfBirth).toISOString().split('T')[0]
+                        : '',
+                  gender: member.gender || 'male',
+                  idNumber: member.idNumber || '',
+                  permanentAddress: member.permanentAddress || '',
+                  phoneNumber: member.phoneNumber || '',
+                  admissionDate: member.admissionDate
+                        ? new Date(member.admissionDate).toISOString().split('T')[0]
+                        : '',
+                  notes: member.notes || '',
+            });
+            setError(null);
+            setIsEditDialogOpen(true);
       };
 
       const handleSuggestUsername = async () => {
@@ -187,37 +352,15 @@ export default function Members() {
                   setFormData(resetMemberForm());
                   setCreateUserData(resetCreateResidentUserForm());
                   setError(null);
-                  refetchMembers();
+                  await refetchMembers();
             } catch (err: any) {
                   setError(err.message || 'Lỗi khi thêm học viên');
             }
       };
 
-      const handleEditMember = (member: any) => {
-            setEditingMember(member);
-            setCreateUserData(resetCreateResidentUserForm());
-            setFormData({
-                  holyName: member.holyName || '',
-                  fullName: member.fullName || '',
-                  dateOfBirth: member.dateOfBirth
-                        ? new Date(member.dateOfBirth).toISOString().split('T')[0]
-                        : '',
-                  gender: member.gender || 'male',
-                  idNumber: member.idNumber || '',
-                  permanentAddress: member.permanentAddress || '',
-                  phoneNumber: member.phoneNumber || '',
-                  admissionDate: member.admissionDate
-                        ? new Date(member.admissionDate).toISOString().split('T')[0]
-                        : '',
-                  notes: member.notes || '',
-            });
-            setError(null);
-            setIsEditDialogOpen(true);
-      };
-
       const handleSaveEdit = async () => {
             if (!editingMember?.id) {
-                  setError('Không tìm thấy học viên cần cập nhật');
+                  setError('Không tìm thấy học viên cần cập nhật.');
                   return;
             }
 
@@ -235,73 +378,63 @@ export default function Members() {
                         phoneNumber: formData.phoneNumber || undefined,
                         admissionDate: formData.admissionDate
                               ? new Date(formData.admissionDate)
-                              : new Date(),
+                              : undefined,
                         notes: formData.notes || undefined,
                   });
 
                   setIsEditDialogOpen(false);
                   setEditingMember(null);
-                  setFormData(resetMemberForm());
-                  setCreateUserData(resetCreateResidentUserForm());
                   setError(null);
-                  refetchMembers();
+                  await refetchMembers();
             } catch (err: any) {
                   setError(err.message || 'Lỗi khi cập nhật học viên');
             }
       };
 
-      const handleDeleteMember = async (id: number) => {
-            if (
-                  !confirm(
-                        'Bạn có chắc chắn muốn XÓA CỨNG học viên này? Thao tác này chỉ nên dùng khi nhập sai hồ sơ.'
-                  )
-            ) {
-                  return;
-            }
-
-            try {
-                  await deleteMember.mutateAsync({ id });
-                  refetchMembers();
-            } catch (err: any) {
-                  setError(err.message || 'Lỗi khi xóa học viên');
-            }
-      };
-
-      const handleMarkAsLeft = async (member: any) => {
-            if (!member?.id) {
-                  setError('Không tìm thấy học viên cần ngừng lưu trú');
-                  return;
-            }
-
-            const confirmed = confirm(
-                  `Bạn có chắc chắn muốn chuyển "${member.fullName}" sang trạng thái Đã rời lưu xá?`
-            );
-
-            if (!confirmed) return;
-
-            try {
-                  await markAsLeftMutation.mutateAsync({
-                        id: member.id,
-                        departureDate: new Date(),
-                  });
-
-                  setError(null);
-                  refetchMembers();
-            } catch (err: any) {
-                  setError(err.message || 'Lỗi khi cập nhật trạng thái ngừng lưu trú');
-            }
-      };
-
       const handleOpenAssignRoomDialog = (member: any) => {
             setSelectedMemberForRoom(member);
+            setQuickRoomFormData(defaultQuickRoomFormData);
             setRoomAssignmentData({
                   ...resetRoomAssignmentForm(),
-                  roomId: '',
                   eventType: hasCurrentRoom(member) ? 'transfer' : 'new_entry',
             });
-            setQuickRoomFormData(defaultQuickRoomFormData);
             setError(null);
             setIsAssignRoomDialogOpen(true);
+      };
+
+      const handleAssignRoom = async () => {
+            if (!selectedMemberForRoom?.id) {
+                  setError('Không tìm thấy học viên cần gán phòng.');
+                  return;
+            }
+
+            if (!roomAssignmentData.roomId && roomAssignmentData.eventType !== 'left') {
+                  setError('Vui lòng chọn phòng.');
+                  return;
+            }
+
+            try {
+                  await assignRoomMutation.mutateAsync({
+                        residentId: selectedMemberForRoom.id,
+                        roomId: roomAssignmentData.roomId
+                              ? Number(roomAssignmentData.roomId)
+                              : undefined,
+                        assignedDate: roomAssignmentData.assignedDate
+                              ? new Date(roomAssignmentData.assignedDate)
+                              : new Date(),
+                        eventType: roomAssignmentData.eventType,
+                        reason: roomAssignmentData.reason || undefined,
+                  } as any);
+
+                  setIsAssignRoomDialogOpen(false);
+                  setSelectedMemberForRoom(null);
+                  setRoomAssignmentData(resetRoomAssignmentForm());
+                  setError(null);
+                  await refetchMembers();
+                  await roomsQuery.refetch();
+            } catch (err: any) {
+                  setError(err.message || 'Lỗi khi xử lý phòng ở');
+            }
       };
 
       const handleQuickCreateRoom = async () => {
@@ -323,7 +456,7 @@ export default function Members() {
                         roomCode,
                         capacity,
                         notes: quickRoomFormData.notes.trim() || undefined,
-                  });
+                  } as any);
 
                   await roomsQuery.refetch();
 
@@ -332,10 +465,12 @@ export default function Members() {
                         (createdRoom as any)?.room?.id ??
                         null;
 
-                  setRoomAssignmentData((current) => ({
-                        ...current,
-                        roomId: createdRoomId ? String(createdRoomId) : current.roomId,
-                  }));
+                  if (createdRoomId) {
+                        setRoomAssignmentData((current) => ({
+                              ...current,
+                              roomId: String(createdRoomId),
+                        }));
+                  }
 
                   setQuickRoomFormData(defaultQuickRoomFormData);
                   setError(null);
@@ -344,99 +479,39 @@ export default function Members() {
             }
       };
 
-      const handleAssignRoom = async () => {
-            if (!selectedMemberForRoom?.id) {
-                  setError('Không tìm thấy học viên cần xử lý phòng');
+      const handleCreateUserFromDetail = async (member: any) => {
+            if (!member?.id) {
+                  setError('Không tìm thấy học viên để tạo tài khoản.');
                   return;
-            }
-
-            const memberHasRoom = hasCurrentRoom(selectedMemberForRoom);
-
-            if (!memberHasRoom && roomAssignmentData.eventType !== 'new_entry') {
-                  setError(
-                        'Học viên chưa có phòng, chỉ được thực hiện nhập lưu trú / gán phòng mới.'
-                  );
-                  return;
-            }
-
-            if (memberHasRoom && roomAssignmentData.eventType === 'new_entry') {
-                  setError('Học viên đã có phòng, chỉ được chuyển phòng hoặc trả phòng.');
-                  return;
-            }
-
-            if (
-                  roomAssignmentData.eventType === 'transfer' &&
-                  !roomAssignmentData.roomId
-            ) {
-                  setError('Vui lòng chọn phòng chuyển đến.');
-                  return;
-            }
-
-            if (
-                  roomAssignmentData.eventType === 'new_entry' &&
-                  !roomAssignmentData.roomId
-            ) {
-                  setError('Vui lòng chọn phòng.');
-                  return;
-            }
-
-            const effectiveRoomId =
-                  roomAssignmentData.eventType === 'left'
-                        ? getCurrentRoomIdFromMember(selectedMemberForRoom)
-                        : roomAssignmentData.roomId;
-
-            if (!effectiveRoomId) {
-                  setError('Không xác định được phòng hiện tại để trả phòng.');
-                  return;
-            }
-
-            if (
-                  roomAssignmentData.eventType === 'transfer' ||
-                  roomAssignmentData.eventType === 'new_entry'
-            ) {
-                  const selectedRoom = rooms.find(
-                        (room: any) => String(room.id) === String(effectiveRoomId)
-                  );
-
-                  if (selectedRoom && isRoomFull(selectedRoom)) {
-                        setError('Phòng đã đủ sức chứa, vui lòng chọn phòng khác.');
-                        return;
-                  }
-
-                  if (
-                        roomAssignmentData.eventType === 'transfer' &&
-                        String(effectiveRoomId) ===
-                        String(getCurrentRoomIdFromMember(selectedMemberForRoom))
-                  ) {
-                        setError('Phòng chuyển đến không được trùng với phòng hiện tại.');
-                        return;
-                  }
             }
 
             try {
-                  await assignRoomMutation.mutateAsync({
-                        residentId: selectedMemberForRoom.id,
-                        roomId: parseInt(String(effectiveRoomId)),
-                        assignedDate: new Date(roomAssignmentData.assignedDate),
-                        eventType: roomAssignmentData.eventType,
-                        reason: roomAssignmentData.reason || undefined,
+                  const suggestResult = await suggestUsernameMutation.mutateAsync({
+                        fullName: member.fullName,
                   });
 
-                  setIsAssignRoomDialogOpen(false);
-                  setSelectedMemberForRoom(null);
+                  await createResidentUserMutation.mutateAsync({
+                        residentId: member.id,
+                        username: suggestResult.username,
+                        temporaryPassword: '123456',
+                        mustChangePassword: true,
+                  });
+
                   setError(null);
+                  await refetchMembers();
 
-                  membersQuery.refetch();
-                  roomsQuery.refetch();
-                  statsQuery.refetch();
+                  setSelectedMember((current: any) =>
+                        current?.id === member.id
+                              ? {
+                                    ...current,
+                                    userId: current.userId || -1,
+                                    username: suggestResult.username,
+                              }
+                              : current
+                  );
             } catch (err: any) {
-                  setError(err.message || 'Lỗi khi xử lý phòng');
+                  setError(err.message || 'Không thể tạo tài khoản cho học viên.');
             }
-      };
-
-      const handleOpenDetail = (member: any) => {
-            setSelectedMember(member);
-            setIsDetailDialogOpen(true);
       };
 
       const handleBulkCreateResidentUsers = async () => {
@@ -470,44 +545,63 @@ export default function Members() {
             }
       };
 
-      const handleCreateUserFromDetail = async (member: any) => {
-            if (!member?.id) {
-                  setError('Không tìm thấy học viên để tạo tài khoản.');
+      const handleLeaveOrDeleteMember = async (member: any) => {
+            if (!member?.id) return;
+
+            const choice = window.prompt(
+                  [
+                        `Xử lý học viên: ${member.fullName || member.name || ''}`,
+                        '',
+                        'Nhập 1: Rời lưu xá / Ngừng lưu trú',
+                        'Nhập 2: Xóa hồ sơ nhập nhầm',
+                        '',
+                        'Khuyến nghị: nếu học viên đã phát sinh thời gian ở, phòng, phí hoặc thông tin liên hệ thì chọn 1.',
+                  ].join('\n')
+            );
+
+            if (!choice) return;
+
+            if (choice.trim() === '1') {
+                  try {
+                        await markAsLeftMutation.mutateAsync({
+                              id: member.id,
+                              departureDate: new Date(),
+                        } as any);
+
+                        setError(null);
+                        clearSelectedMembers();
+                        await refetchMembers();
+                  } catch (err: any) {
+                        setError(err.message || 'Không thể chuyển học viên sang trạng thái rời lưu xá.');
+                  }
+
                   return;
             }
 
-            try {
-                  const suggestResult = await suggestUsernameMutation.mutateAsync({
-                        fullName: member.fullName,
-                  });
-
-                  await createResidentUserMutation.mutateAsync({
-                        residentId: member.id,
-                        username: suggestResult.username,
-                        temporaryPassword: '123456',
-                        mustChangePassword: true,
-                  });
-
-                  const refetchResult = await membersQuery.refetch();
-                  await statsQuery.refetch();
-
-                  const refreshedMember = (refetchResult.data ?? []).find(
-                        (item: any) => item.id === member.id
+            if (choice.trim() === '2') {
+                  const confirmed = window.confirm(
+                        'Chỉ xóa hồ sơ nếu đây là dữ liệu nhập nhầm và chưa phát sinh phòng, phí, lịch sử lưu trú. Bạn chắc chắn muốn xóa?'
                   );
 
-                  if (refreshedMember) {
-                        setSelectedMember(refreshedMember);
+                  if (!confirmed) return;
+
+                  try {
+                        await deleteMember.mutateAsync({ id: member.id } as any);
+
+                        setError(null);
+                        clearSelectedMembers();
+                        await refetchMembers();
+                  } catch (err: any) {
+                        setError(
+                              err.message ||
+                              'Không thể xóa hồ sơ. Có thể học viên đã phát sinh dữ liệu, hãy dùng Rời lưu xá / Ngừng lưu trú.'
+                        );
                   }
 
-                  setError(null);
-            } catch (err: any) {
-                  setError(err.message || 'Không thể tạo tài khoản cho học viên.');
+                  return;
             }
-      };
 
-      const clearFilters = () => {
-            setSearchTerm('');
-            setStatusFilter('all');
+            setError('Lựa chọn không hợp lệ. Vui lòng nhập 1 hoặc 2.');
       };
 
       const memberColumns = useMemo<ConfigurableColumn<any>[]>(
@@ -524,7 +618,9 @@ export default function Members() {
                                     </div>
                                     <div>
                                           <p className="font-semibold text-neutral-900">
-                                                {member.fullName || '-'}
+                                                {member.holyName
+                                                      ? `${member.holyName} ${member.fullName || ''}`
+                                                      : member.fullName || '-'}
                                           </p>
                                           <p className="text-xs text-neutral-500">ID: {member.id}</p>
                                     </div>
@@ -610,21 +706,12 @@ export default function Members() {
                                           </button>
                                     )}
 
-                                    <button
-                                          type="button"
-                                          onClick={() => handleEditMember(member)}
-                                          className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                                          title="Sửa"
-                                    >
-                                          <Edit2 className="h-4 w-4" />
-                                    </button>
-
                                     {member.status !== 'transferred_out' && (
                                           <button
                                                 type="button"
-                                                onClick={() => handleMarkAsLeft(member)}
+                                                onClick={() => handleLeaveOrDeleteMember(member)}
                                                 className="rounded-lg px-2 py-1 text-xs font-semibold text-orange-700 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                                title="Ngừng lưu trú"
+                                                title="Ngừng / rời lưu xá"
                                                 disabled={markAsLeftMutation.isPending}
                                           >
                                                 Ngừng
@@ -633,9 +720,10 @@ export default function Members() {
 
                                     <button
                                           type="button"
-                                          onClick={() => handleDeleteMember(member.id)}
-                                          className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
-                                          title="Xóa cứng hồ sơ"
+                                          onClick={() => handleLeaveOrDeleteMember(member)}
+                                          className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
+                                          title="Ngừng / xóa"
+                                          disabled={deleteMember.isPending}
                                     >
                                           <Trash2 className="h-4 w-4" />
                                     </button>
@@ -643,44 +731,60 @@ export default function Members() {
                         ),
                   },
             ],
-            [markAsLeftMutation.isPending]
+            [markAsLeftMutation.isPending, deleteMember.isPending]
       );
 
       return (
             <ResidenceCareLayout>
                   <div className="space-y-6">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                               <div>
-                                    <p className="text-sm font-semibold text-blue-600">
-                                          Quản lý lưu trú
-                                    </p>
-                                    <h1 className="text-3xl font-bold text-neutral-900">
+                                    <p className="text-sm font-semibold text-neutral-500">Quản lý lưu trú</p>
+                                    <h1 className="text-4xl font-bold tracking-tight text-slate-950">
                                           Học viên lưu trú
                                     </h1>
-                                    <p className="mt-1 text-sm text-neutral-500">
-                                          Quản lý hồ sơ học viên, phòng ở và thông tin gia đình trong một màn hình.
+                                    <p className="mt-2 text-base text-slate-600">
+                                          Quản lý hồ sơ học viên, phòng ở, gia đình và tài khoản trong một màn hình.
                                     </p>
                               </div>
 
-                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                    {(residentsWithoutUserQuery.data?.length ?? 0) > 0 && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                    <div className="relative">
                                           <button
                                                 type="button"
-                                                onClick={handleBulkCreateResidentUsers}
-                                                disabled={bulkCreateResidentUsersMutation.isPending}
-                                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                onClick={() => setIsQuickActionOpen((value) => !value)}
+                                                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                                           >
-                                                <UserCheck className="h-4 w-4" />
-                                                {bulkCreateResidentUsersMutation.isPending
-                                                      ? 'Đang tạo...'
-                                                      : `Tạo tài khoản học viên (${residentsWithoutUserQuery.data?.length ?? 0})`}
+                                                Tác vụ nhanh
                                           </button>
-                                    )}
+
+                                          {isQuickActionOpen && (
+                                                <div className="absolute right-0 z-20 mt-2 w-80 rounded-2xl border bg-white py-2 shadow-xl">
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                  setIsQuickActionOpen(false);
+                                                                  handleBulkCreateResidentUsers();
+                                                            }}
+                                                            disabled={
+                                                                  bulkCreateResidentUsersMutation.isPending ||
+                                                                  (residentsWithoutUserQuery.data?.length ?? 0) === 0
+                                                            }
+                                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                      >
+                                                            Tạo tài khoản học viên chưa có user
+                                                            <div className="mt-0.5 text-xs text-slate-400">
+                                                                  Còn {residentsWithoutUserQuery.data?.length ?? 0} học viên
+                                                            </div>
+                                                      </button>
+                                                </div>
+                                          )}
+                                    </div>
 
                                     <button
                                           type="button"
                                           onClick={handleOpenAddDialog}
-                                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                                          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
                                     >
                                           <Plus className="h-4 w-4" />
                                           Thêm học viên
@@ -688,65 +792,86 @@ export default function Members() {
                               </div>
                         </div>
 
-                        {(membersQuery.error || statsQuery.error || error) && (
+                        {error && (
                               <div className="flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
                                     <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
                                     <div>
-                                          <p className="font-semibold">
-                                                Có lỗi khi xử lý dữ liệu học viên.
-                                          </p>
-                                          <p className="mt-1 text-sm">
-                                                {error ||
-                                                      membersQuery.error?.message ||
-                                                      statsQuery.error?.message ||
-                                                      'Vui lòng kiểm tra kết nối API hoặc backend.'}
-                                          </p>
+                                          <p className="font-semibold">Có lỗi khi xử lý dữ liệu học viên.</p>
+                                          <p className="mt-1 text-sm">{error}</p>
                                     </div>
                               </div>
                         )}
+                        {isSimple ? (
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                    <SimpleStatCard
+                                          label="Tổng học viên"
+                                          value={stats.total}
+                                          description="Tất cả hồ sơ học viên"
+                                          icon={<Users className="h-5 w-5" />}
+                                    />
 
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                              <ConfigurableStatCard
-                                    moduleKey="members"
-                                    cardKey="members.total"
-                                    label="Tổng số"
-                                    value={stats.total}
-                                    description="Tổng học viên trong hệ thống"
-                                    defaultSettings={{ decimalPlaces: 0 }}
-                                    icon={<Users className="h-6 w-6" />}
-                              />
+                                    <SimpleStatCard
+                                          label="Đang lưu trú"
+                                          value={stats.active}
+                                          description="Học viên đang ở lưu xá"
+                                          icon={<UserCheck className="h-5 w-5" />}
+                                    />
 
-                              <ConfigurableStatCard
-                                    moduleKey="members"
-                                    cardKey="members.active"
-                                    label="Đang ở"
-                                    value={stats.active}
-                                    description="Học viên đang lưu trú"
-                                    defaultSettings={{ decimalPlaces: 0 }}
-                                    icon={<UserCheck className="h-6 w-6" />}
-                              />
+                                    <SimpleStatCard
+                                          label="Cần xử lý"
+                                          value={needAttentionCount}
+                                          description="Các hồ sơ còn thiếu thông tin cần bổ sung"
+                                          icon={<AlertCircle className="h-5 w-5" />}
+                                          details={[
+                                                { label: 'Chưa có phòng', value: attentionSummary.missingRoom },
+                                                { label: 'Chưa có tài khoản', value: attentionSummary.missingUser },
+                                                { label: 'Thiếu liên hệ', value: attentionSummary.missingContact },
+                                          ]}
+                                    />
+                              </div>
+                        ) : (
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                                    <ConfigurableStatCard
+                                          moduleKey="members"
+                                          cardKey="members.total"
+                                          label="Tổng số"
+                                          value={stats.total}
+                                          description="Tổng học viên trong hệ thống"
+                                          defaultSettings={{ decimalPlaces: 0 }}
+                                          icon={<Users className="h-6 w-6" />}
+                                    />
 
-                              <ConfigurableStatCard
-                                    moduleKey="members"
-                                    cardKey="members.transferredOut"
-                                    label="Đã rời"
-                                    value={stats.transferred_out}
-                                    description="Học viên đã rời lưu xá"
-                                    defaultSettings={{ decimalPlaces: 0 }}
-                                    icon={<UserX className="h-6 w-6" />}
-                              />
+                                    <ConfigurableStatCard
+                                          moduleKey="members"
+                                          cardKey="members.active"
+                                          label="Đang ở"
+                                          value={stats.active}
+                                          description="Học viên đang lưu trú"
+                                          defaultSettings={{ decimalPlaces: 0 }}
+                                          icon={<UserCheck className="h-6 w-6" />}
+                                    />
 
-                              <ConfigurableStatCard
-                                    moduleKey="members"
-                                    cardKey="members.inactive"
-                                    label="Tạm rời"
-                                    value={stats.inactive}
-                                    description="Học viên tạm vắng/tạm ngưng"
-                                    defaultSettings={{ decimalPlaces: 0 }}
-                                    icon={<Clock className="h-6 w-6" />}
-                              />
-                        </div>
+                                    <ConfigurableStatCard
+                                          moduleKey="members"
+                                          cardKey="members.transferredOut"
+                                          label="Đã rời"
+                                          value={stats.transferred_out}
+                                          description="Học viên đã rời lưu xá"
+                                          defaultSettings={{ decimalPlaces: 0 }}
+                                          icon={<UserX className="h-6 w-6" />}
+                                    />
 
+                                    <ConfigurableStatCard
+                                          moduleKey="members"
+                                          cardKey="members.inactive"
+                                          label="Tạm rời"
+                                          value={stats.inactive}
+                                          description="Học viên tạm vắng/tạm ngưng"
+                                          defaultSettings={{ decimalPlaces: 0 }}
+                                          icon={<Clock className="h-6 w-6" />}
+                                    />
+                              </div>
+                        )}
                         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
                               <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_220px_auto]">
                                     <div className="relative">
@@ -780,75 +905,163 @@ export default function Members() {
                               </div>
                         </div>
 
-                        <div>
-                              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                                    <div>
-                                          <h2 className="text-lg font-bold text-neutral-900">
-                                                Danh sách học viên
-                                          </h2>
-                                          <p className="text-sm text-neutral-500">
-                                                {members.length} học viên đang hiển thị từ dữ liệu hệ thống
-                                          </p>
+                        {isSimple && selectedMemberIds.length > 0 && (
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                          <div className="text-sm text-slate-600">
+                                                {selectedMemberForAction ? (
+                                                      <>
+                                                            Đã chọn:{' '}
+                                                            <span className="font-semibold text-slate-900">
+                                                                  {selectedMemberForAction.holyName
+                                                                        ? `${selectedMemberForAction.holyName} ${selectedMemberForAction.fullName}`
+                                                                        : selectedMemberForAction.fullName}
+                                                            </span>
+                                                      </>
+                                                ) : (
+                                                      <>
+                                                            Đã chọn{' '}
+                                                            <span className="font-semibold text-slate-900">
+                                                                  {selectedMemberIds.length}
+                                                            </span>{' '}
+                                                            học viên
+                                                      </>
+                                                )}
+                                          </div>
+
+                                          <div className="flex flex-wrap items-center gap-2">
+                                                {selectedMemberForAction && (
+                                                      <>
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => handleOpenDetail(selectedMemberForAction)}
+                                                                  className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                                            >
+                                                                  Xem chi tiết
+                                                            </button>
+
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => handleOpenAssignRoomDialog(selectedMemberForAction)}
+                                                                  className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                                            >
+                                                                  Phòng ở
+                                                            </button>
+
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => handleLeaveOrDeleteMember(selectedMemberForAction)}
+                                                                  className="rounded-xl border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                                                            >
+                                                                  Ngừng / Rời lưu xá
+                                                            </button>
+                                                      </>
+                                                )}
+
+                                                <button
+                                                      type="button"
+                                                      onClick={clearSelectedMembers}
+                                                      className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50"
+                                                >
+                                                      Bỏ chọn
+                                                </button>
+                                          </div>
                                     </div>
+                              </div>
+                        )}
+
+                        <div>
+                              <div className="mb-4">
+                                    <h2 className="text-2xl font-bold text-slate-950">Danh sách học viên</h2>
+                                    <p className="mt-1 text-sm text-slate-500">
+                                          {members.length} học viên đang hiển thị từ dữ liệu hệ thống
+                                    </p>
                               </div>
 
                               {membersQuery.isLoading ? (
-                                    <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-500">
+                                    <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-500">
                                           Đang tải dữ liệu học viên...
                                     </div>
-                              ) : members.length === 0 ? (
-                                    <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-8 text-center">
-                                          <p className="font-semibold text-neutral-800">Không có học viên nào</p>
-                                          <p className="mt-1 text-sm text-neutral-500">
-                                                Thử thay đổi bộ lọc hoặc thêm học viên mới.
-                                          </p>
-                                    </div>
                               ) : isSimple ? (
-                                    <div className="grid gap-3">
-                                          {members.map((member: any) => (
-                                                <SimpleMemberCard
-                                                      key={member.id}
-                                                      member={member}
-                                                      onView={(selectedMember) => {
-                                                            setSelectedMember(selectedMember);
-                                                            setIsDetailDialogOpen(true);
-                                                      }}
-                                                      onEdit={(selectedMember) => {
-                                                            openEditModal(selectedMember);
-                                                      }}
-                                                      onAssignRoom={(selectedMember) => {
-                                                            setSelectedMemberForRoom(selectedMember);
-                                                            setRoomAssignmentData(resetRoomAssignmentForm());
-                                                            setIsAssignRoomDialogOpen(true);
-                                                      }}
-                                                      onTransferRoom={(selectedMember) => {
-                                                            setSelectedMemberForRoom(selectedMember);
-                                                            setRoomAssignmentData({
-                                                                  ...resetRoomAssignmentForm(),
-                                                                  eventType: 'transfer',
-                                                            });
-                                                            setIsAssignRoomDialogOpen(true);
-                                                      }}
-                                                      onReturnRoom={(selectedMember) => {
-                                                            setSelectedMemberForRoom(selectedMember);
-                                                            setRoomAssignmentData({
-                                                                  ...resetRoomAssignmentForm(),
-                                                                  eventType: 'left',
-                                                            });
-                                                            setIsAssignRoomDialogOpen(true);
-                                                      }}
-                                                      onOpenFamily={(selectedMember) => {
-                                                            setSelectedMember(selectedMember);
-                                                            setIsDetailDialogOpen(true);
-                                                      }}
-                                                      onCreateUser={handleCreateUserFromDetail}
-                                                      isCreatingUser={
-                                                            createResidentUserMutation.isPending ||
-                                                            suggestUsernameMutation.isPending
-                                                      }
-                                                />
-                                          ))}
-                                    </div>
+                                    <>
+                                          <div className="space-y-3">
+                                                {simplePagedMembers.map((member: any) => (
+                                                      <SimpleMemberCard
+                                                            key={member.id}
+                                                            member={member}
+                                                            selected={selectedMemberIds.includes(member.id)}
+                                                            onToggleSelect={handleToggleSelectMember}
+                                                      />
+                                                ))}
+                                          </div>
+
+                                          {members.length === 0 && (
+                                                <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-500">
+                                                      Không có học viên nào phù hợp.
+                                                </div>
+                                          )}
+
+                                          <div className="mt-4 flex flex-col gap-3 rounded-2xl border bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
+                                                <div className="text-sm text-slate-500">
+                                                      Hiển thị{' '}
+                                                      <span className="font-medium text-slate-900">
+                                                            {members.length === 0
+                                                                  ? 0
+                                                                  : (simplePage - 1) * simplePageSize + 1}
+                                                      </span>
+                                                      {' '}–{' '}
+                                                      <span className="font-medium text-slate-900">
+                                                            {Math.min(simplePage * simplePageSize, members.length)}
+                                                      </span>
+                                                      {' '}trên{' '}
+                                                      <span className="font-medium text-slate-900">
+                                                            {members.length}
+                                                      </span>
+                                                      {' '}học viên
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                      <select
+                                                            value={simplePageSize}
+                                                            onChange={(event) => {
+                                                                  setSimplePageSize(Number(event.target.value));
+                                                                  setSimplePage(1);
+                                                            }}
+                                                            className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-900"
+                                                      >
+                                                            <option value={5}>5 / trang</option>
+                                                            <option value={7}>7 / trang</option>
+                                                            <option value={10}>10 / trang</option>
+                                                      </select>
+
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => setSimplePage((page) => Math.max(1, page - 1))}
+                                                            disabled={simplePage <= 1}
+                                                            className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                      >
+                                                            Trước
+                                                      </button>
+
+                                                      <div className="min-w-20 text-center text-sm text-slate-600">
+                                                            {simplePage}/{simpleTotalPages}
+                                                      </div>
+
+                                                      <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                  setSimplePage((page) =>
+                                                                        Math.min(simpleTotalPages, page + 1)
+                                                                  )
+                                                            }
+                                                            disabled={simplePage >= simpleTotalPages}
+                                                            className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                      >
+                                                            Sau
+                                                      </button>
+                                                </div>
+                                          </div>
+                                    </>
                               ) : (
                                     <ConfigurableDataTable
                                           moduleKey="members"
@@ -911,6 +1124,7 @@ export default function Members() {
                                     onClose={() => {
                                           setIsDetailDialogOpen(false);
                                           setSelectedMember(null);
+                                          void refetchMembers();
                                     }}
                                     onEdit={() => {
                                           setIsDetailDialogOpen(false);
@@ -925,6 +1139,7 @@ export default function Members() {
                                           createResidentUserMutation.isPending ||
                                           suggestUsernameMutation.isPending
                                     }
+                                    onDataChange={refetchMembers}
                               />
                         )}
 
@@ -945,6 +1160,6 @@ export default function Members() {
                               />
                         )}
                   </div>
-            </ResidenceCareLayout>
+            </ResidenceCareLayout >
       );
 }

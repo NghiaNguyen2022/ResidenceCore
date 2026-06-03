@@ -13,13 +13,6 @@ export function normalizePhone(value?: string) {
       return (value || '').replace(/[^\d]/g, '');
 }
 
-export function getStatusLabel(status?: string) {
-      if (status === 'active') return 'Đang ở';
-      if (status === 'transferred_out') return 'Đã rời';
-      if (status === 'inactive') return 'Tạm rời';
-      return 'Chưa xác định';
-}
-
 export function getStatusClass(status?: string) {
       if (status === 'active') return 'border-green-200 bg-green-50 text-green-700';
       if (status === 'transferred_out') return 'border-red-200 bg-red-50 text-red-700';
@@ -201,5 +194,22 @@ export function formatDate(date?: string | Date | null) {
             return new Date(date).toLocaleDateString('vi-VN');
       } catch {
             return '-';
+      }
+}
+
+export function getStatusLabel(status?: string | null) {
+      switch (status) {
+            case 'active':
+                  return 'Đang lưu trú';
+            case 'inactive':
+                  return 'Tạm ngưng';
+            case 'temporary_leave':
+                  return 'Tạm vắng';
+            case 'transferred_out':
+                  return 'Đã rời lưu xá';
+            case 'left':
+                  return 'Đã rời lưu xá';
+            default:
+                  return 'Đang lưu trú';
       }
 }

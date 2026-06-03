@@ -28,6 +28,7 @@ export function MemberDetailModal({
       onAssignRoom,
       onCreateUser,
       isCreatingUser = false,
+      onDataChange,
 }: {
       member: any;
       onClose: () => void;
@@ -35,6 +36,7 @@ export function MemberDetailModal({
       onAssignRoom: () => void;
       onCreateUser?: (member: any) => void;
       isCreatingUser?: boolean;
+      onDataChange?: () => void | Promise<void>;
 }) {
       const displayName = member?.holyName
             ? `${member.holyName} ${member.fullName || ''}`.trim()
@@ -227,7 +229,10 @@ export function MemberDetailModal({
                                     </DetailCard>
 
                                     <DetailCard title="Phụ huynh / Người giám hộ">
-                                          <ParentsSection residentId={member.id} />
+                                          <ParentsSection
+                                                residentId={member.id}
+                                                onDataChange={onDataChange}
+                                          />
                                     </DetailCard>
 
                                     <DetailCard title="Học vụ">
