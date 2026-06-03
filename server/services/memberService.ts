@@ -1,326 +1,340 @@
 import * as db from "../db";
 
 export type ResidentFilters = {
-  search?: string;
-  status?: string;
-  limit?: number;
-  offset?: number;
+      search?: string;
+      status?: string;
+      limit?: number;
+      offset?: number;
 };
 
 export type ParentFilters = {
-  search?: string;
-  parentType?: "father" | "mother" | "guardian";
-  residentId?: number;
-  limit?: number;
-  offset?: number;
+      search?: string;
+      parentType?: "father" | "mother" | "guardian";
+      residentId?: number;
+      limit?: number;
+      offset?: number;
 };
 
 export type ParentInput = {
-  parentType: "father" | "mother" | "guardian";
-  fullName: string;
-  phoneNumber?: string;
-  email?: string;
-  idNumber?: string;
-  occupation?: string;
-  address?: string;
-  notes?: string;
+      parentType: "father" | "mother" | "guardian";
+      fullName: string;
+      phoneNumber?: string;
+      email?: string;
+      idNumber?: string;
+      occupation?: string;
+      address?: string;
+      notes?: string;
 };
 
 export type CreateMemberData = {
-  fullName: string;
-  dateOfBirth?: Date;
-  gender?: "male" | "female" | "other";
-  idNumber?: string;
-  permanentAddress?: string;
-  phoneNumber?: string;
-  schoolId?: number;
-  profileImage?: string;
-  admissionDate: Date;
-  notes?: string;
-  parents?: ParentInput[];
+      holyName?: string | null;
+      fullName: string;
+      dateOfBirth?: Date;
+      gender?: "male" | "female" | "other";
+      idNumber?: string;
+      permanentAddress?: string;
+      phoneNumber?: string;
+      schoolId?: number;
+      profileImage?: string;
+      admissionDate: Date;
+      notes?: string;
+      parents?: ParentInput[];
 };
 
 export type UpdateMemberData = Partial<{
-  fullName: string;
-  dateOfBirth: Date;
-  gender: "male" | "female" | "other";
-  idNumber: string;
-  permanentAddress: string;
-  phoneNumber: string;
-  schoolId: number;
-  profileImage: string;
-  admissionDate: Date;
-  notes: string;
-  status: "active" | "inactive" | "transferred_out";
+      holyName: string | null;
+      fullName: string;
+      dateOfBirth: Date;
+      gender: "male" | "female" | "other";
+      idNumber: string;
+      permanentAddress: string;
+      phoneNumber: string;
+      schoolId: number;
+      profileImage: string;
+      admissionDate: Date;
+      notes: string;
+      status: "active" | "inactive" | "transferred_out";
 }>;
 
 function generateResidentCode(admissionDate?: Date) {
-  const year = (admissionDate || new Date()).getFullYear();
-  const timePart = Date.now().toString().slice(-6);
-  return `LX${year}${timePart}`;
+      const year = (admissionDate || new Date()).getFullYear();
+      const timePart = Date.now().toString().slice(-6);
+      return `LX${year}${timePart}`;
 }
 
 function normalizeText(value?: string) {
-  return (value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ");
+      return (value || "")
+            .trim()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ");
 }
 
 function normalizePhone(value?: string) {
-  return (value || "").replace(/[^\d]/g, "");
+      return (value || "").replace(/[^\d]/g, "");
 }
 
 async function validateParentBeforeSave(params: {
-  residentId: number;
-  data: Partial<ParentInput>;
-  editingParentId?: number;
+      residentId: number;
+      data: Partial<ParentInput>;
+      editingParentId?: number;
 }) {
-  const { residentId, data, editingParentId } = params;
-  const fullName = normalizeText(data.fullName);
-  const phoneNumber = normalizePhone(data.phoneNumber);
+      const { residentId, data, editingParentId } = params;
+      const fullName = normalizeText(data.fullName);
+      const phoneNumber = normalizePhone(data.phoneNumber);
 
-  if (!residentId) {
-    throw new Error("Vui lòng chọn học viên cho liên hệ gia đình.");
-  }
+      if (!residentId) {
+            throw new Error("Vui lòng chọn học viên cho liên hệ gia đình.");
+      }
 
-  if (!fullName) {
-    throw new Error("Vui lòng nhập họ tên liên hệ.");
-  }
+      if (!fullName) {
+            throw new Error("Vui lòng nhập họ tên liên hệ.");
+      }
 
-  if (!phoneNumber) {
-    throw new Error("Vui lòng nhập số điện thoại liên hệ.");
-  }
+      if (!phoneNumber) {
+            throw new Error("Vui lòng nhập số điện thoại liên hệ.");
+      }
 
-  if (phoneNumber.length < 9 || phoneNumber.length > 15) {
-    throw new Error("Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.");
-  }
+      if (phoneNumber.length < 9 || phoneNumber.length > 15) {
+            throw new Error("Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.");
+      }
 
-  const existingParents = await db.getParentsByResidentId(residentId);
-  const otherParents = existingParents.filter(
-    (parent: any) => parent.id !== editingParentId
-  );
+      const existingParents = await db.getParentsByResidentId(residentId);
+      const otherParents = existingParents.filter(
+            (parent: any) => parent.id !== editingParentId
+      );
 
-  if (
-    (data.parentType === "father" || data.parentType === "mother") &&
-    otherParents.some((parent: any) => parent.parentType === data.parentType)
-  ) {
-    throw new Error(
-      `Học viên này đã có thông tin ${
-        data.parentType === "father" ? "Cha" : "Mẹ"
-      }. Không thể thêm trùng.`
-    );
-  }
+      if (
+            (data.parentType === "father" || data.parentType === "mother") &&
+            otherParents.some((parent: any) => parent.parentType === data.parentType)
+      ) {
+            throw new Error(
+                  `Học viên này đã có thông tin ${data.parentType === "father" ? "Cha" : "Mẹ"
+                  }. Không thể thêm trùng.`
+            );
+      }
 
-  const duplicatedName = otherParents.some(
-    (parent: any) => normalizeText(parent.fullName) === fullName
-  );
+      const duplicatedName = otherParents.some(
+            (parent: any) => normalizeText(parent.fullName) === fullName
+      );
 
-  if (duplicatedName) {
-    throw new Error("Tên liên hệ này đã tồn tại cho học viên đang chọn.");
-  }
+      if (duplicatedName) {
+            throw new Error("Tên liên hệ này đã tồn tại cho học viên đang chọn.");
+      }
 
-  const duplicatedPhone = otherParents.some(
-    (parent: any) => normalizePhone(parent.phoneNumber) === phoneNumber
-  );
+      const duplicatedPhone = otherParents.some(
+            (parent: any) => normalizePhone(parent.phoneNumber) === phoneNumber
+      );
 
-  if (duplicatedPhone) {
-    throw new Error("Số điện thoại này đã tồn tại cho học viên đang chọn.");
-  }
+      if (duplicatedPhone) {
+            throw new Error("Số điện thoại này đã tồn tại cho học viên đang chọn.");
+      }
 }
 
 export class MemberService {
-  async listMembers(filters?: ResidentFilters) {
-    return db.getResidents(filters);
-  }
-
-  async getMemberById(id: number) {
-    const resident = await db.getResidentById(id);
-
-    if (!resident) {
-      throw new Error("Member not found");
-    }
-
-    const parents = await db.getParentsByResidentId(id);
-
-    return {
-      ...resident,
-      parents,
-    };
-  }
-
-  async createMember(data: CreateMemberData) {
-    const result = await db.createResident({
-      residentCode: generateResidentCode(data.admissionDate),
-      fullName: data.fullName,
-      dateOfBirth: data.dateOfBirth,
-      gender: data.gender,
-      idNumber: data.idNumber,
-      permanentAddress: data.permanentAddress,
-      phoneNumber: data.phoneNumber,
-      schoolId: data.schoolId,
-      profileImage: data.profileImage,
-      admissionDate: data.admissionDate,
-      notes: data.notes,
-      status: "active",
-    });
-
-    const residentId = result.insertId;
-
-    if (data.parents && data.parents.length > 0) {
-      for (const parent of data.parents) {
-        await validateParentBeforeSave({
-          residentId,
-          data: parent,
-        });
-
-        await db.createParent({
-          residentId,
-          parentType: parent.parentType,
-          fullName: parent.fullName,
-          phoneNumber: parent.phoneNumber,
-          email: parent.email,
-          idNumber: parent.idNumber,
-          occupation: parent.occupation,
-          address: parent.address,
-          notes: parent.notes,
-        });
+      async listMembers(filters?: ResidentFilters) {
+            return db.getResidents(filters);
       }
-    }
 
-    const resident = await db.getResidentById(residentId);
-    const parents = await db.getParentsByResidentId(residentId);
+      async getMemberById(id: number) {
+            const resident = await db.getResidentById(id);
 
-    return {
-      ...resident,
-      parents,
-    };
-  }
+            if (!resident) {
+                  throw new Error("Member not found");
+            }
 
-  async updateMember(id: number, data: UpdateMemberData) {
-    await db.updateResident(id, data);
+            const parents = await db.getParentsByResidentId(id);
 
-    const resident = await db.getResidentById(id);
+            return {
+                  ...resident,
+                  parents,
+            };
+      }
 
-    if (!resident) {
-      throw new Error("Member not found");
-    }
+      async createMember(data: CreateMemberData) {
+            const result = await db.createResident({
+                  residentCode: generateResidentCode(data.admissionDate),
+                  holyName: data.holyName ?? null,
+                  fullName: data.fullName,
+                  dateOfBirth: data.dateOfBirth ?? null,
+                  gender: data.gender,
+                  idNumber: data.idNumber ?? null,
+                  permanentAddress: data.permanentAddress ?? null,
+                  phoneNumber: data.phoneNumber ?? null,
+                  admissionDate: data.admissionDate,
+                  notes: data.notes ?? null,
+            });
 
-    const parents = await db.getParentsByResidentId(id);
+            const residentId =
+                  (result as any)?.id ??
+                  (result as any)?.insertId ??
+                  (Array.isArray(result) ? (result as any)[0]?.id : null);
 
-    return {
-      ...resident,
-      parents,
-    };
-  }
+            if (!residentId) {
+                  throw new Error("Không thể xác định học viên vừa tạo.");
+            }
 
-  async deleteMember(id: number) {
-    await db.deleteResident(id);
-    return { success: true } as const;
-  }
+            if (data.parents && data.parents.length > 0) {
+                  for (const parent of data.parents) {
+                        await validateParentBeforeSave({
+                              residentId,
+                              data: parent,
+                        });
 
-  async markAsLeft(id: number, departureDate: Date) {
-    await db.markResidentAsLeft(id, departureDate);
-    return { success: true } as const;
-  }
+                        await db.createParent({
+                              residentId,
+                              parentType: parent.parentType,
+                              fullName: parent.fullName,
+                              phoneNumber: parent.phoneNumber,
+                              email: parent.email,
+                              idNumber: parent.idNumber,
+                              occupation: parent.occupation,
+                              address: parent.address,
+                              notes: parent.notes,
+                        });
+                  }
+            }
 
-  async assignRoom(payload: {
-    id: number;
-    roomId: number;
-    eventType: "new_entry" | "transfer" | "temporary_leave" | "left";
-    reason?: string;
-  }) {
-    const resident = await db.getResidentById(payload.id);
+            const resident = await db.getResidentById(residentId);
+            const parents = await db.getParentsByResidentId(residentId);
 
-    if (!resident) {
-      throw new Error("Member not found");
-    }
+            return {
+                  ...resident,
+                  parents,
+            };
+      }
 
-    await db.assignResidentToRoom({
-      residentId: payload.id,
-      roomId: payload.roomId,
-      assignedDate: new Date(),
-      eventType: payload.eventType,
-      reason: payload.reason,
-    });
+      async updateMember(id: number, data: UpdateMemberData) {
+            await db.updateResident(id, data);
 
-    return { success: true } as const;
-  }
+            const resident = await db.getResidentById(id);
 
-  async getStats() {
-    return db.getResidentsStats();
-  }
+            if (!resident) {
+                  throw new Error("Member not found");
+            }
 
-  async getParents(residentId: number) {
-    return db.getParentsByResidentId(residentId);
-  }
+            const parents = await db.getParentsByResidentId(id);
 
-  async listParents(filters?: ParentFilters) {
-    return db.getAllParents(filters);
-  }
+            return {
+                  ...resident,
+                  parents,
+            };
+      }
 
-  async createParent(data: ParentInput & { residentId: number }) {
-    const resident = await db.getResidentById(data.residentId);
+      async deleteMember(id: number) {
+            await db.deleteResident(id);
+            return { success: true } as const;
+      }
 
-    if (!resident) {
-      throw new Error("Không tìm thấy học viên cần gắn liên hệ.");
-    }
+      async markAsLeft(id: number, departureDate: Date) {
+            await db.markResidentAsLeft(id, departureDate);
+            return { success: true } as const;
+      }
 
-    await validateParentBeforeSave({
-      residentId: data.residentId,
-      data,
-    });
+      async assignRoom(payload: {
+            id: number;
+            roomId: number;
+            eventType: "new_entry" | "transfer" | "temporary_leave" | "left";
+            reason?: string;
+      }) {
+            const resident = await db.getResidentById(payload.id);
 
-    const result = await db.createParent({
-      residentId: data.residentId,
-      parentType: data.parentType,
-      fullName: data.fullName,
-      phoneNumber: data.phoneNumber,
-      email: data.email,
-      idNumber: data.idNumber,
-      occupation: data.occupation,
-      address: data.address,
-      notes: data.notes,
-    });
+            if (!resident) {
+                  throw new Error("Member not found");
+            }
 
-    const parentId = result.insertId;
-    return db.getParentById(parentId);
-  }
+            await db.assignResidentToRoom({
+                  residentId: payload.id,
+                  roomId: payload.roomId,
+                  assignedDate: new Date(),
+                  eventType: payload.eventType,
+                  reason: payload.reason,
+            });
 
-  async updateParent(id: number, data: Partial<ParentInput>) {
-    const currentParent = await db.getParentById(id);
+            return { success: true } as const;
+      }
 
-    if (!currentParent) {
-      throw new Error("Không tìm thấy liên hệ cần cập nhật.");
-    }
+      async getStats() {
+            return db.getResidentsStats();
+      }
 
-    const mergedData: ParentInput = {
-      parentType: data.parentType || currentParent.parentType,
-      fullName: data.fullName || currentParent.fullName,
-      phoneNumber: data.phoneNumber || currentParent.phoneNumber,
-      email: data.email ?? currentParent.email,
-      idNumber: data.idNumber ?? currentParent.idNumber,
-      occupation: data.occupation ?? currentParent.occupation,
-      address: data.address ?? currentParent.address,
-      notes: data.notes ?? currentParent.notes,
-    };
+      async getParents(residentId: number) {
+            return db.getParentsByResidentId(residentId);
+      }
 
-    await validateParentBeforeSave({
-      residentId: currentParent.residentId,
-      data: mergedData,
-      editingParentId: id,
-    });
+      async listParents(filters?: ParentFilters) {
+            return db.getAllParents(filters);
+      }
 
-    await db.updateParent(id, data);
-    return db.getParentById(id);
-  }
+      async createParent(data: ParentInput & { residentId: number }) {
+            const resident = await db.getResidentById(data.residentId);
 
-  async deleteParent(id: number) {
-    await db.deleteParent(id);
-    return { success: true } as const;
-  }
+            if (!resident) {
+                  throw new Error("Không tìm thấy học viên cần gắn liên hệ.");
+            }
+
+            await validateParentBeforeSave({
+                  residentId: data.residentId,
+                  data,
+            });
+
+            const createdParent = await db.createParent({
+                  residentId: data.residentId,
+                  parentType: data.parentType,
+                  fullName: data.fullName,
+                  phoneNumber: data.phoneNumber,
+                  email: data.email,
+                  idNumber: data.idNumber,
+                  occupation: data.occupation,
+                  address: data.address,
+                  notes: data.notes,
+            });
+
+            const parentId =
+                  (createdParent as any)?.id ??
+                  (createdParent as any)?.insertId ??
+                  (Array.isArray(createdParent) ? (createdParent as any)[0]?.id : null);
+
+            if (!parentId) {
+                  throw new Error('Không thể xác định phụ huynh vừa tạo.');
+            }
+
+            return db.getParentById(parentId);
+      }
+
+      async updateParent(id: number, data: Partial<ParentInput>) {
+            const currentParent = await db.getParentById(id);
+
+            if (!currentParent) {
+                  throw new Error("Không tìm thấy liên hệ cần cập nhật.");
+            }
+
+            const mergedData: ParentInput = {
+                  parentType: data.parentType ?? currentParent.parentType,
+                  fullName: data.fullName ?? currentParent.fullName,
+                  phoneNumber: data.phoneNumber ?? currentParent.phoneNumber ?? '',
+                  email: data.email ?? currentParent.email ?? '',
+                  idNumber: data.idNumber ?? currentParent.idNumber ?? '',
+                  occupation: data.occupation ?? currentParent.occupation ?? '',
+                  address: data.address ?? currentParent.address ?? '',
+                  notes: data.notes ?? currentParent.notes ?? '',
+            };
+
+            await validateParentBeforeSave({
+                  residentId: currentParent.residentId,
+                  data: mergedData,
+                  editingParentId: id,
+            });
+
+            await db.updateParent(id, data);
+            return db.getParentById(id);
+      }
+
+      async deleteParent(id: number) {
+            await db.deleteParent(id);
+            return { success: true } as const;
+      }
 }
 
 export const memberService = new MemberService();

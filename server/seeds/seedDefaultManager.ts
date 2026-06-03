@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../db/connection";
-import { hashPassword } from "../services/authService";
+import { hashPassword } from "../_core/password";
 import { roles, userRoles, users } from "../../drizzle/schema";
 
 async function seedDefaultManager() {

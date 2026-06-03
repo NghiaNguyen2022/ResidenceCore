@@ -1,5 +1,5 @@
 'use client';
-import { useAuth } from "@/_core/hooks/useAuth";
+
 import { ReactNode, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
@@ -9,6 +9,8 @@ import {
       simpleManagerNavigation,
       type NavigationItem,
 } from "@/config/navigation";
+import { trpc } from "@/lib/trpc";
+//import { useAuth } from "@/hooks/useAuth";
 import { useSystemDisplayMode } from "@/hooks/useSystemDisplayMode";
 
 type ResidenceCareLayoutProps = {
@@ -17,6 +19,7 @@ type ResidenceCareLayoutProps = {
 
 type CurrentUserLike =
       | {
+            id?: number | null;
             role?: string | null;
             roles?: string[] | null;
             name?: string | null;
@@ -102,6 +105,27 @@ function isItemActive(item: NavigationItem, currentPath: string): boolean {
 
       return item.children?.some((child) => isItemActive(child, currentPath)) ?? false;
 }
+
+function getUserRoleText(user: CurrentUserLike) {
+      if (hasRole(user, "manager")) {
+            return "Quản lý lưu xá";
+      }
+
+      if (hasRole(user, "resident") && hasAppointmentRole(user)) {
+            return "Học viên kiêm phụ trách";
+      }
+
+      if (hasRole(user, "resident")) {
+            return "Học viên";
+      }
+
+      if (hasAppointmentRole(user)) {
+            return "Người phụ trách";
+      }
+
+      return "Người dùng";
+}
+
 function SidebarItem({
       item,
       currentPath,
@@ -126,13 +150,11 @@ function SidebarItem({
             isParent ? "px-3 py-2.5 text-[15px] font-semibold" : "",
             isChild ? "px-3 py-2 text-sm font-medium" : "",
             isDeepChild ? "px-3 py-1.5 text-sm" : "",
-
             isDirectActive
                   ? "bg-slate-900 text-white shadow-sm"
                   : active && hasChildren
                         ? "bg-slate-100 text-slate-900"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
-
             depth > 0 ? "ml-2" : "",
       ]
             .filter(Boolean)
@@ -241,8 +263,30 @@ function SidebarItem({
 
 export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
       const [currentPath] = useLocation();
-      const { user, logout } = useAuth();
+      const authQuery = trpc.auth.me.useQuery(undefined, {
+            retry: false,
+            refetchOnWindowFocus: false,
+      });
+
+      const logoutMutation = trpc.auth.logout.useMutation({
+            onSuccess: () => {
+                  window.location.href = "/login";
+            },
+      });
+
+      const user = authQuery.data ?? null;
+
+      function logout() {
+            logoutMutation.mutate();
+      }
       const { isDetailed } = useSystemDisplayMode();
+      const utils = trpc.useUtils();
+
+      const [showProfileModal, setShowProfileModal] = useState(false);
+      const [profileForm, setProfileForm] = useState({
+            name: user?.name ?? "",
+            email: user?.email ?? "",
+      });
 
       const selectedNavigationItems = useMemo(() => {
             if (hasRole(user, "manager")) {
@@ -271,6 +315,35 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
       const displayName =
             user?.name || user?.username || user?.email || "Người dùng";
 
+      const roleText = getUserRoleText(user);
+
+      const updateMyProfileMutation = trpc.auth.updateMyProfile.useMutation({
+            onSuccess: async () => {
+                  setShowProfileModal(false);
+
+                  try {
+                        await utils.auth.me.invalidate();
+                  } catch {
+                        window.location.reload();
+                  }
+            },
+      });
+
+      function openProfileModal() {
+            setProfileForm({
+                  name: user?.name ?? "",
+                  email: user?.email ?? "",
+            });
+            setShowProfileModal(true);
+      }
+
+      async function handleUpdateMyProfile() {
+            await updateMyProfileMutation.mutateAsync({
+                  name: profileForm.name.trim(),
+                  email: profileForm.email?.trim() || null,
+            });
+      }
+
       return (
             <div className="min-h-screen bg-slate-50">
                   <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r bg-white lg:flex lg:flex-col">
@@ -278,9 +351,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                               <div className="text-xl font-bold tracking-tight text-slate-900">
                                     ResidenceCore
                               </div>
-                              <div className="mt-1 text-sm text-slate-500">
-                                    Quản lý lưu xá
-                              </div>
+                              <div className="mt-1 text-sm text-slate-500">Quản lý lưu xá</div>
                         </div>
 
                         <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
@@ -294,14 +365,16 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                         </nav>
 
                         <div className="border-t p-4">
-                              <div className="mb-3 rounded-xl bg-slate-50 px-3 py-2">
+                              <button
+                                    type="button"
+                                    onClick={openProfileModal}
+                                    className="mb-3 w-full rounded-xl bg-slate-50 px-3 py-2 text-left transition hover:bg-slate-100"
+                              >
                                     <div className="truncate text-sm font-medium text-slate-900">
                                           {displayName}
                                     </div>
-                                    <div className="mt-0.5 text-xs text-slate-500">
-                                          {hasRole(user, "manager") ? "Quản lý lưu xá" : "Người dùng"}
-                                    </div>
-                              </div>
+                                    <div className="mt-0.5 text-xs text-slate-500">{roleText}</div>
+                              </button>
 
                               <button
                                     type="button"
@@ -326,14 +399,16 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                     </div>
 
                                     <div className="flex items-center gap-3">
-                                          <div className="hidden text-right sm:block">
+                                          <button
+                                                type="button"
+                                                onClick={openProfileModal}
+                                                className="hidden rounded-xl px-3 py-2 text-right transition hover:bg-slate-100 sm:block"
+                                          >
                                                 <div className="text-sm font-medium text-slate-900">
                                                       {displayName}
                                                 </div>
-                                                <div className="text-xs text-slate-500">
-                                                      {hasRole(user, "manager") ? "Quản lý lưu xá" : "Người dùng"}
-                                                </div>
-                                          </div>
+                                                <div className="text-xs text-slate-500">{roleText}</div>
+                                          </button>
 
                                           <button
                                                 type="button"
@@ -348,6 +423,102 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
 
                         <main className="px-4 py-5 lg:px-6">{children}</main>
                   </div>
+
+                  {showProfileModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+                              <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
+                                    <div className="mb-4">
+                                          <h2 className="text-lg font-semibold text-slate-900">
+                                                Thông tin cá nhân
+                                          </h2>
+                                          <p className="mt-1 text-sm text-slate-500">
+                                                Cập nhật thông tin hiển thị của tài khoản đang đăng nhập.
+                                          </p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                          <label className="space-y-1.5">
+                                                <span className="text-sm font-medium text-slate-700">
+                                                      Họ tên
+                                                </span>
+                                                <input
+                                                      value={profileForm.name}
+                                                      onChange={(event) =>
+                                                            setProfileForm((current) => ({
+                                                                  ...current,
+                                                                  name: event.target.value,
+                                                            }))
+                                                      }
+                                                      className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-900"
+                                                      placeholder="Nhập họ tên"
+                                                />
+                                          </label>
+
+                                          <label className="space-y-1.5">
+                                                <span className="text-sm font-medium text-slate-700">
+                                                      Email
+                                                </span>
+                                                <input
+                                                      value={profileForm.email ?? ""}
+                                                      onChange={(event) =>
+                                                            setProfileForm((current) => ({
+                                                                  ...current,
+                                                                  email: event.target.value,
+                                                            }))
+                                                      }
+                                                      className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-900"
+                                                      placeholder="email@example.com"
+                                                />
+                                          </label>
+
+                                          <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                                <div>
+                                                      Tên đăng nhập:{" "}
+                                                      <span className="font-medium text-slate-900">
+                                                            {user?.username || "Chưa có"}
+                                                      </span>
+                                                </div>
+                                                <div className="mt-1">
+                                                      Vai trò:{" "}
+                                                      <span className="font-medium text-slate-900">
+                                                            {roleText}
+                                                      </span>
+                                                </div>
+                                          </div>
+
+                                          {updateMyProfileMutation.error && (
+                                                <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                                                      {updateMyProfileMutation.error.message}
+                                                </div>
+                                          )}
+                                    </div>
+
+                                    <div className="mt-5 flex justify-end gap-2">
+                                          <button
+                                                type="button"
+                                                onClick={() => setShowProfileModal(false)}
+                                                className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                          >
+                                                Đóng
+                                          </button>
+
+                                          <button
+                                                type="button"
+                                                onClick={handleUpdateMyProfile}
+                                                disabled={
+                                                      updateMyProfileMutation.isPending ||
+                                                      !profileForm.name.trim()
+                                                }
+                                                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                                          >
+                                                {updateMyProfileMutation.isPending
+                                                      ? "Đang lưu..."
+                                                      : "Lưu thay đổi"}
+                                          </button>
+                                    </div>
+                              </div>
+                        </div>
+                  )}
             </div>
       );
 }

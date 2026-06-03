@@ -34,26 +34,14 @@ export const simpleManagerNavigation: NavigationItem[] = [
             roles: ["manager"],
       },
       {
-            label: "Lưu trú",
-            icon: "🏡",
+            label: "Quản lý học viên",
+            icon: "👥",
             roles: ["manager"],
             children: [
                   {
                         label: "Học viên",
                         path: "/members",
                         icon: "👤",
-                        roles: ["manager"],
-                  },
-                  {
-                        label: "Phòng ở",
-                        path: "/rooms",
-                        icon: "🛏️",
-                        roles: ["manager"],
-                  },
-                  {
-                        label: "Gia đình",
-                        path: "/parents",
-                        icon: "☎️",
                         roles: ["manager"],
                   },
             ],

@@ -6,7 +6,9 @@
 import { and, desc, eq, like, ne, or, type SQL } from "drizzle-orm";
 import { getDb } from "./connection";
 import { InsertUser, residents, users } from "../../drizzle/schema";
-
+import { isNull } from "drizzle-orm";
+import { hashPassword } from "../_core/password";
+import { assignUserRoles } from "./roles";
 /**
  * Upsert user (insert or update)
  *
@@ -538,4 +540,266 @@ export async function getResidentLinkedToUser(userId: number) {
             .limit(1);
 
       return result.length > 0 ? result[0] : undefined;
+}
+export async function updateMyProfile(input: {
+      userId: number;
+      name: string;
+      email?: string | null;
+}) {
+      const db = await getDb();
+
+      if (!db) {
+            console.warn("[Database] Cannot update my profile: database not available");
+            return undefined;
+      }
+
+      await db
+            .update(users)
+            .set({
+                  name: input.name,
+                  email: input.email ?? null,
+            })
+            .where(eq(users.id, input.userId));
+
+      return getManagedUserById(input.userId);
+}
+export async function changeMyPassword(input: {
+      userId: number;
+      passwordHash: string;
+}) {
+      const db = await getDb();
+
+      if (!db) {
+            console.warn("[Database] Cannot change password: database not available");
+            return undefined;
+      }
+
+      await db
+            .update(users)
+            .set({
+                  passwordHash: input.passwordHash,
+                  mustChangePassword: false,
+            })
+            .where(eq(users.id, input.userId));
+
+      return getManagedUserById(input.userId);
+}
+function normalizeVietnameseText(value: string) {
+      return value
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/đ/g, "d")
+            .replace(/Đ/g, "D")
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+}
+
+export function generateResidentUsernameBase(fullName: string) {
+      const normalizedName = normalizeVietnameseText(fullName);
+      const parts = normalizedName.split(" ").filter(Boolean);
+
+      if (parts.length === 0) {
+            return "hocvien";
+      }
+
+      if (parts.length === 1) {
+            return parts[0];
+      }
+
+      const familyName = parts[0];
+      const givenName = parts[parts.length - 1];
+
+      return `${givenName}.${familyName}`;
+}
+export async function findAvailableUsername(baseUsername: string) {
+      const cleanBase =
+            normalizeVietnameseText(baseUsername)
+                  .replace(/\s+/g, ".")
+                  .replace(/\.+/g, ".")
+                  .replace(/^\.|\.$/g, "") || "hocvien";
+
+      const db = await getDb();
+
+      if (!db) {
+            console.warn("[Database] Cannot find username: database not available");
+            return cleanBase;
+      }
+
+      const existingUsers = await db
+            .select({
+                  username: users.username,
+            })
+            .from(users)
+            .where(like(users.username, `${cleanBase}%`));
+
+      const existingUsernames = new Set(
+            existingUsers.map((item) => item.username.toLowerCase())
+      );
+
+      if (!existingUsernames.has(cleanBase.toLowerCase())) {
+            return cleanBase;
+      }
+
+      let index = 1;
+      let candidate = `${cleanBase}${index}`;
+
+      while (existingUsernames.has(candidate.toLowerCase())) {
+            index += 1;
+            candidate = `${cleanBase}${index}`;
+      }
+
+      return candidate;
+}
+export async function getResidentForUserCreation(residentId: number) {
+      const db = await getDb();
+
+      if (!db) {
+            console.warn("[Database] Cannot get resident: database not available");
+            return undefined;
+      }
+
+      const result = await db
+            .select({
+                  id: residents.id,
+                  residentCode: residents.residentCode,
+                  holyName: residents.holyName,
+                  fullName: residents.fullName,
+                  userId: residents.userId,
+            })
+            .from(residents)
+            .where(eq(residents.id, residentId))
+            .limit(1);
+
+      return result.length > 0 ? result[0] : undefined;
+}
+export async function createResidentUserForResident(input: {
+      residentId: number;
+      username?: string;
+      temporaryPassword?: string;
+      mustChangePassword?: boolean;
+      assignedBy?: number | null;
+}) {
+      const resident = await getResidentForUserCreation(input.residentId);
+
+      if (!resident) {
+            throw new Error("Không tìm thấy học viên.");
+      }
+
+      if (resident.userId) {
+            throw new Error("Học viên đã có tài khoản đăng nhập.");
+      }
+
+      const baseUsername =
+            input.username?.trim() || generateResidentUsernameBase(resident.fullName);
+
+      const username = await findAvailableUsername(baseUsername);
+
+      const temporaryPassword = input.temporaryPassword || "123456";
+      const passwordHash = await hashPassword(temporaryPassword);
+
+      const createdUser = await createManagedUser({
+            username,
+            passwordHash,
+            name: resident.fullName,
+            email: null,
+            role: "resident",
+            isActive: true,
+            mustChangePassword: input.mustChangePassword ?? true,
+      });
+
+      if (!createdUser) {
+            throw new Error("Không thể tạo tài khoản cho học viên.");
+      }
+
+      await assignUserRoles({
+            userId: createdUser.id,
+            roleKeys: ["resident"],
+            primaryRoleKey: "resident",
+            assignedBy: input.assignedBy ?? null,
+      });
+
+      await linkUserToResident({
+            userId: createdUser.id,
+            residentId: resident.id,
+      });
+
+      const linkedUser = await getManagedUserById(createdUser.id);
+
+      return {
+            user: linkedUser,
+            username,
+            temporaryPassword,
+            residentId: resident.id,
+            residentName: resident.fullName,
+      };
+}
+export async function listResidentsWithoutUser() {
+      const db = await getDb();
+
+      if (!db) {
+            console.warn("[Database] Cannot list residents without user: database not available");
+            return [];
+      }
+
+      return db
+            .select({
+                  id: residents.id,
+                  residentCode: residents.residentCode,
+                  holyName: residents.holyName,
+                  fullName: residents.fullName,
+                  userId: residents.userId,
+            })
+            .from(residents)
+            .where(isNull(residents.userId));
+}
+export async function bulkCreateResidentUsers(input: {
+      residentIds?: number[];
+      temporaryPassword?: string;
+      mustChangePassword?: boolean;
+      assignedBy?: number | null;
+}) {
+      const targetResidents = input.residentIds?.length
+            ? input.residentIds
+            : (await listResidentsWithoutUser()).map((resident) => resident.id);
+
+      const results: Array<{
+            residentId: number;
+            success: boolean;
+            username?: string;
+            temporaryPassword?: string;
+            message?: string;
+      }> = [];
+
+      for (const residentId of targetResidents) {
+            try {
+                  const result = await createResidentUserForResident({
+                        residentId,
+                        temporaryPassword: input.temporaryPassword,
+                        mustChangePassword: input.mustChangePassword,
+                        assignedBy: input.assignedBy,
+                  });
+
+                  results.push({
+                        residentId,
+                        success: true,
+                        username: result.username,
+                        temporaryPassword: result.temporaryPassword,
+                  });
+            } catch (error: any) {
+                  results.push({
+                        residentId,
+                        success: false,
+                        message: error?.message || "Không thể tạo tài khoản.",
+                  });
+            }
+      }
+
+      return {
+            total: results.length,
+            success: results.filter((item) => item.success).length,
+            failed: results.filter((item) => !item.success).length,
+            results,
+      };
 }
