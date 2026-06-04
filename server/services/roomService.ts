@@ -15,7 +15,15 @@ export type CreateRoomData = {
       notes?: string;
 };
 
-export type UpdateRoomData = Partial<CreateRoomData>;
+export type UpdateRoomData = {
+      /**
+       * Không cho sửa roomCode từ update room.
+       * Nếu sau này thêm cột roomName, bổ sung roomName vào đây và db.updateRoom.
+       */
+      capacity?: number;
+      groupId?: number;
+      notes?: string;
+};
 
 export type RoomAssignmentEventType =
       | "new_entry"
@@ -60,15 +68,49 @@ export class RoomService {
       }
 
       async updateRoom(id: number, data: UpdateRoomData) {
-            await db.updateRoom(id, data);
-
             const room = await db.getRoomById(id);
 
             if (!room) {
                   throw new Error("Room not found");
             }
 
-            return room;
+            /**
+             * Không cho giảm sức chứa nhỏ hơn số học viên đang ở.
+             */
+            if (data.capacity !== undefined) {
+                  const capacity = Number(data.capacity);
+
+                  if (!Number.isFinite(capacity) || capacity <= 0) {
+                        throw new Error("Sức chứa phải lớn hơn 0.");
+                  }
+
+                  const occupancy = await db.getRoomCurrentOccupancy(id);
+
+                  if (capacity < occupancy) {
+                        throw new Error(
+                              "Sức chứa không được nhỏ hơn số học viên hiện đang ở trong phòng."
+                        );
+                  }
+            }
+
+            /**
+             * Chủ động loại bỏ roomCode nếu frontend gửi nhầm.
+             */
+            const safeData: UpdateRoomData = {
+                  capacity: data.capacity,
+                  groupId: data.groupId,
+                  notes: data.notes,
+            };
+
+            await db.updateRoom(id, safeData);
+
+            const updatedRoom = await db.getRoomById(id);
+
+            if (!updatedRoom) {
+                  throw new Error("Room not found");
+            }
+
+            return updatedRoom;
       }
 
       async deleteRoom(id: number) {
@@ -172,18 +214,12 @@ export class RoomService {
             }
 
             const occupancy = await db.getRoomCurrentOccupancy(payload.roomId);
-            const capacity = Number(room.capacity || 0);
+            const capacity = Number((room as any).capacity || 0);
 
             if (capacity > 0 && occupancy >= capacity) {
                   throw new Error("Phòng đã đủ sức chứa, vui lòng chọn phòng khác.");
             }
 
-            /**
-             * Chuyển phòng:
-             * - Đóng assignment phòng cũ để nhả suất phòng cũ.
-             * - Tạo assignment mới.
-             * - currentRoomId chuyển sang phòng mới.
-             */
             if (payload.eventType === "transfer" && currentAssignment) {
                   await db.closeCurrentRoomAssignment(
                         currentAssignment.id,
@@ -203,19 +239,6 @@ export class RoomService {
             await db.updateResidentCurrentRoom(payload.residentId, payload.roomId);
 
             return { success: true } as const;
-      }
-
-      async releaseResidentRoom(payload: {
-            residentId: number;
-            releaseDate?: Date;
-            reason?: string;
-      }) {
-            return this.assignResident({
-                  residentId: payload.residentId,
-                  assignedDate: payload.releaseDate ?? new Date(),
-                  eventType: "left",
-                  reason: payload.reason,
-            });
       }
 
       async appointLeader(payload: {

@@ -29,6 +29,7 @@ import { ContactsListModal } from '@/components/members/ContactsListModal';
 import { MemberDetailModal } from '@/components/members/MemberDetailModal';
 import { MemberFormModal } from '@/components/members/MemberFormModal';
 import { SimpleMemberCard } from '@/components/members/SimpleMemberCard';
+import { RoomsQuickModal } from '@/components/members/RoomsQuickModal';
 
 import type {
       CreateResidentUserFormData,
@@ -47,6 +48,7 @@ import {
       getAttentionItems,
       getDisplayName,
       getGenderLabel,
+      getRoomActionLabel,
       getRoomLabelFromMember,
       getStatusClass,
       getStatusLabel,
@@ -66,42 +68,6 @@ function isResidentLeft(member: any) {
             status === 'left' ||
             status === 'Đã rời lưu xá'
       );
-}
-
-function isResidentInactive(member: any) {
-      const status = member?.status || member?.residenceStatus;
-
-      return (
-            status === 'inactive' ||
-            status === 'temporary_leave' ||
-            status === 'Tạm ngưng' ||
-            status === 'Tạm vắng'
-      );
-}
-
-function getCurrentRoomLabelForMember(member: any) {
-      /**
-       * Dùng cho hiển thị danh sách trong Members.
-       * Không lấy fallback roomId/roomName nếu học viên active nhưng currentRoom* rỗng,
-       * vì room* có thể là dữ liệu lịch sử sau khi rời lưu xá rồi đăng ký lại.
-       */
-      if (isResidentLeft(member) || isResidentInactive(member)) {
-            return getRoomLabelFromMember(member);
-      }
-
-      if (hasCurrentRoom(member)) {
-            return getRoomLabelFromMember(member);
-      }
-
-      return 'Chưa gán';
-}
-
-function getRoomActionLabelForMember(member: any) {
-      if (hasCurrentRoom(member)) {
-            return 'Chuyển / trả phòng';
-      }
-
-      return 'Gán phòng';
 }
 
 
@@ -165,6 +131,7 @@ export default function Members() {
       const [statusFilter, setStatusFilter] = useState('all');
       const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
       const [isContactsDialogOpen, setIsContactsDialogOpen] = useState(false);
+      const [isRoomsQuickDialogOpen, setIsRoomsQuickDialogOpen] = useState(false);
 
       const [simplePage, setSimplePage] = useState(1);
       const [simplePageSize, setSimplePageSize] = useState(7);
@@ -874,8 +841,8 @@ export default function Members() {
                         key: 'room',
                         label: 'Phòng',
                         sortable: true,
-                        sortValue: (member) => getCurrentRoomLabelForMember(member),
-                        render: (member) => getCurrentRoomLabelForMember(member),
+                        sortValue: (member) => getRoomLabelFromMember(member),
+                        render: (member) => getRoomLabelFromMember(member),
                   },
                   {
                         key: 'phone',
@@ -947,7 +914,7 @@ export default function Members() {
                                                       type="button"
                                                       onClick={() => handleOpenAssignRoomDialog(member)}
                                                       className="rounded-lg px-2 py-1 text-xs font-semibold text-green-700 transition hover:bg-green-50"
-                                                      title={getRoomActionLabelForMember(member)}
+                                                      title={getRoomActionLabel(member)}
                                                 >
                                                       {hasCurrentRoom(member) ? 'Chuyển/Trả' : 'Gán phòng'}
                                                 </button>
@@ -1009,7 +976,31 @@ export default function Members() {
                                           </button>
 
                                           {isQuickActionOpen && (
-                                                <div className="absolute right-0 z-20 mt-2 w-80 rounded-2xl border bg-white py-2 shadow-xl">
+                                                <div className="absolute right-0 z-20 mt-2 w-80 overflow-hidden rounded-2xl border bg-white py-2 shadow-xl">
+                                                      <div className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                                            Quản lý phòng
+                                                      </div>
+
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                  setIsQuickActionOpen(false);
+                                                                  setIsRoomsQuickDialogOpen(true);
+                                                            }}
+                                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                                      >
+                                                            Danh sách phòng & sức chứa
+                                                            <div className="mt-0.5 text-xs text-slate-400">
+                                                                  Xem phòng, thêm phòng, sửa sức chứa cơ bản
+                                                            </div>
+                                                      </button>
+
+                                                      <div className="my-1 border-t" />
+
+                                                      <div className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                                            Tài khoản & liên hệ
+                                                      </div>
+
                                                       <button
                                                             type="button"
                                                             onClick={() => {
@@ -1464,6 +1455,18 @@ export default function Members() {
                                     onSubmit={handleAssignRoom}
                                     isSubmitting={assignRoomMutation.isPending}
                                     isCreatingRoom={createRoomMutation.isPending}
+                              />
+                        )}
+
+
+                        {isRoomsQuickDialogOpen && (
+                              <RoomsQuickModal
+                                    onClose={() => setIsRoomsQuickDialogOpen(false)}
+                                    onChanged={async () => {
+                                          await roomsQuery.refetch();
+                                          await membersQuery.refetch();
+                                          await statsQuery.refetch();
+                                    }}
                               />
                         )}
 

@@ -61,7 +61,7 @@ export const roomsRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        roomCode: z.string().min(1, "Mã phòng không được để trống"),
+        roomCode: z.string().trim().min(1, "Mã phòng không được để trống"),
         capacity: z.number().min(1, "Sức chứa phải lớn hơn 0"),
         groupId: z.number().optional(),
         notes: z.string().optional(),
@@ -85,7 +85,11 @@ export const roomsRouter = router({
     .input(
       z.object({
         id: z.number(),
-        capacity: z.number().optional(),
+        /**
+         * Không nhận roomCode ở update.
+         * Mã phòng chỉ được tạo ban đầu, không cho sửa để tránh lệch lịch sử.
+         */
+        capacity: z.number().min(1, "Sức chứa phải lớn hơn 0").optional(),
         groupId: z.number().optional(),
         notes: z.string().optional(),
       })
