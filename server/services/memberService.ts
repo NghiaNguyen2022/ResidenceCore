@@ -251,7 +251,7 @@ export class MemberService {
             const resident = await db.getResidentById(id);
 
             if (!resident) {
-                  throw new Error('Không tìm thấy học viên cần ngừng/rời lưu xá.');
+                  throw new Error("Không tìm thấy học viên cần ngừng/rời lưu xá.");
             }
 
             await db.markResidentAsLeft(id, departureDate);
@@ -261,6 +261,27 @@ export class MemberService {
             }
 
             return { success: true } as const;
+      }
+      async reactivateMember(id: number) {
+            const resident = await db.getResidentById(id);
+
+            if (!resident) {
+                  throw new Error("Không tìm thấy học viên cần đăng ký lại.");
+            }
+
+            const currentStatus = (resident as any).status;
+
+            if (currentStatus === "active") {
+                  return resident;
+            }
+
+            const updatedResident = await db.reactivateResident(id);
+
+            if ((resident as any).userId) {
+                  await db.activateUser((resident as any).userId);
+            }
+
+            return updatedResident;
       }
 
       async assignRoom(payload: {

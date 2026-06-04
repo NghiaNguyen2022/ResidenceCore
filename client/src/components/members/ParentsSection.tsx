@@ -14,9 +14,11 @@ import {
 
 export function ParentsSection({
       residentId,
+      readonly = false,
       onDataChange,
 }: {
       residentId: number;
+      readonly?: boolean;
       onDataChange?: () => void | Promise<void>;
 }) {
       const [isFormOpen, setIsFormOpen] = useState(false);
@@ -39,6 +41,8 @@ export function ParentsSection({
       const parents = parentsQuery.data || [];
 
       const openCreateParent = () => {
+            if (readonly) return;
+
             setEditingParent(null);
             setParentForm(defaultParentFormData);
             setParentError(null);
@@ -46,6 +50,8 @@ export function ParentsSection({
       };
 
       const openEditParent = (parent: any) => {
+            if (readonly) return;
+
             setEditingParent(parent);
             setParentForm({
                   parentType: parent.parentType || 'father',
@@ -62,6 +68,8 @@ export function ParentsSection({
       };
 
       const handleSaveParent = async () => {
+            if (readonly) return;
+
             const validationMessage = validateParentFormBeforeSave({
                   parents,
                   formData: parentForm,
@@ -135,15 +143,23 @@ export function ParentsSection({
                               </p>
                         </div>
 
-                        <button
-                              type="button"
-                              onClick={openCreateParent}
-                              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
-                        >
-                              <Plus className="h-3.5 w-3.5" />
-                              Thêm liên hệ
-                        </button>
+                        {!readonly && (
+                              <button
+                                    type="button"
+                                    onClick={openCreateParent}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                              >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Thêm liên hệ
+                              </button>
+                        )}
                   </div>
+
+                  {readonly && (
+                        <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                              Học viên đã rời lưu xá. Thông tin liên hệ chỉ được xem để giữ lịch sử.
+                        </div>
+                  )}
 
                   {parentError && (
                         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -161,7 +177,9 @@ export function ParentsSection({
                                     Chưa có liên hệ phụ huynh / người giám hộ
                               </p>
                               <p className="mt-1 text-sm text-neutral-500">
-                                    Bấm “Thêm liên hệ” để tạo liên hệ thật cho học viên này.
+                                    {readonly
+                                          ? 'Hồ sơ đã rời lưu xá nên không thể thêm liên hệ mới.'
+                                          : 'Bấm “Thêm liên hệ” để tạo liên hệ thật cho học viên này.'}
                               </p>
                         </div>
                   ) : (
@@ -215,25 +233,27 @@ export function ParentsSection({
                                                       </div>
                                                 </div>
 
-                                                <div className="flex gap-2">
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => openEditParent(parent)}
-                                                            className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                                                            title="Sửa liên hệ"
-                                                      >
-                                                            <Edit2 className="h-4 w-4" />
-                                                      </button>
+                                                {!readonly && (
+                                                      <div className="flex gap-2">
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => openEditParent(parent)}
+                                                                  className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                                                  title="Sửa liên hệ"
+                                                            >
+                                                                  <Edit2 className="h-4 w-4" />
+                                                            </button>
 
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => handleDeleteParent(parent.id)}
-                                                            className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
-                                                            title="Xóa liên hệ"
-                                                      >
-                                                            <Trash2 className="h-4 w-4" />
-                                                      </button>
-                                                </div>
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => handleDeleteParent(parent.id)}
+                                                                  className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                                                                  title="Xóa liên hệ"
+                                                            >
+                                                                  <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                      </div>
+                                                )}
                                           </div>
 
                                           {parent.notes && (
@@ -246,7 +266,7 @@ export function ParentsSection({
                         </div>
                   )}
 
-                  {isFormOpen && (
+                  {isFormOpen && !readonly && (
                         <ParentFormModal
                               title={editingParent ? 'Cập nhật liên hệ' : 'Thêm liên hệ'}
                               error={parentError}

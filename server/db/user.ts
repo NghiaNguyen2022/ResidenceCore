@@ -434,10 +434,13 @@ export async function updatePasswordHash(
 }
 
 /**
- * Deactivate user instead of deleting.
+ * Deactivate user account.
+ *
+ * Dùng khi học viên rời/ngừng lưu trú.
  */
 export async function deactivateUser(userId: number) {
       const db = await getDb();
+
       if (!db) {
             console.warn("[Database] Cannot deactivate user: database not available");
             return undefined;
@@ -451,14 +454,17 @@ export async function deactivateUser(userId: number) {
             })
             .where(eq(users.id, userId));
 
-      return getManagedUserById(userId);
+      return getUserById(userId);
 }
 
 /**
- * Activate user.
+ * Activate user account.
+ *
+ * Dùng khi học viên đăng ký lại / quay lại lưu xá.
  */
 export async function activateUser(userId: number) {
       const db = await getDb();
+
       if (!db) {
             console.warn("[Database] Cannot activate user: database not available");
             return undefined;
@@ -468,10 +474,11 @@ export async function activateUser(userId: number) {
             .update(users)
             .set({
                   isActive: true,
+                  updatedAt: new Date(),
             })
             .where(eq(users.id, userId));
 
-      return getManagedUserById(userId);
+      return getUserById(userId);
 }
 
 /**

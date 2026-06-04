@@ -1,31 +1,19 @@
 'use client';
 
-import { getStatusLabel } from './memberUtils';
-
-function getDisplayName(member: any) {
-      if (member?.holyName && member?.fullName) {
-            return `${member.holyName} ${member.fullName}`;
-      }
-
-      return member?.fullName || member?.name || 'Chưa có tên';
-}
-
-function getRawStatus(member: any) {
-      return member?.status || member?.residenceStatus || '';
-}
-
-function isResidentLeft(member: any) {
-      const status = getRawStatus(member);
-
-      return (
-            status === 'transferred_out' ||
-            status === 'left' ||
-            status === 'Đã rời lưu xá'
-      );
-}
+import {
+      getAccountBadge,
+      getAttentionItems,
+      getDisplayName,
+      getPrimaryContactText,
+      getRoomLabelFromMember,
+      getStatusBadgeClass,
+      getStatusLabel,
+      hasCurrentRoom,
+      isResidentLeft,
+} from './memberUtils';
 
 function isResidentInactive(member: any) {
-      const status = getRawStatus(member);
+      const status = member?.status || member?.residenceStatus;
 
       return (
             status === 'inactive' ||
@@ -35,173 +23,21 @@ function isResidentInactive(member: any) {
       );
 }
 
-function getRoomText(member: any) {
-      if (isResidentLeft(member)) {
-            return 'Đã rời lưu xá';
-      }
-
-      if (isResidentInactive(member)) {
-            return 'Tạm ngưng lưu trú';
-      }
-
-      if (member?.currentRoomName) return member.currentRoomName;
-      if (member?.currentRoomCode) return member.currentRoomCode;
-      if (member?.currentRoomNumber) return member.currentRoomNumber;
-
-      if (member?.roomName) return member.roomName;
-      if (member?.roomCode) return member.roomCode;
-      if (member?.roomNumber) return member.roomNumber;
-
-      if (member?.room?.roomName) return member.room.roomName;
-      if (member?.room?.roomCode) return member.room.roomCode;
-      if (member?.room?.roomNumber) return member.room.roomNumber;
-
-      if (member?.currentRoomId) return `Phòng ID: ${member.currentRoomId}`;
-      if (member?.roomId) return `Phòng ID: ${member.roomId}`;
-
-      return 'Chưa gán phòng';
-}
-
-function hasRoom(member: any) {
-      if (isResidentLeft(member) || isResidentInactive(member)) {
-            return true;
-      }
-
-      return !!(
-            member?.currentRoomId ||
-            member?.currentRoomName ||
-            member?.currentRoomCode ||
-            member?.currentRoomNumber ||
-            member?.roomId ||
-            member?.roomName ||
-            member?.roomCode ||
-            member?.roomNumber ||
-            member?.room?.id ||
-            member?.room?.roomId ||
-            member?.room?.roomName ||
-            member?.room?.roomCode ||
-            member?.room?.roomNumber
-      );
-}
-
-function getSchoolText(member: any) {
-      if (member?.schoolName && member?.className) {
-            return `${member.schoolName} / ${member.className}`;
-      }
-
-      if (member?.schoolName) return member.schoolName;
-      if (member?.school) return member.school;
-      if (member?.className) return member.className;
-
-      return 'Chưa có thông tin học tập';
-}
-
-function getParentTypeLabel(parentType?: string | null) {
-      switch (parentType) {
-            case 'father':
-                  return 'Cha';
-            case 'mother':
-                  return 'Mẹ';
-            case 'guardian':
-                  return 'Người giám hộ';
-            default:
-                  return 'Liên hệ';
-      }
-}
-
-function getPrimaryContactText(member: any) {
-      if (member?.primaryContactName && member?.primaryContactPhone) {
-            return `${getParentTypeLabel(member.primaryContactType)} - ${member.primaryContactName} - ${member.primaryContactPhone}`;
-      }
-
-      if (member?.primaryContactName) {
-            return `${getParentTypeLabel(member.primaryContactType)} - ${member.primaryContactName}`;
-      }
-
-      if (member?.primaryParentName && member?.primaryParentPhone) {
-            return `${member.primaryParentName} - ${member.primaryParentPhone}`;
-      }
-
-      if (member?.parentName && member?.parentPhone) {
-            return `${member.parentName} - ${member.parentPhone}`;
-      }
-
-      if (member?.contactName && member?.contactPhone) {
-            return `${member.contactName} - ${member.contactPhone}`;
-      }
-
-      return 'Chưa có người liên hệ';
-}
-
-function getAccountBadge(member: any) {
-      const hasUser = !!member?.userId;
-
-      if (!hasUser) {
-            return {
-                  label: 'Chưa có tài khoản',
-                  className: 'bg-amber-50 text-amber-700 ring-amber-200',
-            };
-      }
-
-      const isAccountInactive =
-            member?.userIsActive === false ||
-            member?.isUserActive === false ||
-            member?.accountIsActive === false;
-
-      if (isAccountInactive || isResidentLeft(member) || isResidentInactive(member)) {
-            return {
-                  label: 'Đã khóa tài khoản',
-                  className: 'bg-slate-100 text-slate-600 ring-slate-300',
-            };
-      }
-
-      return {
-            label: 'Đã có tài khoản',
-            className: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-      };
-}
-
-function getStatusBadgeClass(member: any) {
-      if (isResidentLeft(member)) {
-            return 'bg-rose-50 text-rose-700 ring-rose-200';
-      }
-
-      if (isResidentInactive(member)) {
-            return 'bg-amber-50 text-amber-700 ring-amber-200';
-      }
-
-      return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
-}
-
-function getAttentionItems(member: any) {
+function getRoomTextForCard(member: any) {
       /**
-       * Học viên đã rời lưu xá không còn là hồ sơ cần xử lý hằng ngày.
-       * Không báo thiếu phòng, thiếu liên hệ, thiếu tài khoản ở card Simple.
+       * Card Simple Mode chỉ hiển thị phòng hiện tại.
+       * Không dùng roomId/roomCode/roomName fallback để quyết định học viên đang có phòng,
+       * vì các field đó có thể là dữ liệu lịch sử sau khi học viên rời và đăng ký lại.
        */
-      if (isResidentLeft(member)) {
-            return [];
+      if (isResidentLeft(member) || isResidentInactive(member)) {
+            return getRoomLabelFromMember(member);
       }
 
-      const items: string[] = [];
-
-      if (!hasRoom(member)) {
-            items.push('Chưa có phòng');
+      if (hasCurrentRoom(member)) {
+            return getRoomLabelFromMember(member);
       }
 
-      if (!member?.userId) {
-            items.push('Chưa có tài khoản');
-      }
-
-      const hasContact = !!(
-            member?.primaryContactName &&
-            member?.primaryContactPhone
-      );
-
-      if (!hasContact) {
-            items.push('Thiếu liên hệ');
-      }
-
-      return items;
+      return 'Chưa gán';
 }
 
 export function SimpleMemberCard({
@@ -213,7 +49,9 @@ export function SimpleMemberCard({
       selected: boolean;
       onToggleSelect: (member: any) => void;
 }) {
-      const memberHasRoom = hasRoom(member);
+      const memberHasRoom = hasCurrentRoom(member);
+      const memberIsLeft = isResidentLeft(member);
+      const memberIsInactive = isResidentInactive(member);
       const accountBadge = getAccountBadge(member);
       const attentionItems = getAttentionItems(member);
 
@@ -221,8 +59,10 @@ export function SimpleMemberCard({
             member?.status || member?.residenceStatus || 'active'
       );
 
-      const roomText = getRoomText(member);
+      const roomText = getRoomTextForCard(member);
       const primaryContactText = getPrimaryContactText(member);
+      const shouldHighlightMissingRoom =
+            !memberHasRoom && !memberIsLeft && !memberIsInactive;
 
       return (
             <button
@@ -255,6 +95,7 @@ export function SimpleMemberCard({
                                           <div className="text-base font-semibold text-slate-900">
                                                 {getDisplayName(member)}
                                           </div>
+
                                           <span
                                                 className={[
                                                       'inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1',
@@ -281,9 +122,9 @@ export function SimpleMemberCard({
                                                 </div>
                                                 <div
                                                       className={
-                                                            memberHasRoom
-                                                                  ? 'font-medium text-slate-800'
-                                                                  : 'font-medium text-amber-700'
+                                                            shouldHighlightMissingRoom
+                                                                  ? 'font-medium text-amber-700'
+                                                                  : 'font-medium text-slate-800'
                                                       }
                                                 >
                                                       {roomText}
@@ -297,7 +138,7 @@ export function SimpleMemberCard({
                                                 <div
                                                       className={
                                                             primaryContactText === 'Chưa có người liên hệ' &&
-                                                                  !isResidentLeft(member)
+                                                            !memberIsLeft
                                                                   ? 'font-medium text-amber-700'
                                                                   : 'font-medium text-slate-800'
                                                       }

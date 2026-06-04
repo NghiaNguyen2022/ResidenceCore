@@ -15,7 +15,16 @@ import {
 export async function createRoom(data: InsertRoom) {
   const db = getDb();
 
-  return await db.insert(rooms).values(data);
+  await db.insert(rooms).values(data);
+
+  const result = await db
+    .select()
+    .from(rooms)
+    .where(eq(rooms.roomCode, data.roomCode))
+    .orderBy(desc(rooms.id))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
 }
 
 export async function getRoomById(id: number) {
@@ -69,7 +78,13 @@ export async function getRooms(filters?: {
 export async function updateRoom(id: number, data: Partial<InsertRoom>) {
   const db = getDb();
 
-  return await db.update(rooms).set(data).where(eq(rooms.id, id));
+  return await db
+    .update(rooms)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(rooms.id, id));
 }
 
 export async function deleteRoom(id: number) {
@@ -95,11 +110,13 @@ export async function getRoomDetails(roomId: number) {
 
   const residentsInRoom = await getResidentsInRoom(roomId);
   const residentsCount = residentsInRoom.length;
+  const capacity = Number((room as any).capacity || 0);
 
   return {
     ...room,
     residents: residentsInRoom,
     residentsCount,
+    availableSlots: Math.max(capacity - residentsCount, 0),
   };
 }
 
@@ -115,10 +132,13 @@ export async function getRoomsWithDetails(filters?: {
   return await Promise.all(
     roomsList.map(async (room: any) => {
       const residentsCount = await getRoomCurrentOccupancy(room.id);
+      const capacity = Number(room.capacity || 0);
 
       return {
         ...room,
         residentsCount,
+        currentOccupancy: residentsCount,
+        availableSlots: Math.max(capacity - residentsCount, 0),
       };
     })
   );
@@ -149,16 +169,47 @@ export async function getCurrentRoomAssignmentByResident(residentId: number) {
 
 export async function closeCurrentRoomAssignment(
   assignmentId: number,
-  unassignedDate: Date
+  unassignedDate: Date,
+  reason?: string
 ) {
   const db = getDb();
+
+  const current = await db
+    .select()
+    .from(roomAssignments)
+    .where(eq(roomAssignments.id, assignmentId))
+    .limit(1);
+
+  const currentReason = current[0]?.reason;
+  const nextReason = reason
+    ? currentReason
+      ? `${currentReason}; ${reason}`
+      : reason
+    : currentReason;
 
   return await db
     .update(roomAssignments)
     .set({
       unassignedDate,
+      reason: nextReason,
     })
     .where(eq(roomAssignments.id, assignmentId));
+}
+
+export async function closeCurrentRoomAssignmentByResident(
+  residentId: number,
+  unassignedDate: Date,
+  reason?: string
+) {
+  const currentAssignment = await getCurrentRoomAssignmentByResident(residentId);
+
+  if (!currentAssignment) {
+    return null;
+  }
+
+  await closeCurrentRoomAssignment(currentAssignment.id, unassignedDate, reason);
+
+  return currentAssignment;
 }
 
 export async function updateResidentCurrentRoom(

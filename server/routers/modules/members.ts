@@ -193,7 +193,30 @@ export const membersRouter = router({
                         });
                   }
             }),
+      reactivate: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number(),
+                  })
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireMemberManagementAccess(ctx.user);
 
+                  try {
+                        return await memberService.reactivateMember(input.id);
+                  } catch (error) {
+                        console.error("[members.reactivate] Error:", error);
+
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Không thể đăng ký lại học viên.",
+                        });
+                  }
+            }),
+            
       assignRoom: protectedProcedure
             .input(
                   z.object({

@@ -17,9 +17,104 @@ import {
       getGenderLabel,
       getRoomActionLabel,
       getRoomLabelFromMember,
+      hasCurrentRoom,
       getStatusClass,
       getStatusLabel,
 } from './memberUtils';
+
+
+function isResidentLeft(member: any) {
+      const status = member?.status || member?.residenceStatus;
+
+      return (
+            status === 'transferred_out' ||
+            status === 'left' ||
+            status === 'Đã rời lưu xá'
+      );
+}
+
+function isResidentInactive(member: any) {
+      const status = member?.status || member?.residenceStatus;
+
+      return (
+            status === 'inactive' ||
+            status === 'temporary_leave' ||
+            status === 'Tạm ngưng' ||
+            status === 'Tạm vắng'
+      );
+}
+
+/**
+ * Detail view should display the actual current room, not old room history.
+ *
+ * Rule:
+ * - Left resident: show residence status, not old room.
+ * - Inactive/temporary leave: show status.
+ * - Active resident with currentRoom*: show current room.
+ * - Active resident without currentRoom*: show "Chưa gán".
+ *
+ * getRoomLabelFromMember may still fallback to roomId/roomCode for legacy display,
+ * so we only call it after hasCurrentRoom(member) is true for active residents.
+ */
+function getResidentRoomText(member: any) {
+      if (isResidentLeft(member) || isResidentInactive(member)) {
+            return getRoomLabelFromMember(member);
+      }
+
+      if (hasCurrentRoom(member)) {
+            return getRoomLabelFromMember(member);
+      }
+
+      return 'Chưa gán';
+}
+
+function getAccountStatus(member: any) {
+      const hasUser = Boolean(member?.userId);
+
+      if (!hasUser) {
+            return {
+                  title: 'Chưa có tài khoản đăng nhập',
+                  description:
+                        'Học viên chưa có tài khoản đăng nhập.',
+                  className: 'bg-slate-50',
+                  titleClassName: 'text-slate-800',
+                  descriptionClassName: 'text-slate-500',
+                  badgeClassName: 'bg-white text-slate-700 ring-slate-200',
+                  badgeText: 'Chưa có',
+            };
+      }
+
+      const isLocked =
+            isResidentLeft(member) ||
+            isResidentInactive(member) ||
+            member?.userIsActive === false ||
+            member?.isUserActive === false ||
+            member?.accountIsActive === false;
+
+      if (isLocked) {
+            return {
+                  title: 'Đã khóa tài khoản',
+                  description:
+                        'Tài khoản học viên đã được khóa do học viên đã rời/ngừng lưu trú.',
+                  className: 'bg-slate-100',
+                  titleClassName: 'text-slate-800',
+                  descriptionClassName: 'text-slate-600',
+                  badgeClassName: 'bg-white text-slate-700 ring-slate-300',
+                  badgeText: 'Đã khóa',
+            };
+      }
+
+      return {
+            title: 'Đã có tài khoản',
+            description: 'Học viên đã có tài khoản đăng nhập.',
+            className: 'bg-emerald-50',
+            titleClassName: 'text-emerald-800',
+            descriptionClassName: 'text-emerald-700',
+            badgeClassName: 'bg-white text-emerald-700 ring-emerald-200',
+            badgeText: 'Học viên',
+      };
+}
+
 
 export function MemberDetailModal({
       member,
@@ -27,7 +122,9 @@ export function MemberDetailModal({
       onEdit,
       onAssignRoom,
       onCreateUser,
+      onReactivate,
       isCreatingUser = false,
+      isReactivating = false,
       onDataChange,
 }: {
       member: any;
@@ -35,12 +132,17 @@ export function MemberDetailModal({
       onEdit: () => void;
       onAssignRoom: () => void;
       onCreateUser?: (member: any) => void;
+      onReactivate?: (member: any) => void;
       isCreatingUser?: boolean;
+      isReactivating?: boolean;
       onDataChange?: () => void | Promise<void>;
 }) {
       const displayName = member?.holyName
             ? `${member.holyName} ${member.fullName || ''}`.trim()
             : member?.fullName || '-';
+
+      const isLeft = isResidentLeft(member);
+      const accountStatus = getAccountStatus(member);
 
       return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -65,6 +167,17 @@ export function MemberDetailModal({
                         </div>
 
                         <div className="p-6">
+                              {isLeft && (
+                                    <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                                          <p className="font-semibold">Học viên đã rời lưu xá / ngừng lưu trú</p>
+                                          <p className="mt-1">
+                                                Hồ sơ này đang được giữ để tra cứu lịch sử. Các thao tác cập nhật hồ sơ,
+                                                phòng ở và liên hệ gia đình đang được khóa. Muốn tiếp tục quản lý, hãy dùng
+                                                chức năng Đăng ký lại.
+                                          </p>
+                                    </div>
+                              )}
+
                               <div className="mb-6 flex flex-col gap-4 rounded-2xl bg-neutral-50 p-5 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-4">
                                           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl font-bold text-blue-700">
@@ -89,25 +202,39 @@ export function MemberDetailModal({
                                     </div>
 
                                     <div className="flex flex-wrap gap-2">
-                                          {member.status !== 'transferred_out' && (
-                                                <button
-                                                      type="button"
-                                                      onClick={onAssignRoom}
-                                                      className="inline-flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-100"
-                                                >
-                                                      <DoorOpen className="h-4 w-4" />
-                                                      {getRoomActionLabel(member)}
-                                                </button>
-                                          )}
+                                          {isLeft ? (
+                                                onReactivate && (
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => onReactivate(member)}
+                                                            disabled={isReactivating}
+                                                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                                      >
+                                                            <Edit2 className="h-4 w-4" />
+                                                            {isReactivating ? 'Đang đăng ký lại...' : 'Đăng ký lại'}
+                                                      </button>
+                                                )
+                                          ) : (
+                                                <>
+                                                      <button
+                                                            type="button"
+                                                            onClick={onAssignRoom}
+                                                            className="inline-flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-100"
+                                                      >
+                                                            <DoorOpen className="h-4 w-4" />
+                                                            {getRoomActionLabel(member)}
+                                                      </button>
 
-                                          <button
-                                                type="button"
-                                                onClick={onEdit}
-                                                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-                                          >
-                                                <Edit2 className="h-4 w-4" />
-                                                Sửa hồ sơ
-                                          </button>
+                                                      <button
+                                                            type="button"
+                                                            onClick={onEdit}
+                                                            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                                      >
+                                                            <Edit2 className="h-4 w-4" />
+                                                            Sửa hồ sơ
+                                                      </button>
+                                                </>
+                                          )}
                                     </div>
                               </div>
 
@@ -149,7 +276,7 @@ export function MemberDetailModal({
                                           <DetailItem
                                                 icon={<DoorOpen className="h-4 w-4" />}
                                                 label="Phòng hiện tại"
-                                                value={getRoomLabelFromMember(member)}
+                                                value={getResidentRoomText(member)}
                                           />
                                           <DetailItem
                                                 icon={<Home className="h-4 w-4" />}
@@ -177,18 +304,22 @@ export function MemberDetailModal({
                                           <div className="flex flex-col gap-3">
                                                 {member.userId ? (
                                                       <>
-                                                            <div className="flex flex-col gap-3 rounded-xl bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                                            <div
+                                                                  className={`flex flex-col gap-3 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${accountStatus.className}`}
+                                                            >
                                                                   <div>
-                                                                        <p className="text-sm font-semibold text-emerald-800">
-                                                                              Đã có tài khoản
+                                                                        <p className={`text-sm font-semibold ${accountStatus.titleClassName}`}>
+                                                                              {accountStatus.title}
                                                                         </p>
-                                                                        <p className="mt-1 text-sm text-emerald-700">
-                                                                              Học viên đã có tài khoản đăng nhập.
+                                                                        <p className={`mt-1 text-sm ${accountStatus.descriptionClassName}`}>
+                                                                              {accountStatus.description}
                                                                         </p>
                                                                   </div>
 
-                                                                  <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
-                                                                        Học viên
+                                                                  <span
+                                                                        className={`inline-flex w-fit rounded-full px-3 py-1 text-sm font-medium ring-1 ${accountStatus.badgeClassName}`}
+                                                                  >
+                                                                        {accountStatus.badgeText}
                                                                   </span>
                                                             </div>
 
@@ -200,6 +331,15 @@ export function MemberDetailModal({
                                                                   />
                                                             )}
                                                       </>
+                                                ) : isLeft ? (
+                                                      <div className="rounded-xl bg-slate-50 px-4 py-3">
+                                                            <p className="text-sm font-semibold text-slate-800">
+                                                                  Chưa có tài khoản đăng nhập
+                                                            </p>
+                                                            <p className="mt-1 text-sm text-slate-500">
+                                                                  Học viên đã rời lưu xá nên không thể tạo tài khoản mới từ hồ sơ này.
+                                                            </p>
+                                                      </div>
                                                 ) : (
                                                       <>
                                                             <div className="rounded-xl bg-slate-50 px-4 py-3">
@@ -231,6 +371,7 @@ export function MemberDetailModal({
                                     <DetailCard title="Phụ huynh / Người giám hộ">
                                           <ParentsSection
                                                 residentId={member.id}
+                                                readonly={isLeft}
                                                 onDataChange={onDataChange}
                                           />
                                     </DetailCard>

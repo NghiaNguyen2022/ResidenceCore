@@ -1,10 +1,22 @@
 import { getDb } from "./connection";
-import { and, asc, count, desc, eq, inArray, like, or } from "drizzle-orm";
+import {
+      and,
+      asc,
+      count,
+      desc,
+      eq,
+      inArray,
+      isNull,
+      like,
+      or,
+} from "drizzle-orm";
 import {
       InsertParent,
       InsertResident,
       parents,
       residents,
+      roomAssignments,
+      rooms,
 } from "../../drizzle/schema";
 
 function getParentTypePriority(parentType?: string | null) {
@@ -60,6 +72,10 @@ async function attachPrimaryContacts<T extends { id: number }>(
       const db = getDb();
       const residentIds = residentRows.map((resident) => resident.id);
 
+      if (residentIds.length === 0) {
+            return residentRows;
+      }
+
       const parentRows = await db
             .select({
                   id: parents.id,
@@ -95,6 +111,36 @@ async function attachPrimaryContacts<T extends { id: number }>(
       });
 }
 
+function getResidentSelectFields() {
+      return {
+            id: residents.id,
+            residentCode: residents.residentCode,
+            holyName: residents.holyName,
+            fullName: residents.fullName,
+            dateOfBirth: residents.dateOfBirth,
+            gender: residents.gender,
+            idNumber: residents.idNumber,
+            permanentAddress: residents.permanentAddress,
+            phoneNumber: residents.phoneNumber,
+            schoolId: residents.schoolId,
+            profileImage: residents.profileImage,
+            admissionDate: residents.admissionDate,
+            departureDate: residents.departureDate,
+            status: residents.status,
+            notes: residents.notes,
+            userId: residents.userId,
+            currentRoomId: residents.currentRoomId,
+            createdAt: residents.createdAt,
+            updatedAt: residents.updatedAt,
+
+            roomId: rooms.id,
+            roomCode: rooms.roomCode,
+            roomName: rooms.roomCode,
+            currentRoomCode: rooms.roomCode,
+            currentRoomName: rooms.roomCode,
+      };
+}
+
 export async function createResident(data: InsertResident) {
       const db = getDb();
 
@@ -119,8 +165,9 @@ export async function getResidentById(id: number) {
       const db = getDb();
 
       const result = await db
-            .select()
+            .select(getResidentSelectFields())
             .from(residents)
+            .leftJoin(rooms, eq(residents.currentRoomId, rooms.id))
             .where(eq(residents.id, id))
             .limit(1);
 
@@ -149,7 +196,8 @@ export async function getResidents(filters?: {
                         like(residents.fullName, keyword),
                         like(residents.holyName, keyword),
                         like(residents.residentCode, keyword),
-                        like(residents.phoneNumber, keyword)
+                        like(residents.phoneNumber, keyword),
+                        like(rooms.roomCode, keyword)
                   )
             );
       }
@@ -158,7 +206,10 @@ export async function getResidents(filters?: {
             conditions.push(eq(residents.status, filters.status as any));
       }
 
-      let query: any = db.select().from(residents);
+      let query: any = db
+            .select(getResidentSelectFields())
+            .from(residents)
+            .leftJoin(rooms, eq(residents.currentRoomId, rooms.id));
 
       if (conditions.length > 0) {
             query = query.where(and(...conditions) as any);
@@ -196,14 +247,69 @@ export async function updateResident(
       return getResidentById(id);
 }
 
+async function closeOpenRoomAssignmentForResident(
+      residentId: number,
+      unassignedDate: Date,
+      reason?: string
+) {
+      const db = getDb();
+
+      const currentAssignments = await db
+            .select()
+            .from(roomAssignments)
+            .where(
+                  and(
+                        eq(roomAssignments.residentId, residentId),
+                        isNull(roomAssignments.unassignedDate)
+                  )
+            )
+            .limit(1);
+
+      const currentAssignment = currentAssignments[0];
+
+      if (!currentAssignment) {
+            return null;
+      }
+
+      const currentReason = currentAssignment.reason;
+      const nextReason = reason
+            ? currentReason
+                  ? `${currentReason}; ${reason}`
+                  : reason
+            : currentReason;
+
+      await db
+            .update(roomAssignments)
+            .set({
+                  unassignedDate,
+                  reason: nextReason,
+            })
+            .where(eq(roomAssignments.id, currentAssignment.id));
+
+      return currentAssignment;
+}
+
 export async function markResidentAsLeft(id: number, departureDate: Date) {
       const db = getDb();
+
+      /**
+       * Rời lưu xá phải nhả phòng:
+       * - Đóng assignment đang mở bằng unassignedDate.
+       * - Set residents.currentRoomId = null.
+       * - Không xóa roomAssignments để giữ lịch sử phòng.
+       */
+      await closeOpenRoomAssignmentForResident(
+            id,
+            departureDate,
+            "Rời lưu xá / ngừng lưu trú"
+      );
 
       await db
             .update(residents)
             .set({
                   status: "transferred_out",
                   departureDate,
+                  currentRoomId: null,
                   updatedAt: new Date(),
             })
             .where(eq(residents.id, id));
@@ -389,4 +495,29 @@ export async function deleteParent(id: number) {
       const db = getDb();
 
       return await db.delete(parents).where(eq(parents.id, id));
+}
+/**
+ * Reactivate resident after they return to the residence.
+ *
+ * Luồng đăng ký lại / quay lại lưu xá:
+ * - Chuyển trạng thái về active
+ * - Xóa departureDate
+ * - Không tự gán lại phòng cũ
+ * - Giữ lịch sử phòng cũ trong roomAssignments
+ * - currentRoomId để null, sau đó quản lý sẽ gán phòng mới
+ */
+export async function reactivateResident(id: number) {
+      const db = getDb();
+
+      await db
+            .update(residents)
+            .set({
+                  status: "active",
+                  departureDate: null,
+                  currentRoomId: null,
+                  updatedAt: new Date(),
+            })
+            .where(eq(residents.id, id));
+
+      return getResidentById(id);
 }

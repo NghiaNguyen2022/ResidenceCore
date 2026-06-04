@@ -222,18 +222,16 @@ function SidebarItem({
                               {content}
                         </button>
                   ) : item.path ? (
-                        <Link href={item.path}>
-                              <a className={itemClass}>
-                                    {isDeepChild && (
-                                          <span
-                                                className={[
-                                                      "h-1.5 w-1.5 shrink-0 rounded-full",
-                                                      isDirectActive ? "bg-white" : "bg-slate-300",
-                                                ].join(" ")}
-                                          />
-                                    )}
-                                    {content}
-                              </a>
+                        <Link href={item.path} className={itemClass}>
+                              {isDeepChild && (
+                                    <span
+                                          className={[
+                                                "h-1.5 w-1.5 shrink-0 rounded-full",
+                                                isDirectActive ? "bg-white" : "bg-slate-300",
+                                          ].join(" ")}
+                                    />
+                              )}
+                              {content}
                         </Link>
                   ) : (
                         <div className={itemClass}>{content}</div>

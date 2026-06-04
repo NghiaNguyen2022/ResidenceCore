@@ -13,11 +13,64 @@ export function normalizePhone(value?: string) {
       return (value || '').replace(/[^\d]/g, '');
 }
 
+export function getRawResidentStatus(member: any) {
+      return member?.status || member?.residenceStatus || '';
+}
+
+export function isResidentLeft(member: any) {
+      const status = getRawResidentStatus(member);
+
+      return (
+            status === 'transferred_out' ||
+            status === 'left' ||
+            status === 'Đã rời lưu xá'
+      );
+}
+
+export function isResidentInactive(member: any) {
+      const status = getRawResidentStatus(member);
+
+      return (
+            status === 'inactive' ||
+            status === 'temporary_leave' ||
+            status === 'Tạm ngưng' ||
+            status === 'Tạm vắng'
+      );
+}
+
 export function getStatusClass(status?: string) {
       if (status === 'active') return 'border-green-200 bg-green-50 text-green-700';
-      if (status === 'transferred_out') return 'border-red-200 bg-red-50 text-red-700';
-      if (status === 'inactive') return 'border-orange-200 bg-orange-50 text-orange-700';
+      if (status === 'transferred_out' || status === 'left') return 'border-red-200 bg-red-50 text-red-700';
+      if (status === 'inactive' || status === 'temporary_leave') return 'border-orange-200 bg-orange-50 text-orange-700';
       return 'border-neutral-200 bg-neutral-50 text-neutral-700';
+}
+
+export function getStatusBadgeClass(member: any) {
+      if (isResidentLeft(member)) {
+            return 'bg-rose-50 text-rose-700 ring-rose-200';
+      }
+
+      if (isResidentInactive(member)) {
+            return 'bg-amber-50 text-amber-700 ring-amber-200';
+      }
+
+      return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+}
+
+export function getStatusLabel(status?: string | null) {
+      switch (status) {
+            case 'active':
+                  return 'Đang lưu trú';
+            case 'inactive':
+                  return 'Tạm ngưng';
+            case 'temporary_leave':
+                  return 'Tạm vắng';
+            case 'transferred_out':
+            case 'left':
+                  return 'Đã rời lưu xá';
+            default:
+                  return 'Đang lưu trú';
+      }
 }
 
 export function getGenderLabel(gender?: string) {
@@ -27,11 +80,11 @@ export function getGenderLabel(gender?: string) {
       return '-';
 }
 
-export function getParentTypeLabel(type?: string) {
+export function getParentTypeLabel(type?: string | null) {
       if (type === 'father') return 'Cha';
       if (type === 'mother') return 'Mẹ';
       if (type === 'guardian') return 'Người giám hộ';
-      return 'Khác';
+      return 'Liên hệ';
 }
 
 export function getParentTypeClass(type?: string) {
@@ -41,12 +94,55 @@ export function getParentTypeClass(type?: string) {
       return 'bg-neutral-100 text-neutral-700';
 }
 
+export function getDisplayName(member: any) {
+      if (member?.holyName && member?.fullName) {
+            return `${member.holyName} ${member.fullName}`;
+      }
+
+      return member?.fullName || member?.name || 'Chưa có tên';
+}
+
 export function getCurrentRoomIdFromMember(member: any) {
-      return member?.currentRoomId ?? member?.roomId ?? null;
+      /**
+       * Chỉ trả về phòng hiện tại. Không fallback sang roomId/room object
+       * vì các field đó có thể là dữ liệu lịch sử hoặc fallback hiển thị.
+       */
+      return member?.currentRoomId ?? null;
 }
 
 export function hasCurrentRoom(member: any) {
-      return Boolean(getCurrentRoomIdFromMember(member));
+      /**
+       * Chỉ dùng currentRoom* để quyết định nghiệp vụ phòng hiện tại.
+       * Không dùng roomId/roomCode/roomName vì các field đó có thể là fallback/lịch sử.
+       */
+      return Boolean(
+            member?.currentRoomId ||
+            member?.currentRoomName ||
+            member?.currentRoomCode ||
+            member?.currentRoomNumber
+      );
+}
+
+export function hasAnyRoomDisplayData(member: any) {
+      /**
+       * Giữ logic rộng cũ để phục vụ hiển thị/fallback khi cần,
+       * nhưng không dùng hàm này để quyết định gán/chuyển/trả phòng.
+       */
+      return Boolean(
+            member?.currentRoomId ||
+            member?.currentRoomName ||
+            member?.currentRoomCode ||
+            member?.currentRoomNumber ||
+            member?.roomId ||
+            member?.roomName ||
+            member?.roomCode ||
+            member?.roomNumber ||
+            member?.room?.id ||
+            member?.room?.roomId ||
+            member?.room?.roomName ||
+            member?.room?.roomCode ||
+            member?.room?.roomNumber
+      );
 }
 
 export function getRoomActionLabel(member: any) {
@@ -54,16 +150,47 @@ export function getRoomActionLabel(member: any) {
 }
 
 export function getRoomLabelFromMember(member: any) {
-      if (member?.roomCode) return member.roomCode;
-      if (member?.currentRoomCode) return member.currentRoomCode;
-      if (member?.roomName) return member.roomName;
+      if (isResidentLeft(member)) return 'Đã rời lưu xá';
+      if (isResidentInactive(member)) return 'Tạm ngưng lưu trú';
+
       if (member?.currentRoomName) return member.currentRoomName;
+      if (member?.currentRoomCode) return member.currentRoomCode;
+      if (member?.currentRoomNumber) return member.currentRoomNumber;
+
+      if (member?.roomName) return member.roomName;
+      if (member?.roomCode) return member.roomCode;
+      if (member?.roomNumber) return member.roomNumber;
+
+      if (member?.room?.roomName) return member.room.roomName;
+      if (member?.room?.roomCode) return member.room.roomCode;
+      if (member?.room?.roomNumber) return member.room.roomNumber;
+
       if (member?.currentRoomId) return `Phòng ID: ${member.currentRoomId}`;
       if (member?.roomId) return `Phòng ID: ${member.roomId}`;
+      if (member?.room?.id) return `Phòng ID: ${member.room.id}`;
+      if (member?.room?.roomId) return `Phòng ID: ${member.room.roomId}`;
+
       return 'Chưa gán';
 }
 
+export function hasPrimaryContact(member: any) {
+      return Boolean(
+            (member?.primaryContactName && member?.primaryContactPhone) ||
+            (member?.primaryParentName && member?.primaryParentPhone) ||
+            (member?.parentName && member?.parentPhone) ||
+            (member?.contactName && member?.contactPhone)
+      );
+}
+
 export function getPrimaryContactText(member: any) {
+      if (member?.primaryContactName && member?.primaryContactPhone) {
+            return `${getParentTypeLabel(member.primaryContactType)} - ${member.primaryContactName} - ${member.primaryContactPhone}`;
+      }
+
+      if (member?.primaryContactName) {
+            return `${getParentTypeLabel(member.primaryContactType)} - ${member.primaryContactName}`;
+      }
+
       const contactName =
             member?.primaryParentName ??
             member?.parentName ??
@@ -98,6 +225,64 @@ export function getSchoolText(member: any) {
       if (className) return className;
 
       return 'Chưa có thông tin';
+}
+
+export function hasUserAccount(member: any) {
+      return Boolean(member?.userId);
+}
+
+export function isUserAccountLocked(member: any) {
+      if (!hasUserAccount(member)) return false;
+
+      const isAccountInactive =
+            member?.userIsActive === false ||
+            member?.isUserActive === false ||
+            member?.accountIsActive === false;
+
+      return isAccountInactive || isResidentLeft(member) || isResidentInactive(member);
+}
+
+export function getAccountBadge(member: any) {
+      if (!hasUserAccount(member)) {
+            return {
+                  label: 'Chưa có tài khoản',
+                  className: 'bg-amber-50 text-amber-700 ring-amber-200',
+            };
+      }
+
+      if (isUserAccountLocked(member)) {
+            return {
+                  label: 'Đã khóa tài khoản',
+                  className: 'bg-slate-100 text-slate-600 ring-slate-300',
+            };
+      }
+
+      return {
+            label: 'Đã có tài khoản',
+            className: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+      };
+}
+
+export function getAttentionItems(member: any) {
+      if (isResidentLeft(member)) {
+            return [];
+      }
+
+      const items: string[] = [];
+
+      if (!hasCurrentRoom(member)) {
+            items.push('Chưa có phòng');
+      }
+
+      if (!hasUserAccount(member)) {
+            items.push('Chưa có tài khoản');
+      }
+
+      if (!hasPrimaryContact(member)) {
+            items.push('Thiếu liên hệ');
+      }
+
+      return items;
 }
 
 export function getRoomLabel(room: any) {
@@ -194,22 +379,5 @@ export function formatDate(date?: string | Date | null) {
             return new Date(date).toLocaleDateString('vi-VN');
       } catch {
             return '-';
-      }
-}
-
-export function getStatusLabel(status?: string | null) {
-      switch (status) {
-            case 'active':
-                  return 'Đang lưu trú';
-            case 'inactive':
-                  return 'Tạm ngưng';
-            case 'temporary_leave':
-                  return 'Tạm vắng';
-            case 'transferred_out':
-                  return 'Đã rời lưu xá';
-            case 'left':
-                  return 'Đã rời lưu xá';
-            default:
-                  return 'Đang lưu trú';
       }
 }

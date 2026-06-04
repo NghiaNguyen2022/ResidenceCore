@@ -161,7 +161,11 @@ export const roomsRouter = router({
     .input(
       z.object({
         residentId: z.number(),
-        roomId: z.number(),
+        /**
+         * roomId chỉ bắt buộc khi gán/chuyển phòng.
+         * Với eventType = "left", học viên trả/rời phòng nên không cần roomId.
+         */
+        roomId: z.number().optional(),
         assignedDate: z.date().optional(),
         eventType: z
           .enum(["new_entry", "transfer", "temporary_leave", "left"])
