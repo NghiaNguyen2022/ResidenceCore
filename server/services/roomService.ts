@@ -32,6 +32,58 @@ export type RoomAssignmentEventType =
       | "left";
 
 export class RoomService {
+      private normalizeRoomCode(roomCode: string) {
+            return String(roomCode || "").trim();
+      }
+
+      private getRoomCodeValue(room: any) {
+            return String(room?.roomCode ?? room?.roomcode ?? room?.code ?? "").trim();
+      }
+
+      private extractInsertedRoomId(createdRoom: any) {
+            return (
+                  createdRoom?.id ??
+                  createdRoom?.insertId ??
+                  createdRoom?.[0]?.id ??
+                  createdRoom?.[0]?.insertId ??
+                  createdRoom?.result?.id ??
+                  createdRoom?.result?.insertId ??
+                  createdRoom?.rows?.[0]?.id ??
+                  createdRoom?.rows?.[0]?.insertId ??
+                  null
+            );
+      }
+
+      private async findRoomByCode(roomCode: string) {
+            const normalizedRoomCode = this.normalizeRoomCode(roomCode);
+
+            if (!normalizedRoomCode) {
+                  return null;
+            }
+
+            const rooms = await db.getRoomsWithDetails({
+                  search: normalizedRoomCode,
+                  limit: 50,
+                  offset: 0,
+            });
+
+            const list = Array.isArray(rooms)
+                  ? rooms
+                  : Array.isArray((rooms as any)?.data)
+                        ? (rooms as any).data
+                        : Array.isArray((rooms as any)?.items)
+                              ? (rooms as any).items
+                              : [];
+
+            return (
+                  list.find(
+                        (room: any) =>
+                              this.getRoomCodeValue(room).toLowerCase() ===
+                              normalizedRoomCode.toLowerCase()
+                  ) ?? null
+            );
+      }
+
       async listRooms(filters?: RoomFilters) {
             return db.getRoomsWithDetails(filters);
       }
@@ -47,24 +99,69 @@ export class RoomService {
       }
 
       async createRoom(data: CreateRoomData) {
-            const createdRoom = await db.createRoom(data);
+            const roomCode = this.normalizeRoomCode(data.roomCode);
+            const capacity = Number(data.capacity);
 
-            const roomId =
-                  (createdRoom as any)?.id ??
-                  (createdRoom as any)?.insertId ??
-                  (Array.isArray(createdRoom) ? (createdRoom as any)[0]?.id : null);
-
-            if (!roomId) {
-                  throw new Error("Không thể xác định phòng vừa tạo.");
+            if (!roomCode) {
+                  throw new Error("Vui lòng nhập mã phòng.");
             }
 
-            const room = await db.getRoomById(roomId);
-
-            if (!room) {
-                  throw new Error("Room not found after creation");
+            if (!Number.isFinite(capacity) || capacity <= 0) {
+                  throw new Error("Sức chứa phải lớn hơn 0.");
             }
 
-            return room;
+            /**
+             * Check trùng mã phòng trước khi insert để frontend nhận lỗi nghiệp vụ dễ hiểu,
+             * không bị lộ lỗi MySQL ER_DUP_ENTRY.
+             */
+            const existingRoom = await this.findRoomByCode(roomCode);
+
+            if (existingRoom) {
+                  throw new Error(`Mã phòng ${roomCode} đã tồn tại. Vui lòng dùng mã phòng khác.`);
+            }
+
+            let createdRoom: any;
+
+            try {
+                  createdRoom = await db.createRoom({
+                        roomCode,
+                        capacity,
+                        groupId: data.groupId,
+                        notes: data.notes?.trim() || undefined,
+                  });
+            } catch (error: any) {
+                  if (error?.code === "ER_DUP_ENTRY" || error?.errno === 1062) {
+                        throw new Error(
+                              `Mã phòng ${roomCode} đã tồn tại. Vui lòng dùng mã phòng khác.`
+                        );
+                  }
+
+                  throw error;
+            }
+
+            /**
+             * Với Drizzle + MySQL, kết quả insert có thể không trả id theo cùng một format.
+             * Vì roomCode là unique, fallback an toàn nhất là lấy lại phòng vừa tạo bằng roomCode.
+             */
+            const roomId = this.extractInsertedRoomId(createdRoom);
+
+            if (roomId) {
+                  const room = await db.getRoomById(Number(roomId));
+
+                  if (room) {
+                        return room;
+                  }
+            }
+
+            const roomByCode = await this.findRoomByCode(roomCode);
+
+            if (roomByCode) {
+                  return roomByCode;
+            }
+
+            throw new Error(
+                  "Phòng đã được tạo nhưng chưa thể tải lại dữ liệu. Vui lòng làm mới danh sách."
+            );
       }
 
       async updateRoom(id: number, data: UpdateRoomData) {
@@ -97,7 +194,8 @@ export class RoomService {
              * Chủ động loại bỏ roomCode nếu frontend gửi nhầm.
              */
             const safeData: UpdateRoomData = {
-                  capacity: data.capacity,
+                  capacity:
+                        data.capacity !== undefined ? Number(data.capacity) : undefined,
                   groupId: data.groupId,
                   notes: data.notes,
             };

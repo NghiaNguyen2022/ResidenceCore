@@ -9,9 +9,9 @@ import {
       CheckCircle2,
       Clock,
       Edit2,
-      Home,
       Moon,
       Plus,
+      RefreshCcw,
       Search,
       SunMedium,
       Trash2,
@@ -30,8 +30,9 @@ import {
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
 
+import { trpc } from '@/lib/trpc';
+
 type RoutineStatus = 'active' | 'inactive';
-type DayType = 'weekday' | 'saturday' | 'sunday' | 'custom';
 type RoutineCategory =
       | 'morning'
       | 'study'
@@ -39,14 +40,14 @@ type RoutineCategory =
       | 'community'
       | 'rest'
       | 'spiritual'
+      | 'duty'
       | 'other';
 
 type DailyRoutineItem = {
       id: number;
-      code: string;
+      routineDate: string;
       title: string;
       category: RoutineCategory;
-      dayType: DayType;
       startTime: string;
       endTime: string;
       location: string;
@@ -58,10 +59,9 @@ type DailyRoutineItem = {
 };
 
 type RoutineFormData = {
-      code: string;
+      routineDate: string;
       title: string;
       category: RoutineCategory;
-      dayType: DayType;
       startTime: string;
       endTime: string;
       location: string;
@@ -72,89 +72,12 @@ type RoutineFormData = {
       sortOrder: string;
 };
 
-const initialRoutineItems: DailyRoutineItem[] = [
-      {
-            id: 1,
-            code: 'MORNING_PRAYER',
-            title: 'Thức dậy và cầu nguyện sáng',
-            category: 'spiritual',
-            dayType: 'weekday',
-            startTime: '05:30',
-            endTime: '05:50',
-            location: 'Nhà nguyện',
-            responsibleGroup: 'Ban phụng vụ',
-            isRequired: true,
-            status: 'active',
-            note: 'Ổn định nề nếp đầu ngày.',
-            sortOrder: 10,
-      },
-      {
-            id: 2,
-            code: 'BREAKFAST',
-            title: 'Ăn sáng',
-            category: 'meal',
-            dayType: 'weekday',
-            startTime: '06:00',
-            endTime: '06:30',
-            location: 'Nhà ăn',
-            responsibleGroup: 'Tổ trực',
-            isRequired: true,
-            status: 'active',
-            note: '',
-            sortOrder: 20,
-      },
-      {
-            id: 3,
-            code: 'SCHOOL_TIME',
-            title: 'Đi học / học tập tại trường',
-            category: 'study',
-            dayType: 'weekday',
-            startTime: '07:00',
-            endTime: '16:30',
-            location: 'Trường học',
-            responsibleGroup: 'Học viên',
-            isRequired: true,
-            status: 'active',
-            note: 'Theo lịch học cá nhân.',
-            sortOrder: 30,
-      },
-      {
-            id: 4,
-            code: 'EVENING_STUDY',
-            title: 'Giờ học buổi tối',
-            category: 'study',
-            dayType: 'weekday',
-            startTime: '19:00',
-            endTime: '20:30',
-            location: 'Phòng học chung',
-            responsibleGroup: 'Ban học tập',
-            isRequired: true,
-            status: 'active',
-            note: 'Giữ không gian yên tĩnh trong giờ học.',
-            sortOrder: 40,
-      },
-      {
-            id: 5,
-            code: 'LIGHTS_OUT',
-            title: 'Ổn định phòng và nghỉ đêm',
-            category: 'rest',
-            dayType: 'weekday',
-            startTime: '22:00',
-            endTime: '22:15',
-            location: 'Khu phòng ở',
-            responsibleGroup: 'Tổ trưởng',
-            isRequired: true,
-            status: 'active',
-            note: 'Nhắc nhở trật tự và tắt thiết bị không cần thiết.',
-            sortOrder: 50,
-      },
-];
+const todayString = new Date().toISOString().slice(0, 10);
 
 const defaultFormData: RoutineFormData = {
-      code: '',
+      routineDate: todayString,
       title: '',
       category: 'other',
-      dayType: 'weekday',
       startTime: '06:00',
       endTime: '06:30',
       location: '',
@@ -164,16 +87,6 @@ const defaultFormData: RoutineFormData = {
       note: '',
       sortOrder: '10',
 };
-
-function normalizeCode(value: string) {
-      return value
-            .trim()
-            .toUpperCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^A-Z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '');
-}
 
 function normalizeText(value?: string | null) {
       return (value || '')
@@ -191,6 +104,7 @@ function getCategoryLabel(category: RoutineCategory) {
       if (category === 'community') return 'Sinh hoạt chung';
       if (category === 'rest') return 'Nghỉ ngơi';
       if (category === 'spiritual') return 'Đời sống thiêng liêng';
+      if (category === 'duty') return 'Công tác';
       return 'Khác';
 }
 
@@ -201,6 +115,7 @@ function getCategoryClass(category: RoutineCategory) {
       if (category === 'community') return 'border-violet-200 bg-violet-50 text-violet-700';
       if (category === 'rest') return 'border-slate-200 bg-slate-50 text-slate-700';
       if (category === 'spiritual') return 'border-indigo-200 bg-indigo-50 text-indigo-700';
+      if (category === 'duty') return 'border-orange-200 bg-orange-50 text-orange-700';
       return 'border-neutral-200 bg-neutral-50 text-neutral-700';
 }
 
@@ -214,13 +129,6 @@ function getCategoryIcon(category: RoutineCategory) {
       return <CalendarDays className="h-4 w-4" />;
 }
 
-function getDayTypeLabel(dayType: DayType) {
-      if (dayType === 'weekday') return 'Ngày thường';
-      if (dayType === 'saturday') return 'Thứ Bảy';
-      if (dayType === 'sunday') return 'Chúa Nhật';
-      return 'Tùy chỉnh';
-}
-
 function timeToMinutes(value: string) {
       const [hour, minute] = value.split(':').map(Number);
       if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
@@ -228,23 +136,55 @@ function timeToMinutes(value: string) {
 }
 
 function formatTimeRange(startTime: string, endTime: string) {
+      if (!startTime && !endTime) return '--:--';
+      if (!endTime) return startTime;
       return `${startTime} - ${endTime}`;
 }
 
-function validateForm({
-      items,
-      formData,
-      editingId,
-}: {
-      items: DailyRoutineItem[];
-      formData: RoutineFormData;
-      editingId?: number;
-}) {
-      const code = normalizeCode(formData.code);
+function normalizeTime(value?: string | null) {
+      if (!value) return '';
+      return String(value).slice(0, 5);
+}
+
+function toApiTime(value: string) {
+      return value ? `${value}:00` : null;
+}
+
+function normalizeDate(value: unknown) {
+      if (!value) return todayString;
+
+      if (value instanceof Date) {
+            return value.toISOString().slice(0, 10);
+      }
+
+      return String(value).slice(0, 10);
+}
+
+function normalizeCategory(value?: string | null): RoutineCategory {
+      const category = value as RoutineCategory;
+
+      if (
+            category === 'morning' ||
+            category === 'study' ||
+            category === 'meal' ||
+            category === 'community' ||
+            category === 'rest' ||
+            category === 'spiritual' ||
+            category === 'duty' ||
+            category === 'other'
+      ) {
+            return category;
+      }
+
+      return 'other';
+}
+
+function validateForm(formData: RoutineFormData) {
       const title = formData.title.trim();
 
-      if (!code) return 'Vui lòng nhập mã lịch sinh hoạt.';
+      if (!formData.routineDate) return 'Vui lòng chọn ngày sinh hoạt.';
       if (!title) return 'Vui lòng nhập tên hoạt động.';
+
       if (!formData.startTime || !formData.endTime) {
             return 'Vui lòng nhập thời gian bắt đầu và kết thúc.';
       }
@@ -259,69 +199,88 @@ function validateForm({
             return 'Thứ tự hiển thị phải là số lớn hơn hoặc bằng 0.';
       }
 
-      const duplicatedCode = items
-            .filter((item) => item.id !== editingId)
-            .some((item) => normalizeText(item.code) === normalizeText(code));
-
-      if (duplicatedCode) {
-            return 'Mã lịch sinh hoạt đã tồn tại. Vui lòng nhập mã khác.';
-      }
-
       return null;
-}
-
-function getNextId(items: DailyRoutineItem[]) {
-      return Math.max(...items.map((item) => item.id), 0) + 1;
 }
 
 function getNextSortOrder(items: DailyRoutineItem[]) {
       return String(Math.max(...items.map((item) => Number(item.sortOrder || 0)), 0) + 10);
 }
 
+function mapRoutine(row: any): DailyRoutineItem {
+      return {
+            id: Number(row.id),
+            routineDate: normalizeDate(row.routineDate),
+            title: row.title || '',
+            category: normalizeCategory(row.category),
+            startTime: normalizeTime(row.startTime),
+            endTime: normalizeTime(row.endTime),
+            location: row.location || '',
+            responsibleGroup: row.responsibleLabel || '',
+            isRequired: Number(row.isRequired ?? 1) === 1,
+            status: Number(row.isActive ?? 1) === 1 ? 'active' : 'inactive',
+            note: row.description || row.notes || '',
+            sortOrder: Number(row.displayOrder || 0),
+      };
+}
+
 export default function DailyRoutine() {
-      const [items, setItems] = useState<DailyRoutineItem[]>(initialRoutineItems);
+      const [selectedDate, setSelectedDate] = useState(todayString);
       const [searchTerm, setSearchTerm] = useState('');
-      const [dayFilter, setDayFilter] = useState<'all' | DayType>('all');
       const [categoryFilter, setCategoryFilter] = useState<'all' | RoutineCategory>('all');
       const [statusFilter, setStatusFilter] = useState<'all' | RoutineStatus>('all');
 
       const [isFormOpen, setIsFormOpen] = useState(false);
       const [editingItem, setEditingItem] = useState<DailyRoutineItem | null>(null);
-      const [formData, setFormData] = useState<RoutineFormData>(defaultFormData);
+      const [formData, setFormData] = useState<RoutineFormData>({
+            ...defaultFormData,
+            routineDate: selectedDate,
+      });
       const [error, setError] = useState<string | null>(null);
+      const [message, setMessage] = useState<string | null>(null);
+
+      const routinesQuery = trpc.dailyRoutine.list.useQuery({
+            fromDate: selectedDate,
+            toDate: selectedDate,
+            status: 'all',
+      });
+
+      const createRoutine = trpc.dailyRoutine.create.useMutation();
+      const updateRoutine = trpc.dailyRoutine.update.useMutation();
+      const deleteRoutine = trpc.dailyRoutine.delete.useMutation();
+
+      const items = useMemo(() => {
+            return (routinesQuery.data || [])
+                  .map(mapRoutine)
+                  .sort((a, b) => {
+                        const sortCompare = Number(a.sortOrder || 0) - Number(b.sortOrder || 0);
+                        if (sortCompare !== 0) return sortCompare;
+
+                        return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
+                  });
+      }, [routinesQuery.data]);
 
       const filteredItems = useMemo(() => {
             const keyword = normalizeText(searchTerm);
 
-            return items
-                  .filter((item) => {
-                        if (dayFilter !== 'all' && item.dayType !== dayFilter) return false;
-                        if (categoryFilter !== 'all' && item.category !== categoryFilter) return false;
-                        if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+            return items.filter((item) => {
+                  if (categoryFilter !== 'all' && item.category !== categoryFilter) return false;
+                  if (statusFilter !== 'all' && item.status !== statusFilter) return false;
 
-                        if (!keyword) return true;
+                  if (!keyword) return true;
 
-                        const haystack = [
-                              item.code,
-                              item.title,
-                              item.location,
-                              item.responsibleGroup,
-                              item.note,
-                              getCategoryLabel(item.category),
-                              getDayTypeLabel(item.dayType),
-                        ]
-                              .map((value) => normalizeText(value))
-                              .join(' ');
+                  const haystack = [
+                        item.title,
+                        item.location,
+                        item.responsibleGroup,
+                        item.note,
+                        getCategoryLabel(item.category),
+                  ]
+                        .map((value) => normalizeText(value))
+                        .join(' ');
 
-                        return haystack.includes(keyword);
-                  })
-                  .sort((a, b) => {
-                        const timeCompare = timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
-                        if (timeCompare !== 0) return timeCompare;
-
-                        return Number(a.sortOrder || 0) - Number(b.sortOrder || 0);
-                  });
-      }, [items, searchTerm, dayFilter, categoryFilter, statusFilter]);
+                  return haystack.includes(keyword);
+            });
+      }, [items, searchTerm, categoryFilter, statusFilter]);
 
       const stats = useMemo(() => {
             return {
@@ -332,23 +291,28 @@ export default function DailyRoutine() {
             };
       }, [items]);
 
+      const refetch = async () => {
+            await routinesQuery.refetch();
+      };
+
       const openCreateForm = () => {
             setEditingItem(null);
             setFormData({
                   ...defaultFormData,
+                  routineDate: selectedDate,
                   sortOrder: getNextSortOrder(items),
             });
             setError(null);
+            setMessage(null);
             setIsFormOpen(true);
       };
 
       const openEditForm = (item: DailyRoutineItem) => {
             setEditingItem(item);
             setFormData({
-                  code: item.code,
+                  routineDate: item.routineDate,
                   title: item.title,
                   category: item.category,
-                  dayType: item.dayType,
                   startTime: item.startTime,
                   endTime: item.endTime,
                   location: item.location,
@@ -359,79 +323,113 @@ export default function DailyRoutine() {
                   sortOrder: String(item.sortOrder || 0),
             });
             setError(null);
+            setMessage(null);
             setIsFormOpen(true);
       };
 
       const closeForm = () => {
             setIsFormOpen(false);
             setEditingItem(null);
-            setFormData(defaultFormData);
+            setFormData({
+                  ...defaultFormData,
+                  routineDate: selectedDate,
+            });
             setError(null);
       };
 
-      const handleSave = () => {
-            const validationMessage = validateForm({
-                  items,
-                  formData,
-                  editingId: editingItem?.id,
-            });
+      const buildPayload = () => ({
+            routineDate: formData.routineDate,
+            startTime: toApiTime(formData.startTime),
+            endTime: toApiTime(formData.endTime),
+            title: formData.title.trim(),
+            description: formData.note.trim() || null,
+            location: formData.location.trim() || null,
+            category: formData.category,
+            responsibleLabel: formData.responsibleGroup.trim() || null,
+            assigneeType: 'all' as const,
+            assigneeId: null,
+            status: 'pending' as const,
+            isRequired: formData.isRequired,
+            displayOrder: Number(formData.sortOrder || 0),
+            routineType: 'daily' as const,
+            isActive: formData.status === 'active',
+            notes: formData.note.trim() || null,
+      });
+
+      const handleSave = async () => {
+            const validationMessage = validateForm(formData);
 
             if (validationMessage) {
                   setError(validationMessage);
                   return;
             }
 
-            const payload: DailyRoutineItem = {
-                  id: editingItem?.id || getNextId(items),
-                  code: normalizeCode(formData.code),
-                  title: formData.title.trim(),
-                  category: formData.category,
-                  dayType: formData.dayType,
-                  startTime: formData.startTime,
-                  endTime: formData.endTime,
-                  location: formData.location.trim(),
-                  responsibleGroup: formData.responsibleGroup.trim(),
-                  isRequired: formData.isRequired,
-                  status: formData.status,
-                  note: formData.note.trim() || null,
-                  sortOrder: Number(formData.sortOrder),
-            };
+            setError(null);
+            setMessage(null);
 
-            if (editingItem) {
-                  setItems((current) =>
-                        current.map((item) => (item.id === editingItem.id ? payload : item))
-                  );
-            } else {
-                  setItems((current) => [...current, payload]);
+            try {
+                  const payload = buildPayload();
+
+                  if (editingItem) {
+                        await updateRoutine.mutateAsync({
+                              id: editingItem.id,
+                              ...payload,
+                        });
+
+                        setMessage('Đã cập nhật lịch sinh hoạt.');
+                  } else {
+                        await createRoutine.mutateAsync(payload);
+                        setMessage('Đã thêm lịch sinh hoạt.');
+                  }
+
+                  closeForm();
+                  await refetch();
+            } catch (err: any) {
+                  setError(err?.message || 'Không thể lưu lịch sinh hoạt. Vui lòng kiểm tra lại thông tin.');
             }
-
-            closeForm();
       };
 
-      const handleDelete = (item: DailyRoutineItem) => {
+      const handleDelete = async (item: DailyRoutineItem) => {
             if (!confirm(`Bạn có chắc chắn muốn xóa lịch "${item.title}"?`)) {
                   return;
             }
 
-            setItems((current) => current.filter((row) => row.id !== item.id));
+            setError(null);
+            setMessage(null);
+
+            try {
+                  await deleteRoutine.mutateAsync({ id: item.id });
+                  setMessage('Đã xóa lịch sinh hoạt.');
+                  await refetch();
+            } catch (err: any) {
+                  setError(err?.message || 'Không thể xóa lịch sinh hoạt.');
+            }
       };
 
-      const handleToggleStatus = (item: DailyRoutineItem) => {
-            setItems((current) =>
-                  current.map((row) =>
-                        row.id === item.id
-                              ? {
-                                    ...row,
-                                    status: row.status === 'active' ? 'inactive' : 'active',
-                              }
-                              : row
-                  )
-            );
+      const handleToggleStatus = async (item: DailyRoutineItem) => {
+            setError(null);
+            setMessage(null);
+
+            try {
+                  await updateRoutine.mutateAsync({
+                        id: item.id,
+                        isActive: item.status !== 'active',
+                  });
+
+                  setMessage(
+                        item.status === 'active'
+                              ? 'Đã ngưng áp dụng lịch sinh hoạt.'
+                              : 'Đã kích hoạt lịch sinh hoạt.'
+                  );
+
+                  await refetch();
+            } catch (err: any) {
+                  setError(err?.message || 'Không thể cập nhật trạng thái lịch sinh hoạt.');
+            }
       };
 
       const clearFilters = () => {
             setSearchTerm('');
-            setDayFilter('all');
             setCategoryFilter('all');
             setStatusFilter('all');
       };
@@ -449,9 +447,7 @@ export default function DailyRoutine() {
                                           <Clock className="h-4 w-4 text-slate-500" />
                                           {formatTimeRange(item.startTime, item.endTime)}
                                     </div>
-                                    <p className="mt-1 text-xs text-slate-500">
-                                          {getDayTypeLabel(item.dayType)}
-                                    </p>
+                                    <p className="mt-1 text-xs text-slate-500">{item.routineDate}</p>
                               </div>
                         ),
                   },
@@ -463,9 +459,11 @@ export default function DailyRoutine() {
                         render: (item) => (
                               <div>
                                     <p className="font-semibold text-slate-900">{item.title}</p>
-                                    <p className="mt-1 font-mono text-xs text-slate-500">
-                                          {item.code}
-                                    </p>
+                                    {item.note && (
+                                          <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                                                {item.note}
+                                          </p>
+                                    )}
                               </div>
                         ),
                   },
@@ -507,8 +505,8 @@ export default function DailyRoutine() {
                         render: (item) => (
                               <span
                                     className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${item.isRequired
-                                                ? 'border-red-200 bg-red-50 text-red-700'
-                                                : 'border-slate-200 bg-slate-50 text-slate-600'
+                                          ? 'border-red-200 bg-red-50 text-red-700'
+                                          : 'border-slate-200 bg-slate-50 text-slate-600'
                                           }`}
                               >
                                     {item.isRequired ? 'Bắt buộc' : 'Khuyến khích'}
@@ -523,21 +521,13 @@ export default function DailyRoutine() {
                         render: (item) => (
                               <span
                                     className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${item.status === 'active'
-                                                ? 'border-green-200 bg-green-50 text-green-700'
-                                                : 'border-neutral-200 bg-neutral-100 text-neutral-600'
+                                          ? 'border-green-200 bg-green-50 text-green-700'
+                                          : 'border-neutral-200 bg-neutral-100 text-neutral-600'
                                           }`}
                               >
                                     {item.status === 'active' ? 'Đang áp dụng' : 'Ngưng áp dụng'}
                               </span>
                         ),
-                  },
-                  {
-                        key: 'note',
-                        label: 'Ghi chú',
-                        defaultVisible: false,
-                        sortable: true,
-                        sortValue: (item) => item.note || '',
-                        render: (item) => item.note || '-',
                   },
                   {
                         key: 'actions',
@@ -549,8 +539,8 @@ export default function DailyRoutine() {
                                           type="button"
                                           onClick={() => handleToggleStatus(item)}
                                           className={`rounded-lg px-2 py-1 text-xs font-semibold transition ${item.status === 'active'
-                                                      ? 'text-orange-700 hover:bg-orange-50'
-                                                      : 'text-green-700 hover:bg-green-50'
+                                                ? 'text-orange-700 hover:bg-orange-50'
+                                                : 'text-green-700 hover:bg-green-50'
                                                 }`}
                                     >
                                           {item.status === 'active' ? 'Ngưng' : 'Kích hoạt'}
@@ -577,7 +567,7 @@ export default function DailyRoutine() {
                         ),
                   },
             ],
-            []
+            [handleToggleStatus, openEditForm]
       );
 
       return (
@@ -596,14 +586,25 @@ export default function DailyRoutine() {
                                     </p>
                               </div>
 
-                              <button
-                                    type="button"
-                                    onClick={openCreateForm}
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-                              >
-                                    <Plus className="h-4 w-4" />
-                                    Thêm lịch sinh hoạt
-                              </button>
+                              <div className="flex flex-col gap-2 sm:flex-row">
+                                    <button
+                                          type="button"
+                                          onClick={() => refetch()}
+                                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-white px-5 py-3 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                    >
+                                          <RefreshCcw className="h-4 w-4" />
+                                          Làm mới
+                                    </button>
+
+                                    <button
+                                          type="button"
+                                          onClick={openCreateForm}
+                                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                                    >
+                                          <Plus className="h-4 w-4" />
+                                          Thêm lịch sinh hoạt
+                                    </button>
+                              </div>
                         </div>
 
                         {error && (
@@ -620,13 +621,19 @@ export default function DailyRoutine() {
                               </div>
                         )}
 
+                        {message && (
+                              <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-700">
+                                    {message}
+                              </div>
+                        )}
+
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                               <ConfigurableStatCard
                                     moduleKey="dailyRoutine"
                                     cardKey="dailyRoutine.total"
                                     label="Tổng lịch"
                                     value={stats.total}
-                                    description="Tổng số khung giờ đã khai báo"
+                                    description="Tổng số khung giờ trong ngày"
                                     tone="blue"
                                     icon={<CalendarDays className="h-6 w-6" />}
                               />
@@ -663,7 +670,19 @@ export default function DailyRoutine() {
                         </div>
 
                         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-                              <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1fr_220px_220px_220px_auto]">
+                              <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[180px_1fr_220px_220px_auto]">
+                                    <Input
+                                          type="date"
+                                          value={selectedDate}
+                                          onChange={(event) => {
+                                                setSelectedDate(event.target.value);
+                                                setFormData((current) => ({
+                                                      ...current,
+                                                      routineDate: event.target.value,
+                                                }));
+                                          }}
+                                    />
+
                                     <div className="relative">
                                           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                                           <Input
@@ -673,20 +692,6 @@ export default function DailyRoutine() {
                                                 className="pl-10"
                                           />
                                     </div>
-
-                                    <select
-                                          value={dayFilter}
-                                          onChange={(event) =>
-                                                setDayFilter(event.target.value as 'all' | DayType)
-                                          }
-                                          className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                    >
-                                          <option value="all">Tất cả ngày</option>
-                                          <option value="weekday">Ngày thường</option>
-                                          <option value="saturday">Thứ Bảy</option>
-                                          <option value="sunday">Chúa Nhật</option>
-                                          <option value="custom">Tùy chỉnh</option>
-                                    </select>
 
                                     <select
                                           value={categoryFilter}
@@ -704,6 +709,7 @@ export default function DailyRoutine() {
                                           <option value="community">Sinh hoạt chung</option>
                                           <option value="rest">Nghỉ ngơi</option>
                                           <option value="spiritual">Đời sống thiêng liêng</option>
+                                          <option value="duty">Công tác</option>
                                           <option value="other">Khác</option>
                                     </select>
 
@@ -731,17 +737,25 @@ export default function DailyRoutine() {
                               </div>
                         </div>
 
-                        <DailyRoutineTimeline items={filteredItems} />
+                        {routinesQuery.isLoading ? (
+                              <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500">
+                                    Đang tải lịch sinh hoạt...
+                              </div>
+                        ) : (
+                              <>
+                                    <DailyRoutineTimeline items={filteredItems} />
 
-                        <ConfigurableDataTable
-                              moduleKey="dailyRoutine"
-                              tableKey="dailyRoutine.list"
-                              columns={columns}
-                              data={filteredItems}
-                              getRowKey={(item) => item.id}
-                              emptyTitle="Chưa có lịch sinh hoạt"
-                              emptyDescription="Thêm lịch sinh hoạt để thiết lập nề nếp hằng ngày trong lưu xá."
-                        />
+                                    <ConfigurableDataTable
+                                          moduleKey="dailyRoutine"
+                                          tableKey="dailyRoutine.list"
+                                          columns={columns}
+                                          data={filteredItems}
+                                          getRowKey={(item) => item.id}
+                                          emptyTitle="Chưa có lịch sinh hoạt"
+                                          emptyDescription="Thêm lịch sinh hoạt để thiết lập nề nếp hằng ngày trong lưu xá."
+                                    />
+                              </>
+                        )}
 
                         {isFormOpen && (
                               <RoutineFormModal
@@ -789,7 +803,10 @@ function DailyRoutineTimeline({ items }: { items: DailyRoutineItem[] }) {
                         {items.map((item) => (
                               <div
                                     key={item.id}
-                                    className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-gradient-to-r from-white to-slate-50/70 p-4 md:grid-cols-[130px_1fr_auto]"
+                                    className={`grid grid-cols-1 gap-3 rounded-2xl border p-4 md:grid-cols-[130px_1fr_auto] ${item.status === 'active'
+                                          ? 'border-slate-200 bg-gradient-to-r from-white to-slate-50/70'
+                                          : 'border-neutral-200 bg-neutral-50 opacity-70'
+                                          }`}
                               >
                                     <div className="flex items-center gap-2 font-semibold text-slate-900">
                                           <Clock className="h-4 w-4 text-slate-500" />
@@ -816,11 +833,11 @@ function DailyRoutineTimeline({ items }: { items: DailyRoutineItem[] }) {
                                           </div>
                                     </div>
 
-                                    <div className="flex items-center md:justify-end">
+                                    <div className="flex items-center gap-2 md:justify-end">
                                           <span
                                                 className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${item.isRequired
-                                                            ? 'border-red-200 bg-red-50 text-red-700'
-                                                            : 'border-slate-200 bg-slate-50 text-slate-600'
+                                                      ? 'border-red-200 bg-red-50 text-red-700'
+                                                      : 'border-slate-200 bg-slate-50 text-slate-600'
                                                       }`}
                                           >
                                                 {item.isRequired ? 'Bắt buộc' : 'Khuyến khích'}
@@ -885,17 +902,17 @@ function RoutineFormModal({
 
                               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div>
-                                          <Label htmlFor="code">Mã lịch</Label>
+                                          <Label htmlFor="routineDate">Ngày sinh hoạt</Label>
                                           <Input
-                                                id="code"
-                                                value={formData.code}
+                                                id="routineDate"
+                                                type="date"
+                                                value={formData.routineDate}
                                                 onChange={(event) =>
                                                       setFormData({
                                                             ...formData,
-                                                            code: normalizeCode(event.target.value),
+                                                            routineDate: event.target.value,
                                                       })
                                                 }
-                                                placeholder="VD: EVENING_STUDY"
                                                 required
                                           />
                                     </div>
@@ -935,27 +952,26 @@ function RoutineFormModal({
                                                 <option value="community">Sinh hoạt chung</option>
                                                 <option value="rest">Nghỉ ngơi</option>
                                                 <option value="spiritual">Đời sống thiêng liêng</option>
+                                                <option value="duty">Công tác</option>
                                                 <option value="other">Khác</option>
                                           </select>
                                     </div>
 
                                     <div>
-                                          <Label htmlFor="dayType">Áp dụng cho</Label>
+                                          <Label htmlFor="status">Trạng thái áp dụng</Label>
                                           <select
-                                                id="dayType"
-                                                value={formData.dayType}
+                                                id="status"
+                                                value={formData.status}
                                                 onChange={(event) =>
                                                       setFormData({
                                                             ...formData,
-                                                            dayType: event.target.value as DayType,
+                                                            status: event.target.value as RoutineStatus,
                                                       })
                                                 }
                                                 className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                           >
-                                                <option value="weekday">Ngày thường</option>
-                                                <option value="saturday">Thứ Bảy</option>
-                                                <option value="sunday">Chúa Nhật</option>
-                                                <option value="custom">Tùy chỉnh</option>
+                                                <option value="active">Đang áp dụng</option>
+                                                <option value="inactive">Ngưng áp dụng</option>
                                           </select>
                                     </div>
 
@@ -1035,24 +1051,6 @@ function RoutineFormModal({
                                                       })
                                                 }
                                           />
-                                    </div>
-
-                                    <div>
-                                          <Label htmlFor="status">Trạng thái</Label>
-                                          <select
-                                                id="status"
-                                                value={formData.status}
-                                                onChange={(event) =>
-                                                      setFormData({
-                                                            ...formData,
-                                                            status: event.target.value as RoutineStatus,
-                                                      })
-                                                }
-                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                          >
-                                                <option value="active">Đang áp dụng</option>
-                                                <option value="inactive">Ngưng áp dụng</option>
-                                          </select>
                                     </div>
 
                                     <div className="md:col-span-2">
