@@ -71,6 +71,31 @@ function isResidentLeft(member: any) {
 }
 
 
+function getMemberStatusRank(member: any) {
+      const status = member?.status || member?.residenceStatus;
+
+      if (status === 'active') return 1;
+      if (status === 'inactive' || status === 'temporary_leave') return 2;
+      if (status === 'transferred_out' || status === 'left') return 3;
+
+      return 9;
+}
+
+function sortMembersByStatus(members: any[]) {
+      return [...members].sort((a, b) => {
+            const statusDiff = getMemberStatusRank(a) - getMemberStatusRank(b);
+
+            if (statusDiff !== 0) return statusDiff;
+
+            const roomDiff = Number(!hasCurrentRoom(a)) - Number(!hasCurrentRoom(b));
+
+            if (roomDiff !== 0) return roomDiff;
+
+            return getDisplayName(a).localeCompare(getDisplayName(b), 'vi');
+      });
+}
+
+
 function SimpleStatCard({
       label,
       value,
@@ -135,7 +160,6 @@ export default function Members() {
 
       const [simplePage, setSimplePage] = useState(1);
       const [simplePageSize, setSimplePageSize] = useState(7);
-      const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
 
       const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
       const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -207,6 +231,8 @@ export default function Members() {
       const members = membersQuery.data || [];
       const rooms = roomsQuery.data || [];
 
+      const sortedMembers = useMemo(() => sortMembersByStatus(members), [members]);
+
       const stats = statsQuery.data || {
             total: 0,
             active: 0,
@@ -239,29 +265,21 @@ export default function Members() {
             };
       }, [members]);
 
-      const selectedMembers = useMemo(
-            () => members.filter((member: any) => selectedMemberIds.includes(member.id)),
-            [members, selectedMemberIds]
-      );
 
-      const selectedMemberForAction: any =
-            selectedMembers.length === 1 ? selectedMembers[0] : null;
-
-      const simpleTotalItems = members.length;
+      const simpleTotalItems = sortedMembers.length;
 
       const simpleTotalPages = Math.max(
             1,
             Math.ceil(simpleTotalItems / simplePageSize)
       );
 
-      const simplePagedMembers = members.slice(
+      const simplePagedMembers = sortedMembers.slice(
             (simplePage - 1) * simplePageSize,
             simplePage * simplePageSize
       );
 
       useEffect(() => {
             setSimplePage(1);
-            setSelectedMemberIds([]);
       }, [searchTerm, statusFilter, simplePageSize]);
 
       const refetchMembers = async () => {
@@ -275,18 +293,8 @@ export default function Members() {
             setStatusFilter('all');
       };
 
-      const handleToggleSelectMember = (member: any) => {
-            if (!member?.id) return;
-
-            setSelectedMemberIds((current) =>
-                  current.includes(member.id)
-                        ? current.filter((id) => id !== member.id)
-                        : [...current, member.id]
-            );
-      };
-
       const clearSelectedMembers = () => {
-            setSelectedMemberIds([]);
+            // Simple Mode actions are now handled per member row.
       };
 
       const handleOpenAddDialog = () => {
@@ -1177,99 +1185,13 @@ export default function Members() {
                               </div>
                         </div>
 
-                        {isSimple && selectedMemberIds.length > 0 && (
-                              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                          <div className="text-sm text-slate-600">
-                                                {selectedMemberForAction ? (
-                                                      <>
-                                                            Đã chọn:{' '}
-                                                            <span className="font-semibold text-slate-900">
-                                                                  {getDisplayName(selectedMemberForAction)}
-                                                            </span>
-                                                      </>
-                                                ) : (
-                                                      <>
-                                                            Đã chọn{' '}
-                                                            <span className="font-semibold text-slate-900">
-                                                                  {selectedMemberIds.length}
-                                                            </span>{' '}
-                                                            học viên
-                                                      </>
-                                                )}
-                                          </div>
-
-                                          <div className="flex flex-wrap items-center gap-2">
-                                                {selectedMemberForAction && (
-                                                      <>
-                                                            <button
-                                                                  type="button"
-                                                                  onClick={() =>
-                                                                        handleOpenDetail(selectedMemberForAction)
-                                                                  }
-                                                                  className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                                                            >
-                                                                  Xem chi tiết
-                                                            </button>
-
-                                                            {isResidentLeft(selectedMemberForAction) ? (
-                                                                  <button
-                                                                        type="button"
-                                                                        onClick={() =>
-                                                                              handleReactivateMember(selectedMemberForAction)
-                                                                        }
-                                                                        disabled={reactivateMemberMutation.isPending}
-                                                                        className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                  >
-                                                                        {reactivateMemberMutation.isPending
-                                                                              ? 'Đang đăng ký lại...'
-                                                                              : 'Đăng ký lại'}
-                                                                  </button>
-                                                            ) : (
-                                                                  <>
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() =>
-                                                                                    handleOpenAssignRoomDialog(selectedMemberForAction)
-                                                                              }
-                                                                              className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                                                                        >
-                                                                              Phòng ở
-                                                                        </button>
-
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() =>
-                                                                                    handleLeaveOrDeleteMember(selectedMemberForAction)
-                                                                              }
-                                                                              className="rounded-xl border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
-                                                                        >
-                                                                              Ngừng / Rời lưu xá
-                                                                        </button>
-                                                                  </>
-                                                            )}
-                                                      </>
-                                                )}
-
-                                                <button
-                                                      type="button"
-                                                      onClick={clearSelectedMembers}
-                                                      className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50"
-                                                >
-                                                      Bỏ chọn
-                                                </button>
-                                          </div>
-                                    </div>
-                              </div>
-                        )}
-
                         <div>
                               <div className="mb-4">
                                     <h2 className="text-2xl font-bold text-slate-950">
                                           Danh sách học viên
                                     </h2>
                                     <p className="mt-1 text-sm text-slate-500">
-                                          {members.length} học viên đang hiển thị từ dữ liệu hệ thống
+                                          {sortedMembers.length} học viên đang hiển thị từ dữ liệu hệ thống
                                     </p>
                               </div>
 
@@ -1279,7 +1201,7 @@ export default function Members() {
                                     </div>
                               ) : isSimple ? (
                                     <>
-                                          {members.length === 0 ? (
+                                          {sortedMembers.length === 0 ? (
                                                 <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-500">
                                                       Không có học viên nào phù hợp.
                                                 </div>
@@ -1289,8 +1211,13 @@ export default function Members() {
                                                             <SimpleMemberCard
                                                                   key={member.id}
                                                                   member={member}
-                                                                  selected={selectedMemberIds.includes(member.id)}
-                                                                  onToggleSelect={handleToggleSelectMember}
+                                                                  onView={handleOpenDetail}
+                                                                  onRoomAction={handleOpenAssignRoomDialog}
+                                                                  onLeaveOrDelete={handleLeaveOrDeleteMember}
+                                                                  onReactivate={handleReactivateMember}
+                                                                  isRoomProcessing={assignRoomMutation.isPending}
+                                                                  isLeaving={markAsLeftMutation.isPending}
+                                                                  isReactivating={reactivateMemberMutation.isPending}
                                                             />
                                                       ))}
                                                 </div>
@@ -1300,17 +1227,17 @@ export default function Members() {
                                                 <div className="text-sm text-slate-500">
                                                       Hiển thị{' '}
                                                       <span className="font-medium text-slate-900">
-                                                            {members.length === 0
+                                                            {sortedMembers.length === 0
                                                                   ? 0
                                                                   : (simplePage - 1) * simplePageSize + 1}
                                                       </span>
                                                       {' '}–{' '}
                                                       <span className="font-medium text-slate-900">
-                                                            {Math.min(simplePage * simplePageSize, members.length)}
+                                                            {Math.min(simplePage * simplePageSize, sortedMembers.length)}
                                                       </span>
                                                       {' '}trên{' '}
                                                       <span className="font-medium text-slate-900">
-                                                            {members.length}
+                                                            {sortedMembers.length}
                                                       </span>
                                                       {' '}học viên
                                                 </div>
@@ -1366,7 +1293,7 @@ export default function Members() {
                                           moduleKey="members"
                                           tableKey="members.list"
                                           columns={memberColumns}
-                                          data={members}
+                                          data={sortedMembers}
                                           getRowKey={(member, index) => member.id || index}
                                           isLoading={membersQuery.isLoading}
                                           loadingText="Đang tải dữ liệu học viên..."

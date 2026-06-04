@@ -40,14 +40,36 @@ function getRoomTextForCard(member: any) {
       return 'Chưa gán';
 }
 
+function getLeftCardClass(member: any) {
+      if (isResidentLeft(member)) {
+            return 'border-rose-200 bg-rose-50/60 hover:border-rose-300';
+      }
+
+      if (isResidentInactive(member)) {
+            return 'border-amber-200 bg-amber-50/40 hover:border-amber-300';
+      }
+
+      return 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md';
+}
+
 export function SimpleMemberCard({
       member,
-      selected,
-      onToggleSelect,
+      onView,
+      onRoomAction,
+      onLeaveOrDelete,
+      onReactivate,
+      isRoomProcessing = false,
+      isLeaving = false,
+      isReactivating = false,
 }: {
       member: any;
-      selected: boolean;
-      onToggleSelect: (member: any) => void;
+      onView: (member: any) => void;
+      onRoomAction: (member: any) => void;
+      onLeaveOrDelete: (member: any) => void;
+      onReactivate: (member: any) => void;
+      isRoomProcessing?: boolean;
+      isLeaving?: boolean;
+      isReactivating?: boolean;
 }) {
       const memberHasRoom = hasCurrentRoom(member);
       const memberIsLeft = isResidentLeft(member);
@@ -65,129 +87,139 @@ export function SimpleMemberCard({
             !memberHasRoom && !memberIsLeft && !memberIsInactive;
 
       return (
-            <button
-                  type="button"
-                  onClick={() => onToggleSelect(member)}
+            <div
                   className={[
-                        'w-full rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md',
-                        selected
-                              ? 'border-slate-900 ring-2 ring-slate-900/10'
-                              : 'border-slate-200',
+                        'w-full rounded-2xl border p-4 text-left shadow-sm transition',
+                        getLeftCardClass(member),
                   ].join(' ')}
             >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="flex min-w-0 flex-1 gap-3">
-                              <div className="pt-1">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                    <div className="text-base font-semibold text-slate-900">
+                                          {getDisplayName(member)}
+                                    </div>
+
                                     <span
                                           className={[
-                                                'flex h-5 w-5 items-center justify-center rounded-md border text-xs',
-                                                selected
-                                                      ? 'border-slate-900 bg-slate-900 text-white'
-                                                      : 'border-slate-300 bg-white text-transparent',
+                                                'inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1',
+                                                getStatusBadgeClass(member),
                                           ].join(' ')}
                                     >
-                                          ✓
+                                          {statusLabel}
+                                    </span>
+
+                                    <span
+                                          className={[
+                                                'inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1',
+                                                accountBadge.className,
+                                          ].join(' ')}
+                                    >
+                                          {accountBadge.label}
                                     </span>
                               </div>
 
-                              <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                          <div className="text-base font-semibold text-slate-900">
-                                                {getDisplayName(member)}
+                              <div className="mt-3 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+                                    <div>
+                                          <div className="text-xs text-slate-400">Phòng</div>
+                                          <div
+                                                className={
+                                                      shouldHighlightMissingRoom
+                                                            ? 'font-medium text-amber-700'
+                                                            : 'font-medium text-slate-800'
+                                                }
+                                          >
+                                                {roomText}
                                           </div>
-
-                                          <span
-                                                className={[
-                                                      'inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1',
-                                                      getStatusBadgeClass(member),
-                                                ].join(' ')}
-                                          >
-                                                {statusLabel}
-                                          </span>
-
-                                          <span
-                                                className={[
-                                                      'inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1',
-                                                      accountBadge.className,
-                                                ].join(' ')}
-                                          >
-                                                {accountBadge.label}
-                                          </span>
                                     </div>
 
-                                    <div className="mt-3 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-                                          <div>
-                                                <div className="text-xs text-slate-400">
-                                                      Phòng
-                                                </div>
-                                                <div
-                                                      className={
-                                                            shouldHighlightMissingRoom
-                                                                  ? 'font-medium text-amber-700'
-                                                                  : 'font-medium text-slate-800'
-                                                      }
-                                                >
-                                                      {roomText}
-                                                </div>
+                                    <div>
+                                          <div className="text-xs text-slate-400">
+                                                Gia đình / liên hệ
                                           </div>
-
-                                          <div>
-                                                <div className="text-xs text-slate-400">
-                                                      Gia đình / liên hệ
-                                                </div>
-                                                <div
-                                                      className={
-                                                            primaryContactText === 'Chưa có người liên hệ' &&
+                                          <div
+                                                className={
+                                                      primaryContactText === 'Chưa có người liên hệ' &&
                                                             !memberIsLeft
-                                                                  ? 'font-medium text-amber-700'
-                                                                  : 'font-medium text-slate-800'
-                                                      }
-                                                >
-                                                      {primaryContactText}
-                                                </div>
-                                          </div>
-
-                                          <div>
-                                                <div className="text-xs text-slate-400">
-                                                      Điện thoại
-                                                </div>
-                                                <div className="font-medium text-slate-800">
-                                                      {member?.phoneNumber || '-'}
-                                                </div>
-                                          </div>
-
-                                          <div>
-                                                <div className="text-xs text-slate-400">
-                                                      Mã học viên
-                                                </div>
-                                                <div className="font-medium text-slate-800">
-                                                      {member?.residentCode ||
-                                                            member?.code ||
-                                                            'Chưa có'}
-                                                </div>
+                                                            ? 'font-medium text-amber-700'
+                                                            : 'font-medium text-slate-800'
+                                                }
+                                          >
+                                                {primaryContactText}
                                           </div>
                                     </div>
 
-                                    {attentionItems.length > 0 && (
-                                          <div className="mt-3 flex flex-wrap gap-2">
-                                                {attentionItems.map((item) => (
-                                                      <span
-                                                            key={item}
-                                                            className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200"
-                                                      >
-                                                            {item}
-                                                      </span>
-                                                ))}
+                                    <div>
+                                          <div className="text-xs text-slate-400">Điện thoại</div>
+                                          <div className="font-medium text-slate-800">
+                                                {member?.phoneNumber || '-'}
                                           </div>
-                                    )}
+                                    </div>
+
+                                    <div>
+                                          <div className="text-xs text-slate-400">Mã học viên</div>
+                                          <div className="font-medium text-slate-800">
+                                                {member?.residentCode || member?.code || 'Chưa có'}
+                                          </div>
+                                    </div>
                               </div>
+
+                              {attentionItems.length > 0 && (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                          {attentionItems.map((item) => (
+                                                <span
+                                                      key={item}
+                                                      className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200"
+                                                >
+                                                      {item}
+                                                </span>
+                                          ))}
+                                    </div>
+                              )}
                         </div>
 
-                        <div className="text-xs font-medium text-slate-400">
-                              {selected ? 'Đang chọn' : 'Bấm để chọn'}
+                        <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
+                              <button
+                                    type="button"
+                                    onClick={() => onView(member)}
+                                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                              >
+                                    Xem chi tiết
+                              </button>
+
+                              {memberIsLeft ? (
+                                    <button
+                                          type="button"
+                                          onClick={() => onReactivate(member)}
+                                          disabled={isReactivating}
+                                          className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                          {isReactivating ? 'Đang đăng ký...' : 'Đăng ký lại'}
+                                    </button>
+                              ) : (
+                                    <>
+                                          <button
+                                                type="button"
+                                                onClick={() => onRoomAction(member)}
+                                                disabled={isRoomProcessing}
+                                                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                          >
+                                                {memberHasRoom ? 'Chuyển phòng' : 'Gắn phòng'}
+                                          </button>
+
+                                          <button
+                                                type="button"
+                                                onClick={() => onLeaveOrDelete(member)}
+                                                disabled={isLeaving}
+                                                className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                          >
+                                                Ngừng / Rời
+                                          </button>
+                                    </>
+                              )}
                         </div>
                   </div>
-            </button>
+            </div>
       );
 }
 
