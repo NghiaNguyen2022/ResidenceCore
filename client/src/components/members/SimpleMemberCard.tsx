@@ -1,5 +1,7 @@
 'use client';
+
 import { getStatusLabel } from './memberUtils';
+
 function getDisplayName(member: any) {
       if (member?.holyName && member?.fullName) {
             return `${member.holyName} ${member.fullName}`;
@@ -8,7 +10,40 @@ function getDisplayName(member: any) {
       return member?.fullName || member?.name || 'Chưa có tên';
 }
 
+function getRawStatus(member: any) {
+      return member?.status || member?.residenceStatus || '';
+}
+
+function isResidentLeft(member: any) {
+      const status = getRawStatus(member);
+
+      return (
+            status === 'transferred_out' ||
+            status === 'left' ||
+            status === 'Đã rời lưu xá'
+      );
+}
+
+function isResidentInactive(member: any) {
+      const status = getRawStatus(member);
+
+      return (
+            status === 'inactive' ||
+            status === 'temporary_leave' ||
+            status === 'Tạm ngưng' ||
+            status === 'Tạm vắng'
+      );
+}
+
 function getRoomText(member: any) {
+      if (isResidentLeft(member)) {
+            return 'Đã rời lưu xá';
+      }
+
+      if (isResidentInactive(member)) {
+            return 'Tạm ngưng lưu trú';
+      }
+
       if (member?.currentRoomName) return member.currentRoomName;
       if (member?.currentRoomCode) return member.currentRoomCode;
       if (member?.currentRoomNumber) return member.currentRoomNumber;
@@ -25,6 +60,28 @@ function getRoomText(member: any) {
       if (member?.roomId) return `Phòng ID: ${member.roomId}`;
 
       return 'Chưa gán phòng';
+}
+
+function hasRoom(member: any) {
+      if (isResidentLeft(member) || isResidentInactive(member)) {
+            return true;
+      }
+
+      return !!(
+            member?.currentRoomId ||
+            member?.currentRoomName ||
+            member?.currentRoomCode ||
+            member?.currentRoomNumber ||
+            member?.roomId ||
+            member?.roomName ||
+            member?.roomCode ||
+            member?.roomNumber ||
+            member?.room?.id ||
+            member?.room?.roomId ||
+            member?.room?.roomName ||
+            member?.room?.roomCode ||
+            member?.room?.roomNumber
+      );
 }
 
 function getSchoolText(member: any) {
@@ -76,56 +133,75 @@ function getPrimaryContactText(member: any) {
       return 'Chưa có người liên hệ';
 }
 
-function hasRoom(member: any) {
-      if (
-            member?.currentRoomId ||
-            member?.currentRoomCode ||
-            member?.currentRoomName
-      ) {
-            return true;
+function getAccountBadge(member: any) {
+      const hasUser = !!member?.userId;
+
+      if (!hasUser) {
+            return {
+                  label: 'Chưa có tài khoản',
+                  className: 'bg-amber-50 text-amber-700 ring-amber-200',
+            };
       }
 
-      if (member?.roomCode || member?.roomName || member?.roomNumber) {
-            return true;
+      const isAccountInactive =
+            member?.userIsActive === false ||
+            member?.isUserActive === false ||
+            member?.accountIsActive === false;
+
+      if (isAccountInactive || isResidentLeft(member) || isResidentInactive(member)) {
+            return {
+                  label: 'Đã khóa tài khoản',
+                  className: 'bg-slate-100 text-slate-600 ring-slate-300',
+            };
       }
 
+      return {
+            label: 'Đã có tài khoản',
+            className: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+      };
+}
+
+function getStatusBadgeClass(member: any) {
+      if (isResidentLeft(member)) {
+            return 'bg-rose-50 text-rose-700 ring-rose-200';
+      }
+
+      if (isResidentInactive(member)) {
+            return 'bg-amber-50 text-amber-700 ring-amber-200';
+      }
+
+      return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+}
+
+function getAttentionItems(member: any) {
       /**
-       * Không chỉ dựa vào roomId nếu backend chưa đồng bộ roomId khi trả/trả phòng.
-       * Nhưng nếu hiện tại DB đang dùng roomId là nguồn chính thì vẫn fallback.
+       * Học viên đã rời lưu xá không còn là hồ sơ cần xử lý hằng ngày.
+       * Không báo thiếu phòng, thiếu liên hệ, thiếu tài khoản ở card Simple.
        */
-      return !!member?.roomId;
-}
+      if (isResidentLeft(member)) {
+            return [];
+      }
 
-function hasUser(member: any) {
-      return !!member?.userId;
-}
+      const items: string[] = [];
 
-function getMissingItems(member: any) {
-      const missingItems: string[] = [];
+      if (!hasRoom(member)) {
+            items.push('Chưa có phòng');
+      }
 
-      const missingRoom = !(
-            member.currentRoomId ||
-            member.currentRoomCode ||
-            member.currentRoomName ||
-            member.roomId ||
-            member.roomName ||
-            member.roomNumber ||
-            member.roomCode
-      );
-      const missingUser = !member?.userId;
+      if (!member?.userId) {
+            items.push('Chưa có tài khoản');
+      }
 
-      const missingContact = !(
-            (member?.primaryContactName && member?.primaryContactPhone) ||
-            (member?.primaryParentName && member?.primaryParentPhone) ||
-            (member?.parentName && member?.parentPhone) ||
-            (member?.contactName && member?.contactPhone)
+      const hasContact = !!(
+            member?.primaryContactName &&
+            member?.primaryContactPhone
       );
 
-      if (missingRoom) missingItems.push('chưa có phòng');
-      if (missingUser) missingItems.push('chưa có tài khoản');
-      if (missingContact) missingItems.push('thiếu liên hệ');
+      if (!hasContact) {
+            items.push('Thiếu liên hệ');
+      }
 
-      return missingItems;
+      return items;
 }
 
 export function SimpleMemberCard({
@@ -138,12 +214,15 @@ export function SimpleMemberCard({
       onToggleSelect: (member: any) => void;
 }) {
       const memberHasRoom = hasRoom(member);
-      const memberHasUser = hasUser(member);
-      const missingItems = getMissingItems(member);
+      const accountBadge = getAccountBadge(member);
+      const attentionItems = getAttentionItems(member);
 
       const statusLabel = getStatusLabel(
             member?.status || member?.residenceStatus || 'active'
       );
+
+      const roomText = getRoomText(member);
+      const primaryContactText = getPrimaryContactText(member);
 
       return (
             <button
@@ -176,29 +255,23 @@ export function SimpleMemberCard({
                                           <div className="text-base font-semibold text-slate-900">
                                                 {getDisplayName(member)}
                                           </div>
-
-                                          <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+                                          <span
+                                                className={[
+                                                      'inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1',
+                                                      getStatusBadgeClass(member),
+                                                ].join(' ')}
+                                          >
                                                 {statusLabel}
                                           </span>
 
                                           <span
                                                 className={[
                                                       'inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1',
-                                                      memberHasUser
-                                                            ? 'bg-slate-50 text-slate-700 ring-slate-200'
-                                                            : 'bg-amber-50 text-amber-700 ring-amber-200',
+                                                      accountBadge.className,
                                                 ].join(' ')}
                                           >
-                                                {memberHasUser
-                                                      ? 'Đã có tài khoản'
-                                                      : 'Chưa có tài khoản'}
+                                                {accountBadge.label}
                                           </span>
-
-                                          {missingItems.length > 0 && (
-                                                <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 ring-1 ring-rose-200">
-                                                      Cần xử lý: {missingItems.join(', ')}
-                                                </span>
-                                          )}
                                     </div>
 
                                     <div className="mt-3 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
@@ -213,7 +286,7 @@ export function SimpleMemberCard({
                                                                   : 'font-medium text-amber-700'
                                                       }
                                                 >
-                                                      {getRoomText(member)}
+                                                      {roomText}
                                                 </div>
                                           </div>
 
@@ -221,17 +294,24 @@ export function SimpleMemberCard({
                                                 <div className="text-xs text-slate-400">
                                                       Gia đình / liên hệ
                                                 </div>
-                                                <div className="font-medium text-slate-800">
-                                                      {getPrimaryContactText(member)}
+                                                <div
+                                                      className={
+                                                            primaryContactText === 'Chưa có người liên hệ' &&
+                                                                  !isResidentLeft(member)
+                                                                  ? 'font-medium text-amber-700'
+                                                                  : 'font-medium text-slate-800'
+                                                      }
+                                                >
+                                                      {primaryContactText}
                                                 </div>
                                           </div>
 
                                           <div>
                                                 <div className="text-xs text-slate-400">
-                                                      Học tập
+                                                      Điện thoại
                                                 </div>
                                                 <div className="font-medium text-slate-800">
-                                                      {getSchoolText(member)}
+                                                      {member?.phoneNumber || '-'}
                                                 </div>
                                           </div>
 
@@ -246,6 +326,19 @@ export function SimpleMemberCard({
                                                 </div>
                                           </div>
                                     </div>
+
+                                    {attentionItems.length > 0 && (
+                                          <div className="mt-3 flex flex-wrap gap-2">
+                                                {attentionItems.map((item) => (
+                                                      <span
+                                                            key={item}
+                                                            className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200"
+                                                      >
+                                                            {item}
+                                                      </span>
+                                                ))}
+                                          </div>
+                                    )}
                               </div>
                         </div>
 
@@ -255,40 +348,6 @@ export function SimpleMemberCard({
                   </div>
             </button>
       );
-}
-function getAttentionItems(member: any) {
-      const items: string[] = [];
-
-      const hasRoom = !!(
-            member.currentRoomId ||
-            member.currentRoomCode ||
-            member.currentRoomName ||
-            member.roomId ||
-            member.roomName ||
-            member.roomNumber ||
-            member.roomCode
-      );
-
-      const hasUser = !!member.userId;
-
-      const hasContact = !!(
-            member.primaryContactName &&
-            member.primaryContactPhone
-      );
-
-      if (!hasRoom) {
-            items.push('Chưa có phòng');
-      }
-
-      if (!hasUser) {
-            items.push('Chưa có tài khoản');
-      }
-
-      if (!hasContact) {
-            items.push('Thiếu liên hệ');
-      }
-
-      return items;
 }
 
 export default SimpleMemberCard;

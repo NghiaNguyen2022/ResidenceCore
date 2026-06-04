@@ -7,13 +7,13 @@ import { userDb } from "../../db";
 
 const parentSchema = z.object({
       parentType: z.enum(["father", "mother", "guardian"]),
-      fullName: z.string().min(1, "Tên không được để trống"),
-      phoneNumber: z.string().optional(),
-      email: z.string().optional(),
-      idNumber: z.string().optional(),
-      occupation: z.string().optional(),
-      address: z.string().optional(),
-      notes: z.string().optional(),
+      fullName: z.string().trim().min(1, "Tên không được để trống"),
+      phoneNumber: z.string().trim().min(1, "Số điện thoại không được để trống"),
+      email: z.string().trim().optional().nullable(),
+      idNumber: z.string().trim().optional().nullable(),
+      occupation: z.string().trim().optional().nullable(),
+      address: z.string().trim().optional().nullable(),
+      notes: z.string().trim().optional().nullable(),
 });
 function requireMemberManagementAccess(user: {
       id?: number;
@@ -89,7 +89,7 @@ export const membersRouter = router({
             .input(
                   z.object({
                         holyName: z.string().trim().optional().nullable(),
-                        fullName: z.string().min(1, "Tên không được để trống"),
+                        fullName: z.string().trim().min(1, "Tên không được để trống"),
                         dateOfBirth: z.date().optional(),
                         gender: z.enum(["male", "female", "other"]).optional(),
                         idNumber: z.string().optional(),
@@ -119,7 +119,7 @@ export const membersRouter = router({
                   z.object({
                         id: z.number(),
                         holyName: z.string().trim().optional().nullable(),
-                        fullName: z.string().optional(),
+                        fullName: z.string().trim().optional(),
                         dateOfBirth: z.date().optional(),
                         gender: z.enum(["male", "female", "other"]).optional(),
                         idNumber: z.string().optional(),
@@ -155,11 +155,21 @@ export const membersRouter = router({
             .mutation(async ({ input }) => {
                   try {
                         return await memberService.deleteMember(input.id);
-                  } catch (error) {
+                  } catch (error: any) {
                         console.error("[members.delete] Error:", error);
+
+                        const isForeignKeyError =
+                              error?.code === "ER_ROW_IS_REFERENCED_2" ||
+                              error?.errno === 1451 ||
+                              String(error?.message || "").includes("foreign key constraint fails");
+
                         throw new TRPCError({
                               code: "BAD_REQUEST",
-                              message: error instanceof Error ? error.message : "Failed to delete member",
+                              message: isForeignKeyError
+                                    ? "Không thể xóa hồ sơ vì học viên đã phát sinh dữ liệu liên quan. Vui lòng dùng chức năng Rời lưu xá / Ngừng lưu trú để giữ lịch sử."
+                                    : error instanceof Error
+                                          ? error.message
+                                          : "Failed to delete member",
                         });
                   }
             }),
@@ -315,7 +325,7 @@ export const membersRouter = router({
             }),
       suggestResidentUsername: protectedProcedure
             .input(suggestResidentUsernameSchema)
-            .mutation(async ({ ctx, input }) => {
+            .query(async ({ ctx, input }) => {
                   requireMemberManagementAccess(ctx.user);
 
                   const baseUsername = userDb.generateResidentUsernameBase(input.fullName);

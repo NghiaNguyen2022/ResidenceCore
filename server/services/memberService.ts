@@ -228,8 +228,23 @@ export class MemberService {
       }
 
       async deleteMember(id: number) {
-            await db.deleteResident(id);
-            return { success: true } as const;
+            try {
+                  await db.deleteResident(id);
+                  return { success: true } as const;
+            } catch (error: any) {
+                  const isForeignKeyError =
+                        error?.code === 'ER_ROW_IS_REFERENCED_2' ||
+                        error?.errno === 1451 ||
+                        String(error?.message || '').includes('foreign key constraint fails');
+
+                  if (isForeignKeyError) {
+                        throw new Error(
+                              'Không thể xóa hồ sơ vì học viên đã phát sinh dữ liệu liên quan. Vui lòng dùng chức năng Rời lưu xá / Ngừng lưu trú để giữ lịch sử.'
+                        );
+                  }
+
+                  throw error;
+            }
       }
 
       async markAsLeft(id: number, departureDate: Date) {
