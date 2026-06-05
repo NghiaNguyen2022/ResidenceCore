@@ -48,7 +48,7 @@ import Reports from "./pages/Reports";
 import OrganizationUnits from "@/pages/OrganizationUnits";
 import DailyRoutine from "@/pages/DailyRoutine";
 import UserManagement from "@/pages/UserManagement";
-
+import MyProfile from "./pages/MyProfile";
 
 
 function Router() {
@@ -106,7 +106,7 @@ function Router() {
                   <Route path="/my-duties" component={MyDuties} />
 
                   <Route path="/settings/users" component={UserManagement} />
-
+                  <Route path="/my-profile" component={MyProfile} />
                   {/* Final fallback route */}
                   <Route component={NotFound} />
             </Switch>

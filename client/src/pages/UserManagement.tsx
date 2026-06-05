@@ -29,16 +29,77 @@ const ROLE_LABELS: Record<string, string> = {
       secretary: "Thư ký",
       treasurer: "Thủ quỹ",
 
-      // Giữ tương thích dữ liệu cũ nếu còn
+      // Chỉ để hiển thị nếu còn dữ liệu cũ
       admin: "Quản trị cũ",
       supervisor: "Người phụ trách cũ",
       accountant: "Kế toán cũ",
       user: "Người dùng",
 };
 
+const APPOINTMENT_ROLES = new Set([
+      "team_leader",
+      "committee_head",
+      "house_leader",
+      "deputy",
+      "secretary",
+      "treasurer",
+]);
+
 function getRoleLabel(roleKey?: string | null) {
       if (!roleKey) return "Chưa phân quyền";
       return ROLE_LABELS[roleKey] ?? roleKey;
+}
+
+function isManagerRole(roleKey?: string | null) {
+      return roleKey === "manager";
+}
+
+function isResidentRole(roleKey?: string | null) {
+      return roleKey === "resident";
+}
+
+function isAppointmentRole(roleKey?: string | null) {
+      return Boolean(roleKey && APPOINTMENT_ROLES.has(roleKey));
+}
+
+function getAccountTypeLabel(roleKey?: string | null) {
+      if (isManagerRole(roleKey)) return "Quản lý";
+      if (isResidentRole(roleKey)) return "Học viên";
+      if (isAppointmentRole(roleKey)) return "Vai trò bổ nhiệm";
+      if (!roleKey) return "Chưa phân loại";
+      return "Dữ liệu cũ / khác";
+}
+
+function getAccountTypeClass(roleKey?: string | null) {
+      if (isManagerRole(roleKey)) {
+            return "bg-blue-50 text-blue-700 ring-blue-100";
+      }
+
+      if (isResidentRole(roleKey)) {
+            return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+      }
+
+      if (isAppointmentRole(roleKey)) {
+            return "bg-violet-50 text-violet-700 ring-violet-100";
+      }
+
+      return "bg-slate-50 text-slate-600 ring-slate-200";
+}
+
+function getRoleManagementNote(roleKey?: string | null) {
+      if (isManagerRole(roleKey)) {
+            return "Tài khoản quản lý được tạo và quản lý tại màn hình này.";
+      }
+
+      if (isResidentRole(roleKey)) {
+            return "Tài khoản học viên được tạo, khóa hoặc mở lại từ hồ sơ học viên.";
+      }
+
+      if (isAppointmentRole(roleKey)) {
+            return "Vai trò bổ nhiệm được điều phối từ nhiệm kỳ, tổ/ban và quy trình bổ nhiệm.";
+      }
+
+      return "Tài khoản thuộc dữ liệu cũ hoặc vai trò khác, không sửa vai trò tại màn hình này.";
 }
 
 function StatusBadge({ active }: { active?: boolean | null }) {
@@ -71,6 +132,19 @@ function PasswordBadge({ mustChange }: { mustChange?: boolean | null }) {
       );
 }
 
+function AccountTypeBadge({ role }: { role?: string | null }) {
+      return (
+            <span
+                  className={[
+                        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1",
+                        getAccountTypeClass(role),
+                  ].join(" ")}
+            >
+                  {getAccountTypeLabel(role)}
+            </span>
+      );
+}
+
 function formatDateTime(value?: string | Date | null) {
       if (!value) return "Chưa có";
 
@@ -90,6 +164,9 @@ export default function UserManagement() {
 
       const [search, setSearch] = useState("");
       const [showCreateForm, setShowCreateForm] = useState(false);
+      const [formMessage, setFormMessage] = useState<string | null>(null);
+      const [resetTargetUser, setResetTargetUser] = useState<any | null>(null);
+      const [resetMessage, setResetMessage] = useState<string | null>(null);
 
       const usersQuery = trpc.users.list.useQuery({
             search: search.trim() || undefined,
@@ -117,6 +194,12 @@ export default function UserManagement() {
             },
       });
 
+      const resetPasswordMutation = trpc.users.resetPassword.useMutation({
+            onSuccess: async () => {
+                  await utils.users.list.invalidate();
+            },
+      });
+
       const [form, setForm] = useState({
             name: "",
             username: "",
@@ -135,28 +218,54 @@ export default function UserManagement() {
                   mustChangePassword: true,
                   isActive: true,
             });
+            setFormMessage(null);
       }
 
       const users = usersQuery.data ?? [];
 
       const stats = useMemo(() => {
             const total = users.length;
-            const active = users.filter((user) => user.isActive).length;
-            const linkedResidents = users.filter((user) => user.residentId).length;
+            const managers = users.filter((user) => user.role === "manager").length;
+            const residents = users.filter((user) => user.role === "resident").length;
+            const appointmentRoles = users.filter((user) =>
+                  isAppointmentRole(user.role)
+            ).length;
+            const locked = users.filter((user) => !user.isActive).length;
             const mustChangePassword = users.filter(
                   (user) => user.mustChangePassword
             ).length;
 
             return {
                   total,
-                  active,
-                  linkedResidents,
+                  managers,
+                  residents,
+                  appointmentRoles,
+                  locked,
                   mustChangePassword,
+                  needsAttention: locked + mustChangePassword,
             };
       }, [users]);
 
       async function handleCreateUser() {
-            if (!form.name.trim() || !form.username.trim() || !form.password.trim()) {
+            setFormMessage(null);
+
+            if (!form.name.trim()) {
+                  setFormMessage("Vui lòng nhập họ tên người quản lý.");
+                  return;
+            }
+
+            if (!form.username.trim()) {
+                  setFormMessage("Vui lòng nhập tên đăng nhập.");
+                  return;
+            }
+
+            if (!form.password.trim()) {
+                  setFormMessage("Vui lòng nhập mật khẩu tạm.");
+                  return;
+            }
+
+            if (form.password.trim().length < 6) {
+                  setFormMessage("Mật khẩu tạm phải có ít nhất 6 ký tự.");
                   return;
             }
 
@@ -170,22 +279,61 @@ export default function UserManagement() {
             });
       }
 
+      function canToggleAccount(user: any) {
+            return user.role === "manager";
+      }
+
+      function openResetPassword(user: any) {
+            setResetTargetUser(user);
+            setResetMessage(null);
+      }
+
+      function closeResetPassword() {
+            if (resetPasswordMutation.isPending) return;
+            setResetTargetUser(null);
+            setResetMessage(null);
+      }
+
+      async function handleResetPassword() {
+            setResetMessage(null);
+
+            if (!resetTargetUser?.id) {
+                  setResetMessage("Không xác định được tài khoản cần reset mật khẩu.");
+                  return;
+            }
+
+            try {
+                  await resetPasswordMutation.mutateAsync({
+                        userId: resetTargetUser.id,
+                  });
+
+                  closeResetPassword();
+            } catch (error: any) {
+                  setResetMessage(
+                        error?.message || "Không thể reset mật khẩu. Vui lòng thử lại."
+                  );
+            }
+      }
+
       return (
             <ResidenceCareLayout>
                   <div className="space-y-5">
                         <div className="flex flex-col gap-3 rounded-2xl border bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
                               <div>
                                     <h1 className="text-xl font-semibold text-slate-900">
-                                          Người dùng & phân quyền
+                                          Người dùng & quyền truy cập
                                     </h1>
-                                    <p className="mt-1 text-sm text-slate-500">
-                                          Theo dõi tài khoản đăng nhập trong lưu xá. Tài khoản tạo tại màn hình này mặc định là Quản lý lưu xá.
+                                    <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+                                          Quản lý tài khoản đăng nhập trong lưu xá. Màn hình này chỉ tạo trực tiếp tài khoản quản lý; tài khoản học viên và các vai trò bổ nhiệm được điều phối từ các quy trình nghiệp vụ tương ứng.
                                     </p>
                               </div>
 
                               <button
                                     type="button"
-                                    onClick={() => setShowCreateForm((value) => !value)}
+                                    onClick={() => {
+                                          setShowCreateForm((value) => !value);
+                                          setFormMessage(null);
+                                    }}
                                     className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
                               >
                                     {showCreateForm ? "Đóng" : "Tạo quản lý"}
@@ -194,33 +342,61 @@ export default function UserManagement() {
 
                         <div className="grid gap-3 md:grid-cols-4">
                               <div className="rounded-2xl border bg-white p-4 shadow-sm">
-                                    <div className="text-sm text-slate-500">Tổng người dùng</div>
+                                    <div className="text-sm text-slate-500">Tổng tài khoản</div>
                                     <div className="mt-2 text-2xl font-semibold text-slate-900">
                                           {stats.total}
                                     </div>
                               </div>
 
                               <div className="rounded-2xl border bg-white p-4 shadow-sm">
-                                    <div className="text-sm text-slate-500">Đang hoạt động</div>
+                                    <div className="text-sm text-slate-500">Quản lý</div>
+                                    <div className="mt-2 text-2xl font-semibold text-blue-700">
+                                          {stats.managers}
+                                    </div>
+                              </div>
+
+                              <div className="rounded-2xl border bg-white p-4 shadow-sm">
+                                    <div className="text-sm text-slate-500">Học viên</div>
                                     <div className="mt-2 text-2xl font-semibold text-emerald-700">
-                                          {stats.active}
+                                          {stats.residents}
                                     </div>
                               </div>
 
                               <div className="rounded-2xl border bg-white p-4 shadow-sm">
-                                    <div className="text-sm text-slate-500">Học viên có tài khoản</div>
-                                    <div className="mt-2 text-2xl font-semibold text-slate-900">
-                                          {stats.linkedResidents}
-                                    </div>
-                              </div>
-
-                              <div className="rounded-2xl border bg-white p-4 shadow-sm">
-                                    <div className="text-sm text-slate-500">Cần đổi mật khẩu</div>
+                                    <div className="text-sm text-slate-500">Cần xử lý</div>
                                     <div className="mt-2 text-2xl font-semibold text-amber-700">
-                                          {stats.mustChangePassword}
+                                          {stats.needsAttention}
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                          {stats.mustChangePassword} cần đổi mật khẩu · {stats.locked} đã khóa
                                     </div>
                               </div>
                         </div>
+
+                        {isDetailed && (
+                              <div className="grid gap-3 md:grid-cols-2">
+                                    <div className="rounded-2xl border bg-white p-4 shadow-sm">
+                                          <div className="text-sm text-slate-500">
+                                                Vai trò bổ nhiệm đang hiển thị
+                                          </div>
+                                          <div className="mt-2 text-2xl font-semibold text-violet-700">
+                                                {stats.appointmentRoles}
+                                          </div>
+                                          <p className="mt-1 text-xs leading-5 text-slate-500">
+                                                Chỉ hiển thị để theo dõi. Việc bổ nhiệm, hết nhiệm kỳ hoặc bãi nhiệm được xử lý tại module Tổ chức lưu xá.
+                                          </p>
+                                    </div>
+
+                                    <div className="rounded-2xl border bg-white p-4 shadow-sm">
+                                          <div className="text-sm text-slate-500">
+                                                Quy tắc tạo tài khoản
+                                          </div>
+                                          <p className="mt-2 text-sm leading-6 text-slate-600">
+                                                Màn hình này chỉ tạo tài khoản quản lý. Tài khoản học viên được tạo khi thêm học viên; vai trò bổ nhiệm được cấp hoặc ngừng theo quy trình bổ nhiệm.
+                                          </p>
+                                    </div>
+                              </div>
+                        )}
 
                         {showCreateForm && (
                               <div className="rounded-2xl border bg-white p-5 shadow-sm">
@@ -228,8 +404,8 @@ export default function UserManagement() {
                                           <h2 className="text-base font-semibold text-slate-900">
                                                 Tạo quản lý lưu xá
                                           </h2>
-                                          <p className="mt-1 text-sm text-slate-500">
-                                                Tài khoản tạo tại đây dùng cho người quản lý. Học viên và các chức danh như Tổ trưởng, Trưởng ban, Thủ quỹ sẽ được tạo hoặc gắn quyền từ quy trình nghiệp vụ riêng.
+                                          <p className="mt-1 text-sm leading-6 text-slate-500">
+                                                Tài khoản tạo tại đây chỉ dùng cho người quản lý. Học viên và các chức danh như Tổ trưởng, Trưởng ban, Thủ quỹ không được tạo trực tiếp ở màn hình này.
                                           </p>
                                     </div>
 
@@ -307,7 +483,7 @@ export default function UserManagement() {
                                     </div>
 
                                     <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                                          Vai trò mặc định:{" "}
+                                          Vai trò được tạo:{" "}
                                           <span className="font-medium text-slate-900">
                                                 Quản lý lưu xá
                                           </span>
@@ -342,6 +518,12 @@ export default function UserManagement() {
                                                       />
                                                       <span>Tài khoản đang hoạt động</span>
                                                 </label>
+                                          </div>
+                                    )}
+
+                                    {formMessage && (
+                                          <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                                                {formMessage}
                                           </div>
                                     )}
 
@@ -383,8 +565,8 @@ export default function UserManagement() {
                                           <h2 className="text-lg font-semibold text-slate-900">
                                                 Danh sách người dùng
                                           </h2>
-                                          <p className="mt-1 text-sm text-slate-500">
-                                                Hiển thị toàn bộ người dùng trong hệ thống, bao gồm quản lý, học viên và các chức danh được bổ nhiệm.
+                                          <p className="mt-1 text-sm leading-6 text-slate-500">
+                                                Hiển thị tài khoản quản lý, học viên và các vai trò bổ nhiệm. Role nghiệp vụ chỉ xem tại đây, không chỉnh trực tiếp.
                                           </p>
                                     </div>
 
@@ -417,6 +599,7 @@ export default function UserManagement() {
                                                                         <div className="text-base font-semibold text-slate-900">
                                                                               {user.name || user.username}
                                                                         </div>
+                                                                        <AccountTypeBadge role={user.role} />
                                                                         <StatusBadge active={user.isActive} />
                                                                   </div>
 
@@ -436,9 +619,9 @@ export default function UserManagement() {
                                                                         </div>
 
                                                                         <div>
-                                                                              <span className="text-slate-400">Học viên: </span>
+                                                                              <span className="text-slate-400">Hồ sơ: </span>
                                                                               <span className="text-slate-700">
-                                                                                    {user.residentFullName || "Chưa liên kết"}
+                                                                                    {user.residentFullName || "Không liên kết"}
                                                                               </span>
                                                                         </div>
 
@@ -453,29 +636,39 @@ export default function UserManagement() {
                                                                               </span>
                                                                         </div>
                                                                   </div>
+
+                                                                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                                                                        {getRoleManagementNote(user.role)}
+                                                                  </p>
                                                             </div>
 
                                                             <div className="flex shrink-0 flex-wrap items-center gap-2">
-                                                                  {user.isActive ? (
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() =>
-                                                                                    deactivateMutation.mutate({ userId: user.id })
-                                                                              }
-                                                                              className="rounded-xl border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
-                                                                        >
-                                                                              Khóa
-                                                                        </button>
+                                                                  {canToggleAccount(user) ? (
+                                                                        user.isActive ? (
+                                                                              <button
+                                                                                    type="button"
+                                                                                    onClick={() =>
+                                                                                          deactivateMutation.mutate({ userId: user.id })
+                                                                                    }
+                                                                                    className="rounded-xl border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+                                                                              >
+                                                                                    Khóa
+                                                                              </button>
+                                                                        ) : (
+                                                                              <button
+                                                                                    type="button"
+                                                                                    onClick={() =>
+                                                                                          activateMutation.mutate({ userId: user.id })
+                                                                                    }
+                                                                                    className="rounded-xl border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+                                                                              >
+                                                                                    Mở khóa
+                                                                              </button>
+                                                                        )
                                                                   ) : (
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() =>
-                                                                                    activateMutation.mutate({ userId: user.id })
-                                                                              }
-                                                                              className="rounded-xl border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
-                                                                        >
-                                                                              Mở khóa
-                                                                        </button>
+                                                                        <span className="rounded-xl bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500 ring-1 ring-slate-100">
+                                                                              Điều phối từ nghiệp vụ
+                                                                        </span>
                                                                   )}
                                                             </div>
                                                       </div>
@@ -484,13 +677,14 @@ export default function UserManagement() {
                                     </div>
                               ) : (
                                     <div className="overflow-x-auto">
-                                          <table className="w-full min-w-[980px] border-separate border-spacing-y-2">
+                                          <table className="w-full min-w-[1100px] border-separate border-spacing-y-2">
                                                 <thead>
                                                       <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                                                             <th className="px-3 py-2">Người dùng</th>
                                                             <th className="px-3 py-2">Email</th>
+                                                            <th className="px-3 py-2">Loại</th>
                                                             <th className="px-3 py-2">Vai trò</th>
-                                                            <th className="px-3 py-2">Học viên liên kết</th>
+                                                            <th className="px-3 py-2">Hồ sơ liên kết</th>
                                                             <th className="px-3 py-2">Đăng nhập gần nhất</th>
                                                             <th className="px-3 py-2">Đổi mật khẩu</th>
                                                             <th className="px-3 py-2">Trạng thái</th>
@@ -517,12 +711,19 @@ export default function UserManagement() {
                                                                         {user.email || "Chưa có"}
                                                                   </td>
 
-                                                                  <td className="px-3 py-3 text-sm text-slate-600">
-                                                                        {getRoleLabel(user.role)}
+                                                                  <td className="px-3 py-3">
+                                                                        <AccountTypeBadge role={user.role} />
                                                                   </td>
 
                                                                   <td className="px-3 py-3 text-sm text-slate-600">
-                                                                        {user.residentFullName || "Chưa liên kết"}
+                                                                        <div>{getRoleLabel(user.role)}</div>
+                                                                        <div className="mt-1 text-xs text-slate-400">
+                                                                              {getRoleManagementNote(user.role)}
+                                                                        </div>
+                                                                  </td>
+
+                                                                  <td className="px-3 py-3 text-sm text-slate-600">
+                                                                        {user.residentFullName || "Không liên kết"}
                                                                   </td>
 
                                                                   <td className="px-3 py-3 text-sm text-slate-600">
@@ -538,27 +739,43 @@ export default function UserManagement() {
                                                                   </td>
 
                                                                   <td className="px-3 py-3 text-right">
-                                                                        {user.isActive ? (
+                                                                        <div className="flex flex-wrap justify-end gap-2">
                                                                               <button
                                                                                     type="button"
-                                                                                    onClick={() =>
-                                                                                          deactivateMutation.mutate({ userId: user.id })
-                                                                                    }
+                                                                                    onClick={() => openResetPassword(user)}
                                                                                     className="rounded-xl border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
                                                                               >
-                                                                                    Khóa
+                                                                                    Reset mật khẩu
                                                                               </button>
-                                                                        ) : (
-                                                                              <button
-                                                                                    type="button"
-                                                                                    onClick={() =>
-                                                                                          activateMutation.mutate({ userId: user.id })
-                                                                                    }
-                                                                                    className="rounded-xl border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
-                                                                              >
-                                                                                    Mở khóa
-                                                                              </button>
-                                                                        )}
+
+                                                                              {canToggleAccount(user) ? (
+                                                                                    user.isActive ? (
+                                                                                          <button
+                                                                                                type="button"
+                                                                                                onClick={() =>
+                                                                                                      deactivateMutation.mutate({ userId: user.id })
+                                                                                                }
+                                                                                                className="rounded-xl border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+                                                                                          >
+                                                                                                Khóa
+                                                                                          </button>
+                                                                                    ) : (
+                                                                                          <button
+                                                                                                type="button"
+                                                                                                onClick={() =>
+                                                                                                      activateMutation.mutate({ userId: user.id })
+                                                                                                }
+                                                                                                className="rounded-xl border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+                                                                                          >
+                                                                                                Mở khóa
+                                                                                          </button>
+                                                                                    )
+                                                                              ) : (
+                                                                                    <span className="inline-flex items-center text-xs text-slate-400">
+                                                                                          Điều phối từ nghiệp vụ
+                                                                                    </span>
+                                                                              )}
+                                                                        </div>
                                                                   </td>
                                                             </tr>
                                                       ))}
@@ -568,6 +785,60 @@ export default function UserManagement() {
                               )}
                         </div>
                   </div>
+
+                  {resetTargetUser && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
+                              <div className="w-full max-w-md rounded-3xl border bg-white p-5 shadow-2xl">
+                                    <div>
+                                          <h2 className="text-lg font-semibold text-slate-900">
+                                                Reset mật khẩu
+                                          </h2>
+                                          <p className="mt-1 text-sm leading-6 text-slate-500">
+                                                Thiết lập mật khẩu tạm cho tài khoản {" "}
+                                                <span className="font-medium text-slate-800">
+                                                      {resetTargetUser.name || resetTargetUser.username}
+                                                </span>
+. Tài khoản sẽ được đưa về mật khẩu mặc định và bắt buộc đổi mật khẩu khi đăng nhập lại.
+                                          </p>
+                                    </div>
+
+                                    {resetMessage && (
+                                          <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                                {resetMessage}
+                                          </div>
+                                    )}
+
+                                    <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                          <div className="font-semibold">Mật khẩu mặc định sau reset</div>
+                                          <div className="mt-1 font-mono text-base font-bold tracking-wide">123456</div>
+                                          <p className="mt-2 leading-6">
+                                                Người dùng sẽ đăng nhập bằng mật khẩu mặc định này, sau đó hệ thống sẽ yêu cầu nhập mật khẩu hiện tại là <span className="font-semibold">123456</span> và đổi sang mật khẩu mới.
+                                          </p>
+                                    </div>
+
+                                    <div className="mt-5 flex justify-end gap-2">
+                                          <button
+                                                type="button"
+                                                onClick={closeResetPassword}
+                                                disabled={resetPasswordMutation.isPending}
+                                                className="rounded-xl border px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                          >
+                                                Hủy
+                                          </button>
+                                          <button
+                                                type="button"
+                                                onClick={handleResetPassword}
+                                                disabled={resetPasswordMutation.isPending}
+                                                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                          >
+                                                {resetPasswordMutation.isPending
+                                                      ? "Đang reset..."
+                                                      : "Reset về mật khẩu mặc định"}
+                                          </button>
+                                    </div>
+                              </div>
+                        </div>
+                  )}
             </ResidenceCareLayout>
       );
 }

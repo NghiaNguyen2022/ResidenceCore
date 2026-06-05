@@ -27,12 +27,18 @@ const createUserSchema = z.object({
       name: z.string().trim().min(1, "Vui lòng nhập họ tên."),
       email: z.string().trim().email("Email không hợp lệ.").optional().nullable(),
 
-      roleKeys: z
-            .array(roleKeySchema)
-            .min(1, "Vui lòng chọn ít nhất một vai trò."),
-
+      /**
+       * User Management Simple Mode chỉ tạo trực tiếp tài khoản quản lý.
+       * FE mới có thể không gửi roleKeys; backend sẽ mặc định là ["manager"].
+       * Nếu client cũ gửi role khác, backend sẽ chặn cứng.
+       */
+      roleKeys: z.array(roleKeySchema).optional(),
       primaryRoleKey: roleKeySchema.optional(),
 
+      /**
+       * Không link học viên ở màn hình User Management.
+       * Tài khoản học viên phải được tạo từ nghiệp vụ thêm học viên.
+       */
       residentId: z.number().int().positive().optional().nullable(),
 
       isActive: z.boolean().optional(),
@@ -51,10 +57,10 @@ const updateUserSchema = z.object({
       mustChangePassword: z.boolean().optional(),
 });
 
+const DEFAULT_RESET_PASSWORD = "123456";
+
 const resetPasswordSchema = z.object({
       userId: z.number().int().positive(),
-      newPassword: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự."),
-      mustChangePassword: z.boolean().optional(),
 });
 
 const userIdSchema = z.object({
@@ -129,6 +135,82 @@ function validateRoleCombination(roleKeys: AppRoleKey[]) {
       }
 }
 
+function normalizeUserManagementCreateRoles(roleKeys?: AppRoleKey[]) {
+      const normalizedRoleKeys = roleKeys?.length ? roleKeys : (["manager"] as AppRoleKey[]);
+
+      const onlyManager =
+            normalizedRoleKeys.length === 1 && normalizedRoleKeys[0] === "manager";
+
+      if (!onlyManager) {
+            throw new TRPCError({
+                  code: "BAD_REQUEST",
+                  message:
+                        "Màn hình Người dùng & quyền truy cập chỉ được tạo trực tiếp tài khoản quản lý. Tài khoản học viên và vai trò bổ nhiệm được tạo từ các nghiệp vụ tương ứng.",
+            });
+      }
+
+      return normalizedRoleKeys;
+}
+
+function blockRoleEditingFromUserManagement() {
+      throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+                  "Không chỉnh sửa vai trò tại màn hình Người dùng & quyền truy cập. Vai trò học viên và vai trò bổ nhiệm được điều phối từ các nghiệp vụ tương ứng.",
+      });
+}
+
+function isManagerAccount(user: any) {
+      if (!user) return false;
+
+      if (user.role === "manager" || user.primaryRoleKey === "manager") {
+            return true;
+      }
+
+      if (Array.isArray(user.roles)) {
+            return user.roles.some((role: any) => {
+                  if (typeof role === "string") return role === "manager";
+                  return role?.roleKey === "manager" || role?.key === "manager";
+            });
+      }
+
+      return false;
+}
+
+async function requireManagedAccountIsManager(userId: number) {
+      const user = await userDb.getManagedUserById(userId);
+
+      if (!user) {
+            throw new TRPCError({
+                  code: "NOT_FOUND",
+                  message: "Không tìm thấy người dùng.",
+            });
+      }
+
+      if (isManagerAccount(user)) {
+            return user;
+      }
+
+      const userRoles = await rolesDb.getUserRoles(userId);
+      const isManagerByRoles = userRoles.some((role: any) => {
+            if (typeof role === "string") return role === "manager";
+            return role?.roleKey === "manager" || role?.key === "manager";
+      });
+
+      if (!isManagerByRoles) {
+            throw new TRPCError({
+                  code: "BAD_REQUEST",
+                  message:
+                        "Tài khoản học viên và vai trò bổ nhiệm được quản lý từ hồ sơ học viên, phân công, bổ nhiệm hoặc nhiệm kỳ; không khóa/mở trực tiếp tại màn hình này.",
+            });
+      }
+
+      return {
+            ...user,
+            roles: userRoles,
+      };
+}
+
 export const usersRouter = router({
       list: protectedProcedure
             .input(
@@ -190,7 +272,17 @@ export const usersRouter = router({
             .mutation(async ({ ctx, input }) => {
                   requireUserManagementAccess(ctx.user);
 
-                  validateRoleCombination(input.roleKeys);
+                  const roleKeys = normalizeUserManagementCreateRoles(input.roleKeys);
+
+                  if (input.residentId) {
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    "Không liên kết học viên tại màn hình Người dùng & quyền truy cập. Vui lòng tạo tài khoản học viên từ hồ sơ học viên.",
+                        });
+                  }
+
+                  validateRoleCombination(roleKeys);
 
                   const usernameExists = await userDb.checkUsernameExists(input.username);
                   if (usernameExists) {
@@ -211,11 +303,11 @@ export const usersRouter = router({
                   }
 
                   const primaryRole = resolvePrimaryRole(
-                        input.roleKeys,
+                        roleKeys,
                         input.primaryRoleKey
                   );
 
-                  const legacyRole = resolveLegacyUserRole(input.roleKeys);
+                  const legacyRole = resolveLegacyUserRole(roleKeys);
                   const passwordHash = await hashPassword(input.password);
 
                   const createdUser = await userDb.createManagedUser({
@@ -237,7 +329,7 @@ export const usersRouter = router({
 
                   const assignedRoles = await rolesDb.assignUserRoles({
                         userId: createdUser.id,
-                        roleKeys: input.roleKeys,
+                        roleKeys,
                         primaryRoleKey: primaryRole,
                         assignedBy: ctx.user?.id ?? null,
                   });
@@ -270,6 +362,14 @@ export const usersRouter = router({
                         });
                   }
 
+                  if (input.roleKeys || input.primaryRoleKey) {
+                        blockRoleEditingFromUserManagement();
+                  }
+
+                  if (typeof input.isActive === "boolean") {
+                        await requireManagedAccountIsManager(input.id);
+                  }
+
                   if (input.email) {
                         const emailExists = await userDb.checkEmailExists(input.email, input.id);
                         if (emailExists) {
@@ -280,34 +380,15 @@ export const usersRouter = router({
                         }
                   }
 
-                  let legacyRole: "manager" | "resident" | undefined;
-                  let primaryRole: AppRoleKey | undefined;
-
-                  if (input.roleKeys) {
-                        validateRoleCombination(input.roleKeys);
-                        primaryRole = resolvePrimaryRole(input.roleKeys, input.primaryRoleKey);
-                        legacyRole = resolveLegacyUserRole(input.roleKeys);
-                  }
-
                   const updatedUser = await userDb.updateManagedUser({
                         id: input.id,
                         name: input.name,
                         email: input.email,
-                        role: legacyRole,
                         isActive: input.isActive,
                         mustChangePassword: input.mustChangePassword,
                   });
 
-                  let assignedRoles = await rolesDb.getUserRoles(input.id);
-
-                  if (input.roleKeys) {
-                        assignedRoles = await rolesDb.assignUserRoles({
-                              userId: input.id,
-                              roleKeys: input.roleKeys,
-                              primaryRoleKey: primaryRole,
-                              assignedBy: ctx.user?.id ?? null,
-                        });
-                  }
+                  const assignedRoles = await rolesDb.getUserRoles(input.id);
 
                   return {
                         ...updatedUser,
@@ -317,6 +398,7 @@ export const usersRouter = router({
 
       activate: protectedProcedure.input(userIdSchema).mutation(async ({ ctx, input }) => {
             requireUserManagementAccess(ctx.user);
+            await requireManagedAccountIsManager(input.userId);
 
             return userDb.activateUser(input.userId);
       }),
@@ -333,6 +415,8 @@ export const usersRouter = router({
                         });
                   }
 
+                  await requireManagedAccountIsManager(input.userId);
+
                   return userDb.deactivateUser(input.userId);
             }),
 
@@ -341,29 +425,42 @@ export const usersRouter = router({
             .mutation(async ({ ctx, input }) => {
                   requireUserManagementAccess(ctx.user);
 
-                  const passwordHash = await hashPassword(input.newPassword);
+                  const passwordHash = await hashPassword(DEFAULT_RESET_PASSWORD);
 
-                  return userDb.updatePasswordHash(input.userId, passwordHash, {
-                        mustChangePassword: input.mustChangePassword ?? true,
+                  const updatedUser = await userDb.updatePasswordHash(input.userId, passwordHash, {
+                        // Reset mật khẩu luôn đưa tài khoản về mật khẩu mặc định.
+                        // Người dùng sẽ nhập mật khẩu mặc định ở ô "Mật khẩu hiện tại"
+                        // trong popup đổi mật khẩu bắt buộc khi đăng nhập lại.
+                        mustChangePassword: true,
                   });
+
+                  return {
+                        ...updatedUser,
+                        defaultPassword: DEFAULT_RESET_PASSWORD,
+                  };
             }),
 
       linkResident: protectedProcedure
             .input(linkResidentSchema)
-            .mutation(async ({ ctx, input }) => {
+            .mutation(async ({ ctx }) => {
                   requireUserManagementAccess(ctx.user);
 
-                  return userDb.linkUserToResident({
-                        userId: input.userId,
-                        residentId: input.residentId,
+                  throw new TRPCError({
+                        code: "BAD_REQUEST",
+                        message:
+                              "Không liên kết học viên tại màn hình Người dùng & quyền truy cập. Vui lòng thực hiện từ hồ sơ học viên.",
                   });
             }),
 
       unlinkResident: protectedProcedure
             .input(userIdSchema)
-            .mutation(async ({ ctx, input }) => {
+            .mutation(async ({ ctx }) => {
                   requireUserManagementAccess(ctx.user);
 
-                  return userDb.unlinkUserFromResident(input.userId);
+                  throw new TRPCError({
+                        code: "BAD_REQUEST",
+                        message:
+                              "Không hủy liên kết học viên tại màn hình Người dùng & quyền truy cập. Vui lòng thực hiện từ hồ sơ học viên.",
+                  });
             }),
 });

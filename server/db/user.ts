@@ -208,6 +208,7 @@ function managementUserSelect() {
             residentId: residents.id,
             residentCode: residents.residentCode,
             residentFullName: residents.fullName,
+            mustChangePassword: users.mustChangePassword,
       };
 }
 

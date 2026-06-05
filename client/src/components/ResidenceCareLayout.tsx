@@ -3,15 +3,16 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-      appointmentNavigation,
+      appointedResidentNavigation,
       detailedManagerNavigation,
       residentNavigation,
       simpleManagerNavigation,
       type NavigationItem,
-} from "@/config/navigation";
+} from "@/navigation";
 import { trpc } from "@/lib/trpc";
 //import { useAuth } from "@/hooks/useAuth";
 import { useSystemDisplayMode } from "@/hooks/useSystemDisplayMode";
+import { MandatoryChangePasswordModal } from "@/components/MandatoryChangePasswordModal";
 
 type ResidenceCareLayoutProps = {
       children: ReactNode;
@@ -25,6 +26,7 @@ type CurrentUserLike =
             name?: string | null;
             username?: string | null;
             email?: string | null;
+            mustChangePassword?: boolean | number | null;
       }
       | null
       | undefined;
@@ -273,9 +275,21 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
       });
 
       const user = authQuery.data ?? null;
+      const mustChangePassword = Boolean(user?.mustChangePassword);
 
       function logout() {
             logoutMutation.mutate();
+      }
+
+      async function handlePasswordChangedAndRequireLogin() {
+            try {
+                  await logoutMutation.mutateAsync();
+            } catch {
+                  localStorage.removeItem("token");
+                  localStorage.removeItem("authToken");
+                  localStorage.removeItem("user");
+                  window.location.href = "/login";
+            }
       }
       const { isDetailed } = useSystemDisplayMode();
       const utils = trpc.useUtils();
@@ -293,14 +307,14 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
 
             if (hasRole(user, "resident")) {
                   if (hasAppointmentRole(user)) {
-                        return [...residentNavigation, ...appointmentNavigation];
+                        return [...residentNavigation, ...appointedResidentNavigation];
                   }
 
                   return residentNavigation;
             }
 
             if (hasAppointmentRole(user)) {
-                  return appointmentNavigation;
+                  return appointedResidentNavigation;
             }
 
             return [];
@@ -328,6 +342,10 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
       });
 
       function openProfileModal() {
+            if (mustChangePassword) {
+                  return;
+            }
+
             setProfileForm({
                   name: user?.name ?? "",
                   email: user?.email ?? "",
@@ -419,10 +437,16 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                               </div>
                         </header>
 
-                        <main className="px-4 py-5 lg:px-6">{children}</main>
+                        <main className="px-4 py-5 lg:px-6">{mustChangePassword ? null : children}</main>
                   </div>
 
-                  {showProfileModal && (
+                  {mustChangePassword && (
+                        <MandatoryChangePasswordModal
+                              onChangedAndRequireLogin={handlePasswordChangedAndRequireLogin}
+                        />
+                  )}
+
+                  {showProfileModal && !mustChangePassword && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
                               <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
                                     <div className="mb-4">

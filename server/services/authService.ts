@@ -164,6 +164,8 @@ export async function loginUser(username: string, password: string) {
                         name: user.name,
                         email: user.email,
                         role: user.role,
+                        mustChangePassword: user.mustChangePassword,
+                        isActive: user.isActive,
                   },
                   token,
                   sessionId,
@@ -197,6 +199,7 @@ export async function getUserById(userId: number) {
                   email: user.email,
                   role: user.role,
                   isActive: user.isActive,
+                  mustChangePassword: user.mustChangePassword,
                   createdAt: user.createdAt,
             };
       } catch (error) {
