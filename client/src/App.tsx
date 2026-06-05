@@ -50,6 +50,8 @@ import DailyRoutine from "@/pages/DailyRoutine";
 import UserManagement from "@/pages/UserManagement";
 import MyProfile from "./pages/MyProfile";
 
+import OrganizationSimple from "@/pages/OrganizationSimple";
+
 
 function Router() {
       return (
@@ -87,6 +89,7 @@ function Router() {
                   <Route path="/organization-roles" component={OrganizationRoles} />
                   <Route path="/organization-units" component={OrganizationUnits} />
                   <Route path="/organization-structure" component={OrganizationStructure} />
+                  <Route path="/organization" component={OrganizationSimple} />
 
                   {/* Nội quy & Kỷ luật */}
                   <Route path="/discipline-rules" component={DisciplineRules} />

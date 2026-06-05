@@ -35,6 +35,10 @@ const organizationAssignmentStatusSchema = z.enum([
 const organizationUnitTypeSchema = z.enum(["team", "committee"]);
 
 export const organizationRouter = router({
+      ensureDefaultRoles: protectedProcedure.mutation(async () => {
+            return await organizationService.ensureDefaultOrganizationRoles();
+      }),
+
       listRoles: protectedProcedure
             .input(
                   z
@@ -229,6 +233,19 @@ export const organizationRouter = router({
             )
             .query(async ({ input }) => {
                   return await organizationService.listAssignments(input);
+            }),
+
+
+      getActiveAssignmentsByResident: protectedProcedure
+            .input(
+                  z.object({
+                        residentId: z.number().min(1, "Vui lòng chọn học viên."),
+                  })
+            )
+            .query(async ({ input }) => {
+                  return await organizationService.getActiveAssignmentsByResident(
+                        input.residentId
+                  );
             }),
 
       getAssignmentById: protectedProcedure

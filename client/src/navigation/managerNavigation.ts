@@ -22,34 +22,9 @@ export const simpleManagerNavigation: NavigationItem[] = [
       },
       {
             label: "Tổ chức lưu xá",
+            path: "/organization",
             icon: "🏛️",
             roles: ["manager"],
-            children: [
-                  {
-                        label: "Nhiệm kỳ",
-                        path: "/organization-terms",
-                        icon: "📅",
-                        roles: ["manager"],
-                  },
-                  {
-                        label: "Vai trò",
-                        path: "/organization-roles",
-                        icon: "🎖️",
-                        roles: ["manager"],
-                  },
-                  {
-                        label: "Tổ / Ban",
-                        path: "/organization-units",
-                        icon: "🧩",
-                        roles: ["manager"],
-                  },
-                  {
-                        label: "Sơ đồ tổ chức",
-                        path: "/organization-structure",
-                        icon: "🌳",
-                        roles: ["manager"],
-                  },
-            ],
       },
       {
             label: "Sinh hoạt",
@@ -88,7 +63,7 @@ export const simpleManagerNavigation: NavigationItem[] = [
                         roles: ["manager"],
                   },
                   {
-                        label: "Người dùng",
+                        label: "Người dùng & quyền truy cập",
                         path: "/settings/users",
                         icon: "🔐",
                         roles: ["manager"],
@@ -141,7 +116,7 @@ export const detailedManagerNavigation: NavigationItem[] = [
                         roles: ["manager"],
                   },
                   {
-                        label: "Vai trò",
+                        label: "Chức vụ / Vai trò",
                         path: "/organization-roles",
                         icon: "🎖️",
                         roles: ["manager"],
@@ -153,10 +128,24 @@ export const detailedManagerNavigation: NavigationItem[] = [
                         roles: ["manager"],
                   },
                   {
-                        label: "Sơ đồ tổ chức",
+                        label: "Cơ cấu tổ chức",
                         path: "/organization-structure",
                         icon: "🌳",
                         roles: ["manager"],
+                  },
+                  {
+                        label: "Lịch sử bổ nhiệm",
+                        path: "/organization-assignment-history",
+                        icon: "🕓",
+                        roles: ["manager"],
+                        badge: "Sau",
+                  },
+                  {
+                        label: "Báo cáo tổ chức",
+                        path: "/organization-reports",
+                        icon: "📋",
+                        roles: ["manager"],
+                        badge: "Sau",
                   },
             ],
       },
@@ -266,7 +255,7 @@ export const detailedManagerNavigation: NavigationItem[] = [
                         roles: ["manager"],
                   },
                   {
-                        label: "Người dùng & phân quyền",
+                        label: "Người dùng & quyền truy cập",
                         path: "/users",
                         icon: "🔐",
                         roles: ["manager"],
