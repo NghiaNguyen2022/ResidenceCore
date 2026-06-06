@@ -11,7 +11,6 @@ import {
       Plus,
       Save,
       Search,
-      Settings,
       ShieldCheck,
       UserPlus,
       UsersRound,
@@ -222,46 +221,6 @@ function getUnitTypeClass(unitType?: string | null) {
       return 'border-neutral-200 bg-neutral-50 text-neutral-700';
 }
 
-function isTeamLeaderRole(role?: OrganizationRole | null) {
-      const roleType = normalizeText(String(role?.roleType || ''));
-      const roleCode = normalizeText(String(role?.code || ''));
-      const roleName = normalizeText(role?.name);
-
-      return (
-            roleType === 'team_leader' ||
-            roleCode === 'to_truong' ||
-            roleCode.includes('to_truong') ||
-            roleName.includes('to truong')
-      );
-}
-
-function isCommitteeHeadRole(role?: OrganizationRole | null) {
-      const roleType = normalizeText(String(role?.roleType || ''));
-      const roleCode = normalizeText(String(role?.code || ''));
-      const roleName = normalizeText(role?.name);
-
-      return (
-            roleType === 'committee_head' ||
-            roleCode === 'truong_ban' ||
-            roleCode.includes('truong_ban') ||
-            roleName.includes('truong ban')
-      );
-}
-
-function isTeamUnit(unit?: OrganizationUnit | null) {
-      const unitType = normalizeText(String(unit?.unitType || ''));
-      const unitName = normalizeText(unit?.name);
-
-      return unitType === 'team' || unitType === 'to' || unitName.startsWith('to ');
-}
-
-function isCommitteeUnit(unit?: OrganizationUnit | null) {
-      const unitType = normalizeText(String(unit?.unitType || ''));
-      const unitName = normalizeText(unit?.name);
-
-      return unitType === 'committee' || unitType === 'ban' || unitName.startsWith('ban ');
-}
-
 function getAssignmentStatusLabel(status?: string | null) {
       if (status === 'active') return 'Đang đảm nhiệm';
       return 'Đã kết thúc';
@@ -291,8 +250,8 @@ function getLevelLabel(level: number) {
 function roleRequiresUnit(role?: OrganizationRole | null) {
       return Boolean(
             role?.requiresUnit ||
-                  isTeamLeaderRole(role) ||
-                  isCommitteeHeadRole(role)
+                  role?.roleType === 'team_leader' ||
+                  role?.roleType === 'committee_head'
       );
 }
 
@@ -393,6 +352,103 @@ function SectionEmpty({ title, description }: { title: string; description: stri
       );
 }
 
+function isAssignmentRole(assignment: OrganizationAssignment, targets: string[]) {
+      const roleName = normalizeText(assignment.roleName || assignment.assignmentTitle || '');
+      return targets.some((target) => roleName === normalizeText(target));
+}
+
+function isTeamAssignment(assignment: OrganizationAssignment) {
+      return assignment.roleType === 'team_leader' || assignment.unitType === 'team';
+}
+
+function isCommitteeAssignment(assignment: OrganizationAssignment) {
+      return assignment.roleType === 'committee_head' || assignment.unitType === 'committee';
+}
+
+function getCardToneClass(tone: 'slate' | 'blue' | 'emerald' | 'violet' | 'amber' = 'slate') {
+      if (tone === 'blue') return 'border-blue-200 bg-gradient-to-br from-blue-50 via-white to-sky-50';
+      if (tone === 'emerald') return 'border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50';
+      if (tone === 'violet') return 'border-violet-200 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50';
+      if (tone === 'amber') return 'border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50';
+      return 'border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100';
+}
+
+function getAssignmentTone(assignment: OrganizationAssignment) {
+      const roleName = normalizeText(assignment.roleName || assignment.assignmentTitle || '');
+      if (roleName === 'truong') return 'blue' as const;
+      if (roleName === 'pho') return 'emerald' as const;
+      if (roleName === 'thu ky') return 'violet' as const;
+      if (roleName === 'thu quy') return 'amber' as const;
+      if (assignment.roleType === 'team_leader' || assignment.unitType === 'team') return 'blue' as const;
+      if (assignment.roleType === 'committee_head' || assignment.unitType === 'committee') return 'violet' as const;
+      return 'slate' as const;
+}
+
+function OrgMiniCard({
+      assignment,
+      onEdit,
+      onEnd,
+      tone,
+      compact = false,
+}: {
+      assignment: OrganizationAssignment;
+      onEdit: (assignment: OrganizationAssignment) => void;
+      onEnd: (assignment: OrganizationAssignment) => void;
+      tone?: 'slate' | 'blue' | 'emerald' | 'violet' | 'amber';
+      compact?: boolean;
+}) {
+      const resolvedTone = tone || getAssignmentTone(assignment);
+
+      return (
+            <div
+                  className={[
+                        'rounded-3xl border shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.12)]',
+                        getCardToneClass(resolvedTone),
+                        compact ? 'p-3' : 'p-4',
+                  ].join(' ')}
+            >
+                  <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                              <p className={compact ? 'text-sm font-bold text-slate-900' : 'text-base font-bold text-slate-900'}>
+                                    {getAssignmentDisplayTitle(assignment)}
+                              </p>
+                              <p className={compact ? 'mt-1.5 truncate text-sm font-semibold text-slate-800' : 'mt-2 truncate text-sm font-semibold text-slate-800'}>
+                                    {assignment.residentName || '-'}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">{getRoomLabelFromAssignment(assignment)}</p>
+                              {(assignment.unitName || assignment.unitCode) && (
+                                    <p className="mt-2 text-xs text-slate-500">
+                                          {getUnitTypeLabel(assignment.unitType)}: {assignment.unitName || assignment.unitCode}
+                                    </p>
+                              )}
+                        </div>
+
+                        <Badge className={getAssignmentStatusClass(assignment.status)}>
+                              {getAssignmentStatusLabel(assignment.status)}
+                        </Badge>
+                  </div>
+
+                  <div className={compact ? 'mt-3 flex flex-wrap gap-2' : 'mt-4 flex flex-wrap gap-2'}>
+                        <button
+                              type="button"
+                              onClick={() => onEdit(assignment)}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-white/70 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white"
+                        >
+                              <Edit2 className="h-3.5 w-3.5" />
+                              Cập nhật
+                        </button>
+                        <button
+                              type="button"
+                              onClick={() => onEnd(assignment)}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-orange-100 bg-orange-50/90 px-3 py-2 text-xs font-semibold text-orange-700 hover:bg-orange-100"
+                        >
+                              Kết thúc vai trò
+                        </button>
+                  </div>
+            </div>
+      );
+}
+
 export default function OrganizationSimple() {
       const [activeTab, setActiveTab] = useState<SimpleTab>('structure');
       const [selectedTermId, setSelectedTermId] = useState<string>('active');
@@ -425,8 +481,6 @@ export default function OrganizationSimple() {
             status: 'active' as any,
       });
 
-      const ensureDefaultRolesMutation = trpc.organization.ensureDefaultRoles.useMutation();
-
       const createAssignmentMutation = trpc.organization.createAssignment.useMutation();
       const updateAssignmentMutation = trpc.organization.updateAssignment.useMutation();
       const endAssignmentMutation = trpc.organization.endAssignment.useMutation();
@@ -450,10 +504,7 @@ export default function OrganizationSimple() {
             if (typeCompare !== 0) return typeCompare;
             return Number(a.sortOrder || 0) - Number(b.sortOrder || 0);
       });
-      const activeMembers = ((membersQuery.data || []) as any[]).filter((member: any) => {
-            const status = String(member?.status || '').toLowerCase();
-            return status === 'active';
-      });
+      const activeMembers = (membersQuery.data || []) as any[];
 
       const activeTerm = useMemo(() => {
             return terms.find((term) => term.status === 'active') || null;
@@ -506,24 +557,6 @@ export default function OrganizationSimple() {
             ? units.find((unit) => String(unit.id) === String(assignmentForm.unitId)) || null
             : null;
 
-      const selectedRoleNeedsTeam = isTeamLeaderRole(selectedRole);
-      const selectedRoleNeedsCommittee = isCommitteeHeadRole(selectedRole);
-      const selectedRoleNeedsUnit = selectedRoleNeedsTeam || selectedRoleNeedsCommittee || roleRequiresUnit(selectedRole);
-
-      const filteredUnitsForSelectedRole = activeUnits.filter((unit) => {
-            if (selectedRoleNeedsTeam) return isTeamUnit(unit);
-            if (selectedRoleNeedsCommittee) return isCommitteeUnit(unit);
-            return false;
-      });
-
-      const unitSelectLabel = selectedRoleNeedsTeam ? 'Tổ' : selectedRoleNeedsCommittee ? 'Ban' : 'Tổ/Ban';
-      const unitSelectPlaceholder = selectedRoleNeedsTeam ? 'Chọn Tổ' : selectedRoleNeedsCommittee ? 'Chọn Ban' : 'Chọn Tổ/Ban';
-      const unitSelectEmptyMessage = selectedRoleNeedsTeam
-            ? 'Chưa có Tổ đang hoạt động để bổ nhiệm Tổ trưởng.'
-            : selectedRoleNeedsCommittee
-                  ? 'Chưa có Ban đang hoạt động để bổ nhiệm Trưởng ban.'
-                  : 'Chưa có Tổ/Ban phù hợp để bổ nhiệm.';
-
       const selectedMember = assignmentForm?.residentId
             ? activeMembers.find((member: any) => String(member.id) === String(assignmentForm.residentId)) || null
             : null;
@@ -540,21 +573,6 @@ export default function OrganizationSimple() {
                   assignmentsQuery.refetch(),
                   membersQuery.refetch(),
             ]);
-      };
-
-      const ensureDefaultRoles = async () => {
-            setMessage(null);
-
-            try {
-                  await ensureDefaultRolesMutation.mutateAsync();
-                  setMessage({ type: 'success', text: 'Đã tạo/cập nhật các chức vụ mặc định.' });
-                  await rolesQuery.refetch();
-            } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text: err?.message || 'Không thể tạo chức vụ mặc định.',
-                  });
-            }
       };
 
       const openAssignmentCreate = () => {
@@ -592,61 +610,46 @@ export default function OrganizationSimple() {
             if (!assignmentForm.residentId) return 'Vui lòng chọn học viên.';
             if (!assignmentForm.startDate) return 'Vui lòng chọn ngày bắt đầu.';
 
-            if (selectedRoleNeedsUnit && !assignmentForm.unitId) {
-                  if (selectedRoleNeedsTeam) return 'Vui lòng chọn Tổ để bổ nhiệm Tổ trưởng.';
-                  if (selectedRoleNeedsCommittee) return 'Vui lòng chọn Ban để bổ nhiệm Trưởng ban.';
+            if (roleRequiresUnit(selectedRole) && !assignmentForm.unitId) {
                   return 'Chức vụ này cần chọn Tổ/Ban phụ trách.';
             }
 
-            if (selectedRoleNeedsTeam && !isTeamUnit(selectedUnit)) {
+            if (selectedRole?.roleType === 'team_leader' && selectedUnit?.unitType !== 'team') {
                   return 'Tổ trưởng chỉ được chọn đơn vị loại Tổ.';
             }
 
-            if (selectedRoleNeedsCommittee && !isCommitteeUnit(selectedUnit)) {
+            if (selectedRole?.roleType === 'committee_head' && selectedUnit?.unitType !== 'committee') {
                   return 'Trưởng ban chỉ được chọn đơn vị loại Ban.';
             }
 
+            const isUnitBasedRole =
+                  selectedRole?.roleType === 'team_leader' ||
+                  selectedRole?.roleType === 'committee_head' ||
+                  Boolean(selectedRole?.requiresUnit);
+
             const activeSameRole = activeAssignments.filter((assignment) => {
-                  const isSameRole =
-                        assignment.termId === Number(assignmentForm.termId) &&
-                        assignment.roleId === Number(assignmentForm.roleId) &&
-                        assignment.status === 'active' &&
-                        assignment.id !== assignmentForm.id;
+                  const sameTerm = assignment.termId === Number(assignmentForm.termId);
+                  const sameRole = assignment.roleId === Number(assignmentForm.roleId);
+                  const sameStatus = assignment.status === 'active';
+                  const notCurrent = assignment.id !== assignmentForm.id;
+                  const sameUnit = !isUnitBasedRole || assignment.unitId === Number(assignmentForm.unitId || 0);
 
-                  if (!isSameRole) return false;
-
-                  if (selectedRoleNeedsUnit) {
-                        return Number(assignment.unitId || 0) === Number(assignmentForm.unitId || 0);
-                  }
-
-                  return true;
+                  return sameTerm && sameRole && sameStatus && notCurrent && sameUnit;
             });
 
             const selectedRoleMax = selectedRole?.maxAssignees ?? null;
             const roleAllowsMultiple = Boolean(selectedRole?.allowMultipleMembers);
 
             if (selectedRoleMax && activeSameRole.length >= selectedRoleMax) {
-                  if (selectedRoleNeedsTeam) {
-                        return `Tổ này đã có Tổ trưởng. Mỗi Tổ chỉ được phân công tối đa ${selectedRoleMax} Tổ trưởng.`;
-                  }
-
-                  if (selectedRoleNeedsCommittee) {
-                        return `Ban này đã có Trưởng ban. Mỗi Ban chỉ được phân công tối đa ${selectedRoleMax} Trưởng ban.`;
-                  }
-
-                  return `Chức vụ này đã đủ số lượng tối đa (${selectedRoleMax}) trong nhiệm kỳ này.`;
+                  return isUnitBasedRole
+                        ? `${assignmentForm.assignmentTitle || selectedRole?.name || 'Chức vụ này'} đã đủ số lượng tối đa (${selectedRoleMax}).`
+                        : `Chức vụ này đã đủ số lượng tối đa (${selectedRoleMax}).`;
             }
 
             if (!selectedRoleMax && !roleAllowsMultiple && activeSameRole.length >= 1) {
-                  if (selectedRoleNeedsTeam) {
-                        return 'Tổ này đã có Tổ trưởng.';
-                  }
-
-                  if (selectedRoleNeedsCommittee) {
-                        return 'Ban này đã có Trưởng ban.';
-                  }
-
-                  return 'Chức vụ này chỉ cho một người đảm nhiệm trong cùng nhiệm kỳ.';
+                  return isUnitBasedRole
+                        ? `${assignmentForm.assignmentTitle || selectedRole?.name || 'Chức vụ này'} đã có người đảm nhiệm trong nhiệm kỳ này.`
+                        : 'Chức vụ này chỉ cho một người đảm nhiệm trong cùng nhiệm kỳ.';
             }
 
             const duplicated = activeAssignments.some(
@@ -673,8 +676,6 @@ export default function OrganizationSimple() {
       };
 
       const saveAssignment = async () => {
-            setAssignmentError(null);
-
             const error = validateAssignment();
 
             if (error) {
@@ -683,13 +684,14 @@ export default function OrganizationSimple() {
             }
 
             if (!assignmentForm) return;
+            setAssignmentError(null);
 
             const roomId = getCurrentRoomIdFromMember(selectedMember);
 
             const payload = {
                   termId: Number(assignmentForm.termId),
                   roleId: Number(assignmentForm.roleId),
-                  unitId: selectedRoleNeedsUnit && assignmentForm.unitId ? Number(assignmentForm.unitId) : null,
+                  unitId: assignmentForm.unitId ? Number(assignmentForm.unitId) : null,
                   assignmentTitle: assignmentForm.assignmentTitle.trim() || null,
                   residentId: Number(assignmentForm.residentId),
                   roomId: roomId ? Number(roomId) : null,
@@ -705,12 +707,12 @@ export default function OrganizationSimple() {
                               id: assignmentForm.id,
                               ...payload,
                         });
-                        setAssignmentError(null);
                         setMessage({ type: 'success', text: 'Đã cập nhật phân công.' });
+                        setAssignmentError(null);
                   } else {
                         await createAssignmentMutation.mutateAsync(payload);
-                        setAssignmentError(null);
                         setMessage({ type: 'success', text: 'Đã bổ nhiệm học viên.' });
+                        setAssignmentError(null);
                   }
 
                   setAssignmentForm(null);
@@ -983,6 +985,27 @@ export default function OrganizationSimple() {
             return groups;
       }, [activeAssignments]);
 
+      const leadershipAssignments = useMemo(() => {
+            const head = activeAssignments.find((assignment) => isAssignmentRole(assignment, ['Trưởng'])) || null;
+            const deputies = activeAssignments.filter((assignment) => isAssignmentRole(assignment, ['Phó']));
+            const secretary = activeAssignments.find((assignment) => isAssignmentRole(assignment, ['Thư ký'])) || null;
+            const treasurer = activeAssignments.find((assignment) => isAssignmentRole(assignment, ['Thủ quỹ'])) || null;
+
+            return { head, deputies, secretary, treasurer };
+      }, [activeAssignments]);
+
+      const unitAssignments = useMemo(() => {
+            const teams = activeAssignments
+                  .filter((assignment) => isTeamAssignment(assignment))
+                  .sort((a, b) => getAssignmentDisplayTitle(a).localeCompare(getAssignmentDisplayTitle(b)));
+
+            const committees = activeAssignments
+                  .filter((assignment) => isCommitteeAssignment(assignment))
+                  .sort((a, b) => getAssignmentDisplayTitle(a).localeCompare(getAssignmentDisplayTitle(b)));
+
+            return { teams, committees };
+      }, [activeAssignments]);
+
       const tabs: Array<{ key: SimpleTab; label: string; icon: React.ReactNode }> = [
             { key: 'structure', label: 'Cơ cấu hiện tại', icon: <LayoutGrid className="h-4 w-4" /> },
             { key: 'assignments', label: 'Bổ nhiệm / Phân công', icon: <UserPlus className="h-4 w-4" /> },
@@ -1015,26 +1038,8 @@ export default function OrganizationSimple() {
                                     <div className="flex flex-wrap gap-2">
                                           <button
                                                 type="button"
-                                                onClick={ensureDefaultRoles}
-                                                disabled={ensureDefaultRolesMutation.isPending}
-                                                className="inline-flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                          >
-                                                <ShieldCheck className="h-4 w-4" />
-                                                {ensureDefaultRolesMutation.isPending ? 'Đang tạo...' : 'Tạo chức vụ mặc định'}
-                                          </button>
-                                          <button
-                                                type="button"
-                                                onClick={() => (window.location.href = '/organization-roles')}
-                                                className="inline-flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-                                          >
-                                                <Settings className="h-4 w-4" />
-                                                Cấu hình chức vụ
-                                          </button>
-                                          <button
-                                                type="button"
                                                 onClick={openAssignmentCreate}
-                                                disabled={roles.length === 0}
-                                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                                           >
                                                 <Plus className="h-4 w-4" />
                                                 Bổ nhiệm
@@ -1082,24 +1087,6 @@ export default function OrganizationSimple() {
                                     ].join(' ')}
                               >
                                     {message.text}
-                              </div>
-                        )}
-
-                        {!rolesQuery.isLoading && roles.length === 0 && (
-                              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                                    <div className="font-semibold">Chưa có chức vụ để bổ nhiệm.</div>
-                                    <p className="mt-1">
-                                          Hãy tạo bộ chức vụ mặc định gồm Trưởng, Phó, Thư ký, Thủ quỹ, Tổ trưởng và Trưởng ban trước khi phân công.
-                                    </p>
-                                    <button
-                                          type="button"
-                                          onClick={ensureDefaultRoles}
-                                          disabled={ensureDefaultRolesMutation.isPending}
-                                          className="mt-3 inline-flex items-center gap-2 rounded-xl bg-amber-700 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                          <ShieldCheck className="h-4 w-4" />
-                                          {ensureDefaultRolesMutation.isPending ? 'Đang tạo...' : 'Tạo chức vụ mặc định'}
-                                    </button>
                               </div>
                         )}
 
@@ -1159,7 +1146,7 @@ export default function OrganizationSimple() {
                         )}
 
                         {!isLoading && activeTab === 'structure' && (
-                              <div className="space-y-4">
+                              <div className="space-y-6">
                                     {!currentTerm && (
                                           <SectionEmpty
                                                 title="Chưa có nhiệm kỳ hiện tại"
@@ -1174,87 +1161,166 @@ export default function OrganizationSimple() {
                                           />
                                     )}
 
-                                    {[1, 2, 3].map((level) => {
-                                          const rows = assignmentsByLevel[level] || [];
-                                          if (rows.length === 0) return null;
-
-                                          return (
-                                                <div key={level} className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                                                      <div className="mb-4 flex items-center justify-between">
-                                                            <div>
-                                                                  <h2 className="text-lg font-bold text-neutral-950">
-                                                                        {getLevelLabel(level)}
-                                                                  </h2>
-                                                                  <p className="mt-1 text-sm text-neutral-500">
-                                                                        {rows.length} vai trò đang đảm nhiệm
-                                                                  </p>
-                                                            </div>
+                                    {currentTerm && activeAssignments.length > 0 && (
+                                          <>
+                                                <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+                                                      <div className="mb-6">
+                                                            <h2 className="text-2xl font-bold tracking-tight text-slate-950">Điều hành chính</h2>
+                                                            <p className="mt-1 text-sm text-slate-500">
+                                                                  {(leadershipAssignments.head ? 1 : 0) + leadershipAssignments.deputies.length + (leadershipAssignments.secretary ? 1 : 0) + (leadershipAssignments.treasurer ? 1 : 0)} vai trò đang đảm nhiệm
+                                                            </p>
                                                       </div>
 
-                                                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                                            {rows.map((assignment) => (
-                                                                  <div
-                                                                        key={assignment.id}
-                                                                        className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4"
-                                                                  >
-                                                                        <div className="flex items-start justify-between gap-3">
-                                                                              <div>
-                                                                                    <p className="font-bold text-neutral-950">
-                                                                                          {getAssignmentDisplayTitle(assignment)}
-                                                                                    </p>
-                                                                                    <p className="mt-2 text-sm font-semibold text-neutral-800">
-                                                                                          {assignment.residentName || '-'}
-                                                                                    </p>
-                                                                                    <p className="mt-1 text-xs text-neutral-500">
-                                                                                          {getRoomLabelFromAssignment(assignment)}
-                                                                                    </p>
-                                                                                    {(assignment.unitName || assignment.unitCode) && (
-                                                                                          <p className="mt-2 text-xs text-neutral-500">
-                                                                                                {getUnitTypeLabel(assignment.unitType)}: {assignment.unitName || assignment.unitCode}
-                                                                                          </p>
+                                                      {leadershipAssignments.head ? (
+                                                            <div className="space-y-6">
+                                                                  <div className="flex justify-center">
+                                                                        <div className="w-full max-w-md">
+                                                                              <OrgMiniCard
+                                                                                    assignment={leadershipAssignments.head}
+                                                                                    onEdit={openAssignmentEdit}
+                                                                                    onEnd={endAssignment}
+                                                                              />
+                                                                        </div>
+                                                                  </div>
+
+                                                                  {(leadershipAssignments.deputies.length > 0 || leadershipAssignments.secretary || leadershipAssignments.treasurer) && (
+                                                                        <div className="mx-auto hidden h-8 w-px bg-slate-200 md:block" />
+                                                                  )}
+
+                                                                  {(leadershipAssignments.deputies.length > 0 || leadershipAssignments.secretary || leadershipAssignments.treasurer) && (
+                                                                        <div className="grid gap-4 xl:grid-cols-3">
+                                                                              <div className="space-y-3">
+                                                                                    {leadershipAssignments.deputies.length === 1 ? (
+                                                                                          <OrgMiniCard
+                                                                                                assignment={leadershipAssignments.deputies[0]}
+                                                                                                onEdit={openAssignmentEdit}
+                                                                                                onEnd={endAssignment}
+                                                                                          />
+                                                                                    ) : leadershipAssignments.deputies.length >= 2 ? (
+                                                                                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                                                                                                {leadershipAssignments.deputies.map((assignment) => (
+                                                                                                      <OrgMiniCard
+                                                                                                            key={assignment.id}
+                                                                                                            assignment={assignment}
+                                                                                                            onEdit={openAssignmentEdit}
+                                                                                                            onEnd={endAssignment}
+                                                                                                            compact
+                                                                                                      />
+                                                                                                ))}
+                                                                                          </div>
+                                                                                    ) : (
+                                                                                          <SectionEmpty
+                                                                                                title="Chưa có Phó"
+                                                                                                description="Bổ nhiệm Phó nếu cần hỗ trợ điều hành."
+                                                                                          />
                                                                                     )}
                                                                               </div>
 
-                                                                              <Badge className={getAssignmentStatusClass(assignment.status)}>
-                                                                                    {getAssignmentStatusLabel(assignment.status)}
-                                                                              </Badge>
-                                                                        </div>
+                                                                              <div>
+                                                                                    {leadershipAssignments.secretary ? (
+                                                                                          <OrgMiniCard
+                                                                                                assignment={leadershipAssignments.secretary}
+                                                                                                onEdit={openAssignmentEdit}
+                                                                                                onEnd={endAssignment}
+                                                                                          />
+                                                                                    ) : (
+                                                                                          <SectionEmpty
+                                                                                                title="Chưa có Thư ký"
+                                                                                                description="Bổ nhiệm Thư ký để phụ trách ghi chép và tổng hợp."
+                                                                                          />
+                                                                                    )}
+                                                                              </div>
 
-                                                                        <div className="mt-4 flex flex-wrap gap-2">
-                                                                              <button
-                                                                                    type="button"
-                                                                                    onClick={() => openAssignmentEdit(assignment)}
-                                                                                    className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
-                                                                              >
-                                                                                    <Edit2 className="h-3.5 w-3.5" />
-                                                                                    Cập nhật
-                                                                              </button>
-                                                                              <button
-                                                                                    type="button"
-                                                                                    onClick={() => endAssignment(assignment)}
-                                                                                    className="inline-flex items-center gap-1.5 rounded-xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-700 hover:bg-orange-100"
-                                                                              >
-                                                                                    Kết thúc vai trò
-                                                                              </button>
+                                                                              <div>
+                                                                                    {leadershipAssignments.treasurer ? (
+                                                                                          <OrgMiniCard
+                                                                                                assignment={leadershipAssignments.treasurer}
+                                                                                                onEdit={openAssignmentEdit}
+                                                                                                onEnd={endAssignment}
+                                                                                          />
+                                                                                    ) : (
+                                                                                          <SectionEmpty
+                                                                                                title="Chưa có Thủ quỹ"
+                                                                                                description="Bổ nhiệm Thủ quỹ để phụ trách tài chính."
+                                                                                          />
+                                                                                    )}
+                                                                              </div>
                                                                         </div>
+                                                                  )}
+                                                            </div>
+                                                      ) : (
+                                                            <SectionEmpty
+                                                                  title="Chưa có Trưởng"
+                                                                  description="Bổ nhiệm Trưởng để hoàn thiện sơ đồ điều hành chính."
+                                                            />
+                                                      )}
+                                                </div>
+
+                                                <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+                                                      <div className="mb-6">
+                                                            <h2 className="text-2xl font-bold tracking-tight text-slate-950">Tổ / Ban phụ trách</h2>
+                                                            <p className="mt-1 text-sm text-slate-500">
+                                                                  {unitAssignments.teams.length + unitAssignments.committees.length} vai trò đang đảm nhiệm
+                                                            </p>
+                                                      </div>
+
+                                                      <div className="grid gap-6 xl:grid-cols-2">
+                                                            <div className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50/60 p-5">
+                                                                  <div>
+                                                                        <h3 className="text-lg font-bold text-slate-900">Tổ</h3>
+                                                                        <p className="mt-1 text-sm text-slate-500">
+                                                                              Các vai trò tổ trưởng theo từng Tổ.
+                                                                        </p>
                                                                   </div>
-                                                            ))}
+
+                                                                  {unitAssignments.teams.length === 0 ? (
+                                                                        <SectionEmpty
+                                                                              title="Chưa có Tổ trưởng"
+                                                                              description="Bổ nhiệm tổ trưởng cho các Tổ đang hoạt động."
+                                                                        />
+                                                                  ) : (
+                                                                        <div className="space-y-4">
+                                                                              {unitAssignments.teams.map((assignment) => (
+                                                                                    <OrgMiniCard
+                                                                                          key={assignment.id}
+                                                                                          assignment={assignment}
+                                                                                          onEdit={openAssignmentEdit}
+                                                                                          onEnd={endAssignment}
+                                                                                    />
+                                                                              ))}
+                                                                        </div>
+                                                                  )}
+                                                            </div>
+
+                                                            <div className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50/60 p-5">
+                                                                  <div>
+                                                                        <h3 className="text-lg font-bold text-slate-900">Ban</h3>
+                                                                        <p className="mt-1 text-sm text-slate-500">
+                                                                              Các vai trò trưởng ban theo từng Ban.
+                                                                        </p>
+                                                                  </div>
+
+                                                                  {unitAssignments.committees.length === 0 ? (
+                                                                        <SectionEmpty
+                                                                              title="Chưa có Trưởng ban"
+                                                                              description="Bổ nhiệm trưởng ban cho các Ban đang hoạt động."
+                                                                        />
+                                                                  ) : (
+                                                                        <div className="space-y-4">
+                                                                              {unitAssignments.committees.map((assignment) => (
+                                                                                    <OrgMiniCard
+                                                                                          key={assignment.id}
+                                                                                          assignment={assignment}
+                                                                                          onEdit={openAssignmentEdit}
+                                                                                          onEnd={endAssignment}
+                                                                                    />
+                                                                              ))}
+                                                                        </div>
+                                                                  )}
+                                                            </div>
                                                       </div>
                                                 </div>
-                                          );
-                                    })}
-
-                                    {missingRoles.length > 0 && (
-                                          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
-                                                <h3 className="font-bold text-amber-900">Vị trí cần bổ sung</h3>
-                                                <div className="mt-3 flex flex-wrap gap-2">
-                                                      {missingRoles.map((item) => (
-                                                            <Badge key={item.role.id} className="border-amber-200 bg-white text-amber-800">
-                                                                  {item.role.name}: thiếu {item.missing}
-                                                            </Badge>
-                                                      ))}
-                                                </div>
-                                          </div>
+                                          </>
                                     )}
                               </div>
                         )}
@@ -1271,8 +1337,7 @@ export default function OrganizationSimple() {
                                           <button
                                                 type="button"
                                                 onClick={openAssignmentCreate}
-                                                disabled={roles.length === 0}
-                                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                                           >
                                                 <Plus className="h-4 w-4" />
                                                 Bổ nhiệm
@@ -1485,7 +1550,10 @@ export default function OrganizationSimple() {
                                                 </div>
                                                 <button
                                                       type="button"
-                                                      onClick={() => { setAssignmentError(null); setAssignmentForm(null); }}
+                                                      onClick={() => {
+                                                            setAssignmentError(null);
+                                                            setAssignmentForm(null);
+                                                      }}
                                                       className="rounded-xl border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50"
                                                 >
                                                       <X className="h-4 w-4" />
@@ -1525,18 +1593,19 @@ export default function OrganizationSimple() {
                                                             value={assignmentForm.roleId}
                                                             onChange={(event) => {
                                                                   const role = roles.find((item) => String(item.id) === event.target.value) || null;
-
+                                                                  const nextUnitId = '';
+                                                                  const unit = null;
+                                                                  setAssignmentError(null);
                                                                   setAssignmentForm((current) =>
                                                                         current
                                                                               ? {
                                                                                       ...current,
                                                                                       roleId: event.target.value,
-                                                                                      unitId: '',
-                                                                                      assignmentTitle: roleRequiresUnit(role) ? '' : buildAssignmentTitle(role, null),
+                                                                                      unitId: nextUnitId,
+                                                                                      assignmentTitle: buildAssignmentTitle(role, unit),
                                                                                 }
                                                                               : current
                                                                   );
-                                                                  setAssignmentError(null);
                                                             }}
                                                             className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
                                                       >
@@ -1549,13 +1618,13 @@ export default function OrganizationSimple() {
                                                       </select>
                                                 </label>
 
-                                                {selectedRoleNeedsUnit && (
+                                                {roleRequiresUnit(selectedRole) && (
                                                       <label className="space-y-1.5">
-                                                            <Label>{unitSelectLabel}</Label>
+                                                            <Label>Tổ/Ban</Label>
                                                             <select
                                                                   value={assignmentForm.unitId}
                                                                   onChange={(event) => {
-                                                                        const unit = filteredUnitsForSelectedRole.find((item) => String(item.id) === event.target.value) || null;
+                                                                        const unit = units.find((item) => String(item.id) === event.target.value) || null;
                                                                         setAssignmentForm((current) =>
                                                                               current
                                                                                     ? {
@@ -1565,22 +1634,22 @@ export default function OrganizationSimple() {
                                                                                       }
                                                                                     : current
                                                                         );
-                                                                        setAssignmentError(null);
                                                                   }}
                                                                   className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
                                                             >
-                                                                  <option value="">{unitSelectPlaceholder}</option>
-                                                                  {filteredUnitsForSelectedRole.map((unit) => (
-                                                                        <option key={unit.id} value={unit.id}>
-                                                                              {unit.name}
-                                                                        </option>
-                                                                  ))}
+                                                                  <option value="">{selectedRole?.roleType === 'team_leader' ? 'Chọn Tổ' : 'Chọn Ban'}</option>
+                                                                  {activeUnits
+                                                                        .filter((unit) => {
+                                                                              if (selectedRole?.roleType === 'team_leader') return unit.unitType === 'team';
+                                                                              if (selectedRole?.roleType === 'committee_head') return unit.unitType === 'committee';
+                                                                              return true;
+                                                                        })
+                                                                        .map((unit) => (
+                                                                              <option key={unit.id} value={unit.id}>
+                                                                                    {unit.name}
+                                                                              </option>
+                                                                        ))}
                                                             </select>
-                                                            {filteredUnitsForSelectedRole.length === 0 && (
-                                                                  <p className="text-xs font-medium text-amber-600">
-                                                                        {unitSelectEmptyMessage}
-                                                                  </p>
-                                                            )}
                                                       </label>
                                                 )}
 
@@ -1664,7 +1733,10 @@ export default function OrganizationSimple() {
                                           <div className="mt-5 flex justify-end gap-2">
                                                 <button
                                                       type="button"
-                                                      onClick={() => { setAssignmentError(null); setAssignmentForm(null); }}
+                                                      onClick={() => {
+                                                            setAssignmentError(null);
+                                                            setAssignmentForm(null);
+                                                      }}
                                                       className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
                                                 >
                                                       Hủy

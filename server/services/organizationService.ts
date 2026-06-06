@@ -569,7 +569,11 @@ class OrganizationService {
             const effectiveMaxAssignees = this.getEffectiveMaxAssignees(role);
 
             if (effectiveMaxAssignees !== null && effectiveMaxAssignees > 0) {
-                  const rowsForLimit = roleRequiresUnit(role)
+                  const roleIsTeamLeader = isTeamLeaderRole(role);
+                  const roleIsCommitteeHead = isCommitteeHeadRole(role);
+                  const roleIsUnitScoped = roleIsTeamLeader || roleIsCommitteeHead;
+
+                  const rowsForLimit = roleIsUnitScoped
                         ? activeRows.filter(
                                 (assignment: any) =>
                                       Number(assignment.unitId || 0) === Number(input.unitId || 0)
@@ -577,24 +581,20 @@ class OrganizationService {
                         : activeRows;
 
                   if (rowsForLimit.length >= effectiveMaxAssignees) {
-                        const scopeText = roleRequiresUnit(role)
-                              ? "cho Tổ/Ban này"
-                              : "trong nhiệm kỳ này";
-
-                        if (isTeamLeaderRole(role)) {
+                        if (roleIsTeamLeader) {
                               throw new Error(
                                     `Tổ này đã có Tổ trưởng. Mỗi Tổ chỉ được phân công tối đa ${effectiveMaxAssignees} Tổ trưởng.`
                               );
                         }
 
-                        if (isCommitteeHeadRole(role)) {
+                        if (roleIsCommitteeHead) {
                               throw new Error(
                                     `Ban này đã có Trưởng ban. Mỗi Ban chỉ được phân công tối đa ${effectiveMaxAssignees} Trưởng ban.`
                               );
                         }
 
                         throw new Error(
-                              `Chức vụ này chỉ cho phép tối đa ${effectiveMaxAssignees} người ${scopeText}.`
+                              `Chức vụ này chỉ cho phép tối đa ${effectiveMaxAssignees} người trong nhiệm kỳ này.`
                         );
                   }
             }

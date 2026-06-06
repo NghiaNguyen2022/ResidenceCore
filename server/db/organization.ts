@@ -284,10 +284,12 @@ export async function countOrganizationRoleAssignments(roleId: number) {
 export async function countActiveOrganizationRoleAssignments({
       termId,
       roleId,
+      unitId,
       editingId,
 }: {
       termId: number;
       roleId: number;
+      unitId?: number | null;
       editingId?: number;
 }) {
       const db = getDb();
@@ -297,6 +299,10 @@ export async function countActiveOrganizationRoleAssignments({
             eq(organizationAssignments.roleId, roleId),
             eq(organizationAssignments.status, "active"),
       ];
+
+      if (unitId) {
+            conditions.push(eq(organizationAssignments.unitId, unitId));
+      }
 
       if (editingId) {
             conditions.push(ne(organizationAssignments.id, editingId));
@@ -1320,30 +1326,58 @@ async function ensureOrganizationAssignmentValid({
                   Boolean(role.allowMultipleMembers)
             );
 
+      const isUnitScopedRole =
+            requiresUnit ||
+            roleType === "team_leader" ||
+            roleType === "committee_head";
+
       if (maxAssignees && maxAssignees > 0) {
             const activeCount = await countActiveOrganizationRoleAssignments({
                   termId,
                   roleId,
+                  unitId: isUnitScopedRole ? unitId : null,
                   editingId,
             });
 
             if (activeCount >= maxAssignees) {
+                  const scopeTitle =
+                        isUnitScopedRole && unit?.name
+                              ? `${role.name} ${unit.name}`
+                              : role.name;
+
                   throw new Error(
-                        `Vai trò "${role.name}" chỉ được phân công tối đa ${maxAssignees} người trong cùng nhiệm kỳ.`
+                        isUnitScopedRole
+                              ? `${scopeTitle} đã đủ số lượng tối đa (${maxAssignees}).`
+                              : `Vai trò "${role.name}" chỉ được phân công tối đa ${maxAssignees} người trong cùng nhiệm kỳ.`
                   );
             }
       }
 
       if (!role.allowMultipleMembers) {
+            const roleAlreadyAssignedConditions = [...baseConditions];
+
+            if (isUnitScopedRole && unitId) {
+                  roleAlreadyAssignedConditions.push(
+                        eq(organizationAssignments.unitId, unitId)
+                  );
+            }
+
             const roleAlreadyAssigned = await db
                   .select()
                   .from(organizationAssignments)
-                  .where(and(...baseConditions))
+                  .where(and(...roleAlreadyAssignedConditions))
                   .limit(1);
 
             if (roleAlreadyAssigned.length > 0) {
+                  const scopeTitle =
+                        isUnitScopedRole && unit?.name
+                              ? `${role.name} ${unit.name}`
+                              : role.name;
+
                   throw new Error(
-                        `Vai trò "${role.name}" chỉ cho phép một người trong cùng nhiệm kỳ.`
+                        isUnitScopedRole
+                              ? `${scopeTitle} đã có người phụ trách trong nhiệm kỳ đang chọn.`
+                              : `Vai trò "${role.name}" chỉ cho phép một người trong cùng nhiệm kỳ.`
                   );
             }
       }
