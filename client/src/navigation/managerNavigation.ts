@@ -32,7 +32,7 @@ export const simpleManagerNavigation: NavigationItem[] = [
             roles: ["manager"],
             children: [
                   {
-                        label: "Lịch sinh hoạt",
+                        label: "Sinh hoạt hằng ngày",
                         path: "/daily-routine",
                         icon: "🕘",
                         roles: ["manager"],

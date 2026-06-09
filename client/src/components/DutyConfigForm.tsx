@@ -83,6 +83,21 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
         dayOfWeek: duty.dayOfWeek || 0,
         requiresStudyScheduleCheck: duty.requiresStudyScheduleCheck,
       });
+    } else {
+      setChecklistItems([]);
+      setFormData({
+        dutyCode: "",
+        dutyName: "",
+        description: "",
+        dutyType: "daily",
+        startTime: "",
+        endTime: "",
+        minPersons: 1,
+        maxPersons: 5,
+        frequency: "daily",
+        dayOfWeek: 0,
+        requiresStudyScheduleCheck: true,
+      });
     }
   }, [duty]);
 
@@ -109,6 +124,47 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
     setShowTemplateSelector(false);
   };
 
+  const persistChecklistItems = async (dutyConfigId: number) => {
+    const originalItems = (getChecklistQuery.data || []) as ChecklistItem[];
+    const originalIds = originalItems
+      .map((item) => item.id)
+      .filter((id): id is number => Boolean(id));
+
+    const currentIds = checklistItems
+      .map((item) => item.id)
+      .filter((id): id is number => Boolean(id));
+
+    const deletedIds = originalIds.filter((id) => !currentIds.includes(id));
+
+    for (const id of deletedIds) {
+      await deleteChecklistItemMutation.mutateAsync({ id });
+    }
+
+    for (const [index, item] of checklistItems.entries()) {
+      const payload = {
+        checklistItem: item.checklistItem.trim(),
+        description: item.description || undefined,
+        isRequired: item.isRequired,
+        estimatedTimeMinutes: item.estimatedTimeMinutes,
+      };
+
+      if (!payload.checklistItem) continue;
+
+      if (item.id) {
+        await updateChecklistItemMutation.mutateAsync({
+          id: item.id,
+          ...payload,
+        });
+      } else {
+        await addChecklistItemMutation.mutateAsync({
+          dutyConfigId,
+          itemOrder: index + 1,
+          ...payload,
+        });
+      }
+    }
+  };
+
   // Handle save
   const handleSave = async () => {
     if (!formData.dutyCode || !formData.dutyName) {
@@ -119,8 +175,9 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
     try {
       setLoading(true);
 
+      let dutyConfigId = duty?.id ? Number(duty.id) : 0;
+
       if (duty) {
-        // Update
         await updateConfigMutation.mutateAsync({
           id: duty.id,
           data: {
@@ -133,8 +190,7 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
           },
         });
       } else {
-        // Create
-        await createConfigMutation.mutateAsync({
+        const createdConfig: any = await createConfigMutation.mutateAsync({
           dutyCode: formData.dutyCode,
           dutyName: formData.dutyName,
           description: formData.description,
@@ -147,7 +203,15 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
           dayOfWeek: formData.dayOfWeek,
           requiresStudyScheduleCheck: formData.requiresStudyScheduleCheck,
         });
+
+        dutyConfigId = Number(createdConfig?.id || createdConfig?.insertId || 0);
       }
+
+      if (!dutyConfigId) {
+        throw new Error("Không xác định được công tác cần lưu danh sách công việc.");
+      }
+
+      await persistChecklistItems(dutyConfigId);
 
       onSave();
     } catch (error) {
@@ -159,66 +223,38 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
   };
 
   // Handle add checklist item
-  const handleAddChecklistItem = async () => {
-    if (!newChecklistItem.checklistItem) {
+  const handleAddChecklistItem = () => {
+    const checklistItem = newChecklistItem.checklistItem.trim();
+
+    if (!checklistItem) {
       alert("Vui lòng nhập nội dung công việc");
       return;
     }
 
-    if (!duty?.id) {
-      // Nếu chưa tạo duty, thêm vào state tạm
-      const newItem = {
-        ...newChecklistItem,
-        itemOrder: checklistItems.length + 1,
-      };
-      setChecklistItems([...checklistItems, newItem]);
-      setNewChecklistItem({
-        itemOrder: 0,
-        checklistItem: "",
-        isRequired: true,
-      });
-    } else {
-      // Nếu đã tạo duty, lưu vào DB
-      try {
-        await addChecklistItemMutation.mutateAsync({
-          dutyConfigId: duty.id,
-          itemOrder: checklistItems.length + 1,
-          checklistItem: newChecklistItem.checklistItem,
-          isRequired: newChecklistItem.isRequired,
-          description: newChecklistItem.description,
-          estimatedTimeMinutes: newChecklistItem.estimatedTimeMinutes,
-        });
+    const newItem = {
+      ...newChecklistItem,
+      checklistItem,
+      itemOrder: checklistItems.length + 1,
+    };
 
-        getChecklistQuery.refetch();
-        setNewChecklistItem({
-          itemOrder: 0,
-          checklistItem: "",
-          isRequired: true,
-        });
-      } catch (error) {
-        console.error("Error adding checklist item:", error);
-        alert("Lỗi khi thêm công việc");
-      }
-    }
+    setChecklistItems([...checklistItems, newItem]);
+    setNewChecklistItem({
+      itemOrder: 0,
+      checklistItem: "",
+      isRequired: true,
+    });
   };
 
   // Handle delete checklist item
-  const handleDeleteChecklistItem = async (index: number) => {
-    const item = checklistItems[index];
-
-    if (item.id) {
-      // Xóa từ DB
-      try {
-        await deleteChecklistItemMutation.mutateAsync({ id: item.id });
-        getChecklistQuery.refetch();
-      } catch (error) {
-        console.error("Error deleting checklist item:", error);
-        alert("Lỗi khi xóa công việc");
-      }
-    } else {
-      // Xóa từ state tạm
-      setChecklistItems(checklistItems.filter((_, i) => i !== index));
-    }
+  const handleDeleteChecklistItem = (index: number) => {
+    setChecklistItems(
+      checklistItems
+        .filter((_, itemIndex) => itemIndex !== index)
+        .map((item, itemIndex) => ({
+          ...item,
+          itemOrder: itemIndex + 1,
+        }))
+    );
   };
 
   return (

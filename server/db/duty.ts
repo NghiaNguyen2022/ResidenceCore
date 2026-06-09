@@ -21,7 +21,7 @@ import {
       InsertDutyEvaluation,
       InsertScheduleConflict,
 } from "../../drizzle/schema";
-import { eq, and, or, gte, lte, between, like } from "drizzle-orm";
+import { eq, and, or, gte, lte, between, like, sql } from "drizzle-orm";
 
 // ============================================================================
 // 2.1 DUTY TEMPLATE FUNCTIONS
@@ -189,19 +189,7 @@ export async function updateDutyConfig(id: number, data: Partial<InsertDutyConfi
       if (!db) throw new Error("Database not available");
 
       try {
-            const cleanData = Object.fromEntries(
-                  Object.entries(data || {}).filter(([, value]) => value !== undefined)
-            ) as Partial<InsertDutyConfig>;
-
-            if (Object.keys(cleanData).length === 0) {
-                  return { success: true, skipped: true };
-            }
-
-            const result = await db
-                  .update(dutyConfigs)
-                  .set(cleanData)
-                  .where(eq(dutyConfigs.id, id));
-
+            const result = await db.update(dutyConfigs).set(data).where(eq(dutyConfigs.id, id));
             return result;
       } catch (error) {
             console.error("[Database] Failed to update duty config:", error);
@@ -387,8 +375,48 @@ export type DutyAssignmentInput = InsertDutyAssignment & {
       assignedToId?: number | null;
 };
 
+function toSqlDateOnly(value: Date | string | null | undefined) {
+      if (!value) return value;
+
+      if (typeof value === "string") {
+            if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+
+            const parsed = new Date(value);
+            if (!Number.isNaN(parsed.getTime())) {
+                  return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}-${String(parsed.getUTCDate()).padStart(2, "0")}`;
+            }
+
+            return value.slice(0, 10);
+      }
+
+      return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+}
+
+function toSqlDateTime(value: Date | string | null | undefined) {
+      if (!value) return value;
+
+      if (typeof value === "string") {
+            if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(value)) {
+                  return value.replace("T", " ").replace("Z", "").slice(0, 19);
+            }
+
+            const parsed = new Date(value);
+            if (!Number.isNaN(parsed.getTime())) {
+                  return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}-${String(parsed.getUTCDate()).padStart(2, "0")} ${String(parsed.getUTCHours()).padStart(2, "0")}:${String(parsed.getUTCMinutes()).padStart(2, "0")}:${String(parsed.getUTCSeconds()).padStart(2, "0")}`;
+            }
+
+            return value.replace("T", " ").replace("Z", "").slice(0, 19);
+      }
+
+      return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")} ${String(value.getUTCHours()).padStart(2, "0")}:${String(value.getUTCMinutes()).padStart(2, "0")}:${String(value.getUTCSeconds()).padStart(2, "0")}`;
+}
+
 function normalizeDutyAssignmentInput(data: DutyAssignmentInput): InsertDutyAssignment {
       const payload: any = { ...data };
+
+      payload.assignedDate = toSqlDateOnly(payload.assignedDate);
+      payload.startDateTime = toSqlDateTime(payload.startDateTime);
+      payload.endDateTime = toSqlDateTime(payload.endDateTime);
 
       /**
        * Backward compatible rule:
@@ -426,6 +454,52 @@ function normalizeDutyAssignmentInput(data: DutyAssignmentInput): InsertDutyAssi
 }
 
 
+async function validateResidentDutyCapacity(
+      db: any,
+      payload: any
+) {
+      const assignedToType = payload.assignedToType || (payload.residentId ? "resident" : null);
+
+      if (assignedToType !== "resident") return;
+
+      const dutyConfigId = Number(payload.dutyConfigId || 0);
+
+      if (!dutyConfigId) return;
+
+      const configRows = await db
+            .select()
+            .from(dutyConfigs)
+            .where(eq(dutyConfigs.id, dutyConfigId))
+            .limit(1);
+
+      const config = configRows[0] as any;
+
+      if (!config?.maxPersons) return;
+
+      const assignedDateText = String(toSqlDateOnly(payload.assignedDate)).slice(0, 10);
+
+      const currentRows = await db
+            .select()
+            .from(dutyAssignments)
+            .where(
+                  and(
+                        eq(dutyAssignments.dutyConfigId, dutyConfigId),
+                        sql`DATE(${dutyAssignments.assignedDate}) = ${assignedDateText}`,
+                        or(
+                              eq(dutyAssignments.assignedToType, "resident" as any),
+                              sql`${dutyAssignments.assignedToType} IS NULL`
+                        ),
+                        sql`${dutyAssignments.status} <> 'cancelled'`
+                  )
+            );
+
+      if (currentRows.length >= Number(config.maxPersons)) {
+            throw new Error(
+                  `Công tác này đã đủ số lượng tối đa (${config.maxPersons} học viên).`
+            );
+      }
+}
+
 /**
  * Gán công tác cho học viên
  */
@@ -435,6 +509,9 @@ export async function assignDuty(data: DutyAssignmentInput) {
 
       try {
             const payload = normalizeDutyAssignmentInput(data);
+
+            await validateResidentDutyCapacity(db, payload);
+
             const result = await db.insert(dutyAssignments).values(payload);
             return result;
       } catch (error) {
@@ -517,15 +594,27 @@ export async function getAssignmentsByResident(
 /**
  * Lấy assignments theo ngày
  */
-export async function getAssignmentsByDate(date: Date) {
+function toDateOnlyText(value: Date | string) {
+      if (typeof value === "string") return value.slice(0, 10);
+
+      const year = value.getUTCFullYear();
+      const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(value.getUTCDate()).padStart(2, "0");
+
+      return `${year}-${month}-${day}`;
+}
+
+export async function getAssignmentsByDate(date: Date | string) {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
       try {
+            const dateText = String(toSqlDateOnly(date)).slice(0, 10);
+
             const result = await db
                   .select()
                   .from(dutyAssignments)
-                  .where(eq(dutyAssignments.assignedDate, date))
+                  .where(sql`DATE(${dutyAssignments.assignedDate}) = ${dateText}`)
                   .orderBy(dutyAssignments.startDateTime);
             return result;
       } catch (error) {
@@ -1121,4 +1210,206 @@ export async function getDutyTemplatesByType(dutyType: "daily" | "weekly" | "mon
             .from(dutyTemplates)
             .where(and(eq(dutyTemplates.dutyType, dutyType), eq(dutyTemplates.isActive, true)))
             .orderBy(dutyTemplates.templateCode);
+}
+
+
+// ============================================================================
+// SIMPLE MODE BATCH ASSIGNMENT SUPPORT
+// ============================================================================
+
+export type DutyAssignmentAssigneeType = "resident" | "team" | "room" | "committee";
+
+export type PreviewDutyAssignmentInput = {
+      dutyConfigId: number;
+      assignedDates: string[];
+      assignedToType: DutyAssignmentAssigneeType;
+      assignedToId: number;
+      startTime?: string | null;
+      endTime?: string | null;
+      notes?: string | null;
+};
+
+export type PreviewDutyAssignmentItem = {
+      date: string;
+      canCreate: boolean;
+      reason?: string;
+      currentResidentCount?: number;
+      minPersons?: number | null;
+      maxPersons?: number | null;
+};
+
+function buildDateTimeFromDateAndTime(dateText: string, timeText?: string | null) {
+      if (!timeText) return null;
+
+      const normalizedTime = timeText.length === 5 ? `${timeText}:00` : timeText;
+
+      return `${dateText} ${normalizedTime}`;
+}
+
+async function getDutyAssignmentExistingRows(
+      db: any,
+      input: {
+            dutyConfigId: number;
+            assignedDate: string;
+            assignedToType: DutyAssignmentAssigneeType;
+            assignedToId: number;
+      }
+) {
+      return await db
+            .select()
+            .from(dutyAssignments)
+            .where(
+                  and(
+                        eq(dutyAssignments.dutyConfigId, input.dutyConfigId),
+                        sql`DATE(${dutyAssignments.assignedDate}) = ${input.assignedDate}`,
+                        eq(dutyAssignments.assignedToType, input.assignedToType as any),
+                        eq(dutyAssignments.assignedToId, input.assignedToId),
+                        sql`${dutyAssignments.status} <> 'cancelled'`
+                  )
+            );
+}
+
+async function getDutyAssignmentResidentRows(
+      db: any,
+      input: {
+            dutyConfigId: number;
+            assignedDate: string;
+      }
+) {
+      return await db
+            .select()
+            .from(dutyAssignments)
+            .where(
+                  and(
+                        eq(dutyAssignments.dutyConfigId, input.dutyConfigId),
+                        sql`DATE(${dutyAssignments.assignedDate}) = ${input.assignedDate}`,
+                        or(
+                              eq(dutyAssignments.assignedToType, "resident" as any),
+                              sql`${dutyAssignments.assignedToType} IS NULL`
+                        ),
+                        sql`${dutyAssignments.status} <> 'cancelled'`
+                  )
+            );
+}
+
+export async function previewDutyAssignment(
+      input: PreviewDutyAssignmentInput
+): Promise<{
+      dutyConfig: any;
+      items: PreviewDutyAssignmentItem[];
+      canCreateCount: number;
+      skippedCount: number;
+}> {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const configRows = await db
+            .select()
+            .from(dutyConfigs)
+            .where(eq(dutyConfigs.id, input.dutyConfigId))
+            .limit(1);
+
+      const dutyConfig = configRows[0] as any;
+
+      if (!dutyConfig) {
+            throw new Error("Không tìm thấy mẫu công tác.");
+      }
+
+      const items: PreviewDutyAssignmentItem[] = [];
+
+      for (const rawDate of input.assignedDates) {
+            const assignedDate = String(toSqlDateOnly(rawDate)).slice(0, 10);
+
+            const duplicateRows = await getDutyAssignmentExistingRows(db, {
+                  dutyConfigId: input.dutyConfigId,
+                  assignedDate,
+                  assignedToType: input.assignedToType,
+                  assignedToId: input.assignedToId,
+            });
+
+            if (duplicateRows.length > 0) {
+                  items.push({
+                        date: assignedDate,
+                        canCreate: false,
+                        reason: "Đã có phân công cho đối tượng này",
+                        minPersons: dutyConfig.minPersons ?? null,
+                        maxPersons: dutyConfig.maxPersons ?? null,
+                  });
+                  continue;
+            }
+
+            if (input.assignedToType === "resident" && dutyConfig.maxPersons) {
+                  const currentResidentRows = await getDutyAssignmentResidentRows(db, {
+                        dutyConfigId: input.dutyConfigId,
+                        assignedDate,
+                  });
+
+                  if (currentResidentRows.length >= Number(dutyConfig.maxPersons)) {
+                        items.push({
+                              date: assignedDate,
+                              canCreate: false,
+                              reason: `Đã đủ số lượng tối đa (${dutyConfig.maxPersons} học viên)`,
+                              currentResidentCount: currentResidentRows.length,
+                              minPersons: dutyConfig.minPersons ?? null,
+                              maxPersons: dutyConfig.maxPersons ?? null,
+                        });
+                        continue;
+                  }
+
+                  items.push({
+                        date: assignedDate,
+                        canCreate: true,
+                        currentResidentCount: currentResidentRows.length,
+                        minPersons: dutyConfig.minPersons ?? null,
+                        maxPersons: dutyConfig.maxPersons ?? null,
+                  });
+                  continue;
+            }
+
+            items.push({
+                  date: assignedDate,
+                  canCreate: true,
+                  minPersons: dutyConfig.minPersons ?? null,
+                  maxPersons: dutyConfig.maxPersons ?? null,
+            });
+      }
+
+      return {
+            dutyConfig,
+            items,
+            canCreateCount: items.filter((item) => item.canCreate).length,
+            skippedCount: items.filter((item) => !item.canCreate).length,
+      };
+}
+
+export async function assignDutyBatch(input: PreviewDutyAssignmentInput) {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const preview = await previewDutyAssignment(input);
+      const createdItems: PreviewDutyAssignmentItem[] = [];
+      const skippedItems = preview.items.filter((item) => !item.canCreate);
+
+      for (const item of preview.items.filter((row) => row.canCreate)) {
+            const payload = normalizeDutyAssignmentInput({
+                  dutyConfigId: input.dutyConfigId,
+                  residentId: input.assignedToType === "resident" ? input.assignedToId : null,
+                  assignedToType: input.assignedToType,
+                  assignedToId: input.assignedToId,
+                  assignedDate: item.date,
+                  startDateTime: buildDateTimeFromDateAndTime(item.date, input.startTime),
+                  endDateTime: buildDateTimeFromDateAndTime(item.date, input.endTime),
+                  notes: input.notes || undefined,
+            } as any);
+
+            await db.insert(dutyAssignments).values(payload);
+            createdItems.push(item);
+      }
+
+      return {
+            created: createdItems.length,
+            skipped: skippedItems.length,
+            createdItems,
+            skippedItems,
+      };
 }

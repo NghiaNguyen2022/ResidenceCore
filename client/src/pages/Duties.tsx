@@ -20,6 +20,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import DutyConfigForm from '@/components/DutyConfigForm';
+import {
+      AppMessageBox,
+      type AppMessageBoxState,
+} from '@/components/common/AppMessageBox';
 
 type DutyStatus =
       | 'pending'
@@ -63,14 +67,21 @@ function todayValue() {
       return new Date().toISOString().slice(0, 10);
 }
 
+function createWallClockDate(dateText: string, timeText = '12:00:00') {
+      const [year, month, day] = dateText.split('-').map(Number);
+      const [hour = 0, minute = 0, second = 0] = timeText.split(':').map(Number);
+
+      return new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+}
+
 function toDateAtNoon(dateText: string) {
-      return new Date(`${dateText}T12:00:00`);
+      return createWallClockDate(dateText, '12:00:00');
 }
 
 function toDateTime(dateText: string, timeText?: string | null) {
       if (!dateText || !timeText) return undefined;
 
-      return new Date(`${dateText}T${timeText.length === 5 ? `${timeText}:00` : timeText}`);
+      return createWallClockDate(dateText, timeText.length === 5 ? `${timeText}:00` : timeText);
 }
 
 function formatTime(value?: string | Date | null) {
@@ -196,6 +207,16 @@ export default function Duties() {
             text: string;
       } | null>(null);
 
+      const [messageBox, setMessageBox] = useState<AppMessageBoxState>({
+            open: false,
+            title: '',
+            message: '',
+            variant: 'info',
+            actions: [],
+      });
+      const [pendingDeleteDuty, setPendingDeleteDuty] = useState<DutyConfig | null>(null);
+      const [pendingCancelAssignment, setPendingCancelAssignment] = useState<any>(null);
+
       const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>({
             dutyConfigId: '',
             assignedDate: todayValue(),
@@ -228,6 +249,7 @@ export default function Duties() {
       const completeAssignmentMutation = trpc.duties.completeAssignment.useMutation();
       const skipAssignmentMutation = trpc.duties.skipAssignment.useMutation();
       const cancelAssignmentMutation = trpc.duties.cancelAssignment.useMutation();
+      const deleteDutyMutation = trpc.duties.deleteConfig.useMutation();
 
       const duties = useMemo(() => {
             const keyword = searchTerm.trim().toLowerCase();
@@ -413,23 +435,48 @@ export default function Duties() {
             }
       };
 
-      const cancelAssignment = async (assignment: any) => {
-            const confirmed = window.confirm('Hủy công tác này?');
+      const requestCancelAssignment = (assignment: any) => {
+            setPendingCancelAssignment(assignment);
+            setMessageBox({
+                  open: true,
+                  title: 'Hủy công tác',
+                  message:
+                        `Bạn có chắc muốn hủy công tác "${assignment.dutyConfig?.dutyName || `#${assignment.id}`}"?\n\n` +
+                        'Công tác sẽ chuyển sang trạng thái Đã hủy và không còn được tính là công tác cần thực hiện.',
+                  variant: 'warning',
+                  selectedValue: 'cancelAssignment',
+                  cancelText: 'Hủy',
+                  actions: [
+                        {
+                              label: 'Hủy công tác',
+                              value: 'cancelAssignment',
+                              description: 'Chuyển công tác sang trạng thái Đã hủy.',
+                              variant: 'warning',
+                        },
+                  ],
+            });
+      };
 
-            if (!confirmed) return;
+      const executeCancelAssignment = async () => {
+            if (!pendingCancelAssignment) {
+                  closeMessageBox();
+                  return;
+            }
 
             try {
                   await cancelAssignmentMutation.mutateAsync({
-                        id: assignment.id,
+                        id: pendingCancelAssignment.id,
                         reason: 'Hủy từ màn hình quản lý công tác',
                   });
                   setMessage({ type: 'success', text: 'Đã hủy công tác.' });
+                  closeMessageBox();
                   await refetchAll();
             } catch (error: any) {
                   setMessage({
                         type: 'error',
                         text: error?.message || 'Không thể hủy công tác.',
                   });
+                  closeMessageBox();
             }
       };
 
@@ -441,6 +488,88 @@ export default function Duties() {
       const openEditDuty = (duty: DutyConfig) => {
             setSelectedDuty(duty);
             setIsDutyDialogOpen(true);
+      };
+
+      const requestDeleteDuty = (duty: DutyConfig) => {
+            setPendingDeleteDuty(duty);
+            setMessageBox({
+                  open: true,
+                  title: 'Xóa mẫu công tác',
+                  message:
+                        `Bạn có chắc muốn xóa mẫu công tác "${duty.dutyName}"?\n\n` +
+                        'Chỉ nên xóa khi đây là dữ liệu tạo nhầm hoặc dữ liệu test. Nếu mẫu công tác đã phát sinh phân công, nên chuyển sang ngừng dùng để giữ lịch sử.',
+                  variant: 'danger',
+                  selectedValue: 'deleteDuty',
+                  cancelText: 'Hủy',
+                  actions: [
+                        {
+                              label: 'Xóa mẫu công tác',
+                              value: 'deleteDuty',
+                              description: 'Xóa mẫu công tác và các thiết lập liên quan nếu backend cho phép.',
+                              variant: 'danger',
+                        },
+                  ],
+            });
+      };
+
+      const executeDeleteDuty = async () => {
+            if (!pendingDeleteDuty) {
+                  closeMessageBox();
+                  return;
+            }
+
+            try {
+                  await deleteDutyMutation.mutateAsync({
+                        id: pendingDeleteDuty.id,
+                  });
+
+                  setMessage({
+                        type: 'success',
+                        text: 'Đã xóa mẫu công tác.',
+                  });
+
+                  closeMessageBox();
+                  await listDutiesQuery.refetch();
+            } catch (error: any) {
+                  setMessage({
+                        type: 'error',
+                        text:
+                              error?.message ||
+                              'Không thể xóa mẫu công tác. Nếu công tác đã phát sinh phân công, nên chuyển sang ngừng dùng thay vì xóa.',
+                  });
+                  closeMessageBox();
+            }
+      };
+
+      const closeMessageBox = () => {
+            setMessageBox({
+                  open: false,
+                  title: '',
+                  message: '',
+                  variant: 'info',
+                  actions: [],
+            });
+            setPendingDeleteDuty(null);
+            setPendingCancelAssignment(null);
+      };
+
+      const handleMessageBoxConfirm = async (value: string) => {
+            if (value === 'closeMessageBox') {
+                  closeMessageBox();
+                  return;
+            }
+
+            if (value === 'deleteDuty') {
+                  await executeDeleteDuty();
+                  return;
+            }
+
+            if (value === 'cancelAssignment') {
+                  await executeCancelAssignment();
+                  return;
+            }
+
+            closeMessageBox();
       };
 
       const getAssigneeOptions = () => {
@@ -690,7 +819,7 @@ export default function Duties() {
                                                                                     <button
                                                                                           type="button"
                                                                                           onClick={() =>
-                                                                                                cancelAssignment(
+                                                                                                requestCancelAssignment(
                                                                                                       assignment
                                                                                                 )
                                                                                           }
@@ -985,6 +1114,16 @@ export default function Duties() {
                                                                         <Edit2 className="h-3.5 w-3.5" />
                                                                         Sửa
                                                                   </button>
+
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => requestDeleteDuty(duty)}
+                                                                        disabled={deleteDutyMutation.isPending}
+                                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                  >
+                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                        Xóa
+                                                                  </button>
                                                             </div>
                                                       </div>
                                                 ))}
@@ -1034,6 +1173,16 @@ export default function Duties() {
                                     </div>
                               </div>
                         )}
+
+                        <AppMessageBox
+                              state={messageBox}
+                              onCancel={closeMessageBox}
+                              onConfirm={handleMessageBoxConfirm}
+                              isProcessing={
+                                    deleteDutyMutation.isPending ||
+                                    cancelAssignmentMutation.isPending
+                              }
+                        />
                   </div>
             </ResidenceCareLayout>
       );

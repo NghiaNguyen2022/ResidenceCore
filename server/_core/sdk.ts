@@ -92,7 +92,7 @@ class SDKServer {
                   throw ForbiddenError("Invalid session cookie");
             }
 
-            console.log("[SDK] Session verified for user:", session.username);
+            //console.log("[SDK] Session verified for user:", session.username);
 
             const signedInAt = new Date();
             let user = await db.getUserById(session.userId);
@@ -102,7 +102,7 @@ class SDKServer {
                   throw ForbiddenError("User not found");
             }
 
-            console.log("[SDK] User authenticated:", user.username);
+            // console.log("[SDK] User authenticated:", user.username);
 
             // Update last signed in
             await db.updateUserLastSignedIn(user.id, signedInAt);

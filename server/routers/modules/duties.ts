@@ -4,6 +4,17 @@ import { TRPCError } from "@trpc/server";
 import * as db from "../../db";
 import { dutyAssignments } from "../../../drizzle/schema";
 
+
+const assignmentScopeInput = z.object({
+      dutyConfigId: z.number(),
+      assignedDates: z.array(z.string()).min(1),
+      assignedToType: z.enum(["resident", "team", "room", "committee"]),
+      assignedToId: z.number(),
+      startTime: z.string().optional().nullable(),
+      endTime: z.string().optional().nullable(),
+      notes: z.string().optional().nullable(),
+});
+
 /**
  * ============================================
  * DUTIES ROUTER - QUẢN LÝ CÔNG TÁC
@@ -646,6 +657,47 @@ export const dutiesRouter = router({
                                     error instanceof Error
                                           ? error.message
                                           : "Failed to skip assignment",
+                        });
+                  }
+            }),
+
+
+      /**
+       * Xem trước phân công theo ngày / nguyên tuần
+       */
+      previewAssignment: protectedProcedure
+            .input(assignmentScopeInput)
+            .query(async ({ input }) => {
+                  try {
+                        return await db.previewDutyAssignment(input);
+                  } catch (error) {
+                        console.error("[duties.previewAssignment] Error:", error);
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Failed to preview assignment",
+                        });
+                  }
+            }),
+
+      /**
+       * Lưu phân công hàng loạt, tự bỏ qua ngày không hợp lệ
+       */
+      assignDutyBatch: protectedProcedure
+            .input(assignmentScopeInput)
+            .mutation(async ({ input }) => {
+                  try {
+                        return await db.assignDutyBatch(input);
+                  } catch (error) {
+                        console.error("[duties.assignDutyBatch] Error:", error);
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Failed to assign duties",
                         });
                   }
             }),
