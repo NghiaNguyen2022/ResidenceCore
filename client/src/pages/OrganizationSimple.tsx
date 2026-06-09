@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
       Building2,
       CalendarDays,
@@ -11,6 +11,7 @@ import {
       Plus,
       Save,
       Search,
+      Settings,
       ShieldCheck,
       UserPlus,
       UsersRound,
@@ -22,62 +23,111 @@ import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { StructureTab } from '@/components/organization-simple/StructureTab';
-import { AssignmentModal } from '@/components/organization-simple/AssignmentModal';
-import { AssignmentsTab } from '@/components/organization-simple/AssignmentsTab';
-import { UnitsTab } from '@/components/organization-simple/UnitsTab';
-import { TermsTab } from '@/components/organization-simple/TermsTab';
-import { UnitModal } from '@/components/organization-simple/UnitModal';
-import { TermModal } from '@/components/organization-simple/TermModal';
 
-import type {
-      AssignmentForm,
-      OrganizationAssignment,
-      OrganizationRole,
-      OrganizationTerm,
-      OrganizationUnit,
-      SimpleTab,
-      TermForm,
-      UnitForm,
-} from '@/components/organization-simple/types';
-
-import {
-      buildAssignmentTitle,
-      formatDate,
-      getAssignmentDisplayTitle,
-      getAssignmentStatusClass,
-      getAssignmentStatusLabel,
-      getCurrentRoomIdFromMember,
-      getResidentDisplayName,
-      getRoleLevel,
-      getRoomLabelFromAssignment,
-      getRoomLabelFromMember,
-      getTermStatusClass,
-      getTermStatusLabel,
-      getUnitTypeClass,
-      getUnitTypeLabel,
-      isAssignmentRole,
-      isCommitteeAssignment,
-      isTeamAssignment,
-      normalizeCode,
-      normalizeText,
-      roleRequiresUnit,
-      today,
-      toInputDateValue,
-} from '@/components/organization-simple/utils';
-
-import {
-      Badge,
-      OrgMiniCard,
-      OrgPlaceholderCard,
-      SectionEmpty,
-} from '@/components/organization-simple/OrgCards';
+type SimpleTab = 'structure' | 'assignments' | 'units' | 'terms';
 
 type TermStatus = 'active' | 'inactive' | 'closed';
 type AssignmentStatus = 'active' | 'ended';
 type UnitType = 'team' | 'committee';
 
+type OrganizationTerm = {
+      id: number;
+      code: string;
+      name: string;
+      startDate: string | Date;
+      endDate: string | Date;
+      status: TermStatus;
+      description?: string | null;
+      assignedCount?: number;
+};
 
+type OrganizationRole = {
+      id: number;
+      code: string;
+      name: string;
+      category?: string | null;
+      allowMultipleMembers?: boolean;
+      isActive: boolean;
+      sortOrder: number;
+      level?: number | null;
+      roleType?: string | null;
+      minAssignees?: number | null;
+      maxAssignees?: number | null;
+      requiresUnit?: boolean | null;
+};
+
+type OrganizationUnit = {
+      id: number;
+      code: string;
+      name: string;
+      unitType: UnitType | string;
+      description?: string | null;
+      isActive: boolean;
+      sortOrder: number;
+      assignedCount?: number;
+};
+
+type OrganizationAssignment = {
+      id: number;
+      termId: number;
+      roleId: number;
+      residentId: number;
+      roomId?: number | null;
+      unitId?: number | null;
+      assignmentTitle?: string | null;
+      startDate: string | Date;
+      endDate?: string | Date | null;
+      status: AssignmentStatus;
+      notes?: string | null;
+      termName?: string;
+      roleCode?: string;
+      roleName?: string;
+      residentName?: string;
+      residentCode?: string;
+      roomCode?: string | null;
+      roomName?: string | null;
+      unitCode?: string | null;
+      unitName?: string | null;
+      unitType?: string | null;
+      roleLevel?: number | null;
+      roleType?: string | null;
+      roleRequiresUnit?: boolean | null;
+};
+
+type AssignmentForm = {
+      id?: number;
+      termId: string;
+      roleId: string;
+      unitId: string;
+      residentId: string;
+      assignmentTitle: string;
+      startDate: string;
+      endDate: string;
+      status: AssignmentStatus;
+      notes: string;
+};
+
+type UnitForm = {
+      id?: number;
+      code: string;
+      name: string;
+      unitType: UnitType;
+      description: string;
+      isActive: boolean;
+      sortOrder: string;
+};
+
+type TermForm = {
+      id?: number;
+      code: string;
+      name: string;
+      startDate: string;
+      endDate: string;
+      status: TermStatus;
+      description: string;
+};
+
+const today = new Date().toISOString().split('T')[0];
 
 const emptyAssignmentForm: AssignmentForm = {
       termId: '',
@@ -109,12 +159,156 @@ const emptyTermForm: TermForm = {
       description: '',
 };
 
+function normalizeText(value?: string | null) {
+      return (value || '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ');
+}
 
+function normalizeCode(value: string) {
+      return value
+            .trim()
+            .toUpperCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^A-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+}
+
+function toInputDateValue(value?: string | Date | null) {
+      if (!value) return '';
+
+      try {
+            return new Date(value).toISOString().split('T')[0];
+      } catch {
+            return '';
+      }
+}
+
+function formatDate(value?: string | Date | null) {
+      if (!value) return '-';
+
+      try {
+            return new Date(value).toLocaleDateString('vi-VN');
+      } catch {
+            return '-';
+      }
+}
+
+function getTermStatusLabel(status?: string | null) {
+      if (status === 'active') return 'Đang áp dụng';
+      if (status === 'closed') return 'Đã kết thúc';
+      return 'Chưa kích hoạt';
+}
+
+function getTermStatusClass(status?: string | null) {
+      if (status === 'active') return 'border-green-200 bg-green-50 text-green-700';
+      if (status === 'closed') return 'border-neutral-200 bg-neutral-100 text-neutral-600';
+      return 'border-orange-200 bg-orange-50 text-orange-700';
+}
+
+function getUnitTypeLabel(unitType?: string | null) {
+      if (unitType === 'team') return 'Tổ';
+      if (unitType === 'committee') return 'Ban';
+      return 'Đơn vị';
+}
+
+function getUnitTypeClass(unitType?: string | null) {
+      if (unitType === 'team') return 'border-blue-200 bg-blue-50 text-blue-700';
+      if (unitType === 'committee') return 'border-purple-200 bg-purple-50 text-purple-700';
+      return 'border-neutral-200 bg-neutral-50 text-neutral-700';
+}
+
+function getAssignmentStatusLabel(status?: string | null) {
+      if (status === 'active') return 'Đang đảm nhiệm';
+      return 'Đã kết thúc';
+}
+
+function getAssignmentStatusClass(status?: string | null) {
+      if (status === 'active') return 'border-green-200 bg-green-50 text-green-700';
+      return 'border-neutral-200 bg-neutral-100 text-neutral-600';
+}
+
+function getRoleLevel(role?: OrganizationRole | OrganizationAssignment | null) {
+      const level = 'level' in (role || {}) ? (role as OrganizationRole).level : (role as OrganizationAssignment)?.roleLevel;
+      if (level === 1 || level === 2 || level === 3) return level;
+
+      const roleType = String((role as any)?.roleType || '');
+      if (roleType === 'head') return 1;
+      if (['deputy', 'secretary', 'treasurer'].includes(roleType)) return 2;
+      return 3;
+}
 
 function getLevelLabel(level: number) {
       if (level === 1) return 'Điều hành chính';
       if (level === 2) return 'Hỗ trợ điều hành';
       return 'Tổ / Ban phụ trách';
+}
+
+function roleRequiresUnit(role?: OrganizationRole | null) {
+      return Boolean(
+            role?.requiresUnit ||
+                  role?.roleType === 'team_leader' ||
+                  role?.roleType === 'committee_head'
+      );
+}
+
+function getAssignmentDisplayTitle(assignment: OrganizationAssignment) {
+      if (assignment.assignmentTitle?.trim()) return assignment.assignmentTitle.trim();
+
+      const unitName = assignment.unitName || assignment.unitCode || '';
+
+      if (assignment.roleType === 'team_leader' && unitName) return `Tổ trưởng ${unitName}`;
+      if (assignment.roleType === 'committee_head' && unitName) {
+            return `Trưởng ban ${unitName.replace(/^Ban\s+/i, '')}`;
+      }
+
+      return assignment.roleName || '-';
+}
+
+function buildAssignmentTitle(role?: OrganizationRole | null, unit?: OrganizationUnit | null) {
+      if (!role) return '';
+
+      if (!unit) return role.name;
+
+      if (role.roleType === 'team_leader') return `Tổ trưởng ${unit.name}`;
+      if (role.roleType === 'committee_head') return `Trưởng ban ${unit.name.replace(/^Ban\s+/i, '')}`;
+
+      return `${role.name} ${unit.name}`;
+}
+
+function getRoomLabelFromAssignment(assignment: OrganizationAssignment) {
+      if (assignment.roomCode && assignment.roomName) return `${assignment.roomCode} - ${assignment.roomName}`;
+      if (assignment.roomCode) return assignment.roomCode;
+      if (assignment.roomName) return assignment.roomName;
+      if (assignment.roomId) return `Phòng ${assignment.roomId}`;
+      return 'Chưa có phòng';
+}
+
+function getRoomLabelFromMember(member: any) {
+      if (member?.currentRoomCode) return member.currentRoomName ? `${member.currentRoomCode} - ${member.currentRoomName}` : member.currentRoomCode;
+      if (member?.currentRoomName) return member.currentRoomName;
+      if (member?.roomCode) return member.roomName ? `${member.roomCode} - ${member.roomName}` : member.roomCode;
+      if (member?.roomName) return member.roomName;
+      if (member?.currentRoomId) return `Phòng ${member.currentRoomId}`;
+      return 'Chưa gán phòng';
+}
+
+function getCurrentRoomIdFromMember(member: any) {
+      return (
+            member?.currentRoomId ??
+            member?.currentroomid ??
+            member?.currentRoom?.id ??
+            null
+      );
+}
+
+function getResidentDisplayName(member: any) {
+      const holyName = member?.holyName ? `${member.holyName} ` : '';
+      return `${holyName}${member?.fullName || member?.name || ''}`.trim();
 }
 
 function StatCard({
@@ -142,39 +336,34 @@ function StatCard({
       );
 }
 
-function getCardToneClass(tone: 'slate' | 'blue' | 'emerald' | 'violet' | 'amber' = 'slate') {
-      if (tone === 'blue') return 'border-blue-200 bg-gradient-to-br from-blue-50 via-white to-sky-50';
-      if (tone === 'emerald') return 'border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50';
-      if (tone === 'violet') return 'border-violet-200 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50';
-      if (tone === 'amber') return 'border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50';
-      return 'border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100';
+function Badge({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+      return (
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}>
+                  {children}
+            </span>
+      );
 }
 
-function getAssignmentTone(assignment?: OrganizationAssignment | null) {
-      const roleName = normalizeText(assignment?.roleName || assignment?.assignmentTitle || '');
-
-      if (roleName === 'truong') return 'blue' as const;
-      if (roleName === 'pho') return 'emerald' as const;
-      if (roleName === 'thu ky') return 'violet' as const;
-      if (roleName === 'thu quy') return 'amber' as const;
-      if (assignment?.roleType === 'team_leader' || assignment?.unitType === 'team') return 'blue' as const;
-      if (assignment?.roleType === 'committee_head' || assignment?.unitType === 'committee') return 'violet' as const;
-
-      return 'slate' as const;
+function SectionEmpty({ title, description }: { title: string; description: string }) {
+      return (
+            <div className="rounded-3xl border border-dashed border-neutral-300 bg-neutral-50 p-6 text-center">
+                  <p className="font-semibold text-neutral-800">{title}</p>
+                  <p className="mt-1 text-sm text-neutral-500">{description}</p>
+            </div>
+      );
 }
-
 
 export default function OrganizationSimple() {
       const [activeTab, setActiveTab] = useState<SimpleTab>('structure');
       const [selectedTermId, setSelectedTermId] = useState<string>('active');
       const [searchTerm, setSearchTerm] = useState('');
+      const [handoverResidentId, setHandoverResidentId] = useState<number | null>(null);
 
       const [assignmentForm, setAssignmentForm] = useState<AssignmentForm | null>(null);
       const [unitForm, setUnitForm] = useState<UnitForm | null>(null);
       const [termForm, setTermForm] = useState<TermForm | null>(null);
 
       const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-      const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
       const termsQuery = trpc.organization.listTerms.useQuery({
             limit: 500,
@@ -207,6 +396,24 @@ export default function OrganizationSimple() {
       const createTermMutation = trpc.organization.createTerm.useMutation();
       const updateTermMutation = trpc.organization.updateTerm.useMutation();
       const setActiveTermMutation = trpc.organization.setActiveTerm.useMutation();
+
+      const markAsLeftMutation = trpc.members.markAsLeft.useMutation();
+
+      useEffect(() => {
+            const params = new URLSearchParams(window.location.search);
+            const residentId = Number(params.get('handoverResidentId') || 0);
+
+            if (residentId > 0) {
+                  setHandoverResidentId(residentId);
+                  setActiveTab('assignments');
+                  setSelectedTermId('active');
+                  setSearchTerm('');
+                  setMessage({
+                        type: 'info',
+                        text: 'Đang xử lý bàn giao chức vụ. Vui lòng kết thúc hoặc cập nhật các phân công của học viên trước khi cho rời lưu xá.',
+                  });
+            }
+      }, []);
 
       const terms = (termsQuery.data || []) as OrganizationTerm[];
       const roles = ((rolesQuery.data || []) as OrganizationRole[]).sort((a, b) => {
@@ -292,7 +499,6 @@ export default function OrganizationSimple() {
 
       const openAssignmentCreate = () => {
             setMessage(null);
-            setAssignmentError(null);
             setAssignmentForm({
                   ...emptyAssignmentForm,
                   termId: currentTermId ? String(currentTermId) : '',
@@ -302,7 +508,6 @@ export default function OrganizationSimple() {
 
       const openAssignmentEdit = (assignment: OrganizationAssignment) => {
             setMessage(null);
-            setAssignmentError(null);
             setAssignmentForm({
                   id: assignment.id,
                   termId: String(assignment.termId),
@@ -337,34 +542,23 @@ export default function OrganizationSimple() {
                   return 'Trưởng ban chỉ được chọn đơn vị loại Ban.';
             }
 
-            const isUnitBasedRole =
-                  selectedRole?.roleType === 'team_leader' ||
-                  selectedRole?.roleType === 'committee_head' ||
-                  Boolean(selectedRole?.requiresUnit);
-
-            const activeSameRole = activeAssignments.filter((assignment) => {
-                  const sameTerm = assignment.termId === Number(assignmentForm.termId);
-                  const sameRole = assignment.roleId === Number(assignmentForm.roleId);
-                  const sameStatus = assignment.status === 'active';
-                  const notCurrent = assignment.id !== assignmentForm.id;
-                  const sameUnit = !isUnitBasedRole || assignment.unitId === Number(assignmentForm.unitId || 0);
-
-                  return sameTerm && sameRole && sameStatus && notCurrent && sameUnit;
-            });
+            const activeSameRole = activeAssignments.filter(
+                  (assignment) =>
+                        assignment.termId === Number(assignmentForm.termId) &&
+                        assignment.roleId === Number(assignmentForm.roleId) &&
+                        assignment.status === 'active' &&
+                        assignment.id !== assignmentForm.id
+            );
 
             const selectedRoleMax = selectedRole?.maxAssignees ?? null;
             const roleAllowsMultiple = Boolean(selectedRole?.allowMultipleMembers);
 
             if (selectedRoleMax && activeSameRole.length >= selectedRoleMax) {
-                  return isUnitBasedRole
-                        ? `${assignmentForm.assignmentTitle || selectedRole?.name || 'Chức vụ này'} đã đủ số lượng tối đa (${selectedRoleMax}).`
-                        : `Chức vụ này đã đủ số lượng tối đa (${selectedRoleMax}).`;
+                  return `Chức vụ này đã đủ số lượng tối đa (${selectedRoleMax}).`;
             }
 
             if (!selectedRoleMax && !roleAllowsMultiple && activeSameRole.length >= 1) {
-                  return isUnitBasedRole
-                        ? `${assignmentForm.assignmentTitle || selectedRole?.name || 'Chức vụ này'} đã có người đảm nhiệm trong nhiệm kỳ này.`
-                        : 'Chức vụ này chỉ cho một người đảm nhiệm trong cùng nhiệm kỳ.';
+                  return 'Chức vụ này chỉ cho một người đảm nhiệm trong cùng nhiệm kỳ.';
             }
 
             const duplicated = activeAssignments.some(
@@ -394,12 +588,11 @@ export default function OrganizationSimple() {
             const error = validateAssignment();
 
             if (error) {
-                  setAssignmentError(error);
+                  setMessage({ type: 'error', text: error });
                   return;
             }
 
             if (!assignmentForm) return;
-            setAssignmentError(null);
 
             const roomId = getCurrentRoomIdFromMember(selectedMember);
 
@@ -423,17 +616,18 @@ export default function OrganizationSimple() {
                               ...payload,
                         });
                         setMessage({ type: 'success', text: 'Đã cập nhật phân công.' });
-                        setAssignmentError(null);
                   } else {
                         await createAssignmentMutation.mutateAsync(payload);
                         setMessage({ type: 'success', text: 'Đã bổ nhiệm học viên.' });
-                        setAssignmentError(null);
                   }
 
                   setAssignmentForm(null);
                   await refetchOrganization();
             } catch (err: any) {
-                  setAssignmentError(err?.message || 'Không thể lưu phân công.');
+                  setMessage({
+                        type: 'error',
+                        text: err?.message || 'Không thể lưu phân công.',
+                  });
             }
       };
 
@@ -666,6 +860,13 @@ export default function OrganizationSimple() {
 
             return assignments
                   .filter((assignment) => {
+                        if (
+                              handoverResidentId &&
+                              Number(assignment.residentId) !== Number(handoverResidentId)
+                        ) {
+                              return false;
+                        }
+
                         if (!keyword) return true;
 
                         return [
@@ -683,7 +884,17 @@ export default function OrganizationSimple() {
                         if (levelCompare !== 0) return levelCompare;
                         return getAssignmentDisplayTitle(a).localeCompare(getAssignmentDisplayTitle(b));
                   });
-      }, [assignments, searchTerm]);
+      }, [assignments, searchTerm, handoverResidentId]);
+
+      const activeHandoverAssignments = useMemo(() => {
+            if (!handoverResidentId) return [];
+
+            return assignments.filter(
+                  (assignment) =>
+                        Number(assignment.residentId) === Number(handoverResidentId) &&
+                        assignment.status === 'active'
+            );
+      }, [assignments, handoverResidentId]);
 
       const assignmentsByLevel = useMemo(() => {
             const groups: Record<number, OrganizationAssignment[]> = {
@@ -700,6 +911,41 @@ export default function OrganizationSimple() {
             return groups;
       }, [activeAssignments]);
 
+      const completeHandoverAndLeave = async () => {
+            if (!handoverResidentId) return;
+
+            if (activeHandoverAssignments.length > 0) {
+                  setMessage({
+                        type: 'error',
+                        text: 'Học viên vẫn còn chức vụ đang đảm nhiệm. Vui lòng kết thúc hoặc bàn giao tất cả chức vụ trước khi hoàn tất rời lưu xá.',
+                  });
+                  return;
+            }
+
+            try {
+                  await markAsLeftMutation.mutateAsync({
+                        id: handoverResidentId,
+                        departureDate: new Date(),
+                        forceAfterHandover: true,
+                  } as any);
+
+                  setMessage({
+                        type: 'success',
+                        text: 'Đã hoàn tất rời lưu xá và khóa tài khoản liên kết sau khi bàn giao chức vụ.',
+                  });
+
+                  await refetchOrganization();
+
+                  window.location.href = '/members';
+            } catch (err: any) {
+                  setMessage({
+                        type: 'error',
+                        text:
+                              err?.message ||
+                              'Không thể hoàn tất rời lưu xá sau khi bàn giao chức vụ.',
+                  });
+            }
+      };
 
       const tabs: Array<{ key: SimpleTab; label: string; icon: React.ReactNode }> = [
             { key: 'structure', label: 'Cơ cấu hiện tại', icon: <LayoutGrid className="h-4 w-4" /> },
@@ -731,6 +977,14 @@ export default function OrganizationSimple() {
                                     </div>
 
                                     <div className="flex flex-wrap gap-2">
+                                          <button
+                                                type="button"
+                                                onClick={() => (window.location.href = '/organization-roles')}
+                                                className="inline-flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+                                          >
+                                                <Settings className="h-4 w-4" />
+                                                Cấu hình chức vụ
+                                          </button>
                                           <button
                                                 type="button"
                                                 onClick={openAssignmentCreate}
@@ -841,78 +1095,728 @@ export default function OrganizationSimple() {
                         )}
 
                         {!isLoading && activeTab === 'structure' && (
-                              <StructureTab
-                                    currentTerm={currentTerm}
-                                    activeAssignments={activeAssignments}
-                                    activeUnits={activeUnits}
-                                    onEditAssignment={openAssignmentEdit}
-                                    onEndAssignment={endAssignment}
-                              />
+                              <div className="space-y-4">
+                                    {!currentTerm && (
+                                          <SectionEmpty
+                                                title="Chưa có nhiệm kỳ hiện tại"
+                                                description="Tạo hoặc chọn một nhiệm kỳ để bắt đầu thiết lập cơ cấu tổ chức."
+                                          />
+                                    )}
+
+                                    {currentTerm && activeAssignments.length === 0 && (
+                                          <SectionEmpty
+                                                title="Chưa có phân công trong nhiệm kỳ này"
+                                                description="Bấm Bổ nhiệm để thêm người phụ trách cho nhiệm kỳ hiện tại."
+                                          />
+                                    )}
+
+                                    {[1, 2, 3].map((level) => {
+                                          const rows = assignmentsByLevel[level] || [];
+                                          if (rows.length === 0) return null;
+
+                                          return (
+                                                <div key={level} className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                                                      <div className="mb-4 flex items-center justify-between">
+                                                            <div>
+                                                                  <h2 className="text-lg font-bold text-neutral-950">
+                                                                        {getLevelLabel(level)}
+                                                                  </h2>
+                                                                  <p className="mt-1 text-sm text-neutral-500">
+                                                                        {rows.length} vai trò đang đảm nhiệm
+                                                                  </p>
+                                                            </div>
+                                                      </div>
+
+                                                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                                            {rows.map((assignment) => (
+                                                                  <div
+                                                                        key={assignment.id}
+                                                                        className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4"
+                                                                  >
+                                                                        <div className="flex items-start justify-between gap-3">
+                                                                              <div>
+                                                                                    <p className="font-bold text-neutral-950">
+                                                                                          {getAssignmentDisplayTitle(assignment)}
+                                                                                    </p>
+                                                                                    <p className="mt-2 text-sm font-semibold text-neutral-800">
+                                                                                          {assignment.residentName || '-'}
+                                                                                    </p>
+                                                                                    <p className="mt-1 text-xs text-neutral-500">
+                                                                                          {getRoomLabelFromAssignment(assignment)}
+                                                                                    </p>
+                                                                                    {(assignment.unitName || assignment.unitCode) && (
+                                                                                          <p className="mt-2 text-xs text-neutral-500">
+                                                                                                {getUnitTypeLabel(assignment.unitType)}: {assignment.unitName || assignment.unitCode}
+                                                                                          </p>
+                                                                                    )}
+                                                                              </div>
+
+                                                                              <Badge className={getAssignmentStatusClass(assignment.status)}>
+                                                                                    {getAssignmentStatusLabel(assignment.status)}
+                                                                              </Badge>
+                                                                        </div>
+
+                                                                        <div className="mt-4 flex flex-wrap gap-2">
+                                                                              <button
+                                                                                    type="button"
+                                                                                    onClick={() => openAssignmentEdit(assignment)}
+                                                                                    className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                                                                              >
+                                                                                    <Edit2 className="h-3.5 w-3.5" />
+                                                                                    Cập nhật
+                                                                              </button>
+                                                                              <button
+                                                                                    type="button"
+                                                                                    onClick={() => endAssignment(assignment)}
+                                                                                    className="inline-flex items-center gap-1.5 rounded-xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-700 hover:bg-orange-100"
+                                                                              >
+                                                                                    Kết thúc vai trò
+                                                                              </button>
+                                                                        </div>
+                                                                  </div>
+                                                            ))}
+                                                      </div>
+                                                </div>
+                                          );
+                                    })}
+
+                                    {missingRoles.length > 0 && (
+                                          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
+                                                <h3 className="font-bold text-amber-900">Vị trí cần bổ sung</h3>
+                                                <div className="mt-3 flex flex-wrap gap-2">
+                                                      {missingRoles.map((item) => (
+                                                            <Badge key={item.role.id} className="border-amber-200 bg-white text-amber-800">
+                                                                  {item.role.name}: thiếu {item.missing}
+                                                            </Badge>
+                                                      ))}
+                                                </div>
+                                          </div>
+                                    )}
+                              </div>
                         )}
 
                         {!isLoading && activeTab === 'assignments' && (
-                              <AssignmentsTab
-                                    filteredAssignments={filteredAssignments}
-                                    onCreateAssignment={openAssignmentCreate}
-                                    onEditAssignment={openAssignmentEdit}
-                                    onEndAssignment={endAssignment}
-                              />
+                              <div className="space-y-4">
+                                    {handoverResidentId && (
+                                          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                                      <div>
+                                                            <p className="text-sm font-bold text-amber-800">
+                                                                  Đang bàn giao chức vụ trước khi rời lưu xá
+                                                            </p>
+                                                            <p className="mt-1 text-sm text-amber-700">
+                                                                  Danh sách bên dưới chỉ hiển thị các phân công của học viên cần bàn giao.
+                                                                  Hãy kết thúc hoặc cập nhật tất cả chức vụ đang đảm nhiệm trước khi hoàn tất rời lưu xá.
+                                                            </p>
+                                                            <p className="mt-2 text-xs font-semibold text-amber-700">
+                                                                  Còn {activeHandoverAssignments.length} chức vụ đang đảm nhiệm.
+                                                            </p>
+                                                      </div>
+
+                                                      <div className="flex flex-wrap gap-2">
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => {
+                                                                        setHandoverResidentId(null);
+                                                                        window.history.replaceState(null, '', '/organization');
+                                                                        setMessage(null);
+                                                                  }}
+                                                                  className="rounded-2xl border border-amber-200 bg-white px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100"
+                                                            >
+                                                                  Hủy bàn giao
+                                                            </button>
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={completeHandoverAndLeave}
+                                                                  disabled={markAsLeftMutation.isPending}
+                                                                  className="rounded-2xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                                            >
+                                                                  {markAsLeftMutation.isPending
+                                                                        ? 'Đang hoàn tất...'
+                                                                        : 'Hoàn tất rời lưu xá'}
+                                                            </button>
+                                                      </div>
+                                                </div>
+                                          </div>
+                                    )}
+
+                                    <AssignmentsTab
+                                          filteredAssignments={filteredAssignments}
+                                          onCreateAssignment={openAssignmentCreate}
+                                          onEditAssignment={openAssignmentEdit}
+                                          onEndAssignment={endAssignment}
+                                    />
+                              </div>
                         )}
 
                         {!isLoading && activeTab === 'units' && (
-                              <UnitsTab
-                                    units={units}
-                                    onCreateUnit={openUnitCreate}
-                                    onEditUnit={openUnitEdit}
-                                    onToggleUnit={toggleUnit}
-                              />
+                              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                          <div>
+                                                <h2 className="text-lg font-bold text-neutral-950">Tổ / Ban</h2>
+                                                <p className="mt-1 text-sm text-neutral-500">
+                                                      Quản lý các tổ và ban đang sử dụng trong lưu xá.
+                                                </p>
+                                          </div>
+                                          <button
+                                                type="button"
+                                                onClick={openUnitCreate}
+                                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                          >
+                                                <Plus className="h-4 w-4" />
+                                                Thêm Tổ/Ban
+                                          </button>
+                                    </div>
+
+                                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                          {units.map((unit) => (
+                                                <div key={unit.id} className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
+                                                      <div className="flex items-start justify-between gap-3">
+                                                            <div>
+                                                                  <p className="font-bold text-neutral-950">{unit.name}</p>
+                                                                  <p className="mt-1 text-xs text-neutral-500">{unit.code}</p>
+                                                            </div>
+                                                            <Badge className={getUnitTypeClass(unit.unitType)}>
+                                                                  {getUnitTypeLabel(unit.unitType)}
+                                                            </Badge>
+                                                      </div>
+
+                                                      {unit.description && (
+                                                            <p className="mt-3 text-sm leading-6 text-neutral-600">{unit.description}</p>
+                                                      )}
+
+                                                      <div className="mt-4 flex flex-wrap gap-2">
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => openUnitEdit(unit)}
+                                                                  className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                                                            >
+                                                                  Sửa
+                                                            </button>
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => toggleUnit(unit)}
+                                                                  className={[
+                                                                        'rounded-xl border px-3 py-2 text-xs font-semibold',
+                                                                        unit.isActive
+                                                                              ? 'border-orange-100 bg-orange-50 text-orange-700 hover:bg-orange-100'
+                                                                              : 'border-green-100 bg-green-50 text-green-700 hover:bg-green-100',
+                                                                  ].join(' ')}
+                                                            >
+                                                                  {unit.isActive ? 'Ngừng dùng' : 'Kích hoạt'}
+                                                            </button>
+                                                      </div>
+                                                </div>
+                                          ))}
+                                    </div>
+                              </div>
                         )}
 
                         {!isLoading && activeTab === 'terms' && (
-                              <TermsTab
-                                    terms={terms}
-                                    onCreateTerm={openTermCreate}
-                                    onEditTerm={openTermEdit}
-                                    onSetActiveTerm={setActiveTerm}
-                              />
+                              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                          <div>
+                                                <h2 className="text-lg font-bold text-neutral-950">Nhiệm kỳ</h2>
+                                                <p className="mt-1 text-sm text-neutral-500">
+                                                      Tạo, cập nhật và chọn nhiệm kỳ hiện tại.
+                                                </p>
+                                          </div>
+                                          <button
+                                                type="button"
+                                                onClick={openTermCreate}
+                                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                          >
+                                                <Plus className="h-4 w-4" />
+                                                Thêm nhiệm kỳ
+                                          </button>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                          {terms.map((term) => (
+                                                <div
+                                                      key={term.id}
+                                                      className="flex flex-col gap-3 rounded-3xl border border-neutral-200 bg-neutral-50 p-4 md:flex-row md:items-center md:justify-between"
+                                                >
+                                                      <div>
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                  <p className="font-bold text-neutral-950">{term.name}</p>
+                                                                  <Badge className={getTermStatusClass(term.status)}>
+                                                                        {getTermStatusLabel(term.status)}
+                                                                  </Badge>
+                                                            </div>
+                                                            <p className="mt-1 text-sm text-neutral-500">
+                                                                  {term.code} · {formatDate(term.startDate)} - {formatDate(term.endDate)}
+                                                            </p>
+                                                      </div>
+
+                                                      <div className="flex flex-wrap gap-2">
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => openTermEdit(term)}
+                                                                  className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                                                            >
+                                                                  Sửa
+                                                            </button>
+                                                            {term.status !== 'active' && (
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => setActiveTerm(term)}
+                                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100"
+                                                                  >
+                                                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                                                        Đặt hiện tại
+                                                                  </button>
+                                                            )}
+                                                      </div>
+                                                </div>
+                                          ))}
+                                    </div>
+                              </div>
                         )}
 
                         {assignmentForm && (
-                              <AssignmentModal
-                                    assignmentForm={assignmentForm}
-                                    terms={terms}
-                                    roles={roles}
-                                    units={units}
-                                    activeUnits={activeUnits}
-                                    activeMembers={activeMembers}
-                                    selectedRole={selectedRole}
-                                    assignmentError={assignmentError}
-                                    isSaving={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
-                                    onChange={setAssignmentForm}
-                                    onClose={() => {
-                                          setAssignmentError(null);
-                                          setAssignmentForm(null);
-                                    }}
-                                    onSave={saveAssignment}
-                              />
+                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-4 py-6 backdrop-blur-sm">
+                                    <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
+                                          <div className="mb-5 flex items-start justify-between gap-4">
+                                                <div>
+                                                      <h2 className="text-xl font-bold text-neutral-950">
+                                                            {assignmentForm.id ? 'Cập nhật phân công' : 'Bổ nhiệm / Phân công'}
+                                                      </h2>
+                                                      <p className="mt-1 text-sm text-neutral-500">
+                                                            Chọn học viên, chức vụ và nhiệm kỳ phù hợp.
+                                                      </p>
+                                                </div>
+                                                <button
+                                                      type="button"
+                                                      onClick={() => setAssignmentForm(null)}
+                                                      className="rounded-xl border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50"
+                                                >
+                                                      <X className="h-4 w-4" />
+                                                </button>
+                                          </div>
+
+                                          <div className="grid gap-4 md:grid-cols-2">
+                                                <label className="space-y-1.5">
+                                                      <Label>Nhiệm kỳ</Label>
+                                                      <select
+                                                            value={assignmentForm.termId}
+                                                            onChange={(event) =>
+                                                                  setAssignmentForm((current) =>
+                                                                        current ? { ...current, termId: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                      >
+                                                            <option value="">Chọn nhiệm kỳ</option>
+                                                            {terms.map((term) => (
+                                                                  <option key={term.id} value={term.id}>
+                                                                        {term.name}
+                                                                  </option>
+                                                            ))}
+                                                      </select>
+                                                </label>
+
+                                                <label className="space-y-1.5">
+                                                      <Label>Chức vụ</Label>
+                                                      <select
+                                                            value={assignmentForm.roleId}
+                                                            onChange={(event) => {
+                                                                  const role = roles.find((item) => String(item.id) === event.target.value) || null;
+                                                                  const nextUnitId = roleRequiresUnit(role) ? assignmentForm.unitId : '';
+                                                                  const unit = nextUnitId
+                                                                        ? units.find((item) => String(item.id) === nextUnitId) || null
+                                                                        : null;
+
+                                                                  setAssignmentForm((current) =>
+                                                                        current
+                                                                              ? {
+                                                                                      ...current,
+                                                                                      roleId: event.target.value,
+                                                                                      unitId: nextUnitId,
+                                                                                      assignmentTitle: buildAssignmentTitle(role, unit),
+                                                                                }
+                                                                              : current
+                                                                  );
+                                                            }}
+                                                            className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                      >
+                                                            <option value="">Chọn chức vụ</option>
+                                                            {roles.map((role) => (
+                                                                  <option key={role.id} value={role.id}>
+                                                                        {role.name}
+                                                                  </option>
+                                                            ))}
+                                                      </select>
+                                                </label>
+
+                                                {roleRequiresUnit(selectedRole) && (
+                                                      <label className="space-y-1.5">
+                                                            <Label>Tổ/Ban</Label>
+                                                            <select
+                                                                  value={assignmentForm.unitId}
+                                                                  onChange={(event) => {
+                                                                        const unit = units.find((item) => String(item.id) === event.target.value) || null;
+                                                                        setAssignmentForm((current) =>
+                                                                              current
+                                                                                    ? {
+                                                                                            ...current,
+                                                                                            unitId: event.target.value,
+                                                                                            assignmentTitle: buildAssignmentTitle(selectedRole, unit),
+                                                                                      }
+                                                                                    : current
+                                                                        );
+                                                                  }}
+                                                                  className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                            >
+                                                                  <option value="">Chọn Tổ/Ban</option>
+                                                                  {activeUnits.map((unit) => (
+                                                                        <option key={unit.id} value={unit.id}>
+                                                                              {getUnitTypeLabel(unit.unitType)} - {unit.name}
+                                                                        </option>
+                                                                  ))}
+                                                            </select>
+                                                      </label>
+                                                )}
+
+                                                <label className="space-y-1.5">
+                                                      <Label>Học viên</Label>
+                                                      <select
+                                                            value={assignmentForm.residentId}
+                                                            onChange={(event) =>
+                                                                  setAssignmentForm((current) =>
+                                                                        current ? { ...current, residentId: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                      >
+                                                            <option value="">Chọn học viên</option>
+                                                            {activeMembers.map((member: any) => (
+                                                                  <option key={member.id} value={member.id}>
+                                                                        {getResidentDisplayName(member)} · {getRoomLabelFromMember(member)}
+                                                                  </option>
+                                                            ))}
+                                                      </select>
+                                                </label>
+
+                                                <label className="space-y-1.5 md:col-span-2">
+                                                      <Label>Chức danh hiển thị</Label>
+                                                      <Input
+                                                            value={assignmentForm.assignmentTitle}
+                                                            onChange={(event) =>
+                                                                  setAssignmentForm((current) =>
+                                                                        current ? { ...current, assignmentTitle: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            placeholder="Ví dụ: Tổ trưởng Tổ 1"
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+
+                                                <label className="space-y-1.5">
+                                                      <Label>Ngày bắt đầu</Label>
+                                                      <Input
+                                                            type="date"
+                                                            value={assignmentForm.startDate}
+                                                            onChange={(event) =>
+                                                                  setAssignmentForm((current) =>
+                                                                        current ? { ...current, startDate: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+
+                                                <label className="space-y-1.5">
+                                                      <Label>Ngày kết thúc</Label>
+                                                      <Input
+                                                            type="date"
+                                                            value={assignmentForm.endDate}
+                                                            onChange={(event) =>
+                                                                  setAssignmentForm((current) =>
+                                                                        current ? { ...current, endDate: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+
+                                                <label className="space-y-1.5 md:col-span-2">
+                                                      <Label>Ghi chú</Label>
+                                                      <Textarea
+                                                            value={assignmentForm.notes}
+                                                            onChange={(event) =>
+                                                                  setAssignmentForm((current) =>
+                                                                        current ? { ...current, notes: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            rows={3}
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+                                          </div>
+
+                                          <div className="mt-5 flex justify-end gap-2">
+                                                <button
+                                                      type="button"
+                                                      onClick={() => setAssignmentForm(null)}
+                                                      className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+                                                >
+                                                      Hủy
+                                                </button>
+                                                <button
+                                                      type="button"
+                                                      onClick={saveAssignment}
+                                                      disabled={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
+                                                      className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                                                >
+                                                      <Save className="h-4 w-4" />
+                                                      Lưu
+                                                </button>
+                                          </div>
+                                    </div>
+                              </div>
                         )}
 
                         {unitForm && (
-                              <UnitModal
-                                    unitForm={unitForm}
-                                    onChange={setUnitForm}
-                                    onClose={() => setUnitForm(null)}
-                                    onSave={saveUnit}
-                              />
+                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-4 py-6 backdrop-blur-sm">
+                                    <div className="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
+                                          <div className="mb-5 flex items-start justify-between">
+                                                <div>
+                                                      <h2 className="text-xl font-bold text-neutral-950">
+                                                            {unitForm.id ? 'Cập nhật Tổ/Ban' : 'Thêm Tổ/Ban'}
+                                                      </h2>
+                                                      <p className="mt-1 text-sm text-neutral-500">Quản lý đơn vị phụ trách trong lưu xá.</p>
+                                                </div>
+                                                <button
+                                                      type="button"
+                                                      onClick={() => setUnitForm(null)}
+                                                      className="rounded-xl border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50"
+                                                >
+                                                      <X className="h-4 w-4" />
+                                                </button>
+                                          </div>
+
+                                          <div className="grid gap-4 md:grid-cols-2">
+                                                <label className="space-y-1.5">
+                                                      <Label>Mã</Label>
+                                                      <Input
+                                                            value={unitForm.code}
+                                                            onChange={(event) =>
+                                                                  setUnitForm((current) =>
+                                                                        current ? { ...current, code: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+                                                <label className="space-y-1.5">
+                                                      <Label>Loại</Label>
+                                                      <select
+                                                            value={unitForm.unitType}
+                                                            onChange={(event) =>
+                                                                  setUnitForm((current) =>
+                                                                        current
+                                                                              ? { ...current, unitType: event.target.value as UnitType }
+                                                                              : current
+                                                                  )
+                                                            }
+                                                            className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                      >
+                                                            <option value="team">Tổ</option>
+                                                            <option value="committee">Ban</option>
+                                                      </select>
+                                                </label>
+                                                <label className="space-y-1.5 md:col-span-2">
+                                                      <Label>Tên</Label>
+                                                      <Input
+                                                            value={unitForm.name}
+                                                            onChange={(event) =>
+                                                                  setUnitForm((current) =>
+                                                                        current ? { ...current, name: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+                                                <label className="space-y-1.5">
+                                                      <Label>Thứ tự</Label>
+                                                      <Input
+                                                            type="number"
+                                                            value={unitForm.sortOrder}
+                                                            onChange={(event) =>
+                                                                  setUnitForm((current) =>
+                                                                        current ? { ...current, sortOrder: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+                                                <label className="mt-7 flex items-center gap-2">
+                                                      <input
+                                                            type="checkbox"
+                                                            checked={unitForm.isActive}
+                                                            onChange={(event) =>
+                                                                  setUnitForm((current) =>
+                                                                        current ? { ...current, isActive: event.target.checked } : current
+                                                                  )
+                                                            }
+                                                      />
+                                                      <span className="text-sm font-semibold text-neutral-700">Đang sử dụng</span>
+                                                </label>
+                                                <label className="space-y-1.5 md:col-span-2">
+                                                      <Label>Ghi chú</Label>
+                                                      <Textarea
+                                                            value={unitForm.description}
+                                                            onChange={(event) =>
+                                                                  setUnitForm((current) =>
+                                                                        current ? { ...current, description: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            rows={3}
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+                                          </div>
+
+                                          <div className="mt-5 flex justify-end gap-2">
+                                                <button
+                                                      type="button"
+                                                      onClick={() => setUnitForm(null)}
+                                                      className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700"
+                                                >
+                                                      Hủy
+                                                </button>
+                                                <button
+                                                      type="button"
+                                                      onClick={saveUnit}
+                                                      className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                                                >
+                                                      Lưu
+                                                </button>
+                                          </div>
+                                    </div>
+                              </div>
                         )}
 
                         {termForm && (
-                              <TermModal
-                                    termForm={termForm}
-                                    onChange={setTermForm}
-                                    onClose={() => setTermForm(null)}
-                                    onSave={saveTerm}
-                              />
+                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-4 py-6 backdrop-blur-sm">
+                                    <div className="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
+                                          <div className="mb-5 flex items-start justify-between">
+                                                <div>
+                                                      <h2 className="text-xl font-bold text-neutral-950">
+                                                            {termForm.id ? 'Cập nhật nhiệm kỳ' : 'Thêm nhiệm kỳ'}
+                                                      </h2>
+                                                      <p className="mt-1 text-sm text-neutral-500">Quản lý thời gian áp dụng cơ cấu tổ chức.</p>
+                                                </div>
+                                                <button
+                                                      type="button"
+                                                      onClick={() => setTermForm(null)}
+                                                      className="rounded-xl border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50"
+                                                >
+                                                      <X className="h-4 w-4" />
+                                                </button>
+                                          </div>
+
+                                          <div className="grid gap-4 md:grid-cols-2">
+                                                <label className="space-y-1.5">
+                                                      <Label>Mã nhiệm kỳ</Label>
+                                                      <Input
+                                                            value={termForm.code}
+                                                            onChange={(event) =>
+                                                                  setTermForm((current) =>
+                                                                        current ? { ...current, code: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+                                                <label className="space-y-1.5">
+                                                      <Label>Trạng thái</Label>
+                                                      <select
+                                                            value={termForm.status}
+                                                            onChange={(event) =>
+                                                                  setTermForm((current) =>
+                                                                        current ? { ...current, status: event.target.value as TermStatus } : current
+                                                                  )
+                                                            }
+                                                            className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                      >
+                                                            <option value="inactive">Chưa kích hoạt</option>
+                                                            <option value="active">Đang áp dụng</option>
+                                                            <option value="closed">Đã kết thúc</option>
+                                                      </select>
+                                                </label>
+                                                <label className="space-y-1.5 md:col-span-2">
+                                                      <Label>Tên nhiệm kỳ</Label>
+                                                      <Input
+                                                            value={termForm.name}
+                                                            onChange={(event) =>
+                                                                  setTermForm((current) =>
+                                                                        current ? { ...current, name: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+                                                <label className="space-y-1.5">
+                                                      <Label>Ngày bắt đầu</Label>
+                                                      <Input
+                                                            type="date"
+                                                            value={termForm.startDate}
+                                                            onChange={(event) =>
+                                                                  setTermForm((current) =>
+                                                                        current ? { ...current, startDate: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+                                                <label className="space-y-1.5">
+                                                      <Label>Ngày kết thúc</Label>
+                                                      <Input
+                                                            type="date"
+                                                            value={termForm.endDate}
+                                                            onChange={(event) =>
+                                                                  setTermForm((current) =>
+                                                                        current ? { ...current, endDate: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+                                                <label className="space-y-1.5 md:col-span-2">
+                                                      <Label>Ghi chú</Label>
+                                                      <Textarea
+                                                            value={termForm.description}
+                                                            onChange={(event) =>
+                                                                  setTermForm((current) =>
+                                                                        current ? { ...current, description: event.target.value } : current
+                                                                  )
+                                                            }
+                                                            rows={3}
+                                                            className="rounded-2xl"
+                                                      />
+                                                </label>
+                                          </div>
+
+                                          <div className="mt-5 flex justify-end gap-2">
+                                                <button
+                                                      type="button"
+                                                      onClick={() => setTermForm(null)}
+                                                      className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700"
+                                                >
+                                                      Hủy
+                                                </button>
+                                                <button
+                                                      type="button"
+                                                      onClick={saveTerm}
+                                                      className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                                                >
+                                                      Lưu
+                                                </button>
+                                          </div>
+                                    </div>
+                              </div>
                         )}
                   </div>
             </ResidenceCareLayout>

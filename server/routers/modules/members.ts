@@ -179,13 +179,33 @@ export const membersRouter = router({
                   z.object({
                         id: z.number(),
                         departureDate: z.date(),
+                        forceAfterHandover: z.boolean().optional(),
                   })
             )
             .mutation(async ({ input }) => {
                   try {
-                        return await memberService.markAsLeft(input.id, input.departureDate);
-                  } catch (error) {
+                        return await memberService.markAsLeft(input.id, input.departureDate, {
+                              forceAfterHandover: input.forceAfterHandover,
+                        });
+                  } catch (error: any) {
                         console.error("[members.markAsLeft] Error:", error);
+
+                        if (
+                              error?.code === "NEED_HANDOVER" ||
+                              error?.reason === "NEED_HANDOVER"
+                        ) {
+                              throw new TRPCError({
+                                    code: "PRECONDITION_FAILED",
+                                    message:
+                                          error?.message ||
+                                          "Học viên đang giữ chức vụ trong cơ cấu lưu xá. Vui lòng bàn giao hoặc bãi nhiệm trước khi cho rời lưu xá.",
+                                    cause: {
+                                          reason: "NEED_HANDOVER",
+                                          assignments: error?.assignments || [],
+                                    },
+                              });
+                        }
+
                         throw new TRPCError({
                               code: "BAD_REQUEST",
                               message:

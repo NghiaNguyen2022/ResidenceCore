@@ -339,10 +339,10 @@ function isCommitteeHeadRole(role: any): boolean {
 function roleRequiresUnit(role: any): boolean {
       return Boolean(
             role?.requiresUnit === true ||
-                  role?.requiresUnit === 1 ||
-                  role?.requiresUnit === "1" ||
-                  isTeamLeaderRole(role) ||
-                  isCommitteeHeadRole(role)
+            role?.requiresUnit === 1 ||
+            role?.requiresUnit === "1" ||
+            isTeamLeaderRole(role) ||
+            isCommitteeHeadRole(role)
       );
 }
 
@@ -575,9 +575,9 @@ class OrganizationService {
 
                   const rowsForLimit = roleIsUnitScoped
                         ? activeRows.filter(
-                                (assignment: any) =>
-                                      Number(assignment.unitId || 0) === Number(input.unitId || 0)
-                          )
+                              (assignment: any) =>
+                                    Number(assignment.unitId || 0) === Number(input.unitId || 0)
+                        )
                         : activeRows;
 
                   if (rowsForLimit.length >= effectiveMaxAssignees) {

@@ -1,4 +1,5 @@
 import * as db from "../db";
+import { organizationService } from "./organizationService";
 
 export type ResidentFilters = {
       search?: string;
@@ -25,6 +26,25 @@ export type ParentInput = {
       address?: string | null;
       notes?: string | null;
 };
+
+export type MarkAsLeftOptions = {
+      forceAfterHandover?: boolean;
+};
+
+class NeedHandoverError extends Error {
+      code = "NEED_HANDOVER";
+      reason = "NEED_HANDOVER";
+      assignments: any[];
+
+      constructor(assignments: any[]) {
+            super(
+                  "Học viên đang giữ chức vụ trong cơ cấu lưu xá. Vui lòng bàn giao hoặc bãi nhiệm trước khi cho rời lưu xá."
+            );
+            this.name = "NeedHandoverError";
+            this.assignments = assignments;
+      }
+}
+
 
 export type CreateMemberData = {
       holyName?: string | null;
@@ -247,11 +267,21 @@ export class MemberService {
             }
       }
 
-      async markAsLeft(id: number, departureDate: Date) {
+      async markAsLeft(id: number, departureDate: Date, options?: MarkAsLeftOptions) {
             const resident = await db.getResidentById(id);
 
             if (!resident) {
                   throw new Error("Không tìm thấy học viên cần ngừng/rời lưu xá.");
+            }
+
+            const activeAssignmentCheck =
+                  await organizationService.hasActiveAssignmentsByResident(id);
+
+            if (
+                  activeAssignmentCheck.hasActiveAssignments &&
+                  options?.forceAfterHandover !== true
+            ) {
+                  throw new NeedHandoverError(activeAssignmentCheck.assignments);
             }
 
             await db.markResidentAsLeft(id, departureDate);

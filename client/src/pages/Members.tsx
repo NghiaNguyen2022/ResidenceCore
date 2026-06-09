@@ -95,6 +95,48 @@ function sortMembersByStatus(members: any[]) {
       });
 }
 
+function getNeedHandoverReason(error: any) {
+      return (
+            error?.data?.cause?.reason ||
+            error?.shape?.data?.cause?.reason ||
+            error?.cause?.reason ||
+            error?.reason ||
+            error?.code
+      );
+}
+
+function getNeedHandoverAssignments(error: any) {
+      return (
+            error?.data?.cause?.assignments ||
+            error?.shape?.data?.cause?.assignments ||
+            error?.cause?.assignments ||
+            error?.assignments ||
+            []
+      );
+}
+
+function isNeedHandoverError(error: any) {
+      const reason = getNeedHandoverReason(error);
+      const message = String(error?.message || '').toLowerCase();
+
+      return (
+            reason === 'NEED_HANDOVER' ||
+            message.includes('đang giữ chức vụ') ||
+            message.includes('ban giao') ||
+            message.includes('bàn giao') ||
+            message.includes('bãi nhiệm')
+      );
+}
+
+function getAssignmentTitleForHandover(assignment: any) {
+      return (
+            assignment?.assignmentTitle ||
+            assignment?.roleName ||
+            assignment?.roleCode ||
+            'Chức vụ đang đảm nhiệm'
+      );
+}
+
 
 function SimpleStatCard({
       label,
@@ -198,6 +240,16 @@ export default function Members() {
 
       const statsQuery = trpc.members.getStats.useQuery();
       const roomsQuery = trpc.rooms.list.useQuery();
+      const organizationAssignmentsQuery = trpc.organization.listAssignments.useQuery(
+            {
+                  status: 'active' as any,
+                  limit: 500,
+                  offset: 0,
+            },
+            {
+                  refetchOnWindowFocus: false,
+            }
+      );
 
       const residentsWithoutUserQuery =
             trpc.members.listResidentsWithoutUser.useQuery(undefined, {
@@ -230,6 +282,33 @@ export default function Members() {
 
       const members = membersQuery.data || [];
       const rooms = roomsQuery.data || [];
+      const organizationAssignments = organizationAssignmentsQuery.data || [];
+
+      const organizationTitlesByResidentId = useMemo(() => {
+            const map = new Map<number, string[]>();
+
+            organizationAssignments.forEach((assignment: any) => {
+                  const residentId = Number(assignment.residentId || 0);
+
+                  if (!residentId) return;
+
+                  const title =
+                        assignment.assignmentTitle ||
+                        assignment.roleName ||
+                        assignment.roleCode ||
+                        'Chức vụ';
+
+                  const currentTitles = map.get(residentId) || [];
+                  currentTitles.push(title);
+                  map.set(residentId, currentTitles);
+            });
+
+            return map;
+      }, [organizationAssignments]);
+
+      const getOrganizationTitlesForMember = (member: any) => {
+            return organizationTitlesByResidentId.get(Number(member?.id || 0)) || [];
+      };
 
       const sortedMembers = useMemo(() => sortMembersByStatus(members), [members]);
 
@@ -286,6 +365,7 @@ export default function Members() {
             await membersQuery.refetch();
             await statsQuery.refetch();
             await residentsWithoutUserQuery.refetch();
+            await organizationAssignmentsQuery.refetch();
       };
 
       const clearFilters = () => {
@@ -710,6 +790,45 @@ export default function Members() {
                         await refetchMembers();
                         await roomsQuery.refetch();
                   } catch (err: any) {
+                        if (isNeedHandoverError(err)) {
+                              const assignments = getNeedHandoverAssignments(err);
+                              const assignmentLines = assignments.length
+                                    ? assignments
+                                                .map(
+                                                      (assignment: any) =>
+                                                            `- ${getAssignmentTitleForHandover(assignment)}`
+                                                )
+                                                .join('\n')
+                                    : '- Chức vụ đang đảm nhiệm';
+
+                              setMessageBox({
+                                    open: true,
+                                    title: 'Cần bàn giao chức vụ trước khi rời lưu xá',
+                                    message:
+                                          `${getDisplayName(member)} hiện đang giữ chức vụ trong cơ cấu lưu xá.\n\n` +
+                                          `${assignmentLines}\n\n` +
+                                          'Vui lòng bàn giao hoặc bãi nhiệm chức vụ trước. Sau khi bàn giao xong, hệ thống mới hoàn tất rời lưu xá và khóa tài khoản liên kết.',
+                                    variant: 'warning',
+                                    actions: [
+                                          {
+                                                label: 'Bàn giao chức vụ',
+                                                value: 'handoverOrganizationRoles',
+                                                description:
+                                                      'Chuyển sang màn hình Tổ chức lưu xá để bàn giao/bãi nhiệm chức vụ.',
+                                                variant: 'warning',
+                                          },
+                                          {
+                                                label: 'Để sau',
+                                                value: 'closeMessageBox',
+                                                description:
+                                                      'Hủy thao tác rời lưu xá, giữ nguyên hồ sơ và tài khoản học viên.',
+                                                variant: 'secondary',
+                                          },
+                                    ],
+                              });
+                              return;
+                        }
+
                         setError(
                               err.message ||
                                     'Không thể chuyển học viên sang trạng thái rời lưu xá.'
@@ -802,6 +921,16 @@ export default function Members() {
                   return;
             }
 
+            if (value === 'handoverOrganizationRoles') {
+                  if (pendingActionMember?.id) {
+                        window.location.href = `/organization?handoverResidentId=${pendingActionMember.id}`;
+                        return;
+                  }
+
+                  closeMessageBox();
+                  return;
+            }
+
             if (!pendingActionMember) {
                   closeMessageBox();
                   return;
@@ -851,6 +980,37 @@ export default function Members() {
                         sortable: true,
                         sortValue: (member) => getRoomLabelFromMember(member),
                         render: (member) => getRoomLabelFromMember(member),
+                  },
+                  {
+                        key: 'organizationRoles',
+                        label: 'Chức vụ',
+                        sortable: true,
+                        sortValue: (member) =>
+                              getOrganizationTitlesForMember(member).join(', '),
+                        render: (member) => {
+                              const titles = getOrganizationTitlesForMember(member);
+
+                              if (titles.length === 0) {
+                                    return (
+                                          <span className="text-xs text-slate-400">
+                                                Chưa có
+                                          </span>
+                                    );
+                              }
+
+                              return (
+                                    <div className="flex max-w-[260px] flex-wrap gap-1.5">
+                                          {titles.map((title) => (
+                                                <span
+                                                      key={title}
+                                                      className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700"
+                                                >
+                                                      {title}
+                                                </span>
+                                          ))}
+                                    </div>
+                              );
+                        },
                   },
                   {
                         key: 'phone',
@@ -1211,6 +1371,7 @@ export default function Members() {
                                                             <SimpleMemberCard
                                                                   key={member.id}
                                                                   member={member}
+                                                                  organizationTitles={getOrganizationTitlesForMember(member)}
                                                                   onView={handleOpenDetail}
                                                                   onRoomAction={handleOpenAssignRoomDialog}
                                                                   onLeaveOrDelete={handleLeaveOrDeleteMember}

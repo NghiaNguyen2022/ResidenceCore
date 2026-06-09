@@ -189,7 +189,19 @@ export async function updateDutyConfig(id: number, data: Partial<InsertDutyConfi
       if (!db) throw new Error("Database not available");
 
       try {
-            const result = await db.update(dutyConfigs).set(data).where(eq(dutyConfigs.id, id));
+            const cleanData = Object.fromEntries(
+                  Object.entries(data || {}).filter(([, value]) => value !== undefined)
+            ) as Partial<InsertDutyConfig>;
+
+            if (Object.keys(cleanData).length === 0) {
+                  return { success: true, skipped: true };
+            }
+
+            const result = await db
+                  .update(dutyConfigs)
+                  .set(cleanData)
+                  .where(eq(dutyConfigs.id, id));
+
             return result;
       } catch (error) {
             console.error("[Database] Failed to update duty config:", error);
@@ -282,12 +294,29 @@ export async function listDutyConfigs(filters?: { dutyType?: string; isActive?: 
 /**
  * Thêm checklist item
  */
-export async function addChecklistItem(data: InsertDutyChecklist) {
+export async function addChecklistItem(
+      data: InsertDutyChecklist & { itemOrder?: number | null }
+) {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
       try {
-            const result = await db.insert(dutyChecklists).values(data);
+            let itemOrder = data.itemOrder;
+
+            if (itemOrder === undefined || itemOrder === null) {
+                  const existingItems = await db
+                        .select()
+                        .from(dutyChecklists)
+                        .where(eq(dutyChecklists.dutyConfigId, data.dutyConfigId));
+
+                  itemOrder = existingItems.length + 1;
+            }
+
+            const result = await db.insert(dutyChecklists).values({
+                  ...data,
+                  itemOrder,
+            } as InsertDutyChecklist);
+
             return result;
       } catch (error) {
             console.error("[Database] Failed to add checklist item:", error);
@@ -351,15 +380,62 @@ export async function getChecklistByDutyId(dutyConfigId: number) {
 // 2.4 DUTY ASSIGNMENT FUNCTIONS
 // ============================================================================
 
+export type DutyAssignedToType = "resident" | "team" | "room" | "committee";
+
+export type DutyAssignmentInput = InsertDutyAssignment & {
+      assignedToType?: DutyAssignedToType | null;
+      assignedToId?: number | null;
+};
+
+function normalizeDutyAssignmentInput(data: DutyAssignmentInput): InsertDutyAssignment {
+      const payload: any = { ...data };
+
+      /**
+       * Backward compatible rule:
+       * - Existing code may still send residentId only.
+       * - New code can send assignedToType/assignedToId.
+       */
+      if (!payload.assignedToType && payload.residentId) {
+            payload.assignedToType = "resident";
+            payload.assignedToId = payload.residentId;
+      }
+
+      if (payload.assignedToType === "resident") {
+            if (!payload.assignedToId && payload.residentId) {
+                  payload.assignedToId = payload.residentId;
+            }
+
+            if (!payload.residentId && payload.assignedToId) {
+                  payload.residentId = payload.assignedToId;
+            }
+      }
+
+      if (
+            payload.assignedToType &&
+            payload.assignedToType !== "resident" &&
+            payload.assignedToId
+      ) {
+            /**
+             * For team/room/committee assignments, residentId should be null
+             * if the database column allows null.
+             */
+            payload.residentId = payload.residentId ?? null;
+      }
+
+      return payload as InsertDutyAssignment;
+}
+
+
 /**
  * Gán công tác cho học viên
  */
-export async function assignDuty(data: InsertDutyAssignment) {
+export async function assignDuty(data: DutyAssignmentInput) {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
       try {
-            const result = await db.insert(dutyAssignments).values(data);
+            const payload = normalizeDutyAssignmentInput(data);
+            const result = await db.insert(dutyAssignments).values(payload);
             return result;
       } catch (error) {
             console.error("[Database] Failed to assign duty:", error);
@@ -490,6 +566,159 @@ export async function getAssignmentsByDuty(
             return result;
       } catch (error) {
             console.error("[Database] Failed to get assignments by duty:", error);
+            throw error;
+      }
+}
+
+/**
+ * Lấy assignments theo khoảng ngày
+ */
+export async function getAssignmentsByDateRange(
+      startDate: Date,
+      endDate: Date,
+      filters?: {
+            status?: string;
+            assignedToType?: DutyAssignedToType;
+            assignedToId?: number;
+      }
+) {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      try {
+            const conditions = [
+                  between(dutyAssignments.assignedDate, startDate, endDate),
+            ];
+
+            if (filters?.status) {
+                  conditions.push(eq(dutyAssignments.status, filters.status as any));
+            }
+
+            if (filters?.assignedToType) {
+                  conditions.push(
+                        eq(dutyAssignments.assignedToType, filters.assignedToType as any)
+                  );
+            }
+
+            if (filters?.assignedToId) {
+                  conditions.push(eq(dutyAssignments.assignedToId, filters.assignedToId));
+            }
+
+            const result = await db
+                  .select()
+                  .from(dutyAssignments)
+                  .where(and(...conditions))
+                  .orderBy(dutyAssignments.assignedDate, dutyAssignments.startDateTime);
+
+            return result;
+      } catch (error) {
+            console.error("[Database] Failed to get assignments by date range:", error);
+            throw error;
+      }
+}
+
+/**
+ * Lấy công tác hôm nay
+ */
+export async function getTodayAssignments() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return getAssignmentsByDate(today);
+}
+
+/**
+ * Lấy assignments theo đối tượng được phân công
+ */
+export async function getAssignmentsByAssignee(
+      assignedToType: DutyAssignedToType,
+      assignedToId: number,
+      filters?: { status?: string; startDate?: Date; endDate?: Date }
+) {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      try {
+            const conditions = [
+                  eq(dutyAssignments.assignedToType, assignedToType as any),
+                  eq(dutyAssignments.assignedToId, assignedToId),
+            ];
+
+            if (filters?.status) {
+                  conditions.push(eq(dutyAssignments.status, filters.status as any));
+            }
+
+            if (filters?.startDate && filters?.endDate) {
+                  conditions.push(
+                        between(
+                              dutyAssignments.assignedDate,
+                              filters.startDate,
+                              filters.endDate
+                        )
+                  );
+            }
+
+            const result = await db
+                  .select()
+                  .from(dutyAssignments)
+                  .where(and(...conditions))
+                  .orderBy(dutyAssignments.assignedDate, dutyAssignments.startDateTime);
+
+            return result;
+      } catch (error) {
+            console.error("[Database] Failed to get assignments by assignee:", error);
+            throw error;
+      }
+}
+
+/**
+ * Đánh dấu hoàn thành công tác
+ */
+export async function markAssignmentCompleted(id: number, notes?: string | null) {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      try {
+            const result = await db
+                  .update(dutyAssignments)
+                  .set({
+                        status: "completed",
+                        completedAt: new Date(),
+                        notes: notes ?? undefined,
+                  } as any)
+                  .where(eq(dutyAssignments.id, id));
+
+            return result;
+      } catch (error) {
+            console.error("[Database] Failed to mark assignment completed:", error);
+            throw error;
+      }
+}
+
+/**
+ * Đánh dấu vắng / không làm công tác
+ */
+export async function markAssignmentSkipped(
+      id: number,
+      reason?: string | null,
+      notes?: string | null
+) {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      try {
+            const result = await db
+                  .update(dutyAssignments)
+                  .set({
+                        status: "skipped",
+                        reason: reason ?? undefined,
+                        notes: notes ?? undefined,
+                  } as any)
+                  .where(eq(dutyAssignments.id, id));
+
+            return result;
+      } catch (error) {
+            console.error("[Database] Failed to mark assignment skipped:", error);
             throw error;
       }
 }

@@ -54,6 +54,7 @@ function getLeftCardClass(member: any) {
 
 export function SimpleMemberCard({
       member,
+      organizationTitles = [],
       onView,
       onRoomAction,
       onLeaveOrDelete,
@@ -63,6 +64,7 @@ export function SimpleMemberCard({
       isReactivating = false,
 }: {
       member: any;
+      organizationTitles?: string[];
       onView: (member: any) => void;
       onRoomAction: (member: any) => void;
       onLeaveOrDelete: (member: any) => void;
@@ -163,6 +165,25 @@ export function SimpleMemberCard({
                                           </div>
                                     </div>
                               </div>
+
+                              {organizationTitles.length > 0 && (
+                                    <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-2">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
+                                                      Chức vụ
+                                                </span>
+
+                                                {organizationTitles.map((title) => (
+                                                      <span
+                                                            key={title}
+                                                            className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-100"
+                                                      >
+                                                            {title}
+                                                      </span>
+                                                ))}
+                                          </div>
+                                    </div>
+                              )}
 
                               {attentionItems.length > 0 && (
                                     <div className="mt-3 flex flex-wrap gap-2">

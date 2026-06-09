@@ -15,6 +15,7 @@ import {
 } from "./residents";
 export * from "./core";
 export * from "./residents";
+export * from "./dailyRoutine";
 
 /**
  * TaskTypes table - Define types of household tasks
@@ -254,6 +255,8 @@ export const dutyAssignments = mysqlTable("dutyAssignments", {
       id: int("id").autoincrement().primaryKey(),
       dutyConfigId: int("dutyConfigId").notNull().references(() => dutyConfigs.id, { onDelete: "cascade" }),
       residentId: int("residentId").notNull().references(() => residents.id, { onDelete: "cascade" }),
+      assignedToType: varchar("assigned_to_type", { length: 30 }),
+      assignedToId: int("assigned_to_id"),
       assignedDate: date("assignedDate").notNull(),
       startDateTime: timestamp("startDateTime"),
       endDateTime: timestamp("endDateTime"),

@@ -255,6 +255,7 @@ export const dutiesRouter = router({
                         checklistItem: z.string().min(1, "Nội dung công việc không được để trống"),
                         description: z.string().optional(),
                         isRequired: z.boolean().default(true),
+                        itemOrder: z.number().int().positive().optional(),
                         estimatedTimeMinutes: z.number().optional(),
                   })
             )
@@ -493,13 +494,175 @@ export const dutiesRouter = router({
             }),
 
       /**
-       * Gán công tác cho học viên
+       * Lấy công tác hôm nay
+       */
+      getTodayAssignments: protectedProcedure.query(async () => {
+            try {
+                  const assignments = await db.getTodayAssignments();
+                  return assignments;
+            } catch (error) {
+                  console.error("[duties.getTodayAssignments] Error:", error);
+                  throw new TRPCError({
+                        code: "INTERNAL_SERVER_ERROR",
+                        message: "Failed to fetch today assignments",
+                  });
+            }
+      }),
+
+      /**
+       * Lấy công tác theo khoảng ngày
+       */
+      getAssignmentsByDateRange: protectedProcedure
+            .input(
+                  z.object({
+                        startDate: z.date(),
+                        endDate: z.date(),
+                        status: z
+                              .enum([
+                                    "pending",
+                                    "confirmed",
+                                    "in_progress",
+                                    "completed",
+                                    "skipped",
+                                    "cancelled",
+                              ])
+                              .optional(),
+                        assignedToType: z
+                              .enum(["resident", "team", "room", "committee"])
+                              .optional(),
+                        assignedToId: z.number().optional(),
+                  })
+            )
+            .query(async ({ input }) => {
+                  try {
+                        const assignments = await db.getAssignmentsByDateRange(
+                              input.startDate,
+                              input.endDate,
+                              {
+                                    status: input.status,
+                                    assignedToType: input.assignedToType,
+                                    assignedToId: input.assignedToId,
+                              }
+                        );
+                        return assignments;
+                  } catch (error) {
+                        console.error("[duties.getAssignmentsByDateRange] Error:", error);
+                        throw new TRPCError({
+                              code: "INTERNAL_SERVER_ERROR",
+                              message: "Failed to fetch assignments by date range",
+                        });
+                  }
+            }),
+
+      /**
+       * Lấy công tác theo đối tượng phụ trách
+       */
+      getAssignmentsByAssignee: protectedProcedure
+            .input(
+                  z.object({
+                        assignedToType: z.enum(["resident", "team", "room", "committee"]),
+                        assignedToId: z.number(),
+                        status: z
+                              .enum([
+                                    "pending",
+                                    "confirmed",
+                                    "in_progress",
+                                    "completed",
+                                    "skipped",
+                                    "cancelled",
+                              ])
+                              .optional(),
+                        startDate: z.date().optional(),
+                        endDate: z.date().optional(),
+                  })
+            )
+            .query(async ({ input }) => {
+                  try {
+                        const assignments = await db.getAssignmentsByAssignee(
+                              input.assignedToType,
+                              input.assignedToId,
+                              {
+                                    status: input.status,
+                                    startDate: input.startDate,
+                                    endDate: input.endDate,
+                              }
+                        );
+                        return assignments;
+                  } catch (error) {
+                        console.error("[duties.getAssignmentsByAssignee] Error:", error);
+                        throw new TRPCError({
+                              code: "INTERNAL_SERVER_ERROR",
+                              message: "Failed to fetch assignments by assignee",
+                        });
+                  }
+            }),
+
+      /**
+       * Đánh dấu hoàn thành công tác
+       */
+      completeAssignment: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number(),
+                        notes: z.string().optional().nullable(),
+                  })
+            )
+            .mutation(async ({ input }) => {
+                  try {
+                        await db.markAssignmentCompleted(input.id, input.notes);
+                        return { success: true };
+                  } catch (error) {
+                        console.error("[duties.completeAssignment] Error:", error);
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Failed to complete assignment",
+                        });
+                  }
+            }),
+
+      /**
+       * Đánh dấu vắng / không làm công tác
+       */
+      skipAssignment: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number(),
+                        reason: z.string().optional().nullable(),
+                        notes: z.string().optional().nullable(),
+                  })
+            )
+            .mutation(async ({ input }) => {
+                  try {
+                        await db.markAssignmentSkipped(input.id, input.reason, input.notes);
+                        return { success: true };
+                  } catch (error) {
+                        console.error("[duties.skipAssignment] Error:", error);
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Failed to skip assignment",
+                        });
+                  }
+            }),
+
+      /**
+       * Gán công tác cho học viên / tổ / phòng / ban
        */
       assignDuty: protectedProcedure
             .input(
                   z.object({
                         dutyConfigId: z.number(),
-                        residentId: z.number(),
+                        residentId: z.number().optional().nullable(),
+                        assignedToType: z
+                              .enum(["resident", "team", "room", "committee"])
+                              .optional()
+                              .nullable(),
+                        assignedToId: z.number().optional().nullable(),
                         assignedDate: z.date(),
                         startDateTime: z.date().optional(),
                         endDateTime: z.date().optional(),
@@ -508,7 +671,7 @@ export const dutiesRouter = router({
             )
             .mutation(async ({ input }) => {
                   try {
-                        const result = await db.assignDuty(input);
+                        const result = await db.assignDuty(input as any);
                         return result;
                   } catch (error) {
                         console.error("[duties.assignDuty] Error:", error);
