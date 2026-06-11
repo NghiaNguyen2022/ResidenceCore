@@ -1,0 +1,160 @@
+'use client';
+
+import { Edit2, Plus, Trash2 } from 'lucide-react';
+
+import {
+      Badge,
+      EmptyState,
+      getDutyTypeLabel,
+} from '@/components/daily-routine/shared';
+
+type DutyTemplateDialogProps = {
+      dutyConfigs: any[];
+      isLoading?: boolean;
+      isDeleting?: boolean;
+      onClose: () => void;
+      onCreate: () => void;
+      onEdit: (duty: any) => void;
+      onDelete: (duty: any) => void;
+};
+
+export function DutyTemplateDialog({
+      dutyConfigs,
+      isLoading,
+      isDeleting,
+      onClose,
+      onCreate,
+      onEdit,
+      onDelete,
+}: DutyTemplateDialogProps) {
+      return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm">
+                  <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
+                        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                              <div>
+                                    <h2 className="text-xl font-bold text-slate-950">
+                                          Mẫu công tác
+                                    </h2>
+                                    <p className="mt-1 text-sm text-slate-500">
+                                          Quản lý các mẫu công tác dùng lại khi phân công hằng ngày.
+                                    </p>
+                              </div>
+
+                              <div className="flex flex-wrap gap-2">
+                                    <button
+                                          type="button"
+                                          onClick={onCreate}
+                                          className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                    >
+                                          <Plus className="h-4 w-4" />
+                                          Thêm mẫu
+                                    </button>
+
+                                    <button
+                                          type="button"
+                                          onClick={onClose}
+                                          className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                    >
+                                          Đóng
+                                    </button>
+                              </div>
+                        </div>
+
+                        {isLoading ? (
+                              <EmptyState
+                                    title="Đang tải mẫu công tác"
+                                    description="Vui lòng chờ trong giây lát."
+                              />
+                        ) : dutyConfigs.length === 0 ? (
+                              <EmptyState
+                                    title="Chưa có mẫu công tác"
+                                    description="Thêm mẫu công tác để tạo phân công nhanh."
+                                    action={
+                                          <button
+                                                type="button"
+                                                onClick={onCreate}
+                                                className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                          >
+                                                Thêm mẫu
+                                          </button>
+                                    }
+                              />
+                        ) : (
+                              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                    {dutyConfigs.map((duty: any) => (
+                                          <div
+                                                key={duty.id}
+                                                className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
+                                          >
+                                                <div className="flex items-start justify-between gap-3">
+                                                      <div>
+                                                            <p className="font-bold text-slate-950">
+                                                                  {duty.dutyName}
+                                                            </p>
+                                                            <p className="mt-1 text-xs text-slate-500">
+                                                                  {duty.dutyCode}
+                                                            </p>
+                                                      </div>
+
+                                                      <Badge className="border-blue-100 bg-blue-50 text-blue-700">
+                                                            {getDutyTypeLabel(duty.dutyType)}
+                                                      </Badge>
+                                                </div>
+
+                                                {duty.description && (
+                                                      <p className="mt-3 text-sm leading-6 text-slate-500">
+                                                            {duty.description}
+                                                      </p>
+                                                )}
+
+                                                <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                                                      {(duty.startTime || duty.endTime) && (
+                                                            <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
+                                                                  {String(duty.startTime || '').slice(0, 5)}
+                                                                  {' - '}
+                                                                  {String(duty.endTime || '').slice(0, 5)}
+                                                            </span>
+                                                      )}
+
+                                                      {(duty.minPersons || duty.maxPersons) && (
+                                                            <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
+                                                                  Số người: {duty.minPersons || 0}
+                                                                  {duty.maxPersons ? ` - ${duty.maxPersons}` : '+'}
+                                                            </span>
+                                                      )}
+
+                                                      <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
+                                                            {duty.isActive === false ? 'Ngừng dùng' : 'Đang dùng'}
+                                                      </span>
+                                                </div>
+
+                                                <div className="mt-4 flex flex-wrap gap-2">
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => onEdit(duty)}
+                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                                      >
+                                                            <Edit2 className="h-3.5 w-3.5" />
+                                                            Sửa
+                                                      </button>
+
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => onDelete(duty)}
+                                                            disabled={isDeleting}
+                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                      >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                            Xóa
+                                                      </button>
+                                                </div>
+                                          </div>
+                                    ))}
+                              </div>
+                        )}
+                  </div>
+            </div>
+      );
+}
+
+export default DutyTemplateDialog;

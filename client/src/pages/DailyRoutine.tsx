@@ -2,28 +2,20 @@
 
 import { useMemo, useState } from 'react';
 import {
-      CalendarDays,
-      CheckCircle2,
       Clock,
-      Edit2,
       Plus,
-      Save,
-      Search,
-      SkipForward,
-      Trash2,
-      Users,
       X,
 } from 'lucide-react';
 
 import { trpc } from '@/lib/trpc';
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import DutyConfigForm from '@/components/DutyConfigForm';
 import TodayOverviewTab from '@/components/daily-routine/today/TodayOverviewTab';
 import DutiesTab from '@/components/daily-routine/duties/DutiesTab';
+import DutyTemplateDialog from '@/components/daily-routine/duties/DutyTemplateDialog';
 import RoutineSetupTab from '@/components/daily-routine/routine/RoutineSetupTab';
+import RoutineTemplateModal from '@/components/daily-routine/routine/RoutineTemplateModal';
+import RoutineItemModal from '@/components/daily-routine/routine/RoutineItemModal';
 import {
       AppMessageBox,
       type AppMessageBoxState,
@@ -153,25 +145,6 @@ function getWeekDateValues(dateText: string) {
       });
 }
 
-function getWeekdayLabel(dateText: string) {
-      const [year, month, day] = dateText.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
-      const dayIndex = date.getDay();
-
-      if (dayIndex === 0) return 'CN';
-      return `Thứ ${dayIndex + 1}`;
-}
-
-function getShortDateLabel(dateText: string) {
-      const [year, month, day] = dateText.split('-');
-
-      return `${day}/${month}`;
-}
-
-function getPreviewDateLabel(dateText: string) {
-      return `${getWeekdayLabel(dateText)} · ${getShortDateLabel(dateText)}`;
-}
-
 function createWallClockDate(dateText: string, timeText = '12:00:00') {
       const [year, month, day] = dateText.split('-').map(Number);
       const [hour = 0, minute = 0, second = 0] = timeText.split(':').map(Number);
@@ -211,25 +184,6 @@ function getMonthRangeValues(dateText: string) {
             endDate: formatDateValue(lastDate),
       };
 }
-
-function getStatusLabel(status?: string | null) {
-      if (status === 'completed') return 'Hoàn thành';
-      if (status === 'in_progress') return 'Đang làm';
-      if (status === 'confirmed') return 'Đã nhận';
-      if (status === 'skipped') return 'Vắng / Không làm';
-      if (status === 'cancelled') return 'Đã hủy';
-      return 'Chưa làm';
-}
-
-function getStatusClass(status?: string | null) {
-      if (status === 'completed') return 'border-green-100 bg-green-50 text-green-700';
-      if (status === 'in_progress') return 'border-blue-100 bg-blue-50 text-blue-700';
-      if (status === 'confirmed') return 'border-indigo-100 bg-indigo-50 text-indigo-700';
-      if (status === 'skipped') return 'border-amber-100 bg-amber-50 text-amber-700';
-      if (status === 'cancelled') return 'border-slate-200 bg-slate-100 text-slate-600';
-      return 'border-orange-100 bg-orange-50 text-orange-700';
-}
-
 
 function getTimeValue(dateText: string, timeValue?: string | Date | null) {
       if (!dateText || !timeValue) return null;
@@ -292,51 +246,6 @@ function getDutyVisualState(entryOrAssignment: any, selectedDate: string) {
       return isPastTime(selectedDate, endTime) ? 'overdue' : 'normal';
 }
 
-function getTimelineCardClass(type: 'routine' | 'duty', state: string) {
-      if (type === 'routine' && state === 'past') {
-            return 'border-slate-200 bg-slate-100/80 opacity-75';
-      }
-
-      if (type === 'duty' && state === 'completed') {
-            return 'border-green-200 bg-green-50 ring-1 ring-green-100';
-      }
-
-      if (type === 'duty' && state === 'overdue') {
-            return 'border-rose-200 bg-rose-50 ring-1 ring-rose-100';
-      }
-
-      if (type === 'duty' && state === 'skipped') {
-            return 'border-amber-200 bg-amber-50 ring-1 ring-amber-100';
-      }
-
-      if (type === 'duty' && state === 'cancelled') {
-            return 'border-slate-200 bg-slate-100 opacity-70';
-      }
-
-      return 'border-slate-200 bg-slate-50/70';
-}
-
-function getVisualStateLabel(type: 'routine' | 'duty', state: string) {
-      if (type === 'routine' && state === 'past') return 'Đã qua giờ';
-      if (type === 'duty' && state === 'completed') return 'Đã hoàn thành';
-      if (type === 'duty' && state === 'overdue') return 'Đã quá giờ';
-      if (type === 'duty' && state === 'skipped') return 'Vắng / Không làm';
-      if (type === 'duty' && state === 'cancelled') return 'Đã hủy';
-
-      return '';
-}
-
-function getVisualStateBadgeClass(type: 'routine' | 'duty', state: string) {
-      if (type === 'routine' && state === 'past') return 'border-slate-200 bg-white text-slate-500';
-      if (type === 'duty' && state === 'completed') return 'border-green-200 bg-white text-green-700';
-      if (type === 'duty' && state === 'overdue') return 'border-rose-200 bg-white text-rose-700';
-      if (type === 'duty' && state === 'skipped') return 'border-amber-200 bg-white text-amber-700';
-      if (type === 'duty' && state === 'cancelled') return 'border-slate-200 bg-white text-slate-500';
-
-      return 'border-slate-100 bg-slate-50 text-slate-600';
-}
-
-
 function getAssigneeTypeLabel(type?: string | null) {
       if (type === 'team') return 'Tổ';
       if (type === 'room') return 'Phòng';
@@ -344,12 +253,6 @@ function getAssigneeTypeLabel(type?: string | null) {
       return 'Học viên';
 }
 
-
-function getDutyTypeLabel(type?: string | null) {
-      if (type === 'weekly') return 'Hằng tuần';
-      if (type === 'monthly') return 'Hằng tháng';
-      return 'Hằng ngày';
-}
 
 function getAssigneeId(assignment: any) {
       return (
@@ -410,36 +313,6 @@ function normalizeCode(value: string) {
             .replace(/^_+|_+$/g, '');
 }
 
-function Badge({
-      children,
-      className = '',
-}: {
-      children: React.ReactNode;
-      className?: string;
-}) {
-      return (
-            <span
-                  className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}
-            >
-                  {children}
-            </span>
-      );
-}
-
-function SectionEmpty({
-      title,
-      description,
-}: {
-      title: string;
-      description: string;
-}) {
-      return (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-                  <p className="font-semibold text-slate-800">{title}</p>
-                  <p className="mt-1 text-sm text-slate-500">{description}</p>
-            </div>
-      );
-}
 
 export default function DailyRoutine() {
       const [activeView, setActiveView] = useState<DailyRoutineView>('today');
@@ -1370,508 +1243,34 @@ export default function DailyRoutine() {
                         )}
 
                         {templateForm && (
-                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm">
-                                    <div className="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
-                                          <div className="mb-5 flex items-start justify-between">
-                                                <div>
-                                                      <h2 className="text-xl font-bold text-slate-950">
-                                                            {templateForm.id
-                                                                  ? 'Cập nhật mẫu lịch'
-                                                                  : 'Thêm mẫu lịch'}
-                                                      </h2>
-                                                      <p className="mt-1 text-sm text-slate-500">
-                                                            Thiết lập loại ngày và tên mẫu lịch sinh hoạt.
-                                                      </p>
-                                                </div>
-                                                <button
-                                                      type="button"
-                                                      onClick={() => setTemplateForm(null)}
-                                                      className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
-                                                >
-                                                      <X className="h-4 w-4" />
-                                                </button>
-                                          </div>
-
-                                          <div className="grid gap-4 md:grid-cols-2">
-                                                <label className="space-y-1.5">
-                                                      <Label>Mã mẫu lịch</Label>
-                                                      <Input
-                                                            value={templateForm.code}
-                                                            onChange={(event) =>
-                                                                  setTemplateForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      code: event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            placeholder="WEEKDAY_DEFAULT"
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-
-                                                <label className="space-y-1.5">
-                                                      <Label>Loại ngày</Label>
-                                                      <select
-                                                            value={templateForm.dayType}
-                                                            onChange={(event) =>
-                                                                  setTemplateForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      dayType: event.target
-                                                                                            .value as DayType,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
-                                                      >
-                                                            <option value="weekday">Ngày thường</option>
-                                                            <option value="sunday">Chúa nhật</option>
-                                                            <option value="special">Ngày đặc biệt</option>
-                                                      </select>
-                                                </label>
-
-                                                <label className="space-y-1.5 md:col-span-2">
-                                                      <Label>Tên mẫu lịch</Label>
-                                                      <Input
-                                                            value={templateForm.name}
-                                                            onChange={(event) =>
-                                                                  setTemplateForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      name: event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            placeholder="Lịch ngày thường"
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-
-                                                <label className="space-y-1.5">
-                                                      <Label>Thứ tự</Label>
-                                                      <Input
-                                                            value={templateForm.sortOrder}
-                                                            onChange={(event) =>
-                                                                  setTemplateForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      sortOrder: event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-
-                                                <label className="flex items-center gap-2 pt-7 text-sm font-semibold text-slate-700">
-                                                      <input
-                                                            type="checkbox"
-                                                            checked={templateForm.isActive}
-                                                            onChange={(event) =>
-                                                                  setTemplateForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      isActive:
-                                                                                            event.target.checked,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            className="h-4 w-4 rounded border-slate-300"
-                                                      />
-                                                      Đang áp dụng
-                                                </label>
-
-                                                <label className="space-y-1.5 md:col-span-2">
-                                                      <Label>Ghi chú</Label>
-                                                      <Textarea
-                                                            value={templateForm.description}
-                                                            onChange={(event) =>
-                                                                  setTemplateForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      description:
-                                                                                            event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            rows={3}
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-                                          </div>
-
-                                          <div className="mt-5 flex justify-end gap-2">
-                                                <button
-                                                      type="button"
-                                                      onClick={() => setTemplateForm(null)}
-                                                      className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                                                >
-                                                      Hủy
-                                                </button>
-                                                <button
-                                                      type="button"
-                                                      onClick={saveTemplate}
-                                                      disabled={isSavingTemplate}
-                                                      className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                                                >
-                                                      <Save className="h-4 w-4" />
-                                                      Lưu
-                                                </button>
-                                          </div>
-                                    </div>
-                              </div>
+                              <RoutineTemplateModal
+                                    form={templateForm}
+                                    onChange={setTemplateForm}
+                                    onSave={saveTemplate}
+                                    isSaving={isSavingTemplate}
+                              />
                         )}
 
                         {itemForm && (
-                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm">
-                                    <div className="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
-                                          <div className="mb-5 flex items-start justify-between">
-                                                <div>
-                                                      <h2 className="text-xl font-bold text-slate-950">
-                                                            {itemForm.id
-                                                                  ? 'Cập nhật khung giờ'
-                                                                  : 'Thêm khung giờ'}
-                                                      </h2>
-                                                      <p className="mt-1 text-sm text-slate-500">
-                                                            Thiết lập thời gian, địa điểm và nội dung sinh hoạt.
-                                                      </p>
-                                                </div>
-                                                <button
-                                                      type="button"
-                                                      onClick={() => setItemForm(null)}
-                                                      className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
-                                                >
-                                                      <X className="h-4 w-4" />
-                                                </button>
-                                          </div>
-
-                                          <div className="grid gap-4 md:grid-cols-2">
-                                                <label className="space-y-1.5 md:col-span-2">
-                                                      <Label>Mẫu lịch</Label>
-                                                      <select
-                                                            value={itemForm.templateId}
-                                                            onChange={(event) =>
-                                                                  setItemForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      templateId:
-                                                                                            event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
-                                                      >
-                                                            <option value="">Chọn mẫu lịch</option>
-                                                            {templates.map((template: any) => (
-                                                                  <option
-                                                                        key={template.id}
-                                                                        value={template.id}
-                                                                  >
-                                                                        {template.name}
-                                                                  </option>
-                                                            ))}
-                                                      </select>
-                                                </label>
-
-                                                <label className="space-y-1.5">
-                                                      <Label>Giờ bắt đầu</Label>
-                                                      <Input
-                                                            type="time"
-                                                            value={itemForm.startTime}
-                                                            onChange={(event) =>
-                                                                  setItemForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      startTime:
-                                                                                            event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-
-                                                <label className="space-y-1.5">
-                                                      <Label>Giờ kết thúc</Label>
-                                                      <Input
-                                                            type="time"
-                                                            value={itemForm.endTime}
-                                                            onChange={(event) =>
-                                                                  setItemForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      endTime:
-                                                                                            event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-
-                                                <label className="space-y-1.5 md:col-span-2">
-                                                      <Label>Tên hoạt động</Label>
-                                                      <Input
-                                                            value={itemForm.title}
-                                                            onChange={(event) =>
-                                                                  setItemForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      title: event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            placeholder="Giờ học bài"
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-
-                                                <label className="space-y-1.5">
-                                                      <Label>Địa điểm</Label>
-                                                      <Input
-                                                            value={itemForm.location}
-                                                            onChange={(event) =>
-                                                                  setItemForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      location:
-                                                                                            event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            placeholder="Phòng sinh hoạt"
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-
-                                                <label className="space-y-1.5">
-                                                      <Label>Thứ tự</Label>
-                                                      <Input
-                                                            value={itemForm.sortOrder}
-                                                            onChange={(event) =>
-                                                                  setItemForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      sortOrder:
-                                                                                            event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-
-                                                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                                                      <input
-                                                            type="checkbox"
-                                                            checked={itemForm.isActive}
-                                                            onChange={(event) =>
-                                                                  setItemForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      isActive:
-                                                                                            event.target.checked,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            className="h-4 w-4 rounded border-slate-300"
-                                                      />
-                                                      Đang áp dụng
-                                                </label>
-
-                                                <label className="space-y-1.5 md:col-span-2">
-                                                      <Label>Ghi chú</Label>
-                                                      <Textarea
-                                                            value={itemForm.description}
-                                                            onChange={(event) =>
-                                                                  setItemForm((current) =>
-                                                                        current
-                                                                              ? {
-                                                                                      ...current,
-                                                                                      description:
-                                                                                            event.target.value,
-                                                                                }
-                                                                              : current
-                                                                  )
-                                                            }
-                                                            rows={3}
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-                                          </div>
-
-                                          <div className="mt-5 flex justify-end gap-2">
-                                                <button
-                                                      type="button"
-                                                      onClick={() => setItemForm(null)}
-                                                      className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                                                >
-                                                      Hủy
-                                                </button>
-                                                <button
-                                                      type="button"
-                                                      onClick={saveItem}
-                                                      disabled={isSavingItem}
-                                                      className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                                                >
-                                                      <Save className="h-4 w-4" />
-                                                      Lưu
-                                                </button>
-                                          </div>
-                                    </div>
-                              </div>
+                              <RoutineItemModal
+                                    form={itemForm}
+                                    templates={templates as any[]}
+                                    onChange={setItemForm}
+                                    onSave={saveItem}
+                                    isSaving={isSavingItem}
+                              />
                         )}
 
                         {isDutyTemplateDialogOpen && (
-                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm">
-                                    <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
-                                          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                                <div>
-                                                      <h2 className="text-xl font-bold text-slate-950">
-                                                            Mẫu công tác
-                                                      </h2>
-                                                      <p className="mt-1 text-sm text-slate-500">
-                                                            Quản lý các mẫu công tác dùng lại khi phân công hằng ngày.
-                                                      </p>
-                                                </div>
-
-                                                <div className="flex flex-wrap gap-2">
-                                                      <button
-                                                            type="button"
-                                                            onClick={openCreateDutyConfig}
-                                                            className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                                                      >
-                                                            <Plus className="h-4 w-4" />
-                                                            Thêm mẫu
-                                                      </button>
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => setIsDutyTemplateDialogOpen(false)}
-                                                            className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                                                      >
-                                                            Đóng
-                                                      </button>
-                                                </div>
-                                          </div>
-
-                                          {dutyConfigsQuery.isLoading ? (
-                                                <SectionEmpty
-                                                      title="Đang tải mẫu công tác"
-                                                      description="Vui lòng chờ trong giây lát."
-                                                />
-                                          ) : (dutyConfigs as any[]).length === 0 ? (
-                                                <SectionEmpty
-                                                      title="Chưa có mẫu công tác"
-                                                      description="Thêm mẫu công tác để tạo phân công nhanh."
-                                                />
-                                          ) : (
-                                                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                                      {(dutyConfigs as any[]).map((duty: any) => (
-                                                            <div
-                                                                  key={duty.id}
-                                                                  className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
-                                                            >
-                                                                  <div className="flex items-start justify-between gap-3">
-                                                                        <div>
-                                                                              <p className="font-bold text-slate-950">
-                                                                                    {duty.dutyName}
-                                                                              </p>
-                                                                              <p className="mt-1 text-xs text-slate-500">
-                                                                                    {duty.dutyCode}
-                                                                              </p>
-                                                                        </div>
-
-                                                                        <Badge className="border-blue-100 bg-blue-50 text-blue-700">
-                                                                              {duty.dutyType === 'weekly'
-                                                                                    ? 'Hằng tuần'
-                                                                                    : duty.dutyType === 'monthly'
-                                                                                          ? 'Hằng tháng'
-                                                                                          : 'Hằng ngày'}
-                                                                        </Badge>
-                                                                  </div>
-
-                                                                  <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-                                                                        <Clock className="h-4 w-4 text-slate-400" />
-                                                                        {formatTime(duty.startTime)} - {formatTime(duty.endTime)}
-                                                                  </div>
-
-                                                                  {duty.description && (
-                                                                        <p className="mt-3 text-sm leading-6 text-slate-600">
-                                                                              {duty.description}
-                                                                        </p>
-                                                                  )}
-
-                                                                  <div className="mt-4 flex flex-wrap gap-2">
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() => {
-                                                                                    setAssignmentForm((current) => ({
-                                                                                          ...current,
-                                                                                          dutyConfigId: String(duty.id),
-                                                                                          startTime: formatTime(duty.startTime),
-                                                                                          endTime: formatTime(duty.endTime),
-                                                                                    }));
-                                                                                    setIsDutyTemplateDialogOpen(false);
-                                                                                    setActiveView('duties');
-                                                                              }}
-                                                                              className="inline-flex items-center gap-1.5 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
-                                                                        >
-                                                                              <Plus className="h-3.5 w-3.5" />
-                                                                              Chọn phân công
-                                                                        </button>
-
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() => openEditDutyConfig(duty)}
-                                                                              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                                                        >
-                                                                              <Edit2 className="h-3.5 w-3.5" />
-                                                                              Sửa
-                                                                        </button>
-
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() => requestDeleteDutyConfig(duty)}
-                                                                              disabled={deleteDutyConfigMutation.isPending}
-                                                                              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                        >
-                                                                              <Trash2 className="h-3.5 w-3.5" />
-                                                                              Xóa
-                                                                        </button>
-                                                                  </div>
-                                                            </div>
-                                                      ))}
-                                                </div>
-                                          )}
-                                    </div>
-                              </div>
+                              <DutyTemplateDialog
+                                    dutyConfigs={dutyConfigs as any[]}
+                                    isLoading={dutyConfigsQuery.isLoading}
+                                    isDeleting={deleteDutyConfigMutation.isPending}
+                                    onClose={() => setIsDutyTemplateDialogOpen(false)}
+                                    onCreate={openCreateDutyConfig}
+                                    onEdit={openEditDutyConfig}
+                                    onDelete={requestDeleteDutyConfig}
+                              />
                         )}
 
                         {isDutyConfigFormOpen && (
