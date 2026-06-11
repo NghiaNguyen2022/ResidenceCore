@@ -375,54 +375,89 @@ export type DutyAssignmentInput = InsertDutyAssignment & {
       assignedToId?: number | null;
 };
 
-function toSqlDateOnly(value: Date | string | null | undefined) {
-      if (!value) return value;
+function createWallClockDate(dateText: string, timeText = "00:00:00") {
+      const [year, month, day] = dateText.split("-").map(Number);
+      const [hour = 0, minute = 0, second = 0] = timeText.split(":").map(Number);
+
+      return new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+}
+
+function toDateOnlyText(value: Date | string | null | undefined) {
+      if (!value) return "";
 
       if (typeof value === "string") {
-            if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+            if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+                  return value.slice(0, 10);
+            }
 
             const parsed = new Date(value);
+
             if (!Number.isNaN(parsed.getTime())) {
-                  return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}-${String(parsed.getUTCDate()).padStart(2, "0")}`;
+                  return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(
+                        2,
+                        "0"
+                  )}-${String(parsed.getUTCDate()).padStart(2, "0")}`;
             }
 
             return value.slice(0, 10);
       }
 
-      return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+      return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(
+            2,
+            "0"
+      )}-${String(value.getUTCDate()).padStart(2, "0")}`;
 }
 
-function toSqlDateTime(value: Date | string | null | undefined) {
-      if (!value) return value;
+function toTimeText(value: Date | string | null | undefined) {
+      if (!value) return null;
 
       if (typeof value === "string") {
+            if (/^\d{2}:\d{2}/.test(value)) {
+                  return value.length === 5 ? `${value}:00` : value.slice(0, 8);
+            }
+
             if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(value)) {
-                  return value.replace("T", " ").replace("Z", "").slice(0, 19);
+                  const normalized = value.replace("T", " ").replace("Z", "");
+                  return normalized.split(" ")[1]?.slice(0, 8) || null;
             }
 
             const parsed = new Date(value);
+
             if (!Number.isNaN(parsed.getTime())) {
-                  return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}-${String(parsed.getUTCDate()).padStart(2, "0")} ${String(parsed.getUTCHours()).padStart(2, "0")}:${String(parsed.getUTCMinutes()).padStart(2, "0")}:${String(parsed.getUTCSeconds()).padStart(2, "0")}`;
+                  return `${String(parsed.getUTCHours()).padStart(2, "0")}:${String(
+                        parsed.getUTCMinutes()
+                  ).padStart(2, "0")}:${String(parsed.getUTCSeconds()).padStart(2, "0")}`;
             }
 
-            return value.replace("T", " ").replace("Z", "").slice(0, 19);
+            return null;
       }
 
-      return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")} ${String(value.getUTCHours()).padStart(2, "0")}:${String(value.getUTCMinutes()).padStart(2, "0")}:${String(value.getUTCSeconds()).padStart(2, "0")}`;
+      return `${String(value.getUTCHours()).padStart(2, "0")}:${String(
+            value.getUTCMinutes()
+      ).padStart(2, "0")}:${String(value.getUTCSeconds()).padStart(2, "0")}`;
 }
 
-function normalizeDutyAssignmentInput(data: DutyAssignmentInput): InsertDutyAssignment {
+function toInsertDate(value: Date | string) {
+      return createWallClockDate(toDateOnlyText(value), "00:00:00");
+}
+
+function toInsertDateTime(dateValue: Date | string, timeValue?: Date | string | null) {
+      const dateText = toDateOnlyText(dateValue);
+      const timeText = toTimeText(timeValue);
+
+      if (!timeText) return null;
+
+      return createWallClockDate(dateText, timeText);
+}
+
+/**
+ * Dùng cho query/check ngày, trả về dạng YYYY-MM-DD.
+ */
+function normalizeDutyAssignmentForCheck(data: DutyAssignmentInput): any {
       const payload: any = { ...data };
 
-      payload.assignedDate = toSqlDateOnly(payload.assignedDate);
-      payload.startDateTime = toSqlDateTime(payload.startDateTime);
-      payload.endDateTime = toSqlDateTime(payload.endDateTime);
+      payload.assignedDate = toDateOnlyText(payload.assignedDate);
 
-      /**
-       * Backward compatible rule:
-       * - Existing code may still send residentId only.
-       * - New code can send assignedToType/assignedToId.
-       */
       if (!payload.assignedToType && payload.residentId) {
             payload.assignedToType = "resident";
             payload.assignedToId = payload.residentId;
@@ -443,16 +478,41 @@ function normalizeDutyAssignmentInput(data: DutyAssignmentInput): InsertDutyAssi
             payload.assignedToType !== "resident" &&
             payload.assignedToId
       ) {
-            /**
-             * For team/room/committee assignments, residentId should be null
-             * if the database column allows null.
-             */
             payload.residentId = payload.residentId ?? null;
       }
+
+      return payload;
+}
+
+/**
+ * Dùng riêng khi insert vào Drizzle/MySQL.
+ * Các cột DATE/DATETIME phải nhận Date object để tránh lỗi value.toISOString is not a function.
+ */
+function normalizeDutyAssignmentForInsert(data: DutyAssignmentInput): InsertDutyAssignment {
+      const payload: any = normalizeDutyAssignmentForCheck(data);
+
+      const assignedDateValue = payload.assignedDate;
+
+      payload.assignedDate = toInsertDate(assignedDateValue);
+      payload.startDateTime = toInsertDateTime(
+            assignedDateValue,
+            payload.startDateTime || payload.startTime || null
+      );
+      payload.endDateTime = toInsertDateTime(
+            assignedDateValue,
+            payload.endDateTime || payload.endTime || null
+      );
 
       return payload as InsertDutyAssignment;
 }
 
+/**
+ * Backward-compatible name for code paths that need query/check normalization.
+ * Do not use this directly for insert.
+ */
+function normalizeDutyAssignmentInput(data: DutyAssignmentInput): InsertDutyAssignment {
+      return normalizeDutyAssignmentForCheck(data) as InsertDutyAssignment;
+}
 
 async function validateResidentDutyCapacity(
       db: any,
@@ -476,7 +536,7 @@ async function validateResidentDutyCapacity(
 
       if (!config?.maxPersons) return;
 
-      const assignedDateText = String(toSqlDateOnly(payload.assignedDate)).slice(0, 10);
+      const assignedDateText = toDateOnlyText(payload.assignedDate);
 
       const currentRows = await db
             .select()
@@ -508,10 +568,10 @@ export async function assignDuty(data: DutyAssignmentInput) {
       if (!db) throw new Error("Database not available");
 
       try {
-            const payload = normalizeDutyAssignmentInput(data);
+            const checkPayload = normalizeDutyAssignmentForCheck(data);
+            await validateResidentDutyCapacity(db, checkPayload);
 
-            await validateResidentDutyCapacity(db, payload);
-
+            const payload = normalizeDutyAssignmentForInsert(data);
             const result = await db.insert(dutyAssignments).values(payload);
             return result;
       } catch (error) {
@@ -594,22 +654,13 @@ export async function getAssignmentsByResident(
 /**
  * Lấy assignments theo ngày
  */
-function toDateOnlyText(value: Date | string) {
-      if (typeof value === "string") return value.slice(0, 10);
-
-      const year = value.getUTCFullYear();
-      const month = String(value.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(value.getUTCDate()).padStart(2, "0");
-
-      return `${year}-${month}-${day}`;
-}
 
 export async function getAssignmentsByDate(date: Date | string) {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
       try {
-            const dateText = String(toSqlDateOnly(date)).slice(0, 10);
+            const dateText = toDateOnlyText(date);
 
             const result = await db
                   .select()
@@ -1243,7 +1294,7 @@ function buildDateTimeFromDateAndTime(dateText: string, timeText?: string | null
 
       const normalizedTime = timeText.length === 5 ? `${timeText}:00` : timeText;
 
-      return `${dateText} ${normalizedTime}`;
+      return createWallClockDate(dateText, normalizedTime);
 }
 
 async function getDutyAssignmentExistingRows(
@@ -1318,7 +1369,7 @@ export async function previewDutyAssignment(
       const items: PreviewDutyAssignmentItem[] = [];
 
       for (const rawDate of input.assignedDates) {
-            const assignedDate = String(toSqlDateOnly(rawDate)).slice(0, 10);
+            const assignedDate = toDateOnlyText(rawDate);
 
             const duplicateRows = await getDutyAssignmentExistingRows(db, {
                   dutyConfigId: input.dutyConfigId,
@@ -1391,14 +1442,14 @@ export async function assignDutyBatch(input: PreviewDutyAssignmentInput) {
       const skippedItems = preview.items.filter((item) => !item.canCreate);
 
       for (const item of preview.items.filter((row) => row.canCreate)) {
-            const payload = normalizeDutyAssignmentInput({
+            const payload = normalizeDutyAssignmentForInsert({
                   dutyConfigId: input.dutyConfigId,
                   residentId: input.assignedToType === "resident" ? input.assignedToId : null,
                   assignedToType: input.assignedToType,
                   assignedToId: input.assignedToId,
                   assignedDate: item.date,
-                  startDateTime: buildDateTimeFromDateAndTime(item.date, input.startTime),
-                  endDateTime: buildDateTimeFromDateAndTime(item.date, input.endTime),
+                  startDateTime: input.startTime,
+                  endDateTime: input.endTime,
                   notes: input.notes || undefined,
             } as any);
 

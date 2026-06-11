@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import DutyConfigForm from '@/components/DutyConfigForm';
+import TodayOverviewTab from '@/components/daily-routine/today/TodayOverviewTab';
 import {
       AppMessageBox,
       type AppMessageBoxState,
@@ -148,6 +149,25 @@ function getWeekDateValues(dateText: string) {
             date.setDate(monday.getDate() + index);
             return formatDateValue(date);
       });
+}
+
+function getWeekdayLabel(dateText: string) {
+      const [year, month, day] = dateText.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      const dayIndex = date.getDay();
+
+      if (dayIndex === 0) return 'CN';
+      return `Thứ ${dayIndex + 1}`;
+}
+
+function getShortDateLabel(dateText: string) {
+      const [year, month, day] = dateText.split('-');
+
+      return `${day}/${month}`;
+}
+
+function getPreviewDateLabel(dateText: string) {
+      return `${getWeekdayLabel(dateText)} · ${getShortDateLabel(dateText)}`;
 }
 
 function createWallClockDate(dateText: string, timeText = '12:00:00') {
@@ -535,7 +555,6 @@ export default function DailyRoutine() {
 
       const completeAssignmentMutation = trpc.duties.completeAssignment.useMutation();
       const skipAssignmentMutation = trpc.duties.skipAssignment.useMutation();
-      const assignDutyMutation = trpc.duties.assignDuty.useMutation();
       const assignDutyBatchMutation = trpc.duties.assignDutyBatch.useMutation();
       const cancelAssignmentMutation = trpc.duties.cancelAssignment.useMutation();
       const deleteDutyConfigMutation = trpc.duties.deleteConfig.useMutation();
@@ -1235,355 +1254,21 @@ export default function DailyRoutine() {
                         </div>
 
                         {activeView === 'today' && (
-                              <div className="space-y-5">
-                                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                                <div>
-                                                      <h2 className="text-xl font-bold text-slate-950">
-                                                            Hôm nay
-                                                      </h2>
-                                                      <p className="mt-1 text-sm text-slate-500">
-                                                            Xem nhanh lịch sinh hoạt và các công tác cần theo dõi trong ngày.
-                                                      </p>
-                                                </div>
-
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                      <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                                                            <CalendarDays className="h-4 w-4 text-slate-400" />
-                                                            <Input
-                                                                  type="date"
-                                                                  value={selectedDate}
-                                                                  onChange={(event) =>
-                                                                        setSelectedDate(event.target.value)
-                                                                  }
-                                                                  className="h-8 border-0 p-0 shadow-none focus-visible:ring-0"
-                                                            />
-                                                      </label>
-
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => setActiveView('duties')}
-                                                            className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                                                      >
-                                                            <Plus className="h-4 w-4" />
-                                                            Thêm phân công
-                                                      </button>
-                                                </div>
-                                          </div>
-
-                                          <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-                                                <Badge className="border-blue-100 bg-blue-50 text-blue-700">
-                                                      {items.filter((item: any) => item.isActive).length} khung giờ sinh hoạt
-                                                </Badge>
-                                                <Badge className="border-orange-100 bg-orange-50 text-orange-700">
-                                                      {enrichedDutyAssignments.length} công tác
-                                                </Badge>
-                                                <Badge className="border-green-100 bg-green-50 text-green-700">
-                                                      {
-                                                            (enrichedDutyAssignments as any[]).filter(
-                                                                  (assignment: any) =>
-                                                                        assignment.status === 'completed'
-                                                            ).length
-                                                      } đã hoàn thành
-                                                </Badge>
-                                                <Badge className="border-rose-100 bg-rose-50 text-rose-700">
-                                                      {
-                                                            (enrichedDutyAssignments as any[]).filter(
-                                                                  (assignment: any) =>
-                                                                        getDutyVisualState(
-                                                                              assignment,
-                                                                              selectedDate
-                                                                        ) === 'overdue'
-                                                            ).length
-                                                      } quá giờ
-                                                </Badge>
-                                          </div>
-                                    </div>
-
-                                    {templatesQuery.isLoading || itemsQuery.isLoading || dutiesQuery.isLoading ? (
-                                          <SectionEmpty
-                                                title="Đang tải sinh hoạt trong ngày"
-                                                description="Vui lòng chờ trong giây lát."
-                                          />
-                                    ) : (
-                                          <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
-                                                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                                      <div className="mb-4">
-                                                            <h3 className="text-lg font-bold text-slate-950">
-                                                                  Timeline trong ngày
-                                                            </h3>
-                                                            <p className="mt-1 text-sm text-slate-500">
-                                                                  Lịch sinh hoạt và công tác được sắp theo giờ.
-                                                            </p>
-                                                      </div>
-
-                                                      {todayTimelineItems.length === 0 ? (
-                                                            <SectionEmpty
-                                                                  title="Chưa có nội dung trong ngày"
-                                                                  description="Thiết lập lịch sinh hoạt hoặc tạo công tác để hiển thị tại đây."
-                                                            />
-                                                      ) : (
-                                                            <div className="space-y-3">
-                                                                  {todayTimelineItems.map((entry: any) => (
-                                                                        <div
-                                                                              key={entry.key}
-                                                                              className={[
-                                                                                    'rounded-3xl border p-4 shadow-sm transition',
-                                                                                    getTimelineCardClass(
-                                                                                          entry.type,
-                                                                                          entry.visualState
-                                                                                    ),
-                                                                              ].join(' ')}
-                                                                        >
-                                                                              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                                                                    <div className="flex gap-4">
-                                                                                          <div className="min-w-[98px] rounded-2xl bg-white px-3 py-2 text-center ring-1 ring-slate-200">
-                                                                                                <p className="text-sm font-bold text-slate-950">
-                                                                                                      {formatTime(entry.startTime)}
-                                                                                                </p>
-                                                                                                <p className="text-xs text-slate-400">
-                                                                                                      đến
-                                                                                                </p>
-                                                                                                <p className="text-sm font-bold text-slate-950">
-                                                                                                      {formatTime(entry.endTime)}
-                                                                                                </p>
-                                                                                          </div>
-
-                                                                                          <div>
-                                                                                                <div className="flex flex-wrap items-center gap-2">
-                                                                                                      <h3 className="font-bold text-slate-950">
-                                                                                                            {entry.title}
-                                                                                                      </h3>
-
-                                                                                                      {entry.type === 'routine' ? (
-                                                                                                            <Badge className="border-blue-100 bg-blue-50 text-blue-700">
-                                                                                                                  Lịch sinh hoạt
-                                                                                                            </Badge>
-                                                                                                      ) : (
-                                                                                                            <Badge className={getStatusClass(entry.status)}>
-                                                                                                                  {getStatusLabel(entry.status)}
-                                                                                                            </Badge>
-                                                                                                      )}
-
-                                                                                                      {getVisualStateLabel(
-                                                                                                            entry.type,
-                                                                                                            entry.visualState
-                                                                                                      ) && (
-                                                                                                            <Badge
-                                                                                                                  className={getVisualStateBadgeClass(
-                                                                                                                        entry.type,
-                                                                                                                        entry.visualState
-                                                                                                                  )}
-                                                                                                            >
-                                                                                                                  {getVisualStateLabel(
-                                                                                                                        entry.type,
-                                                                                                                        entry.visualState
-                                                                                                                  )}
-                                                                                                            </Badge>
-                                                                                                      )}
-                                                                                                </div>
-
-                                                                                                <p className="mt-1 text-sm text-slate-500">
-                                                                                                      {entry.subTitle}
-                                                                                                </p>
-
-                                                                                                {entry.description && (
-                                                                                                      <p className="mt-2 text-sm leading-6 text-slate-600">
-                                                                                                            {entry.description}
-                                                                                                      </p>
-                                                                                                )}
-                                                                                          </div>
-                                                                                    </div>
-
-                                                                                    {entry.type === 'duty' &&
-                                                                                          entry.status !== 'completed' &&
-                                                                                          entry.status !== 'cancelled' && (
-                                                                                                <div className="flex flex-wrap gap-2 lg:justify-end">
-                                                                                                      <button
-                                                                                                            type="button"
-                                                                                                            onClick={() =>
-                                                                                                                  completeAssignment(
-                                                                                                                        entry.assignment
-                                                                                                                  )
-                                                                                                            }
-                                                                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100"
-                                                                                                      >
-                                                                                                            <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                                                            Hoàn thành
-                                                                                                      </button>
-                                                                                                      <button
-                                                                                                            type="button"
-                                                                                                            onClick={() =>
-                                                                                                                  skipAssignment(
-                                                                                                                        entry.assignment
-                                                                                                                  )
-                                                                                                            }
-                                                                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100"
-                                                                                                      >
-                                                                                                            <SkipForward className="h-3.5 w-3.5" />
-                                                                                                            Vắng / Không làm
-                                                                                                      </button>
-                                                                                                </div>
-                                                                                          )}
-                                                                              </div>
-                                                                        </div>
-                                                                  ))}
-                                                            </div>
-                                                      )}
-                                                </div>
-
-                                                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                                      <div className="mb-4">
-                                                            <h3 className="text-lg font-bold text-slate-950">
-                                                                  Công tác cần theo dõi
-                                                            </h3>
-                                                            <p className="mt-1 text-sm text-slate-500">
-                                                                  Ưu tiên xử lý các công tác chưa hoàn thành hoặc đã quá giờ.
-                                                            </p>
-                                                      </div>
-
-                                                      {enrichedDutyAssignments.length === 0 ? (
-                                                            <SectionEmpty
-                                                                  title="Chưa có công tác"
-                                                                  description="Bấm Thêm phân công để tạo công tác trong ngày."
-                                                            />
-                                                      ) : (
-                                                            <div className="space-y-3">
-                                                                  {(enrichedDutyAssignments as any[])
-                                                                        .slice()
-                                                                        .sort((a: any, b: any) => {
-                                                                              const aState = getDutyVisualState(
-                                                                                    a,
-                                                                                    selectedDate
-                                                                              );
-                                                                              const bState = getDutyVisualState(
-                                                                                    b,
-                                                                                    selectedDate
-                                                                              );
-                                                                              const rank: Record<string, number> = {
-                                                                                    overdue: 1,
-                                                                                    normal: 2,
-                                                                                    skipped: 3,
-                                                                                    completed: 4,
-                                                                                    cancelled: 5,
-                                                                              };
-
-                                                                              return (
-                                                                                    (rank[aState] || 9) -
-                                                                                    (rank[bState] || 9)
-                                                                              );
-                                                                        })
-                                                                        .map((assignment: any) => {
-                                                                              const visualState =
-                                                                                    getDutyVisualState(
-                                                                                          assignment,
-                                                                                          selectedDate
-                                                                                    );
-
-                                                                              return (
-                                                                                    <div
-                                                                                          key={assignment.id}
-                                                                                          className={[
-                                                                                                'rounded-3xl border p-4 shadow-sm transition',
-                                                                                                getTimelineCardClass(
-                                                                                                      'duty',
-                                                                                                      visualState
-                                                                                                ),
-                                                                                          ].join(' ')}
-                                                                                    >
-                                                                                          <div className="flex flex-wrap items-center gap-2">
-                                                                                                <h4 className="font-bold text-slate-950">
-                                                                                                      {assignment.dutyName ||
-                                                                                                            assignment.dutyConfig?.dutyName ||
-                                                                                                            `Công tác #${assignment.id}`}
-                                                                                                </h4>
-                                                                                                <Badge className={getStatusClass(assignment.status)}>
-                                                                                                      {getStatusLabel(assignment.status)}
-                                                                                                </Badge>
-                                                                                                {getVisualStateLabel(
-                                                                                                      'duty',
-                                                                                                      visualState
-                                                                                                ) && (
-                                                                                                      <Badge
-                                                                                                            className={getVisualStateBadgeClass(
-                                                                                                                  'duty',
-                                                                                                                  visualState
-                                                                                                            )}
-                                                                                                      >
-                                                                                                            {getVisualStateLabel(
-                                                                                                                  'duty',
-                                                                                                                  visualState
-                                                                                                            )}
-                                                                                                      </Badge>
-                                                                                                )}
-                                                                                          </div>
-
-                                                                                          <p className="mt-2 text-sm text-slate-600">
-                                                                                                {formatTime(
-                                                                                                      assignment.startDateTime ||
-                                                                                                            assignment.startTime ||
-                                                                                                            assignment.dutyConfig?.startTime
-                                                                                                )}{' '}
-                                                                                                -{' '}
-                                                                                                {formatTime(
-                                                                                                      assignment.endDateTime ||
-                                                                                                            assignment.endTime ||
-                                                                                                            assignment.dutyConfig?.endTime
-                                                                                                )}
-                                                                                          </p>
-
-                                                                                          <p className="mt-1 text-sm text-slate-500">
-                                                                                                {getAssigneeTypeLabel(
-                                                                                                      assignment.assignedToType ||
-                                                                                                            (assignment.residentId
-                                                                                                                  ? 'resident'
-                                                                                                                  : null)
-                                                                                                )}
-                                                                                                :{' '}
-                                                                                                <span className="font-semibold text-slate-700">
-                                                                                                      {assignment.assigneeName || getSimpleAssigneeName(assignment)}
-                                                                                                </span>
-                                                                                          </p>
-
-                                                                                          {assignment.status !== 'completed' &&
-                                                                                                assignment.status !== 'cancelled' && (
-                                                                                                      <div className="mt-3 flex flex-wrap gap-2">
-                                                                                                            <button
-                                                                                                                  type="button"
-                                                                                                                  onClick={() =>
-                                                                                                                        completeAssignment(
-                                                                                                                              assignment
-                                                                                                                        )
-                                                                                                                  }
-                                                                                                                  className="inline-flex items-center gap-1.5 rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100"
-                                                                                                            >
-                                                                                                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                                                                  Hoàn thành
-                                                                                                            </button>
-
-                                                                                                            <button
-                                                                                                                  type="button"
-                                                                                                                  onClick={() =>
-                                                                                                                        skipAssignment(
-                                                                                                                              assignment
-                                                                                                                        )
-                                                                                                                  }
-                                                                                                                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100"
-                                                                                                            >
-                                                                                                                  <SkipForward className="h-3.5 w-3.5" />
-                                                                                                                  Vắng
-                                                                                                            </button>
-                                                                                                      </div>
-                                                                                                )}
-                                                                                    </div>
-                                                                              );
-                                                                        })}
-                                                            </div>
-                                                      )}
-                                                </div>
-                                          </div>
-                                    )}
-                              </div>
+                              <TodayOverviewTab
+                                    selectedDate={selectedDate}
+                                    onDateChange={setSelectedDate}
+                                    routineItems={items}
+                                    dutyAssignments={enrichedDutyAssignments}
+                                    timelineItems={todayTimelineItems}
+                                    isLoading={
+                                          templatesQuery.isLoading ||
+                                          itemsQuery.isLoading ||
+                                          dutiesQuery.isLoading
+                                    }
+                                    onCreateDuty={() => setActiveView('duties')}
+                                    onCompleteDuty={completeAssignment}
+                                    onSkipDuty={skipAssignment}
+                              />
                         )}
 
                         {activeView === 'duties' && (
@@ -1778,28 +1463,58 @@ export default function DailyRoutine() {
                                                 </label>
 
                                                 {isAssignmentPreviewReady && (
-                                                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                                                      <div
+                                                            className={[
+                                                                  'rounded-2xl border px-4 py-3 text-sm',
+                                                                  assignmentPreview?.canCreateCount === 0
+                                                                        ? 'border-rose-100 bg-rose-50 text-rose-700'
+                                                                        : assignmentPreview?.skippedCount
+                                                                              ? 'border-amber-100 bg-amber-50 text-amber-700'
+                                                                              : 'border-green-100 bg-green-50 text-green-700',
+                                                            ].join(' ')}
+                                                      >
                                                             {assignmentPreviewQuery.isLoading ? (
-                                                                  <p className="font-semibold">Đang kiểm tra phân công...</p>
+                                                                  <p className="font-semibold">
+                                                                        Đang kiểm tra phân công...
+                                                                  </p>
                                                             ) : assignmentPreview ? (
                                                                   <div>
                                                                         <p className="font-semibold">
-                                                                              Dự kiến tạo {assignmentPreview.canCreateCount} ngày
+                                                                              {assignmentPreview.canCreateCount > 0
+                                                                                    ? `Sẽ tạo ${assignmentPreview.canCreateCount} ngày`
+                                                                                    : 'Không còn ngày phù hợp để phân công'}
                                                                               {assignmentPreview.skippedCount > 0
                                                                                     ? `, bỏ qua ${assignmentPreview.skippedCount} ngày`
                                                                                     : ''}
                                                                         </p>
+
+                                                                        {assignmentPreview.items.some((item) => item.canCreate) && (
+                                                                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                                                                    {assignmentPreview.items
+                                                                                          .filter((item) => item.canCreate)
+                                                                                          .map((item) => (
+                                                                                                <span
+                                                                                                      key={item.date}
+                                                                                                      className="rounded-full border border-green-200 bg-white px-2.5 py-1 text-xs font-semibold text-green-700"
+                                                                                                >
+                                                                                                      {getPreviewDateLabel(item.date)}
+                                                                                                </span>
+                                                                                          ))}
+                                                                              </div>
+                                                                        )}
+
                                                                         {assignmentPreview.skippedCount > 0 && (
                                                                               <details className="mt-2">
-                                                                                    <summary className="cursor-pointer text-xs font-semibold text-slate-600">
+                                                                                    <summary className="cursor-pointer text-xs font-semibold">
                                                                                           Xem ngày bỏ qua
                                                                                     </summary>
-                                                                                    <div className="mt-2 space-y-1 text-xs text-slate-500">
+                                                                                    <div className="mt-2 space-y-1 text-xs">
                                                                                           {assignmentPreview.items
                                                                                                 .filter((item) => !item.canCreate)
                                                                                                 .map((item) => (
                                                                                                       <p key={item.date}>
-                                                                                                            {item.date}: {item.reason}
+                                                                                                            {getPreviewDateLabel(item.date)}:{' '}
+                                                                                                            {item.reason}
                                                                                                       </p>
                                                                                                 ))}
                                                                                     </div>
@@ -1815,13 +1530,20 @@ export default function DailyRoutine() {
                                                 <button
                                                       type="button"
                                                       onClick={saveAssignment}
-                                                      disabled={assignDutyBatchMutation.isPending || (isAssignmentPreviewReady && assignmentPreview?.canCreateCount === 0)}
-                                                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                                                      disabled={
+                                                            assignDutyBatchMutation.isPending ||
+                                                            assignmentPreviewQuery.isLoading ||
+                                                            (isAssignmentPreviewReady &&
+                                                                  assignmentPreview?.canCreateCount === 0)
+                                                      }
+                                                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                                                 >
                                                       <Users className="h-4 w-4" />
                                                       {assignDutyBatchMutation.isPending
                                                             ? 'Đang lưu...'
-                                                            : 'Lưu phân công'}
+                                                            : assignmentPreview?.canCreateCount
+                                                                  ? `Lưu ${assignmentPreview.canCreateCount} ngày`
+                                                                  : 'Lưu phân công'}
                                                 </button>
                                           </div>
                                     </div>
