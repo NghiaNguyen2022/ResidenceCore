@@ -39,7 +39,7 @@ export function TodaySummaryBar({
                                     Hôm nay
                               </h2>
                               <p className="mt-1 text-sm text-slate-500">
-                                    Xem nhanh lịch sinh hoạt và các công tác cần theo dõi trong ngày.
+                                    Xem riêng lịch sinh hoạt và lịch công tác trong ngày.
                               </p>
                         </div>
 

@@ -6,7 +6,6 @@ import {
       DutyStatusBadge,
       EmptyState,
       SectionCard,
-      TimeBox,
       formatTime,
       getAssigneeTypeLabel,
       getDutyVisualState,
@@ -45,18 +44,17 @@ export function TodayDutyPanel({
             .sort((a: any, b: any) => {
                   const aState = getDutyVisualState(a, selectedDate);
                   const bState = getDutyVisualState(b, selectedDate);
-
                   return (dutyRank[aState] || 9) - (dutyRank[bState] || 9);
             });
 
       return (
             <SectionCard
-                  title="Công tác cần theo dõi"
-                  description="Ưu tiên xử lý các công tác chưa hoàn thành hoặc đã quá giờ."
+                  title="Lịch công tác trong ngày"
+                  description="Các công tác được phân công riêng với lịch sinh hoạt."
             >
                   {isLoading ? (
                         <EmptyState
-                              title="Đang tải công tác"
+                              title="Đang tải lịch công tác"
                               description="Vui lòng chờ trong giây lát."
                         />
                   ) : sortedAssignments.length === 0 ? (
@@ -95,17 +93,13 @@ export function TodayDutyPanel({
                                                 <div className="flex flex-wrap items-center gap-2">
                                                       <h4 className="font-bold text-slate-950">
                                                             {assignment.dutyName ||
-                                                                  assignment.dutyConfig
-                                                                        ?.dutyName ||
+                                                                  assignment.dutyConfig?.dutyName ||
                                                                   `Công tác #${assignment.id}`}
                                                       </h4>
-                                                      <DutyStatusBadge
-                                                            status={assignment.status}
-                                                      />
-                                                      {getVisualStateLabel(
-                                                            'duty',
-                                                            visualState
-                                                      ) && (
+
+                                                      <DutyStatusBadge status={assignment.status} />
+
+                                                      {getVisualStateLabel('duty', visualState) && (
                                                             <Badge
                                                                   className={getVisualStateBadgeClass(
                                                                         'duty',
@@ -124,8 +118,7 @@ export function TodayDutyPanel({
                                                       {formatTime(
                                                             assignment.startDateTime ||
                                                                   assignment.startTime ||
-                                                                  assignment.dutyConfig
-                                                                        ?.startTime
+                                                                  assignment.dutyConfig?.startTime
                                                       )}{' '}
                                                       -{' '}
                                                       {formatTime(
@@ -147,7 +140,6 @@ export function TodayDutyPanel({
                                                             {assignment.assigneeName ||
                                                                   assignment.residentName ||
                                                                   assignment.memberName ||
-                                                                  assignment.assigneeName ||
                                                                   assignment.assignedToName ||
                                                                   assignment.roomName ||
                                                                   assignment.unitName ||
@@ -163,9 +155,7 @@ export function TodayDutyPanel({
                                                                   <button
                                                                         type="button"
                                                                         onClick={() =>
-                                                                              onCompleteDuty(
-                                                                                    assignment
-                                                                              )
+                                                                              onCompleteDuty(assignment)
                                                                         }
                                                                         className="inline-flex items-center gap-1.5 rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100"
                                                                   >
@@ -176,9 +166,7 @@ export function TodayDutyPanel({
                                                                   <button
                                                                         type="button"
                                                                         onClick={() =>
-                                                                              onSkipDuty(
-                                                                                    assignment
-                                                                              )
+                                                                              onSkipDuty(assignment)
                                                                         }
                                                                         className="inline-flex items-center gap-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100"
                                                                   >

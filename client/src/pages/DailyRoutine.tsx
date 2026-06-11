@@ -22,6 +22,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import DutyConfigForm from '@/components/DutyConfigForm';
 import TodayOverviewTab from '@/components/daily-routine/today/TodayOverviewTab';
+import DutiesTab from '@/components/daily-routine/duties/DutiesTab';
+import RoutineSetupTab from '@/components/daily-routine/routine/RoutineSetupTab';
 import {
       AppMessageBox,
       type AppMessageBoxState,
@@ -179,6 +181,35 @@ function createWallClockDate(dateText: string, timeText = '12:00:00') {
 
 function toDateAtNoon(dateText: string) {
       return createWallClockDate(dateText, '12:00:00');
+}
+
+function toDateStartOfDay(dateText: string) {
+      return createWallClockDate(dateText, '00:00:00');
+}
+
+function toDateEndOfDay(dateText: string) {
+      return createWallClockDate(dateText, '23:59:59');
+}
+
+function getAssignmentDateText(assignment: any) {
+      const value = assignment.assignedDate || assignment.date;
+
+      if (!value) return '';
+
+      if (value instanceof Date) return value.toISOString().slice(0, 10);
+
+      return String(value).slice(0, 10);
+}
+
+function getMonthRangeValues(dateText: string) {
+      const [year, month] = dateText.split('-').map(Number);
+      const firstDate = new Date(year, month - 1, 1);
+      const lastDate = new Date(year, month, 0);
+
+      return {
+            startDate: formatDateValue(firstDate),
+            endDate: formatDateValue(lastDate),
+      };
 }
 
 function getStatusLabel(status?: string | null) {
@@ -481,10 +512,22 @@ export default function DailyRoutine() {
 
       const items = itemsQuery.data || [];
 
-      const dutiesQuery = trpc.duties.getAssignmentsByDate.useQuery({
-            date: toDateAtNoon(selectedDate),
+      const selectedMonthRange = useMemo(
+            () => getMonthRangeValues(selectedDate),
+            [selectedDate]
+      );
+
+      const dutiesQuery = trpc.duties.getAssignmentsByDateRange.useQuery({
+            startDate: toDateStartOfDay(selectedMonthRange.startDate),
+            endDate: toDateEndOfDay(selectedMonthRange.endDate),
       });
 
+      /**
+       * Dữ liệu công tác của cả tháng.
+       * View ngày sẽ tự lọc theo selectedDate.
+       * View tuần sẽ tự lọc theo tuần đang chọn.
+       * View tháng dùng toàn bộ dữ liệu này.
+       */
       const dutyAssignments = dutiesQuery.data || [];
 
       const dutyConfigsQuery = trpc.duties.listConfigs.useQuery({ isActive: true });
@@ -553,6 +596,12 @@ export default function DailyRoutine() {
             });
       }, [dutyAssignments, dutyConfigs, members, rooms, units]);
 
+      const selectedDateDutyAssignments = useMemo(() => {
+            return (enrichedDutyAssignments as any[]).filter(
+                  (assignment: any) => getAssignmentDateText(assignment) === selectedDate
+            );
+      }, [enrichedDutyAssignments, selectedDate]);
+
       const completeAssignmentMutation = trpc.duties.completeAssignment.useMutation();
       const skipAssignmentMutation = trpc.duties.skipAssignment.useMutation();
       const assignDutyBatchMutation = trpc.duties.assignDutyBatch.useMutation();
@@ -593,7 +642,7 @@ export default function DailyRoutine() {
                         visualState: getRoutineVisualState(item, selectedDate),
                   }));
 
-            const dutyTimeline = (enrichedDutyAssignments || []).map((assignment: any) => {
+            const dutyTimeline = (selectedDateDutyAssignments || []).map((assignment: any) => {
                   const entry = {
                         key: `duty-${assignment.id}`,
                         type: 'duty' as const,
@@ -626,10 +675,10 @@ export default function DailyRoutine() {
             return [...routineTimeline, ...dutyTimeline].sort((a, b) =>
                   String(a.startTime || '').localeCompare(String(b.startTime || ''))
             );
-      }, [items, enrichedDutyAssignments]);
+      }, [items, selectedDateDutyAssignments, selectedDate]);
 
       const filteredDutyAssignments = useMemo(() => {
-            return (enrichedDutyAssignments as any[]).filter((assignment: any) => {
+            return (selectedDateDutyAssignments as any[]).filter((assignment: any) => {
                   const visualState = getDutyVisualState(assignment, selectedDate);
 
                   if (dutyStatusFilter === 'all') return true;
@@ -640,7 +689,7 @@ export default function DailyRoutine() {
 
                   return assignment.status === dutyStatusFilter;
             });
-      }, [enrichedDutyAssignments, dutyStatusFilter, selectedDate]);
+      }, [selectedDateDutyAssignments, dutyStatusFilter, selectedDate]);
 
       const completeAssignment = async (assignment: any) => {
             try {
@@ -1258,7 +1307,7 @@ export default function DailyRoutine() {
                                     selectedDate={selectedDate}
                                     onDateChange={setSelectedDate}
                                     routineItems={items}
-                                    dutyAssignments={enrichedDutyAssignments}
+                                    dutyAssignments={selectedDateDutyAssignments}
                                     timelineItems={todayTimelineItems}
                                     isLoading={
                                           templatesQuery.isLoading ||
@@ -1272,726 +1321,52 @@ export default function DailyRoutine() {
                         )}
 
                         {activeView === 'duties' && (
-                              <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
-                                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                          <div className="mb-5 flex items-start justify-between gap-3">
-                                                <div>
-                                                      <h2 className="text-xl font-bold text-slate-950">
-                                                            Tạo phân công
-                                                      </h2>
-                                                      <p className="mt-1 text-sm text-slate-500">
-                                                            Giao công tác nhanh cho học viên, Tổ, phòng ngủ hoặc Ban.
-                                                      </p>
-                                                </div>
-
-                                                <button
-                                                      type="button"
-                                                      onClick={() => setIsDutyTemplateDialogOpen(true)}
-                                                      className="shrink-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                                >
-                                                      Mẫu công tác
-                                                </button>
-                                          </div>
-
-                                          <div className="space-y-4">
-                                                <label className="space-y-1.5">
-                                                      <Label>Ngày công tác</Label>
-                                                      <Input
-                                                            type="date"
-                                                            value={assignmentForm.assignedDate}
-                                                            onChange={(event) =>
-                                                                  setAssignmentForm((current) => ({
-                                                                        ...current,
-                                                                        assignedDate: event.target.value,
-                                                                  }))
-                                                            }
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-
-                                                <label className="space-y-1.5">
-                                                      <Label>Công tác</Label>
-                                                      <select
-                                                            value={assignmentForm.dutyConfigId}
-                                                            onChange={(event) => {
-                                                                  const duty = (dutyConfigs as any[]).find(
-                                                                        (item: any) =>
-                                                                              String(item.id) ===
-                                                                              event.target.value
-                                                                  );
-
-                                                                  setAssignmentForm((current) => ({
-                                                                        ...current,
-                                                                        dutyConfigId: event.target.value,
-                                                                        startTime: formatTime(duty?.startTime),
-                                                                        endTime: formatTime(duty?.endTime),
-                                                                        assignWholeWeek: duty?.dutyType === 'daily',
-                                                                  }));
-                                                            }}
-                                                            className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
-                                                      >
-                                                            <option value="">Chọn công tác</option>
-                                                            {(dutyConfigs as any[]).map((duty: any) => (
-                                                                  <option key={duty.id} value={duty.id}>
-                                                                        {duty.dutyName}
-                                                                  </option>
-                                                            ))}
-                                                      </select>
-                                                </label>
-
-                                                {selectedDutyConfig?.dutyType === 'daily' && (
-                                                      <label className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                                                            <input
-                                                                  type="checkbox"
-                                                                  checked={assignmentForm.assignWholeWeek}
-                                                                  onChange={(event) =>
-                                                                        setAssignmentForm((current) => ({
-                                                                              ...current,
-                                                                              assignWholeWeek: event.target.checked,
-                                                                        }))
-                                                                  }
-                                                                  className="mt-1 h-4 w-4 rounded border-blue-300"
-                                                            />
-                                                            <span>
-                                                                  <span className="font-semibold">
-                                                                        Gán nguyên tuần
-                                                                  </span>
-                                                                  <span className="mt-1 block text-xs leading-5">
-                                                                        Áp dụng cho tuần từ thứ Hai đến Chúa nhật của ngày đã chọn.
-                                                                  </span>
-                                                            </span>
-                                                      </label>
-                                                )}
-
-                                                <div className="grid grid-cols-2 gap-3">
-                                                      <label className="space-y-1.5">
-                                                            <Label>Bắt đầu</Label>
-                                                            <Input
-                                                                  type="time"
-                                                                  value={assignmentForm.startTime}
-                                                                  onChange={(event) =>
-                                                                        setAssignmentForm((current) => ({
-                                                                              ...current,
-                                                                              startTime: event.target.value,
-                                                                        }))
-                                                                  }
-                                                                  className="rounded-2xl"
-                                                            />
-                                                      </label>
-
-                                                      <label className="space-y-1.5">
-                                                            <Label>Kết thúc</Label>
-                                                            <Input
-                                                                  type="time"
-                                                                  value={assignmentForm.endTime}
-                                                                  onChange={(event) =>
-                                                                        setAssignmentForm((current) => ({
-                                                                              ...current,
-                                                                              endTime: event.target.value,
-                                                                        }))
-                                                                  }
-                                                                  className="rounded-2xl"
-                                                            />
-                                                      </label>
-                                                </div>
-
-                                                <label className="space-y-1.5">
-                                                      <Label>Giao cho</Label>
-                                                      <select
-                                                            value={assignmentForm.assignedToType}
-                                                            onChange={(event) =>
-                                                                  setAssignmentForm((current) => ({
-                                                                        ...current,
-                                                                        assignedToType:
-                                                                              event.target.value as AssignToType,
-                                                                        assignedToId: '',
-                                                                  }))
-                                                            }
-                                                            className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
-                                                      >
-                                                            <option value="resident">Học viên</option>
-                                                            <option value="team">Tổ</option>
-                                                            <option value="room">Phòng ngủ</option>
-                                                            <option value="committee">Ban</option>
-                                                      </select>
-                                                </label>
-
-                                                <label className="space-y-1.5">
-                                                      <Label>Đối tượng</Label>
-                                                      <select
-                                                            value={assignmentForm.assignedToId}
-                                                            onChange={(event) =>
-                                                                  setAssignmentForm((current) => ({
-                                                                        ...current,
-                                                                        assignedToId: event.target.value,
-                                                                  }))
-                                                            }
-                                                            className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
-                                                      >
-                                                            <option value="">
-                                                                  Chọn {getAssigneeTypeLabel(
-                                                                        assignmentForm.assignedToType
-                                                                  ).toLowerCase()}
-                                                            </option>
-                                                            {getAssigneeOptions().map((option) => (
-                                                                  <option key={option.id} value={option.id}>
-                                                                        {option.label}
-                                                                  </option>
-                                                            ))}
-                                                      </select>
-                                                </label>
-
-                                                {selectedDutyConfig?.requiresStudyScheduleCheck && (
-                                                      <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                                                            Công tác này cần lưu ý lịch học/vắng mặt khi phân công.
-                                                      </div>
-                                                )}
-
-                                                <label className="space-y-1.5">
-                                                      <Label>Ghi chú</Label>
-                                                      <Textarea
-                                                            value={assignmentForm.notes}
-                                                            onChange={(event) =>
-                                                                  setAssignmentForm((current) => ({
-                                                                        ...current,
-                                                                        notes: event.target.value,
-                                                                  }))
-                                                            }
-                                                            rows={3}
-                                                            className="rounded-2xl"
-                                                      />
-                                                </label>
-
-                                                {isAssignmentPreviewReady && (
-                                                      <div
-                                                            className={[
-                                                                  'rounded-2xl border px-4 py-3 text-sm',
-                                                                  assignmentPreview?.canCreateCount === 0
-                                                                        ? 'border-rose-100 bg-rose-50 text-rose-700'
-                                                                        : assignmentPreview?.skippedCount
-                                                                              ? 'border-amber-100 bg-amber-50 text-amber-700'
-                                                                              : 'border-green-100 bg-green-50 text-green-700',
-                                                            ].join(' ')}
-                                                      >
-                                                            {assignmentPreviewQuery.isLoading ? (
-                                                                  <p className="font-semibold">
-                                                                        Đang kiểm tra phân công...
-                                                                  </p>
-                                                            ) : assignmentPreview ? (
-                                                                  <div>
-                                                                        <p className="font-semibold">
-                                                                              {assignmentPreview.canCreateCount > 0
-                                                                                    ? `Sẽ tạo ${assignmentPreview.canCreateCount} ngày`
-                                                                                    : 'Không còn ngày phù hợp để phân công'}
-                                                                              {assignmentPreview.skippedCount > 0
-                                                                                    ? `, bỏ qua ${assignmentPreview.skippedCount} ngày`
-                                                                                    : ''}
-                                                                        </p>
-
-                                                                        {assignmentPreview.items.some((item) => item.canCreate) && (
-                                                                              <div className="mt-2 flex flex-wrap gap-1.5">
-                                                                                    {assignmentPreview.items
-                                                                                          .filter((item) => item.canCreate)
-                                                                                          .map((item) => (
-                                                                                                <span
-                                                                                                      key={item.date}
-                                                                                                      className="rounded-full border border-green-200 bg-white px-2.5 py-1 text-xs font-semibold text-green-700"
-                                                                                                >
-                                                                                                      {getPreviewDateLabel(item.date)}
-                                                                                                </span>
-                                                                                          ))}
-                                                                              </div>
-                                                                        )}
-
-                                                                        {assignmentPreview.skippedCount > 0 && (
-                                                                              <details className="mt-2">
-                                                                                    <summary className="cursor-pointer text-xs font-semibold">
-                                                                                          Xem ngày bỏ qua
-                                                                                    </summary>
-                                                                                    <div className="mt-2 space-y-1 text-xs">
-                                                                                          {assignmentPreview.items
-                                                                                                .filter((item) => !item.canCreate)
-                                                                                                .map((item) => (
-                                                                                                      <p key={item.date}>
-                                                                                                            {getPreviewDateLabel(item.date)}:{' '}
-                                                                                                            {item.reason}
-                                                                                                      </p>
-                                                                                                ))}
-                                                                                    </div>
-                                                                              </details>
-                                                                        )}
-                                                                  </div>
-                                                            ) : (
-                                                                  <p>Chưa có dữ liệu kiểm tra.</p>
-                                                            )}
-                                                      </div>
-                                                )}
-
-                                                <button
-                                                      type="button"
-                                                      onClick={saveAssignment}
-                                                      disabled={
-                                                            assignDutyBatchMutation.isPending ||
-                                                            assignmentPreviewQuery.isLoading ||
-                                                            (isAssignmentPreviewReady &&
-                                                                  assignmentPreview?.canCreateCount === 0)
-                                                      }
-                                                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                                >
-                                                      <Users className="h-4 w-4" />
-                                                      {assignDutyBatchMutation.isPending
-                                                            ? 'Đang lưu...'
-                                                            : assignmentPreview?.canCreateCount
-                                                                  ? `Lưu ${assignmentPreview.canCreateCount} ngày`
-                                                                  : 'Lưu phân công'}
-                                                </button>
-                                          </div>
-                                    </div>
-
-                                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                                <div>
-                                                      <h2 className="text-xl font-bold text-slate-950">
-                                                            Công tác trong ngày
-                                                      </h2>
-                                                      <p className="mt-1 text-sm text-slate-500">
-                                                            Theo dõi và cập nhật tình trạng công tác.
-                                                      </p>
-                                                </div>
-
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => setSelectedDate(todayValue())}
-                                                            className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                                      >
-                                                            Hôm nay
-                                                      </button>
-
-                                                      <select
-                                                            value={dutyStatusFilter}
-                                                            onChange={(event) =>
-                                                                  setDutyStatusFilter(event.target.value as DutyStatusFilter)
-                                                            }
-                                                            className="h-10 rounded-2xl border border-slate-200 bg-white px-3 text-sm"
-                                                      >
-                                                            <option value="all">Tất cả</option>
-                                                            <option value="open">Chưa hoàn tất</option>
-                                                            <option value="overdue">Đã quá giờ</option>
-                                                            <option value="completed">Hoàn thành</option>
-                                                            <option value="skipped">Vắng / Không làm</option>
-                                                            <option value="cancelled">Đã hủy</option>
-                                                      </select>
-
-                                                      <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                                                            <CalendarDays className="h-4 w-4 text-slate-400" />
-                                                            <Input
-                                                                  type="date"
-                                                                  value={selectedDate}
-                                                                  onChange={(event) => setSelectedDate(event.target.value)}
-                                                                  className="h-8 border-0 p-0 shadow-none focus-visible:ring-0"
-                                                            />
-                                                      </label>
-                                                </div>
-                                          </div>
-
-                                          {dutiesQuery.isLoading ? (
-                                                <SectionEmpty
-                                                      title="Đang tải công tác"
-                                                      description="Vui lòng chờ trong giây lát."
-                                                />
-                                          ) : filteredDutyAssignments.length === 0 ? (
-                                                <SectionEmpty
-                                                      title="Chưa có công tác trong ngày"
-                                                      description="Chưa có công tác phù hợp với bộ lọc hiện tại."
-                                                />
-                                          ) : (
-                                                <div className="space-y-3">
-                                                      {filteredDutyAssignments.map((assignment: any) => (
-                                                            <div
-                                                                  key={assignment.id}
-                                                                  className={[
-                                                                        'rounded-3xl border p-4 shadow-sm transition',
-                                                                        getTimelineCardClass(
-                                                                              'duty',
-                                                                              getDutyVisualState(assignment, selectedDate)
-                                                                        ),
-                                                                  ].join(' ')}
-                                                            >
-                                                                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                                                        <div className="flex gap-4">
-                                                                              <div className="min-w-[98px] rounded-2xl bg-white px-3 py-2 text-center ring-1 ring-slate-200">
-                                                                                    <p className="text-sm font-bold text-slate-950">
-                                                                                          {formatTime(
-                                                                                                assignment.startDateTime ||
-                                                                                                      assignment.startTime ||
-                                                                                                      assignment.dutyConfig?.startTime
-                                                                                          )}
-                                                                                    </p>
-                                                                                    <p className="text-xs text-slate-400">đến</p>
-                                                                                    <p className="text-sm font-bold text-slate-950">
-                                                                                          {formatTime(
-                                                                                                assignment.endDateTime ||
-                                                                                                      assignment.endTime ||
-                                                                                                      assignment.dutyConfig?.endTime
-                                                                                          )}
-                                                                                    </p>
-                                                                              </div>
-
-                                                                              <div>
-                                                                                    <div className="flex flex-wrap items-center gap-2">
-                                                                                          <h3 className="font-bold text-slate-950">
-                                                                                                {assignment.dutyName ||
-                                                                                                      assignment.dutyConfig?.dutyName ||
-                                                                                                      `Công tác #${assignment.id}`}
-                                                                                          </h3>
-                                                                                          <Badge className={getStatusClass(assignment.status)}>
-                                                                                                {getStatusLabel(assignment.status)}
-                                                                                          </Badge>
-
-                                                                                          {getVisualStateLabel(
-                                                                                                'duty',
-                                                                                                getDutyVisualState(assignment, selectedDate)
-                                                                                          ) && (
-                                                                                                <Badge
-                                                                                                      className={getVisualStateBadgeClass(
-                                                                                                            'duty',
-                                                                                                            getDutyVisualState(
-                                                                                                                  assignment,
-                                                                                                                  selectedDate
-                                                                                                            )
-                                                                                                      )}
-                                                                                                >
-                                                                                                      {getVisualStateLabel(
-                                                                                                            'duty',
-                                                                                                            getDutyVisualState(
-                                                                                                                  assignment,
-                                                                                                                  selectedDate
-                                                                                                            )
-                                                                                                      )}
-                                                                                                </Badge>
-                                                                                          )}
-                                                                                    </div>
-
-                                                                                    <p className="mt-1 text-sm text-slate-500">
-                                                                                          {getAssigneeTypeLabel(
-                                                                                                assignment.assignedToType ||
-                                                                                                      (assignment.residentId ? 'resident' : null)
-                                                                                          )}
-                                                                                          :{' '}
-                                                                                          <span className="font-semibold text-slate-700">
-                                                                                                {assignment.assigneeName || getSimpleAssigneeName(assignment)}
-                                                                                          </span>
-                                                                                    </p>
-
-                                                                                    {assignment.dutyConfig && (
-                                                                                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                                                                                                <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
-                                                                                                      {getDutyTypeLabel(assignment.dutyConfig.dutyType)}
-                                                                                                </span>
-                                                                                                {(assignment.dutyConfig.minPersons ||
-                                                                                                      assignment.dutyConfig.maxPersons) && (
-                                                                                                      <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
-                                                                                                            Số người:{' '}
-                                                                                                            {assignment.dutyConfig.minPersons || 0}
-                                                                                                            {assignment.dutyConfig.maxPersons
-                                                                                                                  ? ` - ${assignment.dutyConfig.maxPersons}`
-                                                                                                                  : '+'}
-                                                                                                      </span>
-                                                                                                )}
-                                                                                          </div>
-                                                                                    )}
-                                                                              </div>
-                                                                        </div>
-
-                                                                        {assignment.status !== 'completed' && assignment.status !== 'cancelled' && (
-                                                                              <div className="flex flex-wrap gap-2 lg:justify-end">
-                                                                                    <button
-                                                                                          type="button"
-                                                                                          onClick={() => completeAssignment(assignment)}
-                                                                                          className="inline-flex items-center gap-1.5 rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100"
-                                                                                    >
-                                                                                          <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                                          Hoàn thành
-                                                                                    </button>
-                                                                                    <button
-                                                                                          type="button"
-                                                                                          onClick={() => skipAssignment(assignment)}
-                                                                                          className="inline-flex items-center gap-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100"
-                                                                                    >
-                                                                                          <SkipForward className="h-3.5 w-3.5" />
-                                                                                          Vắng / Không làm
-                                                                                    </button>
-
-                                                                                    <button
-                                                                                          type="button"
-                                                                                          onClick={() => requestCancelAssignment(assignment)}
-                                                                                          className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                                                                                    >
-                                                                                          <X className="h-3.5 w-3.5" />
-                                                                                          Hủy
-                                                                                    </button>
-                                                                              </div>
-                                                                        )}
-                                                                  </div>
-                                                            </div>
-                                                      ))}
-                                                </div>
-                                          )}
-                                    </div>
-                              </div>
+                              <DutiesTab
+                                    assignmentForm={assignmentForm}
+                                    onAssignmentFormChange={setAssignmentForm}
+                                    dutyConfigs={dutyConfigs as any[]}
+                                    selectedDutyConfig={selectedDutyConfig}
+                                    assigneeOptions={getAssigneeOptions()}
+                                    previewEnabled={isAssignmentPreviewReady}
+                                    previewLoading={assignmentPreviewQuery.isLoading}
+                                    preview={assignmentPreview}
+                                    isSaving={assignDutyBatchMutation.isPending}
+                                    onSaveAssignment={saveAssignment}
+                                    onOpenDutyTemplateDialog={() =>
+                                          setIsDutyTemplateDialogOpen(true)
+                                    }
+                                    selectedDate={selectedDate}
+                                    onDateChange={setSelectedDate}
+                                    statusFilter={dutyStatusFilter}
+                                    onStatusFilterChange={setDutyStatusFilter}
+                                    assignments={filteredDutyAssignments}
+                                    allAssignments={enrichedDutyAssignments}
+                                    isLoadingAssignments={dutiesQuery.isLoading}
+                                    onCompleteDuty={completeAssignment}
+                                    onSkipDuty={skipAssignment}
+                                    onCancelDuty={requestCancelAssignment}
+                              />
                         )}
 
                         {activeView === 'routine' && (
-                        <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-                              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                    <div className="mb-4">
-                                          <h2 className="text-lg font-bold text-slate-950">
-                                                Mẫu lịch sinh hoạt
-                                          </h2>
-                                          <p className="mt-1 text-sm text-slate-500">
-                                                Chọn mẫu lịch để xem và sắp xếp các khung giờ.
-                                          </p>
-                                    </div>
-
-                                    <div className="mb-4 space-y-3">
-                                          <div className="relative">
-                                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                                <Input
-                                                      value={searchTerm}
-                                                      onChange={(event) =>
-                                                            setSearchTerm(event.target.value)
-                                                      }
-                                                      placeholder="Tìm mẫu lịch..."
-                                                      className="rounded-2xl pl-9"
-                                                />
-                                          </div>
-
-                                          <select
-                                                value={dayTypeFilter}
-                                                onChange={(event) =>
-                                                      setDayTypeFilter(event.target.value as any)
-                                                }
-                                                className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
-                                          >
-                                                <option value="all">Tất cả loại ngày</option>
-                                                <option value="weekday">Ngày thường</option>
-                                                <option value="sunday">Chúa nhật</option>
-                                                <option value="special">Ngày đặc biệt</option>
-                                          </select>
-                                    </div>
-
-                                    {templatesQuery.isLoading ? (
-                                          <SectionEmpty
-                                                title="Đang tải mẫu lịch"
-                                                description="Vui lòng chờ trong giây lát."
-                                          />
-                                    ) : templates.length === 0 ? (
-                                          <SectionEmpty
-                                                title="Chưa có mẫu lịch"
-                                                description="Thêm mẫu lịch để bắt đầu thiết lập lịch sinh hoạt."
-                                          />
-                                    ) : (
-                                          <div className="space-y-3">
-                                                {templates.map((template: any) => {
-                                                      const isSelected =
-                                                            currentTemplate?.id === template.id;
-
-                                                      return (
-                                                            <button
-                                                                  type="button"
-                                                                  key={template.id}
-                                                                  onClick={() =>
-                                                                        setSelectedTemplateId(template.id)
-                                                                  }
-                                                                  className={[
-                                                                        'w-full rounded-3xl border p-4 text-left transition',
-                                                                        isSelected
-                                                                              ? 'border-blue-300 bg-blue-50 shadow-sm'
-                                                                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50',
-                                                                  ].join(' ')}
-                                                            >
-                                                                  <div className="flex items-start justify-between gap-3">
-                                                                        <div>
-                                                                              <p className="font-bold text-slate-950">
-                                                                                    {template.name}
-                                                                              </p>
-                                                                              <p className="mt-1 text-xs text-slate-500">
-                                                                                    {template.code}
-                                                                              </p>
-                                                                        </div>
-
-                                                                        <Badge
-                                                                              className={getDayTypeClass(
-                                                                                    template.dayType
-                                                                              )}
-                                                                        >
-                                                                              {getDayTypeLabel(
-                                                                                    template.dayType
-                                                                              )}
-                                                                        </Badge>
-                                                                  </div>
-
-                                                                  {template.description && (
-                                                                        <p className="mt-3 text-sm leading-6 text-slate-500">
-                                                                              {template.description}
-                                                                        </p>
-                                                                  )}
-
-                                                                  <div className="mt-4 flex flex-wrap gap-2">
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={(event) => {
-                                                                                    event.stopPropagation();
-                                                                                    openEditTemplate(template);
-                                                                              }}
-                                                                              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                                                        >
-                                                                              <Edit2 className="h-3.5 w-3.5" />
-                                                                              Sửa
-                                                                        </button>
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={(event) => {
-                                                                                    event.stopPropagation();
-                                                                                    removeTemplate(template);
-                                                                              }}
-                                                                              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                                                                        >
-                                                                              <Trash2 className="h-3.5 w-3.5" />
-                                                                              Xóa
-                                                                        </button>
-                                                                  </div>
-                                                            </button>
-                                                      );
-                                                })}
-                                          </div>
-                                    )}
-                              </div>
-
-                              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                                    <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                          <div>
-                                                <h2 className="text-xl font-bold text-slate-950">
-                                                      {currentTemplate?.name || 'Chưa chọn mẫu lịch'}
-                                                </h2>
-                                                <p className="mt-1 text-sm text-slate-500">
-                                                      {currentTemplate
-                                                            ? `${getDayTypeLabel(
-                                                                    currentTemplate.dayType
-                                                              )} · ${currentTemplate.code}`
-                                                            : 'Chọn một mẫu lịch ở bên trái để xem khung giờ.'}
-                                                </p>
-                                          </div>
-
-                                          <button
-                                                type="button"
-                                                onClick={openCreateItem}
-                                                disabled={!currentTemplate}
-                                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                          >
-                                                <Plus className="h-4 w-4" />
-                                                Thêm khung giờ
-                                          </button>
-                                    </div>
-
-                                    {!currentTemplate ? (
-                                          <SectionEmpty
-                                                title="Chưa chọn mẫu lịch"
-                                                description="Chọn một mẫu lịch để quản lý các khung giờ sinh hoạt."
-                                          />
-                                    ) : itemsQuery.isLoading ? (
-                                          <SectionEmpty
-                                                title="Đang tải khung giờ"
-                                                description="Vui lòng chờ trong giây lát."
-                                          />
-                                    ) : items.length === 0 ? (
-                                          <SectionEmpty
-                                                title="Chưa có khung giờ"
-                                                description="Thêm các hoạt động trong ngày cho mẫu lịch này."
-                                          />
-                                    ) : (
-                                          <div className="space-y-3">
-                                                {items.map((item: any) => (
-                                                      <div
-                                                            key={item.id}
-                                                            className={[
-                                                                  'rounded-3xl border p-4 shadow-sm',
-                                                                  item.isActive
-                                                                        ? 'border-slate-200 bg-slate-50/70'
-                                                                        : 'border-slate-200 bg-slate-100 opacity-70',
-                                                            ].join(' ')}
-                                                      >
-                                                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                                                  <div className="flex gap-4">
-                                                                        <div className="min-w-[96px] rounded-2xl bg-white px-3 py-2 text-center ring-1 ring-slate-200">
-                                                                              <p className="text-sm font-bold text-slate-950">
-                                                                                    {formatTime(item.startTime)}
-                                                                              </p>
-                                                                              <p className="text-xs text-slate-400">
-                                                                                    đến
-                                                                              </p>
-                                                                              <p className="text-sm font-bold text-slate-950">
-                                                                                    {formatTime(item.endTime)}
-                                                                              </p>
-                                                                        </div>
-
-                                                                        <div>
-                                                                              <div className="flex flex-wrap items-center gap-2">
-                                                                                    <h3 className="font-bold text-slate-950">
-                                                                                          {item.title}
-                                                                                    </h3>
-                                                                                    <Badge
-                                                                                          className={
-                                                                                                item.isActive
-                                                                                                      ? 'border-green-100 bg-green-50 text-green-700'
-                                                                                                      : 'border-slate-200 bg-slate-100 text-slate-600'
-                                                                                          }
-                                                                                    >
-                                                                                          {item.isActive
-                                                                                                ? 'Đang áp dụng'
-                                                                                                : 'Ngừng dùng'}
-                                                                                    </Badge>
-                                                                              </div>
-
-                                                                              <p className="mt-1 text-sm text-slate-500">
-                                                                                    {item.location || 'Chưa có địa điểm'}
-                                                                              </p>
-
-                                                                              {item.description && (
-                                                                                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                                                                                          {item.description}
-                                                                                    </p>
-                                                                              )}
-                                                                        </div>
-                                                                  </div>
-
-                                                                  <div className="flex flex-wrap gap-2 lg:justify-end">
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() => openEditItem(item)}
-                                                                              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                                                        >
-                                                                              <Edit2 className="h-3.5 w-3.5" />
-                                                                              Sửa
-                                                                        </button>
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() => removeItem(item)}
-                                                                              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                                                                        >
-                                                                              <Trash2 className="h-3.5 w-3.5" />
-                                                                              Xóa
-                                                                        </button>
-                                                                  </div>
-                                                            </div>
-                                                      </div>
-                                                ))}
-                                          </div>
-                                    )}
-                              </div>
-                        </div>
-
+                              <RoutineSetupTab
+                                    templates={templates as any[]}
+                                    currentTemplate={currentTemplate}
+                                    items={items as any[]}
+                                    templatesLoading={templatesQuery.isLoading}
+                                    itemsLoading={itemsQuery.isLoading}
+                                    searchTerm={searchTerm}
+                                    onSearchTermChange={setSearchTerm}
+                                    dayTypeFilter={dayTypeFilter as any}
+                                    onDayTypeFilterChange={setDayTypeFilter as any}
+                                    onSelectTemplate={setSelectedTemplateId}
+                                    onCreateTemplate={openCreateTemplate}
+                                    onEditTemplate={openEditTemplate}
+                                    onRemoveTemplate={removeTemplate}
+                                    onCreateItem={openCreateItem}
+                                    onEditItem={openEditItem}
+                                    onRemoveItem={removeItem}
+                              />
                         )}
 
                         {templateForm && (

@@ -9,7 +9,7 @@ type TodayOverviewTabProps = {
       onDateChange: (value: string) => void;
       routineItems: any[];
       dutyAssignments: any[];
-      timelineItems: any[];
+      timelineItems?: any[];
       isLoading?: boolean;
       onCreateDuty: () => void;
       onCompleteDuty: (assignment: any) => void;
@@ -21,28 +21,30 @@ export function TodayOverviewTab({
       onDateChange,
       routineItems,
       dutyAssignments,
-      timelineItems,
       isLoading,
       onCreateDuty,
       onCompleteDuty,
       onSkipDuty,
 }: TodayOverviewTabProps) {
+      const activeRoutineCount = routineItems.filter(
+            (item: any) => item.isActive !== false
+      ).length;
+
       return (
             <div className="space-y-5">
                   <TodaySummaryBar
                         selectedDate={selectedDate}
                         onDateChange={onDateChange}
-                        routineCount={routineItems.filter((item: any) => item.isActive).length}
+                        routineCount={activeRoutineCount}
                         assignments={dutyAssignments}
                         onCreateDuty={onCreateDuty}
                   />
 
-                  <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+                  <div className="grid gap-6 xl:grid-cols-2">
                         <TodayTimeline
-                              items={timelineItems}
+                              routineItems={routineItems}
+                              selectedDate={selectedDate}
                               isLoading={isLoading}
-                              onCompleteDuty={onCompleteDuty}
-                              onSkipDuty={onSkipDuty}
                         />
 
                         <TodayDutyPanel
