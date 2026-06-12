@@ -2,7 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import {
+      CalendarDays,
+      CheckSquare,
       Clock,
+      ClipboardList,
       Plus,
       X,
 } from 'lucide-react';
@@ -20,6 +23,19 @@ import {
       AppMessageBox,
       type AppMessageBoxState,
 } from '@/components/common/AppMessageBox';
+import { useAutoDismissMessage } from '@/hooks/useAutoDismissMessage';
+import {
+      todayValue,
+      formatTime,
+      formatDateValue,
+      getWeekDateValues,
+      getTimeValue,
+      isPastTime,
+      isSameDateAsToday,
+      getRoutineVisualState,
+      getDutyVisualState,
+      getAssigneeTypeLabel,
+} from '@/components/daily-routine/shared';
 
 type DayType = 'weekday' | 'sunday' | 'special';
 
@@ -96,55 +112,6 @@ function getDayTypeClass(dayType?: string | null) {
       return 'border-slate-100 bg-slate-50 text-slate-600';
 }
 
-function formatTime(value?: string | Date | null) {
-      if (!value) return '--:--';
-
-      if (value instanceof Date) {
-            return value.toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-            });
-      }
-
-      const text = String(value);
-
-      if (text.includes('T')) {
-            return new Date(text).toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-            });
-      }
-
-      return text.slice(0, 5);
-}
-
-function todayValue() {
-      return new Date().toISOString().slice(0, 10);
-}
-
-function formatDateValue(date: Date) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-
-      return `${year}-${month}-${day}`;
-}
-
-function getWeekDateValues(dateText: string) {
-      const [year, month, day] = dateText.split('-').map(Number);
-      const baseDate = new Date(year, month - 1, day);
-      const dayOfWeek = baseDate.getDay();
-      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      const monday = new Date(baseDate);
-      monday.setDate(baseDate.getDate() + diffToMonday);
-
-      return Array.from({ length: 7 }, (_, index) => {
-            const date = new Date(monday);
-            date.setDate(monday.getDate() + index);
-            return formatDateValue(date);
-      });
-}
-
 function createWallClockDate(dateText: string, timeText = '12:00:00') {
       const [year, month, day] = dateText.split('-').map(Number);
       const [hour = 0, minute = 0, second = 0] = timeText.split(':').map(Number);
@@ -184,75 +151,6 @@ function getMonthRangeValues(dateText: string) {
             endDate: formatDateValue(lastDate),
       };
 }
-
-function getTimeValue(dateText: string, timeValue?: string | Date | null) {
-      if (!dateText || !timeValue) return null;
-
-      if (timeValue instanceof Date) {
-            return createWallClockDate(
-                  dateText,
-                  `${String(timeValue.getHours()).padStart(2, '0')}:${String(
-                        timeValue.getMinutes()
-                  ).padStart(2, '0')}:${String(timeValue.getSeconds()).padStart(2, '0')}`
-            ).getTime();
-      }
-
-      const text = String(timeValue);
-      const timePart = text.includes(' ')
-            ? text.split(' ')[1]
-            : text.includes('T')
-                  ? text.split('T')[1]
-                  : text;
-
-      const timeText = timePart.length === 5 ? `${timePart}:00` : timePart.slice(0, 8);
-      return new Date(`${dateText}T${timeText}`).getTime();
-}
-
-function isPastTime(dateText: string, timeValue?: string | Date | null) {
-      const value = getTimeValue(dateText, timeValue);
-
-      if (!value) return false;
-
-      return value < Date.now();
-}
-
-function isSameDateAsToday(dateText: string) {
-      return dateText === new Date().toISOString().slice(0, 10);
-}
-
-function getRoutineVisualState(entry: any, selectedDate: string) {
-      if (!isSameDateAsToday(selectedDate)) return 'normal';
-
-      return isPastTime(selectedDate, entry.endTime || entry.startTime) ? 'past' : 'normal';
-}
-
-function getDutyVisualState(entryOrAssignment: any, selectedDate: string) {
-      const status = entryOrAssignment.status;
-
-      if (status === 'completed') return 'completed';
-      if (status === 'skipped') return 'skipped';
-      if (status === 'cancelled') return 'cancelled';
-
-      if (!isSameDateAsToday(selectedDate)) return 'normal';
-
-      const endTime =
-            entryOrAssignment.endTime ||
-            entryOrAssignment.endDateTime ||
-            entryOrAssignment.dutyConfig?.endTime ||
-            entryOrAssignment.startTime ||
-            entryOrAssignment.startDateTime ||
-            entryOrAssignment.dutyConfig?.startTime;
-
-      return isPastTime(selectedDate, endTime) ? 'overdue' : 'normal';
-}
-
-function getAssigneeTypeLabel(type?: string | null) {
-      if (type === 'team') return 'Tổ';
-      if (type === 'room') return 'Phòng';
-      if (type === 'committee') return 'Ban';
-      return 'Học viên';
-}
-
 
 function getAssigneeId(assignment: any) {
       return (
@@ -350,10 +248,22 @@ export default function DailyRoutine() {
       const [pendingDeleteDutyConfig, setPendingDeleteDutyConfig] = useState<any>(null);
       const [pendingCancelAssignment, setPendingCancelAssignment] = useState<any>(null);
 
-      const [message, setMessage] = useState<{
-            type: 'success' | 'error' | 'info';
+      const { message, showMessage, clearMessage } = useAutoDismissMessage({
+            successDuration: 5000,
+            errorDuration: 7000,
+      });
+
+      const setMessage = (nextMessage: {
+            type: 'success' | 'error' | 'info' | 'warning';
             text: string;
-      } | null>(null);
+      } | null) => {
+            if (!nextMessage) {
+                  clearMessage();
+                  return;
+            }
+
+            showMessage(nextMessage.type, nextMessage.text);
+      };
 
       const templatesQuery = trpc.dailyRoutine.listTemplates.useQuery({
             search: searchTerm || undefined,
@@ -1104,37 +1014,88 @@ export default function DailyRoutine() {
       return (
             <ResidenceCareLayout>
                   <div className="space-y-6 p-6">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                              <div>
-                                    <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-                                          Sinh hoạt
-                                    </p>
-                                    <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
-                                          Sinh hoạt hằng ngày
-                                    </h1>
-                                    <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                                          Theo dõi lịch sinh hoạt và công tác trong ngày trên một màn hình gọn,
-                                          dễ nhìn và dễ thực hiện.
-                                    </p>
-                              </div>
+                        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div>
+                                          <h1 className="text-3xl font-bold tracking-tight text-slate-950">
+                                                Sinh hoạt hằng ngày
+                                          </h1>
+                                          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                                                Theo dõi lịch sinh hoạt, phân công công tác và nhắc nhở trong lưu xá
+                                                trên một màn hình gọn, dễ nhìn và dễ thực hiện.
+                                          </p>
+                                    </div>
 
-                              <div className="flex flex-wrap gap-2">
-                                    <button
-                                          type="button"
-                                          onClick={openCreateTemplate}
-                                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                                    >
-                                          <Plus className="h-4 w-4" />
-                                          Thêm mẫu lịch
-                                    </button>
-                                    <button
-                                          type="button"
-                                          onClick={openCreateItem}
-                                          className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                                    >
-                                          <Clock className="h-4 w-4" />
-                                          Thêm khung giờ
-                                    </button>
+                                    <div className="flex flex-wrap gap-2">
+                                          {activeView === 'today' && (
+                                                <>
+                                                      <button
+                                                            type="button"
+                                                            onClick={openCreateItem}
+                                                            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                                      >
+                                                            <Clock className="h-4 w-4" />
+                                                            Thêm khung giờ
+                                                      </button>
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                  setAssignmentForm((current) => ({
+                                                                        ...current,
+                                                                        assignedDate: selectedDate || todayValue(),
+                                                                  }));
+                                                                  setActiveView('duties');
+                                                            }}
+                                                            className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                                      >
+                                                            <Plus className="h-4 w-4" />
+                                                            Thêm phân công
+                                                      </button>
+                                                </>
+                                          )}
+
+                                          {activeView === 'routine' && (
+                                                <>
+                                                      <button
+                                                            type="button"
+                                                            onClick={openCreateTemplate}
+                                                            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                                      >
+                                                            <Plus className="h-4 w-4" />
+                                                            Thêm mẫu lịch
+                                                      </button>
+                                                      <button
+                                                            type="button"
+                                                            onClick={openCreateItem}
+                                                            className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                                      >
+                                                            <Clock className="h-4 w-4" />
+                                                            Thêm khung giờ
+                                                      </button>
+                                                </>
+                                          )}
+
+                                          {activeView === 'duties' && (
+                                                <>
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => setIsDutyTemplateDialogOpen(true)}
+                                                            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                                      >
+                                                            <ClipboardList className="h-4 w-4" />
+                                                            Mẫu công tác
+                                                      </button>
+                                                      <button
+                                                            type="button"
+                                                            onClick={openCreateDutyConfig}
+                                                            className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                                      >
+                                                            <Plus className="h-4 w-4" />
+                                                            Thêm mẫu công tác
+                                                      </button>
+                                                </>
+                                          )}
+                                    </div>
                               </div>
                         </div>
 
@@ -1153,26 +1114,86 @@ export default function DailyRoutine() {
                               </div>
                         )}
 
-                        <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
+                        <div className="grid gap-3 md:grid-cols-3">
                               {[
-                                    { key: 'today', label: 'Hôm nay' },
-                                    { key: 'routine', label: 'Thiết lập lịch' },
-                                    { key: 'duties', label: 'Công tác' },
-                              ].map((view) => (
-                                    <button
-                                          key={view.key}
-                                          type="button"
-                                          onClick={() => setActiveView(view.key as DailyRoutineView)}
-                                          className={[
-                                                'rounded-2xl px-4 py-2 text-sm font-semibold transition',
-                                                activeView === view.key
-                                                      ? 'bg-blue-600 text-white shadow-sm'
-                                                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-                                          ].join(' ')}
-                                    >
-                                          {view.label}
-                                    </button>
-                              ))}
+                                    {
+                                          key: 'today',
+                                          label: 'Hôm nay',
+                                          description: 'Tổng quan lịch sinh hoạt và công tác trong ngày',
+                                          icon: CalendarDays,
+                                          count: todayTimelineItems.length,
+                                    },
+                                    {
+                                          key: 'routine',
+                                          label: 'Lịch sinh hoạt',
+                                          description: 'Thiết lập mẫu lịch và khung giờ sinh hoạt',
+                                          icon: Clock,
+                                          count: items.length,
+                                    },
+                                    {
+                                          key: 'duties',
+                                          label: 'Công tác',
+                                          description: 'Phân công, theo dõi hoàn thành, vắng hoặc hủy',
+                                          icon: CheckSquare,
+                                          count: selectedDateDutyAssignments.length,
+                                    },
+                              ].map((view) => {
+                                    const Icon = view.icon;
+                                    const isActive = activeView === view.key;
+
+                                    return (
+                                          <button
+                                                key={view.key}
+                                                type="button"
+                                                onClick={() => setActiveView(view.key as DailyRoutineView)}
+                                                className={[
+                                                      'group rounded-3xl border p-4 text-left transition-all',
+                                                      isActive
+                                                            ? 'border-blue-200 bg-blue-50 shadow-sm ring-2 ring-blue-100'
+                                                            : 'border-slate-200 bg-white shadow-sm hover:border-blue-100 hover:bg-slate-50',
+                                                ].join(' ')}
+                                          >
+                                                <div className="flex items-start justify-between gap-3">
+                                                      <div className="flex items-center gap-3">
+                                                            <span
+                                                                  className={[
+                                                                        'flex h-10 w-10 items-center justify-center rounded-2xl',
+                                                                        isActive
+                                                                              ? 'bg-blue-600 text-white'
+                                                                              : 'bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-700',
+                                                                  ].join(' ')}
+                                                            >
+                                                                  <Icon className="h-5 w-5" />
+                                                            </span>
+                                                            <div>
+                                                                  <p
+                                                                        className={[
+                                                                              'text-sm font-bold',
+                                                                              isActive ? 'text-blue-800' : 'text-slate-900',
+                                                                        ].join(' ')}
+                                                                  >
+                                                                        {view.label}
+                                                                  </p>
+                                                                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                                                                        {view.description}
+                                                                  </p>
+                                                            </div>
+                                                      </div>
+
+                                                      <span
+                                                            className={[
+                                                                  'rounded-full px-2.5 py-1 text-xs font-bold',
+                                                                  isActive
+                                                                        ? 'bg-white text-blue-700 ring-1 ring-blue-100'
+                                                                        : 'bg-slate-100 text-slate-500',
+                                                            ].join(' ')}
+                                                      >
+                                                            {view.count}
+                                                      </span>
+                                                </div>
+                                          </button>
+                                    );
+                              })}
                         </div>
 
                         {activeView === 'today' && (

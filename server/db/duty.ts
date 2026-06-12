@@ -13,6 +13,7 @@ import {
       dutyEvaluations,
       scheduleConflicts,
       residents,
+      residentStudySchedules,
       InsertDutyTemplate,
       InsertDutyConfig,
       InsertDutyChecklist,
@@ -1034,7 +1035,7 @@ export async function getEvaluationStats(filters?: {
                   totalEvaluations: evaluations.length,
                   averageQuality: Math.round(avgQuality * 100) / 100,
                   averagePunctuality: Math.round(avgPunctuality * 100) / 100,
-                  averageScore: Math.round(avgScore * 100) / 100,
+                  averageScore: Math.round(avgTotalScore * 100) / 100,
             };
       } catch (error) {
             console.error("[Database] Failed to get evaluation stats:", error);
@@ -1284,16 +1285,35 @@ export type PreviewDutyAssignmentItem = {
       date: string;
       canCreate: boolean;
       reason?: string;
+      detail?: string | null;
+      conflictType?: "duplicate" | "capacity" | "study_schedule" | "invalid" | null;
+      studyConflicts?: any[];
       currentResidentCount?: number;
       minPersons?: number | null;
       maxPersons?: number | null;
 };
 
+/**
+ * Các trạng thái vẫn được xem là phân công đã phát sinh.
+ *
+ * Simple Mode dùng nghiệp vụ:
+ * - pending   : Chưa hoàn thành
+ * - completed : Đã hoàn thành
+ * - skipped   : Vắng / không thực hiện
+ * - cancelled : Đã hủy
+ *
+ * Lưu ý:
+ * - "cancelled" không được tính là trùng, để có thể tạo lại sau khi hủy.
+ * - "skipped" vẫn được tính là đã phát sinh, không được hiểu như hủy.
+ * - Giữ thêm "confirmed", "in_progress", "absent" để tương thích dữ liệu/luồng cũ nếu có.
+ */
 const ACTIVE_DUTY_ASSIGNMENT_STATUSES = [
       "pending",
       "confirmed",
       "in_progress",
       "completed",
+      "skipped",
+      "absent",
 ] as const;
 
 
@@ -1351,6 +1371,162 @@ async function getDutyAssignmentResidentRows(
             );
 }
 
+function timeTextToMinutes(value?: string | null) {
+      const timeText = toTimeText(value || "")?.slice(0, 5);
+
+      if (!timeText) return 0;
+
+      const [hourText, minuteText] = timeText.split(":");
+      const hour = Number(hourText);
+      const minute = Number(minuteText);
+
+      if (Number.isNaN(hour) || Number.isNaN(minute)) return 0;
+
+      return hour * 60 + minute;
+}
+
+function minutesToTimeText(totalMinutes: number) {
+      const safeMinutes = Math.max(0, Math.min(24 * 60, totalMinutes));
+      const hour = Math.floor(safeMinutes / 60);
+      const minute = safeMinutes % 60;
+
+      return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function isTimeOverlap(input: {
+      startA: string;
+      endA: string;
+      startB: string;
+      endB: string;
+}) {
+      const startA = timeTextToMinutes(input.startA);
+      const endA = timeTextToMinutes(input.endA);
+      const startB = timeTextToMinutes(input.startB);
+      const endB = timeTextToMinutes(input.endB);
+
+      return startA < endB && endA > startB;
+}
+
+function getDayOfWeekFromDateText(dateText: string) {
+      const date = createWallClockDate(dateText, "00:00:00");
+
+      switch (date.getUTCDay()) {
+            case 0:
+                  return "sunday";
+            case 1:
+                  return "monday";
+            case 2:
+                  return "tuesday";
+            case 3:
+                  return "wednesday";
+            case 4:
+                  return "thursday";
+            case 5:
+                  return "friday";
+            case 6:
+                  return "saturday";
+            default:
+                  return "monday";
+      }
+}
+
+function expandStudyTimeWithTravel(input: {
+      startTime: string;
+      endTime: string;
+      travelMinutes?: number;
+}) {
+      const travelMinutes = input.travelMinutes ?? 60;
+      const studyStartMinutes = timeTextToMinutes(input.startTime);
+      const studyEndMinutes = timeTextToMinutes(input.endTime);
+
+      return {
+            busyStartTime: minutesToTimeText(studyStartMinutes - travelMinutes),
+            busyEndTime: minutesToTimeText(studyEndMinutes + travelMinutes),
+      };
+}
+
+function formatStudyConflictDetail(conflicts: any[]) {
+      if (!conflicts || conflicts.length === 0) {
+            return null;
+      }
+
+      return conflicts
+            .map((item: any) => {
+                  const busyStartTime = toTimeText(item.busyStartTime || item.startTime)?.slice(0, 5) || "--:--";
+                  const busyEndTime = toTimeText(item.busyEndTime || item.endTime)?.slice(0, 5) || "--:--";
+                  const studyStartTime = toTimeText(item.startTime)?.slice(0, 5) || "--:--";
+                  const studyEndTime = toTimeText(item.endTime)?.slice(0, 5) || "--:--";
+                  const subjectName = item.subjectName ? ` - ${item.subjectName}` : "";
+
+                  return `${busyStartTime} - ${busyEndTime} (lịch học ${studyStartTime} - ${studyEndTime}${subjectName})`;
+            })
+            .join("; ");
+}
+
+async function checkStudyScheduleForPreview(input: {
+      db: any;
+      assignedToType: DutyAssignmentAssigneeType;
+      assignedToId: number;
+      assignedDate: string;
+      startTime?: string | null;
+      endTime?: string | null;
+}) {
+      if (input.assignedToType !== "resident") {
+            return null;
+      }
+
+      if (!input.assignedToId || !input.assignedDate || !input.startTime || !input.endTime) {
+            return null;
+      }
+
+      const dayOfWeek = getDayOfWeekFromDateText(input.assignedDate);
+
+      const schedules = await input.db
+            .select()
+            .from(residentStudySchedules)
+            .where(
+                  and(
+                        eq(residentStudySchedules.residentId, input.assignedToId),
+                        eq(residentStudySchedules.dayOfWeek, dayOfWeek as any),
+                        eq(residentStudySchedules.isActive, true)
+                  )
+            );
+
+      const conflicts = schedules
+            .map((schedule: any) => {
+                  const expandedTime = expandStudyTimeWithTravel({
+                        startTime: String(schedule.startTime),
+                        endTime: String(schedule.endTime),
+                        travelMinutes: 60,
+                  });
+
+                  return {
+                        ...schedule,
+                        busyStartTime: expandedTime.busyStartTime,
+                        busyEndTime: expandedTime.busyEndTime,
+                        travelMinutes: 60,
+                  };
+            })
+            .filter((schedule: any) =>
+                  isTimeOverlap({
+                        startA: input.startTime || "",
+                        endA: input.endTime || "",
+                        startB: schedule.busyStartTime,
+                        endB: schedule.busyEndTime,
+                  })
+            );
+
+      if (conflicts.length === 0) {
+            return null;
+      }
+
+      return {
+            reason: "Trùng lịch học",
+            detail: formatStudyConflictDetail(conflicts),
+            studyConflicts: conflicts,
+      };
+}
+
 export async function previewDutyAssignment(
       input: PreviewDutyAssignmentInput
 ): Promise<{
@@ -1379,6 +1555,29 @@ export async function previewDutyAssignment(
       for (const rawDate of input.assignedDates) {
             const assignedDate = toDateOnlyText(rawDate);
 
+            const studyConflict = await checkStudyScheduleForPreview({
+                  db,
+                  assignedToType: input.assignedToType,
+                  assignedToId: input.assignedToId,
+                  assignedDate,
+                  startTime: input.startTime,
+                  endTime: input.endTime,
+            });
+
+            if (studyConflict) {
+                  items.push({
+                        date: assignedDate,
+                        canCreate: false,
+                        reason: studyConflict.reason,
+                        detail: studyConflict.detail,
+                        conflictType: "study_schedule",
+                        studyConflicts: studyConflict.studyConflicts,
+                        minPersons: dutyConfig.minPersons ?? null,
+                        maxPersons: dutyConfig.maxPersons ?? null,
+                  });
+                  continue;
+            }
+
             const duplicateRows = await getDutyAssignmentExistingRows(db, {
                   dutyConfigId: input.dutyConfigId,
                   assignedDate,
@@ -1391,6 +1590,7 @@ export async function previewDutyAssignment(
                         date: assignedDate,
                         canCreate: false,
                         reason: "Đã có phân công cho đối tượng này",
+                        conflictType: "duplicate",
                         minPersons: dutyConfig.minPersons ?? null,
                         maxPersons: dutyConfig.maxPersons ?? null,
                   });
@@ -1408,6 +1608,7 @@ export async function previewDutyAssignment(
                               date: assignedDate,
                               canCreate: false,
                               reason: `Đã đủ số lượng tối đa (${dutyConfig.maxPersons} học viên)`,
+                              conflictType: "capacity",
                               currentResidentCount: currentResidentRows.length,
                               minPersons: dutyConfig.minPersons ?? null,
                               maxPersons: dutyConfig.maxPersons ?? null,
@@ -1433,12 +1634,20 @@ export async function previewDutyAssignment(
             });
       }
 
+      const canCreateCount = items.filter((item) => item.canCreate).length;
+      const skippedCount = items.filter((item) => !item.canCreate).length;
+
       return {
             dutyConfig,
             items,
-            canCreateCount: items.filter((item) => item.canCreate).length,
-            skippedCount: items.filter((item) => !item.canCreate).length,
-      };
+            canCreateCount,
+            skippedCount,
+            summary: {
+                  totalDays: items.length,
+                  validCount: canCreateCount,
+                  skippedCount,
+            },
+      } as any;
 }
 
 export async function assignDutyBatch(input: PreviewDutyAssignmentInput) {
@@ -1470,5 +1679,10 @@ export async function assignDutyBatch(input: PreviewDutyAssignmentInput) {
             skipped: skippedItems.length,
             createdItems,
             skippedItems,
+            summary: {
+                  totalDays: preview.items.length,
+                  createdCount: createdItems.length,
+                  skippedCount: skippedItems.length,
+            },
       };
 }

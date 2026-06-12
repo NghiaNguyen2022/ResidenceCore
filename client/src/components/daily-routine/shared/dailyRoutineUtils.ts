@@ -218,3 +218,25 @@ export function getVisualStateBadgeClass(type: 'routine' | 'duty', state: DutyVi
 
       return 'border-slate-100 bg-slate-50 text-slate-600';
 }
+
+export function formatDateOnly(value: unknown): string {
+      if (!value) return '';
+
+      if (typeof value === 'string') {
+            const text = value.trim();
+            if (!text) return '';
+            const dateMatch = text.match(/^(\d{4}-\d{2}-\d{2})/);
+            if (dateMatch) return dateMatch[1];
+            return text.slice(0, 10);
+      }
+
+      if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            return formatDateValue(value);
+      }
+
+      return String(value).slice(0, 10);
+}
+
+export function getAssignmentDate(assignment: any): string {
+      return formatDateOnly(assignment.assignedDate || assignment.date);
+}

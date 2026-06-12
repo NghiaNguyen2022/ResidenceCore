@@ -4,6 +4,8 @@ import {
       Badge,
       EmptyState,
       SectionCard,
+      formatDateOnly,
+      getAssignmentDate,
       getShortDateLabel,
       getWeekDateValues,
       getWeekdayLabel,
@@ -14,16 +16,6 @@ type DutyWeekViewProps = {
       assignments: any[];
       onSelectDate: (date: string) => void;
 };
-
-function getAssignmentDate(assignment: any) {
-      const value = assignment.assignedDate || assignment.date;
-
-      if (!value) return '';
-
-      if (value instanceof Date) return value.toISOString().slice(0, 10);
-
-      return String(value).slice(0, 10);
-}
 
 export function DutyWeekView({
       selectedDate,

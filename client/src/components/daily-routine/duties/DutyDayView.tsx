@@ -7,7 +7,6 @@ import {
       DateNavigator,
       EmptyState,
       SectionCard,
-      TimeBox,
       getAssigneeTypeLabel,
       getDutyStatusClass,
       getDutyStatusLabel,
@@ -18,7 +17,7 @@ import {
       getVisualStateLabel,
 } from '@/components/daily-routine/shared';
 
-type DutyStatusFilter = 'all' | 'open' | 'overdue' | 'completed' | 'skipped' | 'cancelled';
+type DutyStatusFilter = 'all' | 'open' | 'overdue' | 'completed' | 'skipped' | 'absent' | 'cancelled';
 
 type DutyDayViewProps = {
       selectedDate: string;
@@ -43,6 +42,86 @@ function getAssigneeName(assignment: any) {
             assignment.resident?.fullName ||
             assignment.member?.fullName ||
             'Đối tượng được phân công'
+      );
+}
+
+function formatTimeOnly(value: unknown) {
+      if (!value) return '';
+
+      if (typeof value === 'string') {
+            const text = value.trim();
+
+            if (!text) return '';
+
+            const timeMatch = text.match(/^(\d{2}):(\d{2})(?::\d{2})?$/);
+
+            if (timeMatch) {
+                  return `${timeMatch[1]}:${timeMatch[2]}`;
+            }
+
+            if (text.includes('T')) {
+                  const date = new Date(text);
+
+                  if (!Number.isNaN(date.getTime())) {
+                        const hours = String(date.getUTCHours()).padStart(2, '0');
+                        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+
+                        return `${hours}:${minutes}`;
+                  }
+            }
+
+            return text.slice(0, 5);
+      }
+
+      if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            const hours = String(value.getUTCHours()).padStart(2, '0');
+            const minutes = String(value.getUTCMinutes()).padStart(2, '0');
+
+            return `${hours}:${minutes}`;
+      }
+
+      return String(value).slice(0, 5);
+}
+
+function getAssignmentStartTime(assignment: any) {
+      return formatTimeOnly(
+            assignment.startTime ||
+                  assignment.dutyConfig?.startTime ||
+                  assignment.startDateTime
+      );
+}
+
+function getAssignmentEndTime(assignment: any) {
+      return formatTimeOnly(
+            assignment.endTime ||
+                  assignment.dutyConfig?.endTime ||
+                  assignment.endDateTime
+      );
+}
+
+function normalizeDutyStatus(status?: string | null) {
+      return String(status || 'pending').toLowerCase();
+}
+
+function isFinalDutyStatus(status?: string | null) {
+      const normalizedStatus = normalizeDutyStatus(status);
+
+      return ['completed', 'skipped', 'absent', 'cancelled'].includes(
+            normalizedStatus
+      );
+}
+
+function DutyTimeBox({ startTime, endTime }: { startTime: string; endTime: string }) {
+      return (
+            <div className="flex min-w-[110px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center shadow-sm">
+                  <span className="text-sm font-bold text-slate-700">
+                        {startTime || '--:--'}
+                  </span>
+                  <span className="text-xs text-slate-400">đến</span>
+                  <span className="text-sm font-bold text-slate-700">
+                        {endTime || '--:--'}
+                  </span>
+            </div>
       );
 }
 
@@ -118,18 +197,9 @@ export function DutyDayView({
                                           >
                                                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                                       <div className="flex gap-4">
-                                                            <TimeBox
-                                                                  startTime={
-                                                                        assignment.startDateTime ||
-                                                                        assignment.startTime ||
-                                                                        assignment.dutyConfig
-                                                                              ?.startTime
-                                                                  }
-                                                                  endTime={
-                                                                        assignment.endDateTime ||
-                                                                        assignment.endTime ||
-                                                                        assignment.dutyConfig?.endTime
-                                                                  }
+                                                            <DutyTimeBox
+                                                                  startTime={getAssignmentStartTime(assignment)}
+                                                                  endTime={getAssignmentEndTime(assignment)}
                                                             />
 
                                                             <div>
@@ -216,8 +286,7 @@ export function DutyDayView({
                                                             </div>
                                                       </div>
 
-                                                      {assignment.status !== 'completed' &&
-                                                            assignment.status !== 'cancelled' && (
+                                                      {!isFinalDutyStatus(assignment.status) && (
                                                                   <div className="flex flex-wrap gap-2 lg:justify-end">
                                                                         <button
                                                                               type="button"

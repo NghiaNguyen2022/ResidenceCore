@@ -4,6 +4,9 @@ import {
       Badge,
       EmptyState,
       SectionCard,
+      formatDateOnly,
+      formatDateValue,
+      getAssignmentDate,
       getDutyVisualState,
 } from '@/components/daily-routine/shared';
 
@@ -12,24 +15,6 @@ type DutyMonthViewProps = {
       assignments: any[];
       onSelectDate: (date: string) => void;
 };
-
-function formatDateValue(date: Date) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-
-      return `${year}-${month}-${day}`;
-}
-
-function getAssignmentDate(assignment: any) {
-      const value = assignment.assignedDate || assignment.date;
-
-      if (!value) return '';
-
-      if (value instanceof Date) return value.toISOString().slice(0, 10);
-
-      return String(value).slice(0, 10);
-}
 
 function getMonthCalendarDates(selectedDate: string) {
       const [year, month] = selectedDate.split('-').map(Number);

@@ -13,8 +13,9 @@ import DutyDayView from './DutyDayView';
 import DutyMonthView from './DutyMonthView';
 import DutyViewSwitcher from './DutyViewSwitcher';
 import DutyWeekView from './DutyWeekView';
+import { useAutoDismissMessage } from '@/hooks/useAutoDismissMessage';
 
-type DutyStatusFilter = 'all' | 'open' | 'overdue' | 'completed' | 'skipped' | 'cancelled';
+type DutyStatusFilter = 'all' | 'open' | 'overdue' | 'completed' | 'skipped' | 'absent' | 'cancelled';
 type AssignToType = 'resident' | 'team' | 'room' | 'committee';
 type DutyViewMode = 'day' | 'week' | 'month';
 
@@ -46,6 +47,8 @@ type DutiesTabProps = {
                   date: string;
                   canCreate: boolean;
                   reason?: string;
+                  detail?: string | null;
+                  conflictType?: string | null;
                   currentResidentCount?: number;
                   minPersons?: number | null;
                   maxPersons?: number | null;
@@ -53,7 +56,7 @@ type DutiesTabProps = {
       } | null;
 
       isSaving?: boolean;
-      onSaveAssignment: () => void | Promise<void>;
+      onSaveAssignment: () => any | Promise<any>;
       onOpenDutyTemplateDialog: () => void;
 
       selectedDate: string;
@@ -108,20 +111,16 @@ function normalizeTimeForPayload(value?: string | null) {
       return text.slice(0, 5);
 }
 
-function formatTimeOnly(value?: string | null) {
-      return normalizeTimeForPayload(value);
-}
-
 function getStudyConflictMessage(conflicts: any[]) {
       if (!conflicts || conflicts.length === 0) {
             return 'Học viên này có lịch học trùng với giờ công tác.';
       }
 
       const lines = conflicts.map((item) => {
-            const busyStartTime = formatTimeOnly(item.busyStartTime || item.startTime);
-            const busyEndTime = formatTimeOnly(item.busyEndTime || item.endTime);
-            const studyStartTime = formatTimeOnly(item.startTime);
-            const studyEndTime = formatTimeOnly(item.endTime);
+            const busyStartTime = normalizeTimeForPayload(item.busyStartTime || item.startTime);
+            const busyEndTime = normalizeTimeForPayload(item.busyEndTime || item.endTime);
+            const studyStartTime = normalizeTimeForPayload(item.startTime);
+            const studyEndTime = normalizeTimeForPayload(item.endTime);
             const subjectName = item.subjectName ? ` - ${item.subjectName}` : '';
 
             return `- ${busyStartTime} - ${busyEndTime} (lịch học ${studyStartTime} - ${studyEndTime}${subjectName})`;
@@ -134,6 +133,61 @@ function getStudyConflictMessage(conflicts: any[]) {
             ...lines,
             '',
             'Vui lòng chọn khung giờ khác hoặc phân công cho học viên khác.',
+      ].join('\n');
+}
+
+function formatDateForMessage(dateText?: string | null) {
+      if (!dateText) return '';
+
+      const text = String(dateText).slice(0, 10);
+      const [year, month, day] = text.split('-');
+
+      if (!year || !month || !day) return text;
+
+      return `${day}/${month}/${year}`;
+}
+
+function formatSkippedItem(item: any) {
+      const dateText = formatDateForMessage(item?.date);
+      const reason = item?.reason || 'Không đủ điều kiện tạo phân công';
+      const detail = item?.detail ? ` - ${item.detail}` : '';
+
+      return `- ${dateText}: ${reason}${detail}`;
+}
+
+function getSaveAssignmentSuccessMessage(result: any, isWholeWeek: boolean) {
+      if (!isWholeWeek) {
+            return 'Đã lưu phân công.';
+      }
+
+      const created = Number(result?.created ?? result?.summary?.createdCount ?? 0);
+      const skipped = Number(result?.skipped ?? result?.summary?.skippedCount ?? 0);
+
+      if (!created && !skipped) {
+            return 'Đã xử lý phân công nguyên tuần.';
+      }
+
+      if (created > 0 && skipped > 0) {
+            return `Đã tạo ${created} phân công. Bỏ qua ${skipped} ngày.`;
+      }
+
+      if (created > 0) {
+            return `Đã tạo ${created} phân công.`;
+      }
+
+      return 'Không có ngày nào hợp lệ để tạo phân công.';
+}
+
+function getSkippedDaysMessage(result: any) {
+      const skippedItems = result?.skippedItems || [];
+
+      if (!Array.isArray(skippedItems) || skippedItems.length === 0) {
+            return '';
+      }
+
+      return [
+            'Các ngày bị bỏ qua:',
+            ...skippedItems.map(formatSkippedItem),
       ].join('\n');
 }
 
@@ -170,6 +224,18 @@ export function DutiesTab({
             actions: [],
       });
 
+      const {
+            successMessage,
+            errorMessage,
+            setSuccessMessage,
+            setErrorMessage,
+            clearSuccessMessage,
+            clearErrorMessage,
+      } = useAutoDismissMessage({
+            successDuration: 5000,
+            errorDuration: 7000,
+      });
+
       const selectedResidentId =
             assignmentForm.assignedToType === 'resident'
                   ? Number(assignmentForm.assignedToId || 0)
@@ -200,6 +266,7 @@ export function DutiesTab({
 
       const handleSaveAssignment = async () => {
             const shouldCheckStudySchedule =
+                  !assignmentForm.assignWholeWeek &&
                   assignmentForm.assignedToType === 'resident' &&
                   selectedResidentId > 0 &&
                   Boolean(assignmentForm.assignedDate || selectedDate) &&
@@ -217,6 +284,11 @@ export function DutiesTab({
                                     '[DutiesTab] Error checking study schedule conflict:',
                                     result.error
                               );
+                              setErrorMessage(
+                                    result.error.message ||
+                                          'Không thể kiểm tra lịch học trước khi phân công.'
+                              );
+                              return;
                         }
 
                         const conflictData = result.data;
@@ -238,7 +310,30 @@ export function DutiesTab({
                   }
             }
 
-            await onSaveAssignment();
+            try {
+                  const result = await onSaveAssignment();
+                  const skippedMessage = getSkippedDaysMessage(result);
+
+                  setSuccessMessage(
+                        getSaveAssignmentSuccessMessage(
+                              result,
+                              Boolean(assignmentForm.assignWholeWeek)
+                        )
+                  );
+
+                  if (skippedMessage) {
+                        setMessageBox({
+                              open: true,
+                              title: 'Kết quả phân công nguyên tuần',
+                              message: skippedMessage,
+                              variant: 'warning',
+                              cancelText: 'Đã hiểu',
+                              actions: [],
+                        });
+                  }
+            } catch (error: any) {
+                  setErrorMessage(error?.message || 'Không thể lưu phân công.');
+            }
       };
 
       const rangeAssignments = allAssignments || assignments;
@@ -259,76 +354,106 @@ export function DutiesTab({
 
       return (
             <>
-            <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
-                  <DutyAssignmentForm
-                        form={assignmentForm}
-                        onChange={onAssignmentFormChange}
-                        dutyConfigs={dutyConfigs}
-                        selectedDutyConfig={selectedDutyConfig}
-                        assigneeOptions={assigneeOptions}
-                        previewEnabled={previewEnabled}
-                        previewLoading={previewLoading}
-                        preview={preview}
-                        isSaving={isSaving || isCheckingStudyConflict}
-                        onSave={handleSaveAssignment}
-                        onOpenDutyTemplateDialog={onOpenDutyTemplateDialog}
-                  />
+                  {(successMessage || errorMessage) && (
+                        <div className="mb-4 space-y-2">
+                              {successMessage && (
+                                    <div className="flex items-start justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                                          <span>{successMessage}</span>
+                                          <button
+                                                type="button"
+                                                onClick={clearSuccessMessage}
+                                                className="rounded-lg px-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                                          >
+                                                Đóng
+                                          </button>
+                                    </div>
+                              )}
 
-                  <div className="space-y-4">
-                        <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
-                              <div>
-                                    <h2 className="text-xl font-bold text-slate-950">
-                                          Lịch công tác
-                                    </h2>
-                                    <p className="mt-1 text-sm text-slate-500">
-                                          Xem công tác theo ngày, tuần hoặc tháng.
-                                    </p>
+                              {errorMessage && (
+                                    <div className="flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                                          <span>{errorMessage}</span>
+                                          <button
+                                                type="button"
+                                                onClick={clearErrorMessage}
+                                                className="rounded-lg px-2 text-xs font-semibold text-red-700 hover:bg-red-100"
+                                          >
+                                                Đóng
+                                          </button>
+                                    </div>
+                              )}
+                        </div>
+                  )}
+
+                  <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
+                        <DutyAssignmentForm
+                              form={assignmentForm}
+                              onChange={onAssignmentFormChange}
+                              dutyConfigs={dutyConfigs}
+                              selectedDutyConfig={selectedDutyConfig}
+                              assigneeOptions={assigneeOptions}
+                              previewEnabled={previewEnabled}
+                              previewLoading={previewLoading}
+                              preview={preview}
+                              isSaving={isSaving || isCheckingStudyConflict}
+                              onSave={handleSaveAssignment}
+                              onOpenDutyTemplateDialog={onOpenDutyTemplateDialog}
+                        />
+
+                        <div className="space-y-4">
+                              <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+                                    <div>
+                                          <h2 className="text-xl font-bold text-slate-950">
+                                                Lịch công tác
+                                          </h2>
+                                          <p className="mt-1 text-sm text-slate-500">
+                                                Xem công tác theo ngày, tuần hoặc tháng.
+                                          </p>
+                                    </div>
+
+                                    <DutyViewSwitcher
+                                          value={viewMode}
+                                          onChange={setViewMode}
+                                    />
                               </div>
 
-                              <DutyViewSwitcher
-                                    value={viewMode}
-                                    onChange={setViewMode}
-                              />
+                              {viewMode === 'day' && (
+                                    <DutyDayView
+                                          selectedDate={selectedDate}
+                                          onDateChange={onDateChange}
+                                          statusFilter={statusFilter}
+                                          onStatusFilterChange={onStatusFilterChange}
+                                          assignments={assignments}
+                                          isLoading={isLoadingAssignments}
+                                          onCompleteDuty={onCompleteDuty}
+                                          onSkipDuty={onSkipDuty}
+                                          onCancelDuty={onCancelDuty}
+                                    />
+                              )}
+
+                              {viewMode === 'week' && (
+                                    <DutyWeekView
+                                          selectedDate={selectedDate}
+                                          assignments={rangeAssignments}
+                                          onSelectDate={selectDateAndOpenDayView}
+                                    />
+                              )}
+
+                              {viewMode === 'month' && (
+                                    <DutyMonthView
+                                          selectedDate={selectedDate}
+                                          assignments={rangeAssignments}
+                                          onSelectDate={selectDateAndOpenDayView}
+                                    />
+                              )}
                         </div>
-
-                        {viewMode === 'day' && (
-                              <DutyDayView
-                                    selectedDate={selectedDate}
-                                    onDateChange={onDateChange}
-                                    statusFilter={statusFilter}
-                                    onStatusFilterChange={onStatusFilterChange}
-                                    assignments={assignments}
-                                    isLoading={isLoadingAssignments}
-                                    onCompleteDuty={onCompleteDuty}
-                                    onSkipDuty={onSkipDuty}
-                                    onCancelDuty={onCancelDuty}
-                              />
-                        )}
-
-                        {viewMode === 'week' && (
-                              <DutyWeekView
-                                    selectedDate={selectedDate}
-                                    assignments={rangeAssignments}
-                                    onSelectDate={selectDateAndOpenDayView}
-                              />
-                        )}
-
-                        {viewMode === 'month' && (
-                              <DutyMonthView
-                                    selectedDate={selectedDate}
-                                    assignments={rangeAssignments}
-                                    onSelectDate={selectDateAndOpenDayView}
-                              />
-                        )}
                   </div>
-            </div>
 
-            <AppMessageBox
-                  state={messageBox}
-                  onCancel={closeMessageBox}
-                  onConfirm={handleMessageBoxConfirm}
-                  isProcessing={isSaving || isCheckingStudyConflict}
-            />
+                  <AppMessageBox
+                        state={messageBox}
+                        onCancel={closeMessageBox}
+                        onConfirm={handleMessageBoxConfirm}
+                        isProcessing={isSaving || isCheckingStudyConflict}
+                  />
             </>
       );
 }
