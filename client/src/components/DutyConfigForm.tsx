@@ -165,6 +165,24 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
     }
   };
 
+  const getDutyConfigIdFromResult = (result: any) => {
+    const rawId =
+      result?.id ??
+      result?.dutyConfigId ??
+      result?.insertId ??
+      result?.data?.id ??
+      result?.data?.dutyConfigId ??
+      result?.data?.insertId ??
+      result?.result?.id ??
+      result?.result?.insertId ??
+      result?.[0]?.id ??
+      result?.[0]?.insertId;
+
+    const parsedId = Number(rawId);
+
+    return Number.isFinite(parsedId) && parsedId > 0 ? parsedId : 0;
+  };
+
   // Handle save
   const handleSave = async () => {
     if (!formData.dutyCode || !formData.dutyName) {
@@ -178,7 +196,7 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
       let dutyConfigId = duty?.id ? Number(duty.id) : 0;
 
       if (duty) {
-        await updateConfigMutation.mutateAsync({
+        const updatedConfig: any = await updateConfigMutation.mutateAsync({
           id: duty.id,
           data: {
             dutyName: formData.dutyName,
@@ -189,6 +207,11 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
             maxPersons: formData.maxPersons,
           },
         });
+
+        dutyConfigId =
+          dutyConfigId ||
+          getDutyConfigIdFromResult(updatedConfig) ||
+          Number(duty.id || 0);
       } else {
         const createdConfig: any = await createConfigMutation.mutateAsync({
           dutyCode: formData.dutyCode,
@@ -204,19 +227,36 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
           requiresStudyScheduleCheck: formData.requiresStudyScheduleCheck,
         });
 
-        dutyConfigId = Number(createdConfig?.id || createdConfig?.insertId || 0);
+        dutyConfigId = getDutyConfigIdFromResult(createdConfig);
+
+        if (!dutyConfigId) {
+          console.warn(
+            "Đã lưu cấu hình công tác nhưng response chưa trả về ID. Bỏ qua bước lưu danh sách công việc trong lần này.",
+            createdConfig
+          );
+        }
       }
 
-      if (!dutyConfigId) {
-        throw new Error("Không xác định được công tác cần lưu danh sách công việc.");
-      }
+      const hasChecklistItems = checklistItems.some((item) =>
+        item.checklistItem?.trim()
+      );
 
-      await persistChecklistItems(dutyConfigId);
+      if (hasChecklistItems && dutyConfigId) {
+        await persistChecklistItems(dutyConfigId);
+      } else if (hasChecklistItems && !dutyConfigId) {
+        console.warn(
+          "Không xác định được công tác cần lưu danh sách công việc. Vui lòng mở lại công tác vừa tạo để bổ sung danh sách công việc nếu cần."
+        );
+      }
 
       onSave();
     } catch (error) {
       console.error("Error saving duty config:", error);
-      alert("Lỗi khi lưu công tác");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Lỗi khi lưu công tác"
+      );
     } finally {
       setLoading(false);
     }

@@ -44,7 +44,48 @@ const bulkCreateResidentUsersSchema = z.object({
       temporaryPassword: z.string().min(6).optional(),
       mustChangePassword: z.boolean().optional(),
 });
+const educationSchema = z.object({
+      residentId: z.number().int().positive(),
+      schoolName: z.string().trim().min(1, "Vui lòng nhập tên trường đang học."),
+      educationLevel: z
+            .enum(["high_school", "vocational", "college", "university", "other"])
+            .optional()
+            .nullable(),
+      classOrMajor: z.string().trim().optional().nullable(),
+      academicYear: z.string().trim().optional().nullable(),
+      notes: z.string().trim().optional().nullable(),
+});
+const dayOfWeekSchema = z.enum([
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+]);
 
+const studyScheduleSchema = z.object({
+      residentId: z.number().int().positive(),
+      dayOfWeek: dayOfWeekSchema,
+      startTime: z.string().trim().min(1, "Vui lòng nhập giờ bắt đầu."),
+      endTime: z.string().trim().min(1, "Vui lòng nhập giờ kết thúc."),
+      subjectName: z.string().trim().optional().nullable(),
+      location: z.string().trim().optional().nullable(),
+      notes: z.string().trim().optional().nullable(),
+});
+
+const studyScheduleConflictSchema = z.object({
+      residentId: z.number().int().positive(),
+      assignmentDate: z.string().trim().min(1, "Vui lòng chọn ngày công tác."),
+      startTime: z.string().trim().min(1, "Vui lòng nhập giờ bắt đầu."),
+      endTime: z.string().trim().min(1, "Vui lòng nhập giờ kết thúc."),
+      travelMinutes: z.number().int().min(0).max(240).optional().default(60),
+});
+
+const updateStudyScheduleSchema = studyScheduleSchema.extend({
+      id: z.number().int().positive(),
+});
 export const membersRouter = router({
       list: protectedProcedure
             .input(
@@ -236,7 +277,7 @@ export const membersRouter = router({
                         });
                   }
             }),
-            
+
       assignRoom: protectedProcedure
             .input(
                   z.object({
@@ -418,5 +459,146 @@ export const membersRouter = router({
                         mustChangePassword: input.mustChangePassword ?? true,
                         assignedBy: ctx.user?.id ?? null,
                   });
+            }),
+      getEducation: protectedProcedure
+            .input(
+                  z.object({
+                        residentId: z.number().int().positive(),
+                  })
+            )
+            .query(async ({ input }) => {
+                  try {
+                        return await memberService.getEducation(input.residentId);
+                  } catch (error) {
+                        console.error("[members.getEducation] Error:", error);
+
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Không thể tải thông tin học hành.",
+                        });
+                  }
+            }),
+
+      upsertEducation: protectedProcedure
+            .input(educationSchema)
+            .mutation(async ({ ctx, input }) => {
+                  requireMemberManagementAccess(ctx.user);
+
+                  try {
+                        return await memberService.upsertEducation(input);
+                  } catch (error) {
+                        console.error("[members.upsertEducation] Error:", error);
+
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Không thể lưu thông tin học hành.",
+                        });
+                  }
+            }),
+      getStudySchedules: protectedProcedure
+            .input(
+                  z.object({
+                        residentId: z.number().int().positive(),
+                  })
+            )
+            .query(async ({ input }) => {
+                  try {
+                        return await memberService.getStudySchedules(input.residentId);
+                  } catch (error) {
+                        console.error("[members.getStudySchedules] Error:", error);
+
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Không thể tải lịch học.",
+                        });
+                  }
+            }),
+      createStudySchedule: protectedProcedure
+            .input(studyScheduleSchema)
+            .mutation(async ({ ctx, input }) => {
+                  requireMemberManagementAccess(ctx.user);
+
+                  try {
+                        return await memberService.createStudySchedule(input);
+                  } catch (error) {
+                        console.error("[members.createStudySchedule] Error:", error);
+
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Không thể thêm lịch học.",
+                        });
+                  }
+            }),
+      updateStudySchedule: protectedProcedure
+            .input(updateStudyScheduleSchema)
+            .mutation(async ({ ctx, input }) => {
+                  requireMemberManagementAccess(ctx.user);
+
+                  try {
+                        return await memberService.updateStudySchedule(input);
+                  } catch (error) {
+                        console.error("[members.updateStudySchedule] Error:", error);
+
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Không thể cập nhật lịch học.",
+                        });
+                  }
+            }),
+      deleteStudySchedule: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number().int().positive(),
+                        residentId: z.number().int().positive(),
+                  })
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireMemberManagementAccess(ctx.user);
+
+                  try {
+                        return await memberService.deleteStudySchedule(input);
+                  } catch (error) {
+                        console.error("[members.deleteStudySchedule] Error:", error);
+
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Không thể xóa lịch học.",
+                        });
+                  }
+            }),
+      checkStudyScheduleConflict: protectedProcedure
+            .input(studyScheduleConflictSchema)
+            .query(async ({ input }) => {
+                  try {
+                        return await memberService.checkStudyScheduleConflict(input);
+                  } catch (error) {
+                        console.error("[members.checkStudyScheduleConflict] Error:", error);
+
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : "Không thể kiểm tra lịch học.",
+                        });
+                  }
             }),
 });

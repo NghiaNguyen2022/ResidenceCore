@@ -51,18 +51,47 @@ type DutyAssignmentFormProps = {
 function formatTime(value?: string | Date | null) {
       if (!value) return '';
 
-      if (value instanceof Date) {
-            return `${String(value.getHours()).padStart(2, '0')}:${String(
-                  value.getMinutes()
-            ).padStart(2, '0')}`;
+      if (typeof value === 'string') {
+            const text = value.trim();
+
+            if (!text) return '';
+
+            const timeMatch = text.match(/^(\d{2}):(\d{2})(?::\d{2})?$/);
+            if (timeMatch) {
+                  return `${timeMatch[1]}:${timeMatch[2]}`;
+            }
+
+            if (text.includes('T')) {
+                  const date = new Date(text);
+
+                  if (!Number.isNaN(date.getTime())) {
+                        const hours = String(date.getUTCHours()).padStart(2, '0');
+                        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+
+                        return `${hours}:${minutes}`;
+                  }
+            }
+
+            if (text.includes(' ')) {
+                  const timePart = text.split(' ')[1] || '';
+                  const timePartMatch = timePart.match(/^(\d{2}):(\d{2})/);
+
+                  if (timePartMatch) {
+                        return `${timePartMatch[1]}:${timePartMatch[2]}`;
+                  }
+            }
+
+            return text.slice(0, 5);
       }
 
-      const text = String(value);
+      if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            const hours = String(value.getUTCHours()).padStart(2, '0');
+            const minutes = String(value.getUTCMinutes()).padStart(2, '0');
 
-      if (text.includes(' ')) return text.split(' ')[1]?.slice(0, 5) || '';
-      if (text.includes('T')) return text.split('T')[1]?.slice(0, 5) || '';
+            return `${hours}:${minutes}`;
+      }
 
-      return text.slice(0, 5);
+      return String(value).slice(0, 5);
 }
 
 export function DutyAssignmentForm({

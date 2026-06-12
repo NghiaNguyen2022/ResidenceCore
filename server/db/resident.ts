@@ -17,6 +17,9 @@ import {
       residents,
       roomAssignments,
       rooms,
+      residentEducation,
+      InsertResidentEducation,
+      residentStudySchedules
 } from "../../drizzle/schema";
 
 function getParentTypePriority(parentType?: string | null) {
@@ -316,6 +319,196 @@ export async function markResidentAsLeft(id: number, departureDate: Date) {
 
       return getResidentById(id);
 }
+type EducationLevel =
+      | "high_school"
+      | "vocational"
+      | "college"
+      | "university"
+      | "other";
+
+export type ResidentEducationInput = {
+      residentId: number;
+      schoolName: string;
+      educationLevel?: EducationLevel | null;
+      classOrMajor?: string | null;
+      academicYear?: string | null;
+      notes?: string | null;
+};
+
+type DayOfWeek =
+      | "monday"
+      | "tuesday"
+      | "wednesday"
+      | "thursday"
+      | "friday"
+      | "saturday"
+      | "sunday";
+
+function getDayOfWeekFromDateText(dateText: string): DayOfWeek {
+      const date = new Date(`${dateText}T00:00:00`);
+
+      const day = date.getDay();
+
+      switch (day) {
+            case 0:
+                  return "sunday";
+            case 1:
+                  return "monday";
+            case 2:
+                  return "tuesday";
+            case 3:
+                  return "wednesday";
+            case 4:
+                  return "thursday";
+            case 5:
+                  return "friday";
+            case 6:
+                  return "saturday";
+            default:
+                  return "monday";
+      }
+}
+function normalizeTimeText(value: string) {
+      if (!value) return "";
+      return value.slice(0, 5);
+}
+
+function timeTextToMinutes(value: string) {
+      const normalized = normalizeTimeText(value);
+
+      const [hourText, minuteText] = normalized.split(":");
+
+      const hour = Number(hourText);
+      const minute = Number(minuteText);
+
+      if (Number.isNaN(hour) || Number.isNaN(minute)) {
+            return 0;
+      }
+
+      return hour * 60 + minute;
+}
+
+function minutesToTimeText(totalMinutes: number) {
+      const safeMinutes = Math.max(0, Math.min(24 * 60, totalMinutes));
+
+      const hour = Math.floor(safeMinutes / 60);
+      const minute = safeMinutes % 60;
+
+      return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function isTimeOverlap(input: {
+      startA: string;
+      endA: string;
+      startB: string;
+      endB: string;
+}) {
+      const startA = timeTextToMinutes(input.startA);
+      const endA = timeTextToMinutes(input.endA);
+      const startB = timeTextToMinutes(input.startB);
+      const endB = timeTextToMinutes(input.endB);
+
+      return startA < endB && endA > startB;
+}
+
+function expandStudyTimeWithTravel(input: {
+      startTime: string;
+      endTime: string;
+      travelMinutes?: number;
+}) {
+      const travelMinutes = input.travelMinutes ?? 60;
+
+      const studyStartMinutes = timeTextToMinutes(input.startTime);
+      const studyEndMinutes = timeTextToMinutes(input.endTime);
+
+      const busyStartMinutes = Math.max(0, studyStartMinutes - travelMinutes);
+      const busyEndMinutes = Math.min(24 * 60, studyEndMinutes + travelMinutes);
+
+      return {
+            busyStartTime: minutesToTimeText(busyStartMinutes),
+            busyEndTime: minutesToTimeText(busyEndMinutes),
+      };
+}
+
+export type ResidentStudyScheduleInput = {
+      residentId: number;
+      dayOfWeek: DayOfWeek;
+      startTime: string;
+      endTime: string;
+      subjectName?: string | null;
+      location?: string | null;
+      notes?: string | null;
+};
+export async function checkResidentStudyScheduleConflict(input: {
+      residentId: number;
+      assignmentDate: string;
+      startTime: string;
+      endTime: string;
+      travelMinutes?: number;
+}) {
+      const db = getDb();
+
+      if (!input.assignmentDate || !input.startTime || !input.endTime) {
+            return {
+                  hasConflict: false,
+                  conflicts: [],
+            };
+      }
+
+      const travelMinutes = input.travelMinutes ?? 60;
+      const dayOfWeek = getDayOfWeekFromDateText(input.assignmentDate);
+
+      const schedules = await db
+            .select()
+            .from(residentStudySchedules)
+            .where(
+                  and(
+                        eq(residentStudySchedules.residentId, input.residentId),
+                        eq(residentStudySchedules.dayOfWeek, dayOfWeek),
+                        eq(residentStudySchedules.isActive, true)
+                  )
+            );
+
+      const conflicts = schedules
+            .map((schedule) => {
+                  const expandedTime = expandStudyTimeWithTravel({
+                        startTime: String(schedule.startTime),
+                        endTime: String(schedule.endTime),
+                        travelMinutes,
+                  });
+
+                  return {
+                        ...schedule,
+                        busyStartTime: expandedTime.busyStartTime,
+                        busyEndTime: expandedTime.busyEndTime,
+                        travelMinutes,
+                  };
+            })
+            .filter((schedule) =>
+                  isTimeOverlap({
+                        startA: input.startTime,
+                        endA: input.endTime,
+                        startB: schedule.busyStartTime,
+                        endB: schedule.busyEndTime,
+                  })
+            );
+
+      return {
+            hasConflict: conflicts.length > 0,
+            conflicts,
+      };
+}
+
+export type UpdateResidentStudyScheduleInput = {
+      id: number;
+      residentId: number;
+      dayOfWeek: DayOfWeek;
+      startTime: string;
+      endTime: string;
+      subjectName?: string | null;
+      location?: string | null;
+      notes?: string | null;
+};
 
 export async function deleteResident(id: number) {
       const db = getDb();
@@ -520,4 +713,180 @@ export async function reactivateResident(id: number) {
             .where(eq(residents.id, id));
 
       return getResidentById(id);
+}
+export async function getResidentEducationByResidentId(residentId: number) {
+      const db = getDb();
+
+      const rows = await db
+            .select()
+            .from(residentEducation)
+            .where(
+                  and(
+                        eq(residentEducation.residentId, residentId),
+                        eq(residentEducation.isActive, true)
+                  )
+            )
+            .limit(1);
+
+      return rows[0] || null;
+}
+
+export async function upsertResidentEducation(data: ResidentEducationInput) {
+      const db = getDb();
+
+      const existing = await getResidentEducationByResidentId(data.residentId);
+
+      if (existing) {
+            await db
+                  .update(residentEducation)
+                  .set({
+                        schoolName: data.schoolName,
+                        educationLevel: data.educationLevel || "university",
+                        classOrMajor: data.classOrMajor || null,
+                        academicYear: data.academicYear || null,
+                        notes: data.notes || null,
+                        updatedAt: new Date(),
+                  })
+                  .where(eq(residentEducation.id, existing.id));
+
+            return getResidentEducationByResidentId(data.residentId);
+      }
+
+      await db.insert(residentEducation).values({
+            residentId: data.residentId,
+            schoolName: data.schoolName,
+            educationLevel: data.educationLevel || "university",
+            classOrMajor: data.classOrMajor || null,
+            academicYear: data.academicYear || null,
+            notes: data.notes || null,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+      });
+
+      return getResidentEducationByResidentId(data.residentId);
+}
+
+function isValidTimeRange(startTime: string, endTime: string) {
+      if (!startTime || !endTime) {
+            return false;
+      }
+
+      return startTime < endTime;
+}
+export async function getResidentStudySchedulesByResidentId(residentId: number) {
+      const db = getDb();
+
+      return db
+            .select()
+            .from(residentStudySchedules)
+            .where(
+                  and(
+                        eq(residentStudySchedules.residentId, residentId),
+                        eq(residentStudySchedules.isActive, true)
+                  )
+            )
+            .orderBy(
+                  residentStudySchedules.dayOfWeek,
+                  residentStudySchedules.startTime
+            );
+}
+
+export async function createResidentStudySchedule(
+      data: ResidentStudyScheduleInput
+) {
+      const db = getDb();
+
+      if (!isValidTimeRange(data.startTime, data.endTime)) {
+            throw new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
+      }
+
+      await db.insert(residentStudySchedules).values({
+            residentId: data.residentId,
+            dayOfWeek: data.dayOfWeek,
+            startTime: data.startTime,
+            endTime: data.endTime,
+            subjectName: data.subjectName || null,
+            location: data.location || null,
+            notes: data.notes || null,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+      } as any);
+
+      return getResidentStudySchedulesByResidentId(data.residentId);
+}
+
+export async function updateResidentStudySchedule(
+      data: UpdateResidentStudyScheduleInput
+) {
+      const db = getDb();
+
+      if (!isValidTimeRange(data.startTime, data.endTime)) {
+            throw new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
+      }
+
+      const existing = await db
+            .select()
+            .from(residentStudySchedules)
+            .where(
+                  and(
+                        eq(residentStudySchedules.id, data.id),
+                        eq(residentStudySchedules.residentId, data.residentId),
+                        eq(residentStudySchedules.isActive, true)
+                  )
+            )
+            .limit(1);
+
+      if (!existing[0]) {
+            throw new Error("Không tìm thấy lịch học.");
+      }
+
+      await db
+            .update(residentStudySchedules)
+            .set({
+                  dayOfWeek: data.dayOfWeek,
+                  startTime: data.startTime,
+                  endTime: data.endTime,
+                  subjectName: data.subjectName || null,
+                  location: data.location || null,
+                  notes: data.notes || null,
+                  updatedAt: new Date(),
+            } as any)
+            .where(eq(residentStudySchedules.id, data.id));
+
+      return getResidentStudySchedulesByResidentId(data.residentId);
+}
+
+export async function deactivateResidentStudySchedule(input: {
+      id: number;
+      residentId: number;
+}) {
+      const db = getDb();
+
+      const existing = await db
+            .select()
+            .from(residentStudySchedules)
+            .where(
+                  and(
+                        eq(residentStudySchedules.id, input.id),
+                        eq(residentStudySchedules.residentId, input.residentId),
+                        eq(residentStudySchedules.isActive, true)
+                  )
+            )
+            .limit(1);
+
+      if (!existing[0]) {
+            throw new Error("Không tìm thấy lịch học.");
+      }
+
+      await db
+            .update(residentStudySchedules)
+            .set({
+                  isActive: false,
+                  updatedAt: new Date(),
+            } as any)
+            .where(eq(residentStudySchedules.id, input.id));
+
+      return getResidentStudySchedulesByResidentId(input.residentId);
 }

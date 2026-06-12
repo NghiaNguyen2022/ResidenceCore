@@ -18,6 +18,67 @@ type DutyTemplateDialogProps = {
       onDelete: (duty: any) => void;
 };
 
+/**
+ * TIME fields must be displayed as time-of-day, not DateTime.
+ *
+ * Backend/MySQL TIME may come as:
+ * - "08:00"
+ * - "08:00:00"
+ * - Date object
+ * - ISO string like "1970-01-01T08:00:00.000Z"
+ *
+ * For ISO/Date values, use UTC hours to preserve the stored TIME value and avoid
+ * browser timezone shifting, e.g. 08:00 becoming 15:00 in Vietnam timezone.
+ */
+function formatTimeOnly(value: unknown) {
+      if (!value) return '';
+
+      if (typeof value === 'string') {
+            const text = value.trim();
+
+            if (!text) return '';
+
+            // Normal TIME from MySQL: 08:00 or 08:00:00
+            const timeMatch = text.match(/^(\d{2}):(\d{2})(?::\d{2})?$/);
+            if (timeMatch) {
+                  return `${timeMatch[1]}:${timeMatch[2]}`;
+            }
+
+            // ISO datetime string. Use UTC to avoid local timezone shifting.
+            if (text.includes('T')) {
+                  const date = new Date(text);
+
+                  if (!Number.isNaN(date.getTime())) {
+                        const hours = String(date.getUTCHours()).padStart(2, '0');
+                        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+
+                        return `${hours}:${minutes}`;
+                  }
+            }
+
+            // Fallback for unexpected but readable values.
+            return text.slice(0, 5);
+      }
+
+      if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            const hours = String(value.getUTCHours()).padStart(2, '0');
+            const minutes = String(value.getUTCMinutes()).padStart(2, '0');
+
+            return `${hours}:${minutes}`;
+      }
+
+      return String(value).slice(0, 5);
+}
+
+function getDutyTimeRange(duty: any) {
+      const startTime = formatTimeOnly(duty?.startTime);
+      const endTime = formatTimeOnly(duty?.endTime);
+
+      if (!startTime && !endTime) return '';
+
+      return `${startTime || '--:--'} - ${endTime || '--:--'}`;
+}
+
 export function DutyTemplateDialog({
       dutyConfigs,
       isLoading,
@@ -81,75 +142,81 @@ export function DutyTemplateDialog({
                               />
                         ) : (
                               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                    {dutyConfigs.map((duty: any) => (
-                                          <div
-                                                key={duty.id}
-                                                className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
-                                          >
-                                                <div className="flex items-start justify-between gap-3">
-                                                      <div>
-                                                            <p className="font-bold text-slate-950">
-                                                                  {duty.dutyName}
-                                                            </p>
-                                                            <p className="mt-1 text-xs text-slate-500">
-                                                                  {duty.dutyCode}
-                                                            </p>
+                                    {dutyConfigs.map((duty: any) => {
+                                          const timeRange = getDutyTimeRange(duty);
+
+                                          return (
+                                                <div
+                                                      key={duty.id}
+                                                      className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
+                                                >
+                                                      <div className="flex items-start justify-between gap-3">
+                                                            <div>
+                                                                  <p className="font-bold text-slate-950">
+                                                                        {duty.dutyName}
+                                                                  </p>
+                                                                  <p className="mt-1 text-xs text-slate-500">
+                                                                        {duty.dutyCode}
+                                                                  </p>
+                                                            </div>
+
+                                                            <Badge className="border-blue-100 bg-blue-50 text-blue-700">
+                                                                  {getDutyTypeLabel(duty.dutyType)}
+                                                            </Badge>
                                                       </div>
 
-                                                      <Badge className="border-blue-100 bg-blue-50 text-blue-700">
-                                                            {getDutyTypeLabel(duty.dutyType)}
-                                                      </Badge>
-                                                </div>
-
-                                                {duty.description && (
-                                                      <p className="mt-3 text-sm leading-6 text-slate-500">
-                                                            {duty.description}
-                                                      </p>
-                                                )}
-
-                                                <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                                                      {(duty.startTime || duty.endTime) && (
-                                                            <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
-                                                                  {String(duty.startTime || '').slice(0, 5)}
-                                                                  {' - '}
-                                                                  {String(duty.endTime || '').slice(0, 5)}
-                                                            </span>
+                                                      {duty.description && (
+                                                            <p className="mt-3 text-sm leading-6 text-slate-500">
+                                                                  {duty.description}
+                                                            </p>
                                                       )}
 
-                                                      {(duty.minPersons || duty.maxPersons) && (
+                                                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                                                            {timeRange && (
+                                                                  <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
+                                                                        {timeRange}
+                                                                  </span>
+                                                            )}
+
+                                                            {(duty.minPersons || duty.maxPersons) && (
+                                                                  <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
+                                                                        Số người: {duty.minPersons || 0}
+                                                                        {duty.maxPersons
+                                                                              ? ` - ${duty.maxPersons}`
+                                                                              : '+'}
+                                                                  </span>
+                                                            )}
+
                                                             <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
-                                                                  Số người: {duty.minPersons || 0}
-                                                                  {duty.maxPersons ? ` - ${duty.maxPersons}` : '+'}
+                                                                  {duty.isActive === false
+                                                                        ? 'Ngừng dùng'
+                                                                        : 'Đang dùng'}
                                                             </span>
-                                                      )}
+                                                      </div>
 
-                                                      <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
-                                                            {duty.isActive === false ? 'Ngừng dùng' : 'Đang dùng'}
-                                                      </span>
+                                                      <div className="mt-4 flex flex-wrap gap-2">
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => onEdit(duty)}
+                                                                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                                            >
+                                                                  <Edit2 className="h-3.5 w-3.5" />
+                                                                  Sửa
+                                                            </button>
+
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => onDelete(duty)}
+                                                                  disabled={isDeleting}
+                                                                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                            >
+                                                                  <Trash2 className="h-3.5 w-3.5" />
+                                                                  Xóa
+                                                            </button>
+                                                      </div>
                                                 </div>
-
-                                                <div className="mt-4 flex flex-wrap gap-2">
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => onEdit(duty)}
-                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                                      >
-                                                            <Edit2 className="h-3.5 w-3.5" />
-                                                            Sửa
-                                                      </button>
-
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => onDelete(duty)}
-                                                            disabled={isDeleting}
-                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                                      >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                            Xóa
-                                                      </button>
-                                                </div>
-                                          </div>
-                                    ))}
+                                          );
+                                    })}
                               </div>
                         )}
                   </div>

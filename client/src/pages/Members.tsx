@@ -59,6 +59,42 @@ import {
       type AppMessageBoxState,
 } from '@/components/common/AppMessageBox';
 
+type EducationLevel =
+      | 'high_school'
+      | 'vocational'
+      | 'college'
+      | 'university'
+      | 'other';
+
+type EducationInfoPayload = {
+      residentId: number;
+      schoolName: string;
+      educationLevel?: EducationLevel | null;
+      classOrMajor?: string | null;
+      academicYear?: string | null;
+      notes?: string | null;
+};
+
+type DayOfWeek =
+      | 'monday'
+      | 'tuesday'
+      | 'wednesday'
+      | 'thursday'
+      | 'friday'
+      | 'saturday'
+      | 'sunday';
+
+type StudySchedulePayload = {
+      id?: number;
+      residentId: number;
+      dayOfWeek: DayOfWeek;
+      startTime: string;
+      endTime: string;
+      subjectName?: string | null;
+      location?: string | null;
+      notes?: string | null;
+};
+
 
 function isResidentLeft(member: any) {
       const status = member?.status || member?.residenceStatus;
@@ -256,6 +292,28 @@ export default function Members() {
                   refetchOnWindowFocus: false,
             });
 
+      const selectedResidentId = selectedMember?.id ? Number(selectedMember.id) : 0;
+
+      const selectedEducationQuery = trpc.members.getEducation.useQuery(
+            {
+                  residentId: selectedResidentId,
+            },
+            {
+                  enabled: isDetailDialogOpen && selectedResidentId > 0,
+                  refetchOnWindowFocus: false,
+            }
+      );
+
+      const selectedStudySchedulesQuery = trpc.members.getStudySchedules.useQuery(
+            {
+                  residentId: selectedResidentId,
+            },
+            {
+                  enabled: isDetailDialogOpen && selectedResidentId > 0,
+                  refetchOnWindowFocus: false,
+            }
+      );
+
       const createMember = trpc.members.create.useMutation();
       const updateMember = trpc.members.update.useMutation();
       const deleteMember = trpc.members.delete.useMutation();
@@ -271,6 +329,90 @@ export default function Members() {
       const createResidentUserMutation =
             trpc.members.createResidentUser.useMutation();
 
+      const upsertEducationMutation = trpc.members.upsertEducation.useMutation({
+            onSuccess: async (education) => {
+                  setError(null);
+
+                  setSelectedMember((current: any) =>
+                        current
+                              ? {
+                                    ...current,
+                                    education,
+                              }
+                              : current
+                  );
+
+                  await selectedEducationQuery.refetch();
+                  await refetchMembers();
+            },
+            onError: (err: any) => {
+                  setError(err?.message || 'Không thể lưu thông tin học hành.');
+            },
+      });
+
+      const createStudyScheduleMutation = trpc.members.createStudySchedule.useMutation({
+            onSuccess: async (studySchedules) => {
+                  setError(null);
+
+                  setSelectedMember((current: any) =>
+                        current
+                              ? {
+                                    ...current,
+                                    studySchedules,
+                              }
+                              : current
+                  );
+
+                  await selectedStudySchedulesQuery.refetch();
+                  await refetchMembers();
+            },
+            onError: (err: any) => {
+                  setError(err?.message || 'Không thể thêm lịch học.');
+            },
+      });
+
+      const updateStudyScheduleMutation = trpc.members.updateStudySchedule.useMutation({
+            onSuccess: async (studySchedules) => {
+                  setError(null);
+
+                  setSelectedMember((current: any) =>
+                        current
+                              ? {
+                                    ...current,
+                                    studySchedules,
+                              }
+                              : current
+                  );
+
+                  await selectedStudySchedulesQuery.refetch();
+                  await refetchMembers();
+            },
+            onError: (err: any) => {
+                  setError(err?.message || 'Không thể cập nhật lịch học.');
+            },
+      });
+
+      const deleteStudyScheduleMutation = trpc.members.deleteStudySchedule.useMutation({
+            onSuccess: async (studySchedules) => {
+                  setError(null);
+
+                  setSelectedMember((current: any) =>
+                        current
+                              ? {
+                                    ...current,
+                                    studySchedules,
+                              }
+                              : current
+                  );
+
+                  await selectedStudySchedulesQuery.refetch();
+                  await refetchMembers();
+            },
+            onError: (err: any) => {
+                  setError(err?.message || 'Không thể xóa lịch học.');
+            },
+      });
+
       const bulkCreateResidentUsersMutation =
             trpc.members.bulkCreateResidentUsers.useMutation({
                   onSuccess: async () => {
@@ -283,6 +425,23 @@ export default function Members() {
       const members = membersQuery.data || [];
       const rooms = roomsQuery.data || [];
       const organizationAssignments = organizationAssignmentsQuery.data || [];
+
+      const selectedMemberForDetail = useMemo(() => {
+            if (!selectedMember) return null;
+
+            return {
+                  ...selectedMember,
+                  education: selectedEducationQuery.data ?? selectedMember.education ?? null,
+                  studySchedules:
+                        selectedStudySchedulesQuery.data ??
+                        selectedMember.studySchedules ??
+                        [],
+            };
+      }, [
+            selectedMember,
+            selectedEducationQuery.data,
+            selectedStudySchedulesQuery.data,
+      ]);
 
       const organizationTitlesByResidentId = useMemo(() => {
             const map = new Map<number, string[]>();
@@ -1503,20 +1662,20 @@ export default function Members() {
                               />
                         )}
 
-                        {isDetailDialogOpen && selectedMember && (
+                        {isDetailDialogOpen && selectedMemberForDetail && (
                               <MemberDetailModal
-                                    member={selectedMember}
+                                    member={selectedMemberForDetail}
                                     onClose={() => {
                                           setIsDetailDialogOpen(false);
                                           setSelectedMember(null);
                                     }}
                                     onEdit={() => {
                                           setIsDetailDialogOpen(false);
-                                          handleEditMember(selectedMember);
+                                          handleEditMember(selectedMemberForDetail);
                                     }}
                                     onAssignRoom={() => {
                                           setIsDetailDialogOpen(false);
-                                          handleOpenAssignRoomDialog(selectedMember);
+                                          handleOpenAssignRoomDialog(selectedMemberForDetail);
                                     }}
                                     onCreateUser={handleCreateUserFromDetail}
                                     onReactivate={handleReactivateMember}
@@ -1526,6 +1685,42 @@ export default function Members() {
                                     }
                                     isReactivating={reactivateMemberMutation.isPending}
                                     onDataChange={refetchMembers}
+                                    isSavingEducation={upsertEducationMutation.isPending}
+                                    onSaveEducation={(data: EducationInfoPayload) => {
+                                          upsertEducationMutation.mutate(data);
+                                    }}
+                                    isSavingStudySchedule={
+                                          createStudyScheduleMutation.isPending ||
+                                          updateStudyScheduleMutation.isPending
+                                    }
+                                    isDeletingStudySchedule={deleteStudyScheduleMutation.isPending}
+                                    onSaveStudySchedule={(data: StudySchedulePayload) => {
+                                          if (data.id) {
+                                                updateStudyScheduleMutation.mutate({
+                                                      id: data.id,
+                                                      residentId: data.residentId,
+                                                      dayOfWeek: data.dayOfWeek,
+                                                      startTime: data.startTime,
+                                                      endTime: data.endTime,
+                                                      subjectName: data.subjectName,
+                                                      location: data.location,
+                                                      notes: data.notes,
+                                                });
+                                          } else {
+                                                createStudyScheduleMutation.mutate({
+                                                      residentId: data.residentId,
+                                                      dayOfWeek: data.dayOfWeek,
+                                                      startTime: data.startTime,
+                                                      endTime: data.endTime,
+                                                      subjectName: data.subjectName,
+                                                      location: data.location,
+                                                      notes: data.notes,
+                                                });
+                                          }
+                                    }}
+                                    onDeleteStudySchedule={(input) => {
+                                          deleteStudyScheduleMutation.mutate(input);
+                                    }}
                               />
                         )}
 

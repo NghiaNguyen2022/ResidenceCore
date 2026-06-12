@@ -69,6 +69,90 @@ export const residentAcademicInfo = mysqlTable("residentAcademicInfo", {
 
 export type ResidentAcademicInfo = typeof residentAcademicInfo.$inferSelect;
 export type InsertResidentAcademicInfo = typeof residentAcademicInfo.$inferInsert;
+/**
+ * ResidentEducation table - Simple academic information for Phase 2 main flow
+ *
+ * Mục tiêu:
+ * - Lưu thông tin học hành cơ bản của học viên.
+ * - Không bắt buộc phải có school/program master data.
+ * - Dùng cho main flow: Hồ sơ học viên -> Lịch học -> Phân công công tác.
+ *
+ * Ghi chú:
+ * - residentAcademicInfo giữ cho Detailed Mode hoặc quản lý học vụ chi tiết.
+ * - residentEducation dùng cho Simple Mode / Phase 2.
+ */
+export const residentEducation = mysqlTable("residentEducation", {
+      id: int("id").autoincrement().primaryKey(),
+
+      residentId: int("residentId")
+            .notNull()
+            .references(() => residents.id, { onDelete: "cascade" }),
+
+      schoolName: varchar("schoolName", { length: 255 }).notNull(),
+      educationLevel: mysqlEnum("educationLevel", [
+            "high_school",
+            "vocational",
+            "college",
+            "university",
+            "other",
+      ]).default("university"),
+
+      classOrMajor: varchar("classOrMajor", { length: 255 }),
+      academicYear: varchar("academicYear", { length: 100 }),
+
+      notes: text("notes"),
+
+      isActive: boolean("isActive").default(true).notNull(),
+
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ResidentEducation = typeof residentEducation.$inferSelect;
+export type InsertResidentEducation = typeof residentEducation.$inferInsert;
+
+/**
+ * ResidentStudySchedules table - Simple weekly study schedule for Phase 2 main flow
+ *
+ * Mục tiêu:
+ * - Lưu lịch học hằng tuần của học viên.
+ * - Dùng làm dữ liệu cảnh báo khi phân công công tác trùng giờ học.
+ * - Chỉ làm tối giản theo main flow, chưa quản lý học kỳ/lịch thi/lịch học bù.
+ */
+export const residentStudySchedules = mysqlTable("residentStudySchedules", {
+      id: int("id").autoincrement().primaryKey(),
+
+      residentId: int("residentId")
+            .notNull()
+            .references(() => residents.id, { onDelete: "cascade" }),
+
+      dayOfWeek: mysqlEnum("dayOfWeek", [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
+      ]).notNull(),
+
+      startTime: time("startTime").notNull(),
+      endTime: time("endTime").notNull(),
+
+      subjectName: varchar("subjectName", { length: 255 }),
+      location: varchar("location", { length: 255 }),
+      notes: text("notes"),
+
+      isActive: boolean("isActive").default(true).notNull(),
+
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ResidentStudySchedule =
+      typeof residentStudySchedules.$inferSelect;
+export type InsertResidentStudySchedule =
+      typeof residentStudySchedules.$inferInsert;
 
 /**
  * Groups table - NEW: Tổ/nhóm trong ký túc xá

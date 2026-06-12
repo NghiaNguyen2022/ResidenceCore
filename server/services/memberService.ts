@@ -60,6 +60,51 @@ export type CreateMemberData = {
       notes?: string | null;
       parents?: ParentInput[];
 };
+type EducationLevel =
+      | "high_school"
+      | "vocational"
+      | "college"
+      | "university"
+      | "other";
+
+export type ResidentEducationData = {
+      residentId: number;
+      schoolName: string;
+      educationLevel?: EducationLevel | null;
+      classOrMajor?: string | null;
+      academicYear?: string | null;
+      notes?: string | null;
+};
+
+type DayOfWeek =
+      | "monday"
+      | "tuesday"
+      | "wednesday"
+      | "thursday"
+      | "friday"
+      | "saturday"
+      | "sunday";
+
+export type ResidentStudyScheduleData = {
+      residentId: number;
+      dayOfWeek: DayOfWeek;
+      startTime: string;
+      endTime: string;
+      subjectName?: string | null;
+      location?: string | null;
+      notes?: string | null;
+};
+
+export type UpdateResidentStudyScheduleData = {
+      id: number;
+      residentId: number;
+      dayOfWeek: DayOfWeek;
+      startTime: string;
+      endTime: string;
+      subjectName?: string | null;
+      location?: string | null;
+      notes?: string | null;
+};
 
 export type UpdateMemberData = Partial<{
       holyName: string | null;
@@ -165,10 +210,14 @@ export class MemberService {
             }
 
             const parents = await db.getParentsByResidentId(id);
+            const education = await db.getResidentEducationByResidentId(id);
+            const studySchedules = await db.getResidentStudySchedulesByResidentId(id);
 
             return {
                   ...resident,
                   parents,
+                  education,
+                  studySchedules,
             };
       }
 
@@ -425,6 +474,147 @@ export class MemberService {
             await db.deleteParent(id);
             return { success: true } as const;
       }
+
+      async getEducation(residentId: number) {
+            const resident = await db.getResidentById(residentId);
+
+            if (!resident) {
+                  throw new Error("Không tìm thấy học viên.");
+            }
+
+            return db.getResidentEducationByResidentId(residentId);
+      }
+
+      async upsertEducation(data: {
+            residentId: number;
+            schoolName: string;
+            educationLevel?: "high_school" | "vocational" | "college" | "university" | "other" | null;
+            classOrMajor?: string | null;
+            academicYear?: string | null;
+            notes?: string | null;
+      }) {
+            const resident = await db.getResidentById(data.residentId);
+
+            if (!resident) {
+                  throw new Error("Không tìm thấy học viên.");
+            }
+
+            if (!data.schoolName?.trim()) {
+                  throw new Error("Vui lòng nhập tên trường đang học.");
+            }
+
+            return db.upsertResidentEducation({
+                  residentId: data.residentId,
+                  schoolName: data.schoolName.trim(),
+                  educationLevel: data.educationLevel || "university",
+                  classOrMajor: data.classOrMajor?.trim() || null,
+                  academicYear: data.academicYear?.trim() || null,
+                  notes: data.notes?.trim() || null,
+            });
+      }
+      async getStudySchedules(residentId: number) {
+            const resident = await db.getResidentById(residentId);
+
+            if (!resident) {
+                  throw new Error("Không tìm thấy học viên.");
+            }
+
+            return db.getResidentStudySchedulesByResidentId(residentId);
+      }
+
+      async createStudySchedule(data: ResidentStudyScheduleData) {
+            const resident = await db.getResidentById(data.residentId);
+
+            if (!resident) {
+                  throw new Error("Không tìm thấy học viên.");
+            }
+
+            if (!data.startTime || !data.endTime) {
+                  throw new Error("Vui lòng nhập giờ bắt đầu và giờ kết thúc.");
+            }
+
+            if (data.startTime >= data.endTime) {
+                  throw new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
+            }
+
+            return db.createResidentStudySchedule({
+                  residentId: data.residentId,
+                  dayOfWeek: data.dayOfWeek,
+                  startTime: data.startTime,
+                  endTime: data.endTime,
+                  subjectName: data.subjectName?.trim() || null,
+                  location: data.location?.trim() || null,
+                  notes: data.notes?.trim() || null,
+            });
+      }
+
+      async updateStudySchedule(data: UpdateResidentStudyScheduleData) {
+            const resident = await db.getResidentById(data.residentId);
+
+            if (!resident) {
+                  throw new Error("Không tìm thấy học viên.");
+            }
+
+            if (!data.startTime || !data.endTime) {
+                  throw new Error("Vui lòng nhập giờ bắt đầu và giờ kết thúc.");
+            }
+
+            if (data.startTime >= data.endTime) {
+                  throw new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
+            }
+
+            return db.updateResidentStudySchedule({
+                  id: data.id,
+                  residentId: data.residentId,
+                  dayOfWeek: data.dayOfWeek,
+                  startTime: data.startTime,
+                  endTime: data.endTime,
+                  subjectName: data.subjectName?.trim() || null,
+                  location: data.location?.trim() || null,
+                  notes: data.notes?.trim() || null,
+            });
+      }
+
+      async deleteStudySchedule(input: { id: number; residentId: number }) {
+            const resident = await db.getResidentById(input.residentId);
+
+            if (!resident) {
+                  throw new Error("Không tìm thấy học viên.");
+            }
+
+            return db.deactivateResidentStudySchedule(input);
+      }
+      async checkStudyScheduleConflict(input: {
+            residentId: number;
+            assignmentDate: string;
+            startTime: string;
+            endTime: string;
+            travelMinutes?: number;
+      }) {
+            const resident = await db.getResidentById(input.residentId);
+
+            if (!resident) {
+                  throw new Error("Không tìm thấy học viên.");
+            }
+
+            if (!input.assignmentDate) {
+                  throw new Error("Vui lòng chọn ngày công tác.");
+            }
+
+            if (!input.startTime || !input.endTime) {
+                  throw new Error("Vui lòng nhập giờ bắt đầu và giờ kết thúc.");
+            }
+
+            if (input.startTime >= input.endTime) {
+                  throw new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
+            }
+
+            return db.checkResidentStudyScheduleConflict({
+                  ...input,
+                  travelMinutes: input.travelMinutes ?? 60,
+            });
+      }
 }
 
 export const memberService = new MemberService();
+

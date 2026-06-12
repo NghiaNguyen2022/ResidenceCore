@@ -21,7 +21,7 @@ import {
       InsertDutyEvaluation,
       InsertScheduleConflict,
 } from "../../drizzle/schema";
-import { eq, and, or, gte, lte, between, like, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, between, like, sql, inArray } from "drizzle-orm";
 
 // ============================================================================
 // 2.1 DUTY TEMPLATE FUNCTIONS
@@ -549,7 +549,7 @@ async function validateResidentDutyCapacity(
                               eq(dutyAssignments.assignedToType, "resident" as any),
                               sql`${dutyAssignments.assignedToType} IS NULL`
                         ),
-                        sql`${dutyAssignments.status} <> 'cancelled'`
+                        inArray(dutyAssignments.status, ACTIVE_DUTY_ASSIGNMENT_STATUSES as any)
                   )
             );
 
@@ -1289,6 +1289,14 @@ export type PreviewDutyAssignmentItem = {
       maxPersons?: number | null;
 };
 
+const ACTIVE_DUTY_ASSIGNMENT_STATUSES = [
+      "pending",
+      "confirmed",
+      "in_progress",
+      "completed",
+] as const;
+
+
 function buildDateTimeFromDateAndTime(dateText: string, timeText?: string | null) {
       if (!timeText) return null;
 
@@ -1315,7 +1323,7 @@ async function getDutyAssignmentExistingRows(
                         sql`DATE(${dutyAssignments.assignedDate}) = ${input.assignedDate}`,
                         eq(dutyAssignments.assignedToType, input.assignedToType as any),
                         eq(dutyAssignments.assignedToId, input.assignedToId),
-                        sql`${dutyAssignments.status} <> 'cancelled'`
+                        inArray(dutyAssignments.status, ACTIVE_DUTY_ASSIGNMENT_STATUSES as any)
                   )
             );
 }
@@ -1338,7 +1346,7 @@ async function getDutyAssignmentResidentRows(
                               eq(dutyAssignments.assignedToType, "resident" as any),
                               sql`${dutyAssignments.assignedToType} IS NULL`
                         ),
-                        sql`${dutyAssignments.status} <> 'cancelled'`
+                        inArray(dutyAssignments.status, ACTIVE_DUTY_ASSIGNMENT_STATUSES as any)
                   )
             );
 }
