@@ -2,10 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import {
-      CalendarDays,
-      CheckSquare,
       Clock,
-      ClipboardList,
       Plus,
       X,
 } from 'lucide-react';
@@ -23,27 +20,28 @@ import {
       AppMessageBox,
       type AppMessageBoxState,
 } from '@/components/common/AppMessageBox';
-import { useAutoDismissMessage } from '@/hooks/useAutoDismissMessage';
-import {
-      todayValue,
-      formatTime,
-      formatDateValue,
-      getWeekDateValues,
-      getTimeValue,
-      isPastTime,
-      isSameDateAsToday,
-      getRoutineVisualState,
-      getDutyVisualState,
-      getAssigneeTypeLabel,
-} from '@/components/daily-routine/shared';
 
 type DayType = 'weekday' | 'sunday' | 'special';
 
 type DailyRoutineView = 'today' | 'routine' | 'duties';
 
-type DutyStatusFilter = 'all' | 'open' | 'overdue' | 'completed' | 'skipped' | 'cancelled';
+type DutyStatusFilter = 'all' | 'open' | 'overdue' | 'completed' | 'skipped' | 'absent' | 'cancelled';
 
 type AssignToType = 'resident' | 'team' | 'room' | 'committee';
+
+type DayOfWeek =
+      | 'monday'
+      | 'tuesday'
+      | 'wednesday'
+      | 'thursday'
+      | 'friday'
+      | 'saturday'
+      | 'sunday';
+
+type RepeatType = 'once' | 'weekly' | 'monthly';
+type MonthlyMode = 'month_boundary' | 'day_of_month' | 'week_day';
+type MonthBoundary = 'first_day' | 'last_day';
+type MonthWeek = '1' | '2' | '3' | '4' | 'last';
 
 type AssignmentForm = {
       dutyConfigId: string;
@@ -53,6 +51,14 @@ type AssignmentForm = {
       assignedToType: AssignToType;
       assignedToId: string;
       assignWholeWeek: boolean;
+      repeatType: RepeatType;
+      repeatEndDate: string;
+      weeklyDays: DayOfWeek[];
+      monthlyMode: MonthlyMode;
+      monthBoundary: MonthBoundary;
+      monthDays: number[];
+      monthWeeks: MonthWeek[];
+      monthWeekDays: DayOfWeek[];
       notes: string;
 };
 
@@ -112,6 +118,204 @@ function getDayTypeClass(dayType?: string | null) {
       return 'border-slate-100 bg-slate-50 text-slate-600';
 }
 
+function formatTime(value?: string | Date | null) {
+      if (!value) return '--:--';
+
+      if (value instanceof Date) {
+            return value.toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+            });
+      }
+
+      const text = String(value);
+
+      if (text.includes('T')) {
+            return new Date(text).toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+            });
+      }
+
+      return text.slice(0, 5);
+}
+
+function todayValue() {
+      return new Date().toISOString().slice(0, 10);
+}
+
+function formatDateValue(date: Date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+
+      return `${year}-${month}-${day}`;
+}
+
+const DAY_INDEX_BY_VALUE: Record<DayOfWeek, number> = {
+      sunday: 0,
+      monday: 1,
+      tuesday: 2,
+      wednesday: 3,
+      thursday: 4,
+      friday: 5,
+      saturday: 6,
+};
+
+function parseDateValue(dateText: string) {
+      const [year, month, day] = dateText.split('-').map(Number);
+      return new Date(year, month - 1, day);
+}
+
+function addDays(date: Date, days: number) {
+      const nextDate = new Date(date);
+      nextDate.setDate(date.getDate() + days);
+      return nextDate;
+}
+
+function isDateInRange(dateText: string, startDate: string, endDate: string) {
+      return dateText >= startDate && dateText <= endDate;
+}
+
+function getLastDayOfMonth(year: number, monthIndex: number) {
+      return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function uniqueSortedDates(values: string[]) {
+      return Array.from(new Set(values.filter(Boolean))).sort();
+}
+
+function getNthWeekdayOfMonth(input: {
+      year: number;
+      monthIndex: number;
+      week: MonthWeek;
+      weekday: DayOfWeek;
+}) {
+      const targetDayIndex = DAY_INDEX_BY_VALUE[input.weekday];
+
+      if (input.week === 'last') {
+            const lastDate = new Date(
+                  input.year,
+                  input.monthIndex,
+                  getLastDayOfMonth(input.year, input.monthIndex)
+            );
+
+            while (lastDate.getDay() !== targetDayIndex) {
+                  lastDate.setDate(lastDate.getDate() - 1);
+            }
+
+            return formatDateValue(lastDate);
+      }
+
+      const occurrence = Number(input.week);
+      const firstDate = new Date(input.year, input.monthIndex, 1);
+      const diff = (targetDayIndex - firstDate.getDay() + 7) % 7;
+      const day = 1 + diff + (occurrence - 1) * 7;
+      const lastDay = getLastDayOfMonth(input.year, input.monthIndex);
+
+      if (day > lastDay) return null;
+
+      return formatDateValue(new Date(input.year, input.monthIndex, day));
+}
+
+function generateAssignmentDatesByRule(form: AssignmentForm) {
+      if (!form.assignedDate) return [];
+
+      const startDate = form.assignedDate;
+      const endDate =
+            form.repeatType === 'once'
+                  ? form.assignedDate
+                  : form.repeatEndDate || form.assignedDate;
+
+      if (endDate < startDate) return [];
+
+      if (form.repeatType === 'once') {
+            return [startDate];
+      }
+
+      if (form.repeatType === 'weekly') {
+            if (!form.weeklyDays.length) return [];
+
+            const selectedDayIndexes = new Set(
+                  form.weeklyDays.map((day) => DAY_INDEX_BY_VALUE[day])
+            );
+            const dates: string[] = [];
+            let currentDate = parseDateValue(startDate);
+            const lastDate = parseDateValue(endDate);
+
+            while (currentDate <= lastDate) {
+                  if (selectedDayIndexes.has(currentDate.getDay())) {
+                        dates.push(formatDateValue(currentDate));
+                  }
+
+                  currentDate = addDays(currentDate, 1);
+            }
+
+            return uniqueSortedDates(dates);
+      }
+
+      const dates: string[] = [];
+      const start = parseDateValue(startDate);
+      const end = parseDateValue(endDate);
+      let year = start.getFullYear();
+      let monthIndex = start.getMonth();
+
+      while (
+            year < end.getFullYear() ||
+            (year === end.getFullYear() && monthIndex <= end.getMonth())
+      ) {
+            if (form.monthlyMode === 'month_boundary') {
+                  const day =
+                        form.monthBoundary === 'first_day'
+                              ? 1
+                              : getLastDayOfMonth(year, monthIndex);
+                  const dateText = formatDateValue(new Date(year, monthIndex, day));
+
+                  if (isDateInRange(dateText, startDate, endDate)) {
+                        dates.push(dateText);
+                  }
+            }
+
+            if (form.monthlyMode === 'day_of_month') {
+                  form.monthDays.forEach((day) => {
+                        if (day > getLastDayOfMonth(year, monthIndex)) return;
+
+                        const dateText = formatDateValue(new Date(year, monthIndex, day));
+
+                        if (isDateInRange(dateText, startDate, endDate)) {
+                              dates.push(dateText);
+                        }
+                  });
+            }
+
+            if (form.monthlyMode === 'week_day') {
+                  form.monthWeeks.forEach((week) => {
+                        form.monthWeekDays.forEach((weekday) => {
+                              const dateText = getNthWeekdayOfMonth({
+                                    year,
+                                    monthIndex,
+                                    week,
+                                    weekday,
+                              });
+
+                              if (dateText && isDateInRange(dateText, startDate, endDate)) {
+                                    dates.push(dateText);
+                              }
+                        });
+                  });
+            }
+
+            monthIndex += 1;
+
+            if (monthIndex > 11) {
+                  monthIndex = 0;
+                  year += 1;
+            }
+      }
+
+      return uniqueSortedDates(dates);
+}
+
 function createWallClockDate(dateText: string, timeText = '12:00:00') {
       const [year, month, day] = dateText.split('-').map(Number);
       const [hour = 0, minute = 0, second = 0] = timeText.split(':').map(Number);
@@ -151,6 +355,75 @@ function getMonthRangeValues(dateText: string) {
             endDate: formatDateValue(lastDate),
       };
 }
+
+function getTimeValue(dateText: string, timeValue?: string | Date | null) {
+      if (!dateText || !timeValue) return null;
+
+      if (timeValue instanceof Date) {
+            return createWallClockDate(
+                  dateText,
+                  `${String(timeValue.getHours()).padStart(2, '0')}:${String(
+                        timeValue.getMinutes()
+                  ).padStart(2, '0')}:${String(timeValue.getSeconds()).padStart(2, '0')}`
+            ).getTime();
+      }
+
+      const text = String(timeValue);
+      const timePart = text.includes(' ')
+            ? text.split(' ')[1]
+            : text.includes('T')
+                  ? text.split('T')[1]
+                  : text;
+
+      const timeText = timePart.length === 5 ? `${timePart}:00` : timePart.slice(0, 8);
+      return new Date(`${dateText}T${timeText}`).getTime();
+}
+
+function isPastTime(dateText: string, timeValue?: string | Date | null) {
+      const value = getTimeValue(dateText, timeValue);
+
+      if (!value) return false;
+
+      return value < Date.now();
+}
+
+function isSameDateAsToday(dateText: string) {
+      return dateText === new Date().toISOString().slice(0, 10);
+}
+
+function getRoutineVisualState(entry: any, selectedDate: string) {
+      if (!isSameDateAsToday(selectedDate)) return 'normal';
+
+      return isPastTime(selectedDate, entry.endTime || entry.startTime) ? 'past' : 'normal';
+}
+
+function getDutyVisualState(entryOrAssignment: any, selectedDate: string) {
+      const status = entryOrAssignment.status;
+
+      if (status === 'completed') return 'completed';
+      if (status === 'skipped' || status === 'absent') return 'skipped';
+      if (status === 'cancelled') return 'cancelled';
+
+      if (!isSameDateAsToday(selectedDate)) return 'normal';
+
+      const endTime =
+            entryOrAssignment.endTime ||
+            entryOrAssignment.endDateTime ||
+            entryOrAssignment.dutyConfig?.endTime ||
+            entryOrAssignment.startTime ||
+            entryOrAssignment.startDateTime ||
+            entryOrAssignment.dutyConfig?.startTime;
+
+      return isPastTime(selectedDate, endTime) ? 'overdue' : 'normal';
+}
+
+function getAssigneeTypeLabel(type?: string | null) {
+      if (type === 'team') return 'Tổ';
+      if (type === 'room') return 'Phòng';
+      if (type === 'committee') return 'Ban';
+      return 'Học viên';
+}
+
 
 function getAssigneeId(assignment: any) {
       return (
@@ -230,7 +503,15 @@ export default function DailyRoutine() {
             endTime: '',
             assignedToType: 'resident',
             assignedToId: '',
-            assignWholeWeek: true,
+            assignWholeWeek: false,
+            repeatType: 'once',
+            repeatEndDate: todayValue(),
+            weeklyDays: ['monday'],
+            monthlyMode: 'month_boundary',
+            monthBoundary: 'first_day',
+            monthDays: [1],
+            monthWeeks: ['1'],
+            monthWeekDays: ['monday'],
             notes: '',
       });
 
@@ -248,22 +529,10 @@ export default function DailyRoutine() {
       const [pendingDeleteDutyConfig, setPendingDeleteDutyConfig] = useState<any>(null);
       const [pendingCancelAssignment, setPendingCancelAssignment] = useState<any>(null);
 
-      const { message, showMessage, clearMessage } = useAutoDismissMessage({
-            successDuration: 5000,
-            errorDuration: 7000,
-      });
-
-      const setMessage = (nextMessage: {
-            type: 'success' | 'error' | 'info' | 'warning';
+      const [message, setMessage] = useState<{
+            type: 'success' | 'error' | 'info';
             text: string;
-      } | null) => {
-            if (!nextMessage) {
-                  clearMessage();
-                  return;
-            }
-
-            showMessage(nextMessage.type, nextMessage.text);
-      };
+      } | null>(null);
 
       const templatesQuery = trpc.dailyRoutine.listTemplates.useQuery({
             search: searchTerm || undefined,
@@ -466,7 +735,7 @@ export default function DailyRoutine() {
 
                   if (dutyStatusFilter === 'all') return true;
                   if (dutyStatusFilter === 'open') {
-                        return assignment.status !== 'completed' && assignment.status !== 'cancelled';
+                        return !['completed', 'skipped', 'absent', 'cancelled'].includes(assignment.status);
                   }
                   if (dutyStatusFilter === 'overdue') return visualState === 'overdue';
 
@@ -559,13 +828,10 @@ export default function DailyRoutine() {
               )
             : null;
 
-      const assignmentPreviewDates = useMemo(() => {
-            if (!assignmentForm.assignedDate) return [];
-
-            return selectedDutyConfig?.dutyType === 'daily' && assignmentForm.assignWholeWeek
-                  ? getWeekDateValues(assignmentForm.assignedDate)
-                  : [assignmentForm.assignedDate];
-      }, [assignmentForm.assignedDate, assignmentForm.assignWholeWeek, selectedDutyConfig?.dutyType]);
+      const assignmentPreviewDates = useMemo(
+            () => generateAssignmentDatesByRule(assignmentForm),
+            [assignmentForm]
+      );
 
       const isAssignmentPreviewReady = Boolean(
             assignmentForm.dutyConfigId &&
@@ -597,6 +863,8 @@ export default function DailyRoutine() {
                           date: string;
                           canCreate: boolean;
                           reason?: string;
+                          detail?: string;
+                          conflictType?: string;
                           currentResidentCount?: number;
                           minPersons?: number | null;
                           maxPersons?: number | null;
@@ -660,7 +928,47 @@ export default function DailyRoutine() {
             }
 
             if (!assignmentForm.assignedDate) {
-                  setMessage({ type: 'error', text: 'Vui lòng chọn ngày công tác.' });
+                  setMessage({ type: 'error', text: 'Vui lòng chọn ngày bắt đầu.' });
+                  return;
+            }
+
+            if (assignmentForm.repeatType !== 'once' && !assignmentForm.repeatEndDate) {
+                  setMessage({ type: 'error', text: 'Vui lòng chọn ngày kết thúc.' });
+                  return;
+            }
+
+            if (assignmentForm.repeatType === 'weekly' && assignmentForm.weeklyDays.length === 0) {
+                  setMessage({ type: 'error', text: 'Vui lòng chọn ít nhất một thứ trong tuần.' });
+                  return;
+            }
+
+            if (
+                  assignmentForm.repeatType === 'monthly' &&
+                  assignmentForm.monthlyMode === 'day_of_month' &&
+                  assignmentForm.monthDays.length === 0
+            ) {
+                  setMessage({ type: 'error', text: 'Vui lòng chọn ít nhất một ngày trong tháng.' });
+                  return;
+            }
+
+            if (
+                  assignmentForm.repeatType === 'monthly' &&
+                  assignmentForm.monthlyMode === 'week_day' &&
+                  (assignmentForm.monthWeeks.length === 0 ||
+                        assignmentForm.monthWeekDays.length === 0)
+            ) {
+                  setMessage({
+                        type: 'error',
+                        text: 'Vui lòng chọn tuần trong tháng và thứ thực hiện.',
+                  });
+                  return;
+            }
+
+            if (assignmentPreviewDates.length === 0) {
+                  setMessage({
+                        type: 'error',
+                        text: 'Không có ngày thực hiện phù hợp với chu kỳ đã chọn.',
+                  });
                   return;
             }
 
@@ -695,7 +1003,15 @@ export default function DailyRoutine() {
                         endTime: '',
                         assignedToType: 'resident',
                         assignedToId: '',
-                        assignWholeWeek: true,
+                        assignWholeWeek: false,
+                        repeatType: 'once',
+                        repeatEndDate: assignmentForm.assignedDate,
+                        weeklyDays: ['monday'],
+                        monthlyMode: 'month_boundary',
+                        monthBoundary: 'first_day',
+                        monthDays: [1],
+                        monthWeeks: ['1'],
+                        monthWeekDays: ['monday'],
                         notes: '',
                   });
 
@@ -1014,88 +1330,37 @@ export default function DailyRoutine() {
       return (
             <ResidenceCareLayout>
                   <div className="space-y-6 p-6">
-                        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                    <div>
-                                          <h1 className="text-3xl font-bold tracking-tight text-slate-950">
-                                                Sinh hoạt hằng ngày
-                                          </h1>
-                                          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                                                Theo dõi lịch sinh hoạt, phân công công tác và nhắc nhở trong lưu xá
-                                                trên một màn hình gọn, dễ nhìn và dễ thực hiện.
-                                          </p>
-                                    </div>
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                              <div>
+                                    <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+                                          Sinh hoạt
+                                    </p>
+                                    <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
+                                          Sinh hoạt hằng ngày
+                                    </h1>
+                                    <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                                          Theo dõi lịch sinh hoạt và công tác trong ngày trên một màn hình gọn,
+                                          dễ nhìn và dễ thực hiện.
+                                    </p>
+                              </div>
 
-                                    <div className="flex flex-wrap gap-2">
-                                          {activeView === 'today' && (
-                                                <>
-                                                      <button
-                                                            type="button"
-                                                            onClick={openCreateItem}
-                                                            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                                                      >
-                                                            <Clock className="h-4 w-4" />
-                                                            Thêm khung giờ
-                                                      </button>
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                  setAssignmentForm((current) => ({
-                                                                        ...current,
-                                                                        assignedDate: selectedDate || todayValue(),
-                                                                  }));
-                                                                  setActiveView('duties');
-                                                            }}
-                                                            className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                                                      >
-                                                            <Plus className="h-4 w-4" />
-                                                            Thêm phân công
-                                                      </button>
-                                                </>
-                                          )}
-
-                                          {activeView === 'routine' && (
-                                                <>
-                                                      <button
-                                                            type="button"
-                                                            onClick={openCreateTemplate}
-                                                            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                                                      >
-                                                            <Plus className="h-4 w-4" />
-                                                            Thêm mẫu lịch
-                                                      </button>
-                                                      <button
-                                                            type="button"
-                                                            onClick={openCreateItem}
-                                                            className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                                                      >
-                                                            <Clock className="h-4 w-4" />
-                                                            Thêm khung giờ
-                                                      </button>
-                                                </>
-                                          )}
-
-                                          {activeView === 'duties' && (
-                                                <>
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => setIsDutyTemplateDialogOpen(true)}
-                                                            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                                                      >
-                                                            <ClipboardList className="h-4 w-4" />
-                                                            Mẫu công tác
-                                                      </button>
-                                                      <button
-                                                            type="button"
-                                                            onClick={openCreateDutyConfig}
-                                                            className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                                                      >
-                                                            <Plus className="h-4 w-4" />
-                                                            Thêm mẫu công tác
-                                                      </button>
-                                                </>
-                                          )}
-                                    </div>
+                              <div className="flex flex-wrap gap-2">
+                                    <button
+                                          type="button"
+                                          onClick={openCreateTemplate}
+                                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                    >
+                                          <Plus className="h-4 w-4" />
+                                          Thêm mẫu lịch
+                                    </button>
+                                    <button
+                                          type="button"
+                                          onClick={openCreateItem}
+                                          className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                    >
+                                          <Clock className="h-4 w-4" />
+                                          Thêm khung giờ
+                                    </button>
                               </div>
                         </div>
 
@@ -1114,86 +1379,26 @@ export default function DailyRoutine() {
                               </div>
                         )}
 
-                        <div className="grid gap-3 md:grid-cols-3">
+                        <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
                               {[
-                                    {
-                                          key: 'today',
-                                          label: 'Hôm nay',
-                                          description: 'Tổng quan lịch sinh hoạt và công tác trong ngày',
-                                          icon: CalendarDays,
-                                          count: todayTimelineItems.length,
-                                    },
-                                    {
-                                          key: 'routine',
-                                          label: 'Lịch sinh hoạt',
-                                          description: 'Thiết lập mẫu lịch và khung giờ sinh hoạt',
-                                          icon: Clock,
-                                          count: items.length,
-                                    },
-                                    {
-                                          key: 'duties',
-                                          label: 'Công tác',
-                                          description: 'Phân công, theo dõi hoàn thành, vắng hoặc hủy',
-                                          icon: CheckSquare,
-                                          count: selectedDateDutyAssignments.length,
-                                    },
-                              ].map((view) => {
-                                    const Icon = view.icon;
-                                    const isActive = activeView === view.key;
-
-                                    return (
-                                          <button
-                                                key={view.key}
-                                                type="button"
-                                                onClick={() => setActiveView(view.key as DailyRoutineView)}
-                                                className={[
-                                                      'group rounded-3xl border p-4 text-left transition-all',
-                                                      isActive
-                                                            ? 'border-blue-200 bg-blue-50 shadow-sm ring-2 ring-blue-100'
-                                                            : 'border-slate-200 bg-white shadow-sm hover:border-blue-100 hover:bg-slate-50',
-                                                ].join(' ')}
-                                          >
-                                                <div className="flex items-start justify-between gap-3">
-                                                      <div className="flex items-center gap-3">
-                                                            <span
-                                                                  className={[
-                                                                        'flex h-10 w-10 items-center justify-center rounded-2xl',
-                                                                        isActive
-                                                                              ? 'bg-blue-600 text-white'
-                                                                              : 'bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-700',
-                                                                  ].join(' ')}
-                                                            >
-                                                                  <Icon className="h-5 w-5" />
-                                                            </span>
-                                                            <div>
-                                                                  <p
-                                                                        className={[
-                                                                              'text-sm font-bold',
-                                                                              isActive ? 'text-blue-800' : 'text-slate-900',
-                                                                        ].join(' ')}
-                                                                  >
-                                                                        {view.label}
-                                                                  </p>
-                                                                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                                                                        {view.description}
-                                                                  </p>
-                                                            </div>
-                                                      </div>
-
-                                                      <span
-                                                            className={[
-                                                                  'rounded-full px-2.5 py-1 text-xs font-bold',
-                                                                  isActive
-                                                                        ? 'bg-white text-blue-700 ring-1 ring-blue-100'
-                                                                        : 'bg-slate-100 text-slate-500',
-                                                            ].join(' ')}
-                                                      >
-                                                            {view.count}
-                                                      </span>
-                                                </div>
-                                          </button>
-                                    );
-                              })}
+                                    { key: 'today', label: 'Hôm nay' },
+                                    { key: 'routine', label: 'Thiết lập lịch' },
+                                    { key: 'duties', label: 'Công tác' },
+                              ].map((view) => (
+                                    <button
+                                          key={view.key}
+                                          type="button"
+                                          onClick={() => setActiveView(view.key as DailyRoutineView)}
+                                          className={[
+                                                'rounded-2xl px-4 py-2 text-sm font-semibold transition',
+                                                activeView === view.key
+                                                      ? 'bg-blue-600 text-white shadow-sm'
+                                                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                                          ].join(' ')}
+                                    >
+                                          {view.label}
+                                    </button>
+                              ))}
                         </div>
 
                         {activeView === 'today' && (
