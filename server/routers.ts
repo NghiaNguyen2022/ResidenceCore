@@ -11,6 +11,7 @@ import { rolesRouter } from "./routers/modules/roles";
 import { usersRouter } from "./routers/modules/users";
 import { dailyRoutineRouter } from "./routers/modules/dailyRoutine";
 import { residentPortalRouter } from "./routers/modules/residentPortal";
+import { activitiesRouter } from "./routers/modules/activities";
 
 export const appRouter = router({
       system: systemRouter,
@@ -31,6 +32,7 @@ export const appRouter = router({
       users: usersRouter,
       dailyRoutine: dailyRoutineRouter,
       residentPortal: residentPortalRouter,
+      activities: activitiesRouter,
 });
 
 export type AppRouter = typeof appRouter;

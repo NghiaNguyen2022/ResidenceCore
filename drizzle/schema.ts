@@ -16,6 +16,7 @@ import {
 export * from "./core";
 export * from "./residents";
 export * from "./dailyRoutine";
+export * from "./activities";
 
 /**
  * TaskTypes table - Define types of household tasks

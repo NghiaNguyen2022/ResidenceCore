@@ -14,3 +14,4 @@ export * from "./financial";
 export * from "./organization";
 export * from "./dailyRoutines";
 export * as rolesDb from "./roles";
+export * from "./activity";
