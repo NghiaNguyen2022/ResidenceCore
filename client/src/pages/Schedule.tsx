@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -32,33 +32,8 @@ import {
       StatusBadge,
 } from '@/components/shared';
 import { ConfigurableStatCard } from '@/components/configurable/ConfigurableStatCard';
-
-type DayOfWeekKey =
-      | 'monday'
-      | 'tuesday'
-      | 'wednesday'
-      | 'thursday'
-      | 'friday'
-      | 'saturday'
-      | 'sunday';
-
-const DAY_OPTIONS: { value: DayOfWeekKey; label: string; order: number }[] = [
-      { value: 'monday', label: 'Thứ Hai', order: 1 },
-      { value: 'tuesday', label: 'Thứ Ba', order: 2 },
-      { value: 'wednesday', label: 'Thứ Tư', order: 3 },
-      { value: 'thursday', label: 'Thứ Năm', order: 4 },
-      { value: 'friday', label: 'Thứ Sáu', order: 5 },
-      { value: 'saturday', label: 'Thứ Bảy', order: 6 },
-      { value: 'sunday', label: 'Chủ Nhật', order: 0 },
-];
-
-function getDayLabel(day: DayOfWeekKey) {
-      return DAY_OPTIONS.find((d) => d.value === day)?.label ?? day;
-}
-
-function getDayOrder(day: DayOfWeekKey) {
-      return DAY_OPTIONS.find((d) => d.value === day)?.order ?? 9;
-}
+import { normalizeText } from '@/lib/text';
+import { DAY_OPTIONS, getDayLabel, getDayOrder, type DayOfWeek as DayOfWeekKey } from '@/lib/days';
 
 type ScheduleFormData = {
       dayOfWeek: DayOfWeekKey;
@@ -90,14 +65,6 @@ type StudySchedule = {
       isActive: boolean;
 };
 
-function normalizeText(v?: string | null) {
-      return (v || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[̀-ͯ]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 export default function Schedule() {
       const [selectedResidentId, setSelectedResidentId] = useState<number | null>(null);

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Financial Management Page
  * Quản Lý Tài Chính - Phí Thu & Phí Trả
  */
@@ -22,22 +22,7 @@ import {
       StatusBadge,
 } from '@/components/shared';
 import { FormSelect } from '@/components/shared';
-
-function formatVND(amount?: number | null) {
-      if (!amount) return '0';
-      if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
-      if (amount >= 1_000) return `${(amount / 1_000).toFixed(0)}K`;
-      return String(amount);
-}
-
-function formatVNDFull(amount?: number | null) {
-      if (!amount) return '0 đ';
-      return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND',
-            maximumFractionDigits: 0,
-      }).format(amount);
-}
+import { formatVND, formatVNDFull } from '@/lib/format';
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => ({
       value: String(i + 1),

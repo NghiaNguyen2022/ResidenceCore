@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -21,6 +21,8 @@ import { Input } from '@/components/ui/input';
 import { OrganizationHierarchyChart } from '@/components/organization-simple/OrganizationHierarchyChart';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { normalizeText } from '@/lib/text';
+import { formatDate } from '@/lib/format';
 // Tạm comment stat cards trong màn hình Cơ cấu tổ chức.
 // Khi cần mở lại, bật import này và block JSX bên dưới.
 // import { ConfigurableStatCard } from '@/components/configurable/ConfigurableStatCard';
@@ -138,14 +140,6 @@ const defaultFormData: StructureFormData = {
       notes: '',
 };
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function toInputDateValue(date?: string | Date | null) {
       if (!date) return '';
@@ -154,16 +148,6 @@ function toInputDateValue(date?: string | Date | null) {
             return new Date(date).toISOString().split('T')[0];
       } catch {
             return '';
-      }
-}
-
-function formatDate(date?: string | Date | null) {
-      if (!date) return '-';
-
-      try {
-            return new Date(date).toLocaleDateString('vi-VN');
-      } catch {
-            return '-';
       }
 }
 
@@ -847,7 +831,7 @@ export default function OrganizationStructure() {
                         </div>
                         */}
                         <OrganizationHierarchyChart
-                              assignments={displayAssignments}
+                              assignments={assignments}
                               roles={roles}
                               units={units}
                         />

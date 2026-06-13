@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import {
@@ -24,6 +24,7 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
 
 type UnitType = 'team' | 'committee';
 
@@ -56,14 +57,6 @@ const defaultFormData: UnitFormData = {
       sortOrder: '1',
 };
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function normalizeUnitCode(value: string) {
       return value

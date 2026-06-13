@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
+import { formatDate } from '@/lib/format';
 
 type MessageState = {
       type: 'success' | 'error' | 'info';
@@ -37,17 +38,6 @@ const emptyPasswordForm: PasswordFormState = {
       confirmPassword: '',
 };
 
-function formatDate(value?: string | Date | null) {
-      if (!value) return 'Chưa cập nhật';
-
-      const date = value instanceof Date ? value : new Date(value);
-
-      if (Number.isNaN(date.getTime())) {
-            return String(value);
-      }
-
-      return date.toLocaleDateString('vi-VN');
-}
 
 function displayValue(value?: string | number | null) {
       if (value === null || value === undefined || value === '') {

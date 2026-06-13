@@ -1,13 +1,7 @@
 import type { ParentFormData } from './memberTypes';
+import { normalizeText } from '@/lib/text';
 
-export function normalizeText(value?: string) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
+export { normalizeText };
 
 export function normalizePhone(value?: string) {
       return (value || '').replace(/[^\d]/g, '');
@@ -372,12 +366,4 @@ export function validateParentFormBeforeSave({
       return null;
 }
 
-export function formatDate(date?: string | Date | null) {
-      if (!date) return '-';
-
-      try {
-            return new Date(date).toLocaleDateString('vi-VN');
-      } catch {
-            return '-';
-      }
-}
+export { formatDate } from '@/lib/format';

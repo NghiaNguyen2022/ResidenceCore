@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -26,6 +26,7 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
 
 type LiturgyAttendanceType = 'mass' | 'evening_prayer' | 'adoration' | 'retreat' | 'other';
 type LiturgyAttendanceStatus = 'present' | 'late' | 'excused' | 'absent';
@@ -90,14 +91,6 @@ function getTodayDateString() {
       return `${year}-${month}-${day}`;
 }
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function getResidentName(resident: Resident) {
       return resident.fullName || resident.name || 'Chưa có tên';

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 
 import { trpc } from '@/lib/trpc';
+import { normalizeText } from '@/lib/text';
+import { formatTimeRange } from '@/lib/format';
 
 interface Resident {
       id: number;
@@ -62,14 +64,6 @@ interface DutyRotationProps {
 
 type RotationStep = 'select-duty' | 'select-residents' | 'preview' | 'done';
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function getResidentName(resident?: Resident | null) {
       return (
@@ -103,13 +97,6 @@ function getDutyTypeLabel(type?: DutyConfig['dutyType']) {
       if (type === 'weekly') return 'Hàng tuần';
       if (type === 'monthly') return 'Hàng tháng';
       return '-';
-}
-
-function formatTimeRange(startTime?: string | null, endTime?: string | null) {
-      if (startTime && endTime) return `${startTime} - ${endTime}`;
-      if (startTime) return `Từ ${startTime}`;
-      if (endTime) return `Đến ${endTime}`;
-      return 'Chưa thiết lập';
 }
 
 function isActiveResident(resident: Resident) {

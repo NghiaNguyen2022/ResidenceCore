@@ -4,15 +4,7 @@ import { AppModal, FormField } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-
-type DayOfWeek =
-      | "monday"
-      | "tuesday"
-      | "wednesday"
-      | "thursday"
-      | "friday"
-      | "saturday"
-      | "sunday";
+import { DAY_OPTIONS, type DayOfWeek } from "@/lib/days";
 
 type StudySchedule = {
       id?: number;
@@ -44,16 +36,6 @@ type StudyScheduleModalProps = {
       onClose: () => void;
       onSave: (data: StudySchedulePayload) => void;
 };
-
-const DAY_OPTIONS: Array<{ value: DayOfWeek; label: string }> = [
-      { value: "monday", label: "Thứ 2" },
-      { value: "tuesday", label: "Thứ 3" },
-      { value: "wednesday", label: "Thứ 4" },
-      { value: "thursday", label: "Thứ 5" },
-      { value: "friday", label: "Thứ 6" },
-      { value: "saturday", label: "Thứ 7" },
-      { value: "sunday", label: "Chúa nhật" },
-];
 
 function normalizeTimeForInput(value?: string | null) {
       if (!value) return "";

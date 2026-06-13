@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -9,6 +9,7 @@ import {
       User,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { normalizeText } from '@/lib/text';
 
 import { trpc } from '@/lib/trpc';
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
@@ -74,14 +75,6 @@ const DEFAULT_FORM: EducationFormData = {
       notes: '',
 };
 
-function normalizeText(v?: string | null) {
-      return (v || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[̀-ͯ]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function ResidentEducationPanel({
       residentId,

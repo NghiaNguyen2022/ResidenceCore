@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -26,6 +26,8 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
+import { formatDate } from '@/lib/format';
 
 type CaseStatus = 'open' | 'reviewing' | 'resolved' | 'closed';
 type CaseSeverity = 'low' | 'medium' | 'high' | 'critical';
@@ -159,14 +161,6 @@ const defaultFormData: CaseFormData = {
       sortOrder: '10',
 };
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function getTodayDateString() {
       const date = new Date();
@@ -177,15 +171,6 @@ function getTodayDateString() {
       return `${year}-${month}-${day}`;
 }
 
-function formatDate(value: string) {
-      if (!value) return '-';
-
-      const date = new Date(value);
-
-      if (Number.isNaN(date.getTime())) return value;
-
-      return date.toLocaleDateString('vi-VN');
-}
 
 function getResidentName(resident: Resident) {
       return resident.fullName || resident.name || 'Chưa có tên';

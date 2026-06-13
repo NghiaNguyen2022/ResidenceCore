@@ -1,4 +1,5 @@
-import { and, asc, count, desc, eq, like, ne, or } from "drizzle-orm";
+﻿import { and, asc, count, desc, eq, like, ne, or } from "drizzle-orm";
+import { normalizeText } from '../lib/utils';
 
 import { getDb } from "./connection";
 import {
@@ -189,9 +190,6 @@ export function normalizeOrganizationTermCode(code: string) {
             .replace(/^_+|_+$/g, "");
 }
 
-function normalizeText(value?: string | null) {
-      return (value || "").trim().toLowerCase();
-}
 
 function toDateOnly(value: string | Date) {
       if (value instanceof Date) {

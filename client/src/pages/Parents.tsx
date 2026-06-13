@@ -1,4 +1,4 @@
-import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+﻿import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import {
   AlertCircle,
   Briefcase,
@@ -20,6 +20,7 @@ import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { normalizeText } from '@/lib/text';
 
 type ViewMode = "all" | "byResident";
 type ParentType = "father" | "mother" | "guardian";
@@ -46,14 +47,6 @@ const defaultFormData: ParentFormData = {
   notes: "",
 };
 
-function normalizeText(value?: string) {
-  return (value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ");
-}
 
 function normalizePhone(value?: string) {
   return (value || "").replace(/[^\d]/g, "");

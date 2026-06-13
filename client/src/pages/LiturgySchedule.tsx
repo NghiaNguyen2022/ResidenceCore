@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -25,6 +25,8 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
+import { formatDate, formatTimeRange, timeToMinutes } from '@/lib/format';
 
 type LiturgyType =
       | 'mass'
@@ -153,30 +155,6 @@ function normalizeCode(value: string) {
             .replace(/^_+|_+$/g, '');
 }
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
-
-function timeToMinutes(value: string) {
-      const [hour, minute] = value.split(':').map(Number);
-      if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
-      return hour * 60 + minute;
-}
-
-function formatDate(value: string) {
-      const date = new Date(value);
-      if (!value || Number.isNaN(date.getTime())) return '-';
-      return date.toLocaleDateString('vi-VN');
-}
-
-function formatTimeRange(startTime: string, endTime: string) {
-      return `${startTime} - ${endTime}`;
-}
 
 function getLiturgyTypeLabel(type: LiturgyType) {
       if (type === 'mass') return 'Thánh lễ';

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -14,6 +14,8 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { normalizeText } from '@/lib/text';
+import { formatDate } from '@/lib/format';
 
 import { trpc } from '@/lib/trpc';
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
@@ -149,23 +151,6 @@ function normalizeCode(v: string) {
             .replace(/^_+|_+$/g, '');
 }
 
-function normalizeText(v?: string | null) {
-      return (v || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[̀-ͯ]/g, '')
-            .replace(/\s+/g, ' ');
-}
-
-function formatDate(dateStr?: string | null) {
-      if (!dateStr) return '—';
-      try {
-            return format(new Date(dateStr), 'dd/MM/yyyy', { locale: vi });
-      } catch {
-            return dateStr;
-      }
-}
 
 export default function Activities() {
       const [searchTerm, setSearchTerm] = useState('');

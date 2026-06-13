@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -24,6 +24,7 @@ import {
       AppMessageBox,
       type AppMessageBoxState,
 } from '@/components/common/AppMessageBox';
+import { formatTime, formatTimeRange } from '@/lib/format';
 
 type DutyStatus =
       | 'pending'
@@ -82,38 +83,6 @@ function toDateTime(dateText: string, timeText?: string | null) {
       if (!dateText || !timeText) return undefined;
 
       return createWallClockDate(dateText, timeText.length === 5 ? `${timeText}:00` : timeText);
-}
-
-function formatTime(value?: string | Date | null) {
-      if (!value) return '--:--';
-
-      if (value instanceof Date) {
-            return value.toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-            });
-      }
-
-      const text = String(value);
-
-      if (text.includes('T')) {
-            return new Date(text).toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-            });
-      }
-
-      return text.slice(0, 5);
-}
-
-function formatDate(value?: string | Date | null) {
-      if (!value) return '-';
-
-      try {
-            return new Date(value).toLocaleDateString('vi-VN');
-      } catch {
-            return '-';
-      }
 }
 
 function getDutyTypeLabel(type?: string | null) {
@@ -1188,10 +1157,3 @@ export default function Duties() {
       );
 }
 
-function formatTimeRange(startTime?: string | null, endTime?: string | null) {
-      if (startTime && endTime) return `${formatTime(startTime)} - ${formatTime(endTime)}`;
-      if (startTime) return `Từ ${formatTime(startTime)}`;
-      if (endTime) return `Đến ${formatTime(endTime)}`;
-
-      return 'Chưa thiết lập';
-}

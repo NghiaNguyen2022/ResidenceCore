@@ -1,5 +1,6 @@
-import * as db from "../db";
+﻿import * as db from "../db";
 import { organizationService } from "./organizationService";
+import { normalizeText } from '../lib/utils';
 
 export type ResidentFilters = {
       search?: string;
@@ -127,14 +128,6 @@ function generateResidentCode(admissionDate?: Date) {
       return `LX${year}${timePart}`;
 }
 
-function normalizeText(value?: string | null) {
-      return (value || "")
-            .trim()
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/\s+/g, " ");
-}
 
 function normalizePhone(value?: string | null) {
       return (value || "").replace(/[^\d]/g, "");

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -27,6 +27,7 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
 
 type ClubStatus = 'active' | 'inactive' | 'paused';
 type ClubType =
@@ -149,14 +150,6 @@ function normalizeCode(value: string) {
             .replace(/^_+|_+$/g, '');
 }
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function getClubTypeLabel(type: ClubType) {
       if (type === 'study') return 'Học tập';

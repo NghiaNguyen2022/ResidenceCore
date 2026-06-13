@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -27,6 +27,8 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
+import { formatDate, formatDateRange, formatTimeRange, timeToMinutes } from '@/lib/format';
 
 type SkillClassStatus = 'planned' | 'open' | 'in_progress' | 'completed' | 'cancelled';
 type SkillClassType = 'workshop' | 'course' | 'sharing' | 'practice' | 'retreat' | 'other';
@@ -224,14 +226,6 @@ const defaultFormData: SkillClassFormData = {
       sortOrder: '10',
 };
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function normalizeCode(value: string) {
       return value
@@ -269,39 +263,6 @@ function isActiveResident(resident: Resident) {
       if (!status) return true;
 
       return !['inactive', 'left', 'ended', 'archived', 'da roi', 'nghi', 'ngung'].includes(status);
-}
-
-function formatDate(value: string) {
-      if (!value) return '-';
-
-      const date = new Date(value);
-
-      if (Number.isNaN(date.getTime())) return value;
-
-      return date.toLocaleDateString('vi-VN');
-}
-
-function formatDateRange(startDate: string, endDate: string) {
-      if (!startDate && !endDate) return '-';
-      if (startDate && (!endDate || startDate === endDate)) return formatDate(startDate);
-
-      return `${formatDate(startDate)} - ${formatDate(endDate)}`;
-}
-
-function formatTimeRange(startTime: string, endTime: string) {
-      if (startTime && endTime) return `${startTime} - ${endTime}`;
-      if (startTime) return `Từ ${startTime}`;
-      if (endTime) return `Đến ${endTime}`;
-
-      return '-';
-}
-
-function timeToMinutes(value: string) {
-      const [hour, minute] = value.split(':').map(Number);
-
-      if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
-
-      return hour * 60 + minute;
 }
 
 function getClassTypeLabel(type: SkillClassType) {

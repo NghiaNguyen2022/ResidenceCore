@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import type { ReactNode } from 'react';
 import { Users } from 'lucide-react';
@@ -7,17 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import DutyPreviewBox from './DutyPreviewBox';
+import { formatTime } from '@/lib/format';
+import { DAY_OPTIONS, type DayOfWeek } from '@/lib/days';
 
 type AssignToType = 'resident' | 'team' | 'room' | 'committee';
-
-type DayOfWeek =
-      | 'monday'
-      | 'tuesday'
-      | 'wednesday'
-      | 'thursday'
-      | 'friday'
-      | 'saturday'
-      | 'sunday';
 
 type RepeatType = 'once' | 'weekly' | 'monthly';
 type MonthlyMode = 'month_boundary' | 'day_of_month' | 'week_day';
@@ -73,16 +66,6 @@ type DutyAssignmentFormProps = {
       onOpenDutyTemplateDialog: () => void;
 };
 
-const DAY_OPTIONS: Array<{ value: DayOfWeek; label: string }> = [
-      { value: 'monday', label: 'Thứ 2' },
-      { value: 'tuesday', label: 'Thứ 3' },
-      { value: 'wednesday', label: 'Thứ 4' },
-      { value: 'thursday', label: 'Thứ 5' },
-      { value: 'friday', label: 'Thứ 6' },
-      { value: 'saturday', label: 'Thứ 7' },
-      { value: 'sunday', label: 'Chúa nhật' },
-];
-
 const MONTH_WEEK_OPTIONS: Array<{ value: MonthWeek; label: string }> = [
       { value: '1', label: 'Tuần 1' },
       { value: '2', label: 'Tuần 2' },
@@ -92,36 +75,6 @@ const MONTH_WEEK_OPTIONS: Array<{ value: MonthWeek; label: string }> = [
 ];
 
 const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
-
-function formatTime(value?: string | Date | null) {
-      if (!value) return '';
-
-      if (value instanceof Date) {
-            return `${String(value.getUTCHours()).padStart(2, '0')}:${String(
-                  value.getUTCMinutes()
-            ).padStart(2, '0')}`;
-      }
-
-      const text = String(value).trim();
-
-      if (/^\d{2}:\d{2}/.test(text)) return text.slice(0, 5);
-
-      if (text.includes('T')) {
-            const date = new Date(text);
-
-            if (!Number.isNaN(date.getTime())) {
-                  return `${String(date.getUTCHours()).padStart(2, '0')}:${String(
-                        date.getUTCMinutes()
-                  ).padStart(2, '0')}`;
-            }
-
-            return text.split('T')[1]?.slice(0, 5) || '';
-      }
-
-      if (text.includes(' ')) return text.split(' ')[1]?.slice(0, 5) || '';
-
-      return text.slice(0, 5);
-}
 
 function toggleValue<T extends string | number>(list: T[], value: T) {
       return list.includes(value)

@@ -6,14 +6,8 @@ import type {
 
 export const today = new Date().toISOString().split('T')[0];
 
-export function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
+import { normalizeText } from '@/lib/text';
+export { normalizeText };
 
 export function normalizeCode(value: string) {
       return value
@@ -35,15 +29,7 @@ export function toInputDateValue(value?: string | Date | null) {
       }
 }
 
-export function formatDate(value?: string | Date | null) {
-      if (!value) return '-';
-
-      try {
-            return new Date(value).toLocaleDateString('vi-VN');
-      } catch {
-            return '-';
-      }
-}
+export { formatDate } from '@/lib/format';
 
 export function getTermStatusLabel(status?: string | null) {
       if (status === 'active') return 'Đang áp dụng';

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -24,6 +24,8 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
+import { formatDate } from '@/lib/format';
 
 type RuleStatus = 'active' | 'inactive';
 type RuleSeverity = 'low' | 'medium' | 'high' | 'critical';
@@ -135,24 +137,7 @@ function normalizeCode(value: string) {
             .replace(/^_+|_+$/g, '');
 }
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
-function formatDate(value: string) {
-      if (!value) return '-';
-
-      const date = new Date(value);
-
-      if (Number.isNaN(date.getTime())) return value;
-
-      return date.toLocaleDateString('vi-VN');
-}
 
 function getCategoryLabel(category: RuleCategory) {
       if (category === 'daily_life') return 'Sinh hoạt hằng ngày';

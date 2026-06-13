@@ -1034,7 +1034,7 @@ export async function getEvaluationStats(filters?: {
                   totalEvaluations: evaluations.length,
                   averageQuality: Math.round(avgQuality * 100) / 100,
                   averagePunctuality: Math.round(avgPunctuality * 100) / 100,
-                  averageScore: Math.round(avgScore * 100) / 100,
+                  averageScore: Math.round(avgTotalScore * 100) / 100,
             };
       } catch (error) {
             console.error("[Database] Failed to get evaluation stats:", error);

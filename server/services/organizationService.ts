@@ -1,4 +1,4 @@
-import {
+﻿import {
       CreateOrganizationAssignmentInput,
       CreateOrganizationRoleInput,
       CreateOrganizationTermInput,
@@ -42,6 +42,7 @@ import {
 } from "../db/organization";
 import { getResidentById } from "../db/resident";
 import { assignUserRoles, getUserRoleKeys, type RoleKey } from "../db/roles";
+import { normalizeText } from '../lib/utils';
 
 /* =========================================================
  * ROLE INPUTS
@@ -302,13 +303,6 @@ function isHouseLevelRole(role: any): boolean {
       return HOUSE_LEVEL_ROLE_TYPES.includes(String(role?.roleType || "") as HouseLevelRoleType);
 }
 
-function normalizeText(value?: string | null) {
-      return (value || "")
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .trim();
-}
 
 function isTeamLeaderRole(role: any): boolean {
       const roleType = normalizeText(String(role?.roleType || ""));

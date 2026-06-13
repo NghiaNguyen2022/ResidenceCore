@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -26,6 +26,8 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
+import { formatDate, formatDateRange, formatVND } from '@/lib/format';
 
 type ActivityPlanStatus = 'draft' | 'planned' | 'in_progress' | 'completed' | 'cancelled';
 type ActivityPlanType =
@@ -148,14 +150,6 @@ function normalizeCode(value: string) {
             .replace(/^_+|_+$/g, '');
 }
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function getPlanTypeLabel(type: ActivityPlanType) {
       if (type === 'annual') return 'Kế hoạch năm';
@@ -195,30 +189,6 @@ function getStatusClass(status: ActivityPlanStatus) {
       return 'border-red-200 bg-red-50 text-red-700';
 }
 
-function formatDate(value: string) {
-      if (!value) return '-';
-
-      const date = new Date(value);
-
-      if (Number.isNaN(date.getTime())) return value;
-
-      return date.toLocaleDateString('vi-VN');
-}
-
-function formatDateRange(startDate: string, endDate: string) {
-      if (!startDate && !endDate) return '-';
-      if (startDate === endDate) return formatDate(startDate);
-
-      return `${formatDate(startDate)} - ${formatDate(endDate)}`;
-}
-
-function formatCurrency(value: number) {
-      return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND',
-            maximumFractionDigits: 0,
-      }).format(value || 0);
-}
 
 function getNextId(items: ActivityPlan[]) {
       return Math.max(...items.map((item) => item.id), 0) + 1;
@@ -495,7 +465,7 @@ export default function ActivityPlans() {
                         label: 'Ngân sách',
                         sortable: true,
                         sortValue: (plan) => plan.estimatedBudget,
-                        render: (plan) => formatCurrency(plan.estimatedBudget),
+                        render: (plan) => formatVND(plan.estimatedBudget),
                   },
                   {
                         key: 'status',

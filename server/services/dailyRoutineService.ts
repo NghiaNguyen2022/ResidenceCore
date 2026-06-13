@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+﻿import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "../db";
+import { normalizeText } from '../lib/utils';
 import {
       dailyRoutineItems,
       dailyRoutines,
@@ -116,10 +117,6 @@ export interface UpdateDailyRoutineItemInput {
       sortOrder?: number;
 }
 
-function normalizeText(value?: string | null) {
-      const text = value?.trim();
-      return text ? text : null;
-}
 
 function normalizeCode(value: string) {
       return value
@@ -850,3 +847,4 @@ export const dailyRoutineService = {
             };
       },
 };
+

@@ -14,7 +14,7 @@ import {
       Zap,
 } from 'lucide-react';
 import { format } from 'date-fns';
-
+import { formatVND } from '@/lib/format';
 import { trpc } from '@/lib/trpc';
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
 import { AppSection, ErrorState, FormSelect, LoadingState } from '@/components/shared';
@@ -33,14 +33,6 @@ const YEARS = [currentYear - 1, currentYear, currentYear + 1].map((y) => ({
       value: String(y),
       label: String(y),
 }));
-
-function formatVND(amount: number | string | null | undefined) {
-      const n = Number(amount ?? 0);
-      if (isNaN(n)) return '0 đ';
-      if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M đ`;
-      if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}K đ`;
-      return `${n.toLocaleString('vi-VN')} đ`;
-}
 
 function StatBlock({
       label,

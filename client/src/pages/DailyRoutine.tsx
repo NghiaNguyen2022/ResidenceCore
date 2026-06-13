@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import {
@@ -21,6 +21,7 @@ import {
       AppMessageBox,
       type AppMessageBoxState,
 } from '@/components/common/AppMessageBox';
+import { formatTime } from '@/lib/format';
 
 type DayType = 'weekday' | 'sunday' | 'special';
 
@@ -117,28 +118,6 @@ function getDayTypeClass(dayType?: string | null) {
       if (dayType === 'sunday') return 'border-purple-100 bg-purple-50 text-purple-700';
       if (dayType === 'special') return 'border-amber-100 bg-amber-50 text-amber-700';
       return 'border-slate-100 bg-slate-50 text-slate-600';
-}
-
-function formatTime(value?: string | Date | null) {
-      if (!value) return '--:--';
-
-      if (value instanceof Date) {
-            return value.toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-            });
-      }
-
-      const text = String(value);
-
-      if (text.includes('T')) {
-            return new Date(text).toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-            });
-      }
-
-      return text.slice(0, 5);
 }
 
 function todayValue() {

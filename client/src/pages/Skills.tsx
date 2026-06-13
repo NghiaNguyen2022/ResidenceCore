@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -24,6 +24,7 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
 
 type SkillStatus = 'active' | 'inactive';
 type SkillLevel = 'basic' | 'intermediate' | 'advanced';
@@ -140,14 +141,6 @@ const defaultFormData: SkillFormData = {
       sortOrder: '10',
 };
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function normalizeCode(value: string) {
       return value

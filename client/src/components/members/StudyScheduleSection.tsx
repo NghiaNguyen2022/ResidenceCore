@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { CalendarClock, Pencil, Plus, Trash2 } from "lucide-react";
+import { formatTime } from '@/lib/format';
 
 import {
       AppSection,
@@ -70,10 +71,6 @@ const DAY_ORDER: Record<DayOfWeek, number> = {
       sunday: 7,
 };
 
-function formatTime(value?: string | null) {
-      if (!value) return "";
-      return value.slice(0, 5);
-}
 
 export function StudyScheduleSection({
       residentId,

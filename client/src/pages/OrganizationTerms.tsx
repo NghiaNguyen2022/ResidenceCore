@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -24,6 +24,8 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
+import { formatDate } from '@/lib/format';
 
 type TermStatus = 'active' | 'inactive' | 'closed';
 
@@ -56,14 +58,6 @@ const defaultFormData: TermFormData = {
       description: '',
 };
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function normalizeTermCode(value: string) {
       return value
@@ -100,16 +94,6 @@ function toInputDateValue(date?: string | Date | null) {
             return new Date(date).toISOString().split('T')[0];
       } catch {
             return '';
-      }
-}
-
-function formatDate(date?: string | Date | null) {
-      if (!date) return '-';
-
-      try {
-            return new Date(date).toLocaleDateString('vi-VN');
-      } catch {
-            return '-';
       }
 }
 

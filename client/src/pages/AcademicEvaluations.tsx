@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -27,6 +27,8 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
+import { formatDate } from '@/lib/format';
 
 type EvaluationStatus = 'draft' | 'reviewed' | 'approved' | 'archived';
 type AcademicLevel = 'excellent' | 'good' | 'average' | 'warning' | 'support_needed';
@@ -178,14 +180,6 @@ const defaultFormData: EvaluationFormData = {
       sortOrder: '10',
 };
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function normalizeCode(value: string) {
       return value
@@ -213,15 +207,6 @@ function getTodayDateString() {
       return `${year}-${month}-${day}`;
 }
 
-function formatDate(value: string) {
-      if (!value) return '-';
-
-      const date = new Date(value);
-
-      if (Number.isNaN(date.getTime())) return value;
-
-      return date.toLocaleDateString('vi-VN');
-}
 
 function formatScore(value: number | null) {
       if (value === null || value === undefined || Number.isNaN(value)) return '-';

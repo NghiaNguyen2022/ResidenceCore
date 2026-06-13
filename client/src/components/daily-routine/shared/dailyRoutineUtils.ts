@@ -10,27 +10,7 @@ export function todayValue() {
       return new Date().toISOString().slice(0, 10);
 }
 
-export function formatTime(value?: string | Date | null) {
-      if (!value) return '--:--';
-
-      if (value instanceof Date) {
-            return `${String(value.getHours()).padStart(2, '0')}:${String(
-                  value.getMinutes()
-            ).padStart(2, '0')}`;
-      }
-
-      const text = String(value);
-
-      if (text.includes(' ')) {
-            return text.split(' ')[1]?.slice(0, 5) || '--:--';
-      }
-
-      if (text.includes('T')) {
-            return text.split('T')[1]?.slice(0, 5) || '--:--';
-      }
-
-      return text.slice(0, 5);
-}
+export { formatTime } from '@/lib/format';
 
 export function formatDateValue(date: Date) {
       const year = date.getFullYear();
@@ -221,20 +201,11 @@ export function getVisualStateBadgeClass(type: 'routine' | 'duty', state: DutyVi
 
 export function formatDateOnly(value: unknown): string {
       if (!value) return '';
-
-      if (typeof value === 'string') {
-            const text = value.trim();
-            if (!text) return '';
-            const dateMatch = text.match(/^(\d{4}-\d{2}-\d{2})/);
-            if (dateMatch) return dateMatch[1];
-            return text.slice(0, 10);
-      }
-
-      if (value instanceof Date && !Number.isNaN(value.getTime())) {
-            return formatDateValue(value);
-      }
-
-      return String(value).slice(0, 10);
+      if (value instanceof Date && !Number.isNaN(value.getTime())) return formatDateValue(value);
+      const text = String(value).trim();
+      if (!text) return '';
+      const m = text.match(/^(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : text.slice(0, 10);
 }
 
 export function getAssignmentDate(assignment: any): string {

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -27,6 +27,8 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
+import { formatDate } from '@/lib/format';
 
 type ResultStatus = 'draft' | 'completed' | 'not_completed' | 'exempted' | 'cancelled';
 type ResultLevel = 'excellent' | 'good' | 'passed' | 'needs_practice' | 'not_passed';
@@ -244,14 +246,6 @@ const defaultFormData: SkillResultFormData = {
       sortOrder: '10',
 };
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function normalizeCode(value: string) {
       return value
@@ -306,15 +300,6 @@ function isActiveResident(resident: Resident) {
       return !['inactive', 'left', 'ended', 'archived', 'da roi', 'nghi', 'ngung'].includes(status);
 }
 
-function formatDate(value: string) {
-      if (!value) return '-';
-
-      const date = new Date(value);
-
-      if (Number.isNaN(date.getTime())) return value;
-
-      return date.toLocaleDateString('vi-VN');
-}
 
 function formatScore(value: number | null) {
       if (value === null || value === undefined || Number.isNaN(value)) return '-';

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -24,6 +24,7 @@ import {
       ConfigurableColumn,
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
+import { normalizeText } from '@/lib/text';
 
 type ReferenceStatus = 'active' | 'inactive';
 type SchoolType = 'university' | 'college' | 'high_school' | 'vocational' | 'other';
@@ -201,14 +202,6 @@ function normalizeCode(value: string) {
             .replace(/^_+|_+$/g, '');
 }
 
-function normalizeText(value?: string | null) {
-      return (value || '')
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ');
-}
 
 function getSchoolTypeLabel(type: SchoolType) {
       if (type === 'university') return 'Đại học';
