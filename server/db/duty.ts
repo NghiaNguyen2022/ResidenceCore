@@ -21,7 +21,7 @@ import {
       InsertDutyEvaluation,
       InsertScheduleConflict,
 } from "../../drizzle/schema";
-import { eq, and, or, gte, lte, between, like, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, between, like, sql, inArray } from "drizzle-orm";
 
 // ============================================================================
 // 2.1 DUTY TEMPLATE FUNCTIONS
@@ -1395,6 +1395,7 @@ function expandStudyTimeWithTravel(input: {
       };
 }
 
+// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2 - Education feature)
 async function getResidentStudyScheduleConflict(
       db: any,
       input: {
@@ -1405,54 +1406,7 @@ async function getResidentStudyScheduleConflict(
             travelMinutes?: number;
       }
 ) {
-      if (!input.residentId || !input.assignedDate || !input.startTime || !input.endTime) {
-            return null;
-      }
-
-      const dayOfWeek = getDayOfWeekFromDateText(input.assignedDate);
-
-      const schedules = await db
-            .select()
-            .from(residentStudySchedules)
-            .where(
-                  and(
-                        eq(residentStudySchedules.residentId, input.residentId),
-                        eq(residentStudySchedules.dayOfWeek, dayOfWeek as any),
-                        eq(residentStudySchedules.isActive, true)
-                  )
-            );
-
-      const conflict = schedules
-            .map((schedule: any) => {
-                  const expandedTime = expandStudyTimeWithTravel({
-                        startTime: schedule.startTime,
-                        endTime: schedule.endTime,
-                        travelMinutes: input.travelMinutes ?? 60,
-                  });
-
-                  return {
-                        ...schedule,
-                        busyStartTime: expandedTime.busyStartTime,
-                        busyEndTime: expandedTime.busyEndTime,
-                  };
-            })
-            .find((schedule: any) =>
-                  isTimeOverlap({
-                        startA: input.startTime || "",
-                        endA: input.endTime || "",
-                        startB: schedule.busyStartTime,
-                        endB: schedule.busyEndTime,
-                  })
-            );
-
-      if (!conflict) return null;
-
-      return {
-            reason: "Trùng lịch học",
-            detail: `${conflict.busyStartTime} - ${conflict.busyEndTime} (lịch học ${normalizePreviewTimeText(
-                  conflict.startTime
-            )} - ${normalizePreviewTimeText(conflict.endTime)})`,
-      };
+      return null;
 }
 
 async function getDutyAssignmentExistingRows(

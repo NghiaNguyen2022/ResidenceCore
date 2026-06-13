@@ -19,7 +19,8 @@ import {
       rooms,
       residentEducation,
       InsertResidentEducation,
-      residentStudySchedules
+      // ❌ TODO: residentStudySchedules chưa được định nghĩa trong schema (Phase 2 - Education feature)
+      // residentStudySchedules
 } from "../../drizzle/schema";
 
 function getParentTypePriority(parentType?: string | null) {
@@ -439,6 +440,7 @@ export type ResidentStudyScheduleInput = {
       location?: string | null;
       notes?: string | null;
 };
+// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2)
 export async function checkResidentStudyScheduleConflict(input: {
       residentId: number;
       assignmentDate: string;
@@ -446,56 +448,9 @@ export async function checkResidentStudyScheduleConflict(input: {
       endTime: string;
       travelMinutes?: number;
 }) {
-      const db = getDb();
-
-      if (!input.assignmentDate || !input.startTime || !input.endTime) {
-            return {
-                  hasConflict: false,
-                  conflicts: [],
-            };
-      }
-
-      const travelMinutes = input.travelMinutes ?? 60;
-      const dayOfWeek = getDayOfWeekFromDateText(input.assignmentDate);
-
-      const schedules = await db
-            .select()
-            .from(residentStudySchedules)
-            .where(
-                  and(
-                        eq(residentStudySchedules.residentId, input.residentId),
-                        eq(residentStudySchedules.dayOfWeek, dayOfWeek),
-                        eq(residentStudySchedules.isActive, true)
-                  )
-            );
-
-      const conflicts = schedules
-            .map((schedule) => {
-                  const expandedTime = expandStudyTimeWithTravel({
-                        startTime: String(schedule.startTime),
-                        endTime: String(schedule.endTime),
-                        travelMinutes,
-                  });
-
-                  return {
-                        ...schedule,
-                        busyStartTime: expandedTime.busyStartTime,
-                        busyEndTime: expandedTime.busyEndTime,
-                        travelMinutes,
-                  };
-            })
-            .filter((schedule) =>
-                  isTimeOverlap({
-                        startA: input.startTime,
-                        endA: input.endTime,
-                        startB: schedule.busyStartTime,
-                        endB: schedule.busyEndTime,
-                  })
-            );
-
       return {
-            hasConflict: conflicts.length > 0,
-            conflicts,
+            hasConflict: false,
+            conflicts: [],
       };
 }
 
@@ -774,119 +729,29 @@ function isValidTimeRange(startTime: string, endTime: string) {
 
       return startTime < endTime;
 }
+// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2)
 export async function getResidentStudySchedulesByResidentId(residentId: number) {
-      const db = getDb();
-
-      return db
-            .select()
-            .from(residentStudySchedules)
-            .where(
-                  and(
-                        eq(residentStudySchedules.residentId, residentId),
-                        eq(residentStudySchedules.isActive, true)
-                  )
-            )
-            .orderBy(
-                  residentStudySchedules.dayOfWeek,
-                  residentStudySchedules.startTime
-            );
+      return [];
 }
 
+// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2)
 export async function createResidentStudySchedule(
       data: ResidentStudyScheduleInput
 ) {
-      const db = getDb();
-
-      if (!isValidTimeRange(data.startTime, data.endTime)) {
-            throw new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
-      }
-
-      await db.insert(residentStudySchedules).values({
-            residentId: data.residentId,
-            dayOfWeek: data.dayOfWeek,
-            startTime: data.startTime,
-            endTime: data.endTime,
-            subjectName: data.subjectName || null,
-            location: data.location || null,
-            notes: data.notes || null,
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-      } as any);
-
-      return getResidentStudySchedulesByResidentId(data.residentId);
+      return [];
 }
 
+// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2)
 export async function updateResidentStudySchedule(
       data: UpdateResidentStudyScheduleInput
 ) {
-      const db = getDb();
-
-      if (!isValidTimeRange(data.startTime, data.endTime)) {
-            throw new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
-      }
-
-      const existing = await db
-            .select()
-            .from(residentStudySchedules)
-            .where(
-                  and(
-                        eq(residentStudySchedules.id, data.id),
-                        eq(residentStudySchedules.residentId, data.residentId),
-                        eq(residentStudySchedules.isActive, true)
-                  )
-            )
-            .limit(1);
-
-      if (!existing[0]) {
-            throw new Error("Không tìm thấy lịch học.");
-      }
-
-      await db
-            .update(residentStudySchedules)
-            .set({
-                  dayOfWeek: data.dayOfWeek,
-                  startTime: data.startTime,
-                  endTime: data.endTime,
-                  subjectName: data.subjectName || null,
-                  location: data.location || null,
-                  notes: data.notes || null,
-                  updatedAt: new Date(),
-            } as any)
-            .where(eq(residentStudySchedules.id, data.id));
-
-      return getResidentStudySchedulesByResidentId(data.residentId);
+      return [];
 }
 
+// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2)
 export async function deactivateResidentStudySchedule(input: {
       id: number;
       residentId: number;
 }) {
-      const db = getDb();
-
-      const existing = await db
-            .select()
-            .from(residentStudySchedules)
-            .where(
-                  and(
-                        eq(residentStudySchedules.id, input.id),
-                        eq(residentStudySchedules.residentId, input.residentId),
-                        eq(residentStudySchedules.isActive, true)
-                  )
-            )
-            .limit(1);
-
-      if (!existing[0]) {
-            throw new Error("Không tìm thấy lịch học.");
-      }
-
-      await db
-            .update(residentStudySchedules)
-            .set({
-                  isActive: false,
-                  updatedAt: new Date(),
-            } as any)
-            .where(eq(residentStudySchedules.id, input.id));
-
-      return getResidentStudySchedulesByResidentId(input.residentId);
+      return [];
 }

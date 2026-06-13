@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
       Clock,
       Plus,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 import { trpc } from '@/lib/trpc';
+import { useAutoDismissMessage } from '@/hooks/useAutoDismissMessage';
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
 import DutyConfigForm from '@/components/DutyConfigForm';
 import TodayOverviewTab from '@/components/daily-routine/today/TodayOverviewTab';
@@ -529,10 +530,11 @@ export default function DailyRoutine() {
       const [pendingDeleteDutyConfig, setPendingDeleteDutyConfig] = useState<any>(null);
       const [pendingCancelAssignment, setPendingCancelAssignment] = useState<any>(null);
 
-      const [message, setMessage] = useState<{
-            type: 'success' | 'error' | 'info';
-            text: string;
-      } | null>(null);
+      // ✅ Use hook for auto-dismiss messages
+      const { message, showMessage } = useAutoDismissMessage({
+            successDuration: 5000,
+            errorDuration: 7000,
+      });
 
       const templatesQuery = trpc.dailyRoutine.listTemplates.useQuery({
             search: searchTerm || undefined,
@@ -600,6 +602,16 @@ export default function DailyRoutine() {
 
       const dutyConfigs = dutyConfigsQuery.data || [];
       const members = (membersQuery.data || []) as any[];
+
+      // DEBUG: Log members to browser console
+      useEffect(() => {
+            console.log('📊 DailyRoutine Debug:', {
+                  membersLoading: membersQuery.isLoading,
+                  membersError: membersQuery.error,
+                  membersCount: members.length,
+                  membersSample: members.slice(0, 2),
+            });
+      }, [members, membersQuery.isLoading, membersQuery.error]);
       const rooms = (roomsQuery.data || []) as any[];
       const units = (unitsQuery.data || []) as any[];
       const teams = units.filter((unit: any) => unit.unitType === 'team');
@@ -746,13 +758,10 @@ export default function DailyRoutine() {
       const completeAssignment = async (assignment: any) => {
             try {
                   await completeAssignmentMutation.mutateAsync({ id: assignment.id });
-                  setMessage({ type: 'success', text: 'Đã đánh dấu hoàn thành công tác.' });
+                  showMessage('success', 'Đã đánh dấu hoàn thành công tác.');
                   await dutiesQuery.refetch();
             } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text: err?.message || 'Không thể cập nhật công tác.',
-                  });
+                  showMessage('error', err?.message || 'Không thể cập nhật công tác.');
             }
       };
 
@@ -762,13 +771,10 @@ export default function DailyRoutine() {
                         id: assignment.id,
                         reason: 'Vắng / không thực hiện',
                   });
-                  setMessage({ type: 'success', text: 'Đã ghi nhận vắng / không làm công tác.' });
+                  showMessage('success', 'Đã ghi nhận vắng / không làm công tác.');
                   await dutiesQuery.refetch();
             } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text: err?.message || 'Không thể cập nhật công tác.',
-                  });
+                  showMessage('error', err?.message || 'Không thể cập nhật công tác.');
             }
       };
 
@@ -810,14 +816,11 @@ export default function DailyRoutine() {
                         reason: 'Hủy từ màn hình sinh hoạt hằng ngày',
                   });
 
-                  setMessage({ type: 'success', text: 'Đã hủy công tác.' });
+                  showMessage('success', 'Đã hủy công tác.');
                   closeMessageBox();
                   await dutiesQuery.refetch();
             } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text: err?.message || 'Không thể hủy công tác.',
-                  });
+                  showMessage('error', err?.message || 'Không thể hủy công tác.');
                   closeMessageBox();
             }
       };
@@ -912,10 +915,21 @@ export default function DailyRoutine() {
                   }));
             }
 
-            return members.map((member: any) => ({
+            // For 'resident' type - use members or fallback
+            const memberOptions = members.map((member: any) => ({
                   id: member.id,
                   label: getMemberName(member),
             }));
+
+            if (memberOptions.length === 0 && membersQuery.isLoading) {
+                  return [{ id: 'loading', label: '⏳ Đang tải danh sách...' }];
+            }
+
+            if (memberOptions.length === 0) {
+                  return [{ id: 'empty', label: '❌ Không có học viên nào' }];
+            }
+
+            return memberOptions;
       };
 
       const saveAssignment = async () => {
@@ -923,22 +937,22 @@ export default function DailyRoutine() {
             const assignedToId = Number(assignmentForm.assignedToId || 0);
 
             if (!dutyConfigId) {
-                  setMessage({ type: 'error', text: 'Vui lòng chọn công tác.' });
+                  showMessage('error', 'Vui lòng chọn công tác.');
                   return;
             }
 
             if (!assignmentForm.assignedDate) {
-                  setMessage({ type: 'error', text: 'Vui lòng chọn ngày bắt đầu.' });
+                  showMessage('error', 'Vui lòng chọn ngày bắt đầu.');
                   return;
             }
 
             if (assignmentForm.repeatType !== 'once' && !assignmentForm.repeatEndDate) {
-                  setMessage({ type: 'error', text: 'Vui lòng chọn ngày kết thúc.' });
+                  showMessage('error', 'Vui lòng chọn ngày kết thúc.');
                   return;
             }
 
             if (assignmentForm.repeatType === 'weekly' && assignmentForm.weeklyDays.length === 0) {
-                  setMessage({ type: 'error', text: 'Vui lòng chọn ít nhất một thứ trong tuần.' });
+                  showMessage('error', 'Vui lòng chọn ít nhất một thứ trong tuần.');
                   return;
             }
 
@@ -947,7 +961,7 @@ export default function DailyRoutine() {
                   assignmentForm.monthlyMode === 'day_of_month' &&
                   assignmentForm.monthDays.length === 0
             ) {
-                  setMessage({ type: 'error', text: 'Vui lòng chọn ít nhất một ngày trong tháng.' });
+                  showMessage('error', 'Vui lòng chọn ít nhất một ngày trong tháng.');
                   return;
             }
 
@@ -957,23 +971,17 @@ export default function DailyRoutine() {
                   (assignmentForm.monthWeeks.length === 0 ||
                         assignmentForm.monthWeekDays.length === 0)
             ) {
-                  setMessage({
-                        type: 'error',
-                        text: 'Vui lòng chọn tuần trong tháng và thứ thực hiện.',
-                  });
+                  showMessage('error', 'Vui lòng chọn tuần trong tháng và thứ thực hiện.');
                   return;
             }
 
             if (assignmentPreviewDates.length === 0) {
-                  setMessage({
-                        type: 'error',
-                        text: 'Không có ngày thực hiện phù hợp với chu kỳ đã chọn.',
-                  });
+                  showMessage('error', 'Không có ngày thực hiện phù hợp với chu kỳ đã chọn.');
                   return;
             }
 
             if (!assignedToId) {
-                  setMessage({ type: 'error', text: 'Vui lòng chọn đối tượng được phân công.' });
+                  showMessage('error', 'Vui lòng chọn đối tượng được phân công.');
                   return;
             }
 
@@ -989,13 +997,12 @@ export default function DailyRoutine() {
                   } as any);
 
                   setSelectedDate(assignmentForm.assignedDate);
-                  setMessage({
-                        type: 'success',
-                        text:
-                              result.skipped > 0
-                                    ? `Đã tạo ${result.created} phân công, bỏ qua ${result.skipped} ngày không phù hợp.`
-                                    : `Đã tạo ${result.created} phân công.`,
-                  });
+                  showMessage(
+                        'success',
+                        result.skipped > 0
+                              ? `Đã tạo ${result.created} phân công, bỏ qua ${result.skipped} ngày không phù hợp.`
+                              : `Đã tạo ${result.created} phân công.`
+                  );
                   setAssignmentForm({
                         dutyConfigId: '',
                         assignedDate: assignmentForm.assignedDate,
@@ -1017,10 +1024,7 @@ export default function DailyRoutine() {
 
                   await dutiesQuery.refetch();
             } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text: err?.message || 'Không thể tạo phân công công tác.',
-                  });
+                  showMessage('error', err?.message || 'Không thể tạo phân công công tác.');
             }
       };
 
@@ -1079,20 +1083,16 @@ export default function DailyRoutine() {
                         id: pendingDeleteDutyConfig.id,
                   });
 
-                  setMessage({
-                        type: 'success',
-                        text: 'Đã xóa mẫu công tác.',
-                  });
+                  showMessage('success', 'Đã xóa mẫu công tác.');
 
                   closeMessageBox();
                   await dutyConfigsQuery.refetch();
             } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text:
-                              err?.message ||
-                              'Không thể xóa mẫu công tác. Nếu đã phát sinh phân công, nên chuyển sang ngừng dùng.',
-                  });
+                  showMessage(
+                        'error',
+                        err?.message ||
+                        'Không thể xóa mẫu công tác. Nếu đã phát sinh phân công, nên chuyển sang ngừng dùng.'
+                  );
                   closeMessageBox();
             }
       };
@@ -1112,12 +1112,12 @@ export default function DailyRoutine() {
       };
 
       const openCreateTemplate = () => {
-            setMessage(null);
+            // Message cleared by hook
             setTemplateForm({ ...emptyTemplateForm });
       };
 
       const openEditTemplate = (template: any) => {
-            setMessage(null);
+            // Message cleared by hook
             setTemplateForm({
                   id: template.id,
                   code: template.code || '',
@@ -1136,12 +1136,12 @@ export default function DailyRoutine() {
             const name = templateForm.name.trim();
 
             if (!code) {
-                  setMessage({ type: 'error', text: 'Vui lòng nhập mã mẫu lịch.' });
+                  showMessage('error', 'Vui lòng nhập mã mẫu lịch.');
                   return;
             }
 
             if (!name) {
-                  setMessage({ type: 'error', text: 'Vui lòng nhập tên mẫu lịch.' });
+                  showMessage('error', 'Vui lòng nhập tên mẫu lịch.');
                   return;
             }
 
@@ -1158,7 +1158,7 @@ export default function DailyRoutine() {
                         });
 
                         setSelectedTemplateId((updated as any)?.id || templateForm.id);
-                        setMessage({ type: 'success', text: 'Đã cập nhật mẫu lịch.' });
+                        showMessage('success', 'Đã cập nhật mẫu lịch.');
                   } else {
                         const created = await createTemplateMutation.mutateAsync({
                               code,
@@ -1170,16 +1170,13 @@ export default function DailyRoutine() {
                         });
 
                         setSelectedTemplateId((created as any)?.id || null);
-                        setMessage({ type: 'success', text: 'Đã thêm mẫu lịch.' });
+                        showMessage('success', 'Đã thêm mẫu lịch.');
                   }
 
                   setTemplateForm(null);
                   await refetchAll();
             } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text: err?.message || 'Không thể lưu mẫu lịch.',
-                  });
+                  showMessage('error', err?.message || 'Không thể lưu mẫu lịch.');
             }
       };
 
@@ -1192,7 +1189,7 @@ export default function DailyRoutine() {
 
             try {
                   await removeTemplateMutation.mutateAsync({ id: template.id });
-                  setMessage({ type: 'success', text: 'Đã xóa mẫu lịch.' });
+                  showMessage('success', 'Đã xóa mẫu lịch.');
 
                   if (selectedTemplateId === template.id) {
                         setSelectedTemplateId(null);
@@ -1200,23 +1197,17 @@ export default function DailyRoutine() {
 
                   await refetchAll();
             } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text: err?.message || 'Không thể xóa mẫu lịch.',
-                  });
+                  showMessage('error', err?.message || 'Không thể xóa mẫu lịch.');
             }
       };
 
       const openCreateItem = () => {
             if (!currentTemplate?.id) {
-                  setMessage({
-                        type: 'error',
-                        text: 'Vui lòng chọn mẫu lịch trước khi thêm khung giờ.',
-                  });
+                  showMessage('error', 'Vui lòng chọn mẫu lịch trước khi thêm khung giờ.');
                   return;
             }
 
-            setMessage(null);
+            // Message cleared by hook
             setItemForm({
                   ...emptyItemForm,
                   templateId: String(currentTemplate.id),
@@ -1224,7 +1215,7 @@ export default function DailyRoutine() {
       };
 
       const openEditItem = (item: any) => {
-            setMessage(null);
+            // Message cleared by hook
             setItemForm({
                   id: item.id,
                   templateId: String(item.templateId || currentTemplate?.id || ''),
@@ -1245,28 +1236,22 @@ export default function DailyRoutine() {
             const title = itemForm.title.trim();
 
             if (!templateId) {
-                  setMessage({ type: 'error', text: 'Vui lòng chọn mẫu lịch.' });
+                  showMessage('error', 'Vui lòng chọn mẫu lịch.');
                   return;
             }
 
             if (!itemForm.startTime || !itemForm.endTime) {
-                  setMessage({
-                        type: 'error',
-                        text: 'Vui lòng nhập giờ bắt đầu và giờ kết thúc.',
-                  });
+                  showMessage('error', 'Vui lòng nhập giờ bắt đầu và giờ kết thúc.');
                   return;
             }
 
             if (itemForm.endTime <= itemForm.startTime) {
-                  setMessage({
-                        type: 'error',
-                        text: 'Giờ kết thúc phải lớn hơn giờ bắt đầu.',
-                  });
+                  showMessage('error', 'Giờ kết thúc phải lớn hơn giờ bắt đầu.');
                   return;
             }
 
             if (!title) {
-                  setMessage({ type: 'error', text: 'Vui lòng nhập tên hoạt động.' });
+                  showMessage('error', 'Vui lòng nhập tên hoạt động.');
                   return;
             }
 
@@ -1284,7 +1269,7 @@ export default function DailyRoutine() {
                               sortOrder: Number(itemForm.sortOrder || 10),
                         });
 
-                        setMessage({ type: 'success', text: 'Đã cập nhật khung giờ.' });
+                        showMessage('success', 'Đã cập nhật khung giờ.');
                   } else {
                         await createItemMutation.mutateAsync({
                               templateId,
@@ -1297,16 +1282,13 @@ export default function DailyRoutine() {
                               sortOrder: Number(itemForm.sortOrder || 10),
                         });
 
-                        setMessage({ type: 'success', text: 'Đã thêm khung giờ.' });
+                        showMessage('success', 'Đã thêm khung giờ.');
                   }
 
                   setItemForm(null);
                   await itemsQuery.refetch();
             } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text: err?.message || 'Không thể lưu khung giờ.',
-                  });
+                  showMessage('error', err?.message || 'Không thể lưu khung giờ.');
             }
       };
 
@@ -1317,13 +1299,10 @@ export default function DailyRoutine() {
 
             try {
                   await removeItemMutation.mutateAsync({ id: item.id });
-                  setMessage({ type: 'success', text: 'Đã xóa khung giờ.' });
+                  showMessage('success', 'Đã xóa khung giờ.');
                   await itemsQuery.refetch();
             } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text: err?.message || 'Không thể xóa khung giờ.',
-                  });
+                  showMessage('error', err?.message || 'Không thể xóa khung giờ.');
             }
       };
 
@@ -1528,12 +1507,9 @@ export default function DailyRoutine() {
                                                 onSave={async () => {
                                                       setIsDutyConfigFormOpen(false);
                                                       setSelectedDutyConfigForEdit(null);
-                                                      setMessage({
-                                                            type: 'success',
-                                                            text: selectedDutyConfigForEdit
+                                                      showMessage('success', selectedDutyConfigForEdit
                                                                   ? 'Đã cập nhật mẫu công tác.'
-                                                                  : 'Đã thêm mẫu công tác.',
-                                                      });
+                                                                  : 'Đã thêm mẫu công tác.');
                                                       await dutyConfigsQuery.refetch();
                                                 }}
                                                 onCancel={() => setIsDutyConfigFormOpen(false)}

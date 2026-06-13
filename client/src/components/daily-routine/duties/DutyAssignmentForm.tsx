@@ -272,6 +272,14 @@ export function DutyAssignmentForm({
                                                                   item.value === 'once'
                                                                         ? form.assignedDate
                                                                         : form.repeatEndDate || form.assignedDate,
+                                                            // ✅ Reset weeklyDays nếu chuyển sang weekly mode
+                                                            weeklyDays: item.value === 'weekly' && !form.weeklyDays?.length
+                                                                  ? ['monday']
+                                                                  : form.weeklyDays,
+                                                            // ✅ Reset monthDays nếu chuyển sang monthly mode
+                                                            monthDays: item.value === 'monthly' && !form.monthDays?.length
+                                                                  ? [1]
+                                                                  : form.monthDays,
                                                       })
                                                 }
                                                 className={[

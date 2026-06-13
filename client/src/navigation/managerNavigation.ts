@@ -167,6 +167,12 @@ export const detailedManagerNavigation: NavigationItem[] = [
                         roles: ["manager"],
                   },
                   {
+                        label: "Phân công thông minh",
+                        path: "/smart-assignment",
+                        icon: "⚡",
+                        roles: ["manager"],
+                  },
+                  {
                         label: "Phụng vụ",
                         path: "/liturgy-schedule",
                         icon: "⛪",

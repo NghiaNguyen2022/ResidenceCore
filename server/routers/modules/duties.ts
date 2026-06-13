@@ -926,5 +926,94 @@ export const dutiesRouter = router({
                         });
                   }
             }),
+
+      /**
+       * Gợi ý phân công thông minh dựa trên lịch học
+       */
+      getSmartSuggestions: protectedProcedure
+            .input(
+                  z.object({
+                        dutyConfigId: z.number(),
+                        targetDate: z.string(), // YYYY-MM-DD
+                        travelMinutes: z.number().optional().default(60),
+                  })
+            )
+            .query(async ({ input }) => {
+                  try {
+                        const config = await db.getDutyConfig(input.dutyConfigId);
+                        if (!config) {
+                              throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy cấu hình công tác" });
+                        }
+
+                        const allResidents = await db.getResidents({ status: "active" });
+
+                        const results = await Promise.all(
+                              allResidents.map(async (resident) => {
+                                    if (!config.startTime || !config.endTime) {
+                                          return { resident, hasConflict: false, conflicts: [] };
+                                    }
+                                    const check = await db.checkResidentStudyScheduleConflict({
+                                          residentId: resident.id,
+                                          assignmentDate: input.targetDate,
+                                          startTime: String(config.startTime),
+                                          endTime: String(config.endTime),
+                                          travelMinutes: input.travelMinutes,
+                                    });
+                                    return { resident, hasConflict: check.hasConflict, conflicts: check.conflicts };
+                              })
+                        );
+
+                        return {
+                              dutyConfig: config,
+                              targetDate: input.targetDate,
+                              available: results.filter((r) => !r.hasConflict).map((r) => r.resident),
+                              conflicted: results
+                                    .filter((r) => r.hasConflict)
+                                    .map((r) => ({ resident: r.resident, conflicts: r.conflicts })),
+                              noSchedule: results.filter((r) => !r.hasConflict).length,
+                        };
+                  } catch (error) {
+                        if (error instanceof TRPCError) throw error;
+                        console.error("[duties.getSmartSuggestions] Error:", error);
+                        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to get smart suggestions" });
+                  }
+            }),
+
+      /**
+       * Phân công hàng loạt cho nhiều học viên cùng lúc
+       */
+      bulkAssignResidents: protectedProcedure
+            .input(
+                  z.object({
+                        dutyConfigId: z.number(),
+                        residentIds: z.array(z.number()).min(1),
+                        assignedDate: z.string(), // YYYY-MM-DD
+                        startTime: z.string().optional().nullable(),
+                        endTime: z.string().optional().nullable(),
+                        notes: z.string().optional().nullable(),
+                  })
+            )
+            .mutation(async ({ input }) => {
+                  try {
+                        const date = new Date(input.assignedDate);
+                        const rows = input.residentIds.map((residentId) => ({
+                              dutyConfigId: input.dutyConfigId,
+                              residentId,
+                              assignedToType: "resident" as const,
+                              assignedToId: residentId,
+                              assignedDate: date,
+                              status: "pending" as const,
+                              notes: input.notes ?? null,
+                        }));
+                        await db.db.insert(dutyAssignments).values(rows as any);
+                        return { success: true, count: rows.length };
+                  } catch (error) {
+                        console.error("[duties.bulkAssignResidents] Error:", error);
+                        throw new TRPCError({
+                              code: "BAD_REQUEST",
+                              message: error instanceof Error ? error.message : "Failed to bulk assign duties",
+                        });
+                  }
+            }),
 });
 

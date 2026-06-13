@@ -42,6 +42,7 @@ import Schedule from "./pages/Schedule";
 import Activities from "./pages/Activities";
 import DutiesPage from "./pages/Duties";
 import MyDuties from "./pages/MyDuties";
+import SmartAssignment from "./pages/SmartAssignment";
 import Financial from "./pages/Financial";
 import Fees from "./pages/Fees";
 import Reports from "./pages/Reports";
@@ -101,6 +102,7 @@ function Router() {
                   <Route path="/schedule" component={Schedule} />
                   <Route path="/activities" component={Activities} />
                   <Route path="/duties" component={DutiesPage} />
+                  <Route path="/smart-assignment" component={SmartAssignment} />
                   <Route path="/financial" component={Financial} />
                   <Route path="/fees" component={Fees} />
                   <Route path="/reports" component={Reports} />

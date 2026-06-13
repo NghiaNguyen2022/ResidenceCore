@@ -76,4 +76,48 @@ export const systemRouter = router({
                         mode: input.mode,
                   } as const;
             }),
+
+      getNotificationPrefs: protectedProcedure
+            .query(async () => {
+                  const setting = await getAppSetting("notification_preferences");
+                  if (!setting?.value) {
+                        return {
+                              debtNotifications: true,
+                              paymentNotifications: true,
+                              taskNotifications: true,
+                              attendanceNotifications: true,
+                              emailNotifications: false,
+                              pushNotifications: true,
+                        };
+                  }
+                  try {
+                        return JSON.parse(setting.value) as Record<string, boolean>;
+                  } catch {
+                        return {
+                              debtNotifications: true,
+                              paymentNotifications: true,
+                              taskNotifications: true,
+                              attendanceNotifications: true,
+                              emailNotifications: false,
+                              pushNotifications: true,
+                        };
+                  }
+            }),
+
+      saveNotificationPrefs: protectedProcedure
+            .input(z.object({
+                  debtNotifications: z.boolean(),
+                  paymentNotifications: z.boolean(),
+                  taskNotifications: z.boolean(),
+                  attendanceNotifications: z.boolean(),
+                  emailNotifications: z.boolean(),
+                  pushNotifications: z.boolean(),
+            }))
+            .mutation(async ({ input }) => {
+                  await upsertAppSetting({
+                        settingKey: "notification_preferences",
+                        value: JSON.stringify(input),
+                  });
+                  return { success: true };
+            }),
 });
