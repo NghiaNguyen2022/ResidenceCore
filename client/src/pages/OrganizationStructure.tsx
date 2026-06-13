@@ -18,6 +18,7 @@ import {
 import { trpc } from '@/lib/trpc';
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
 import { Input } from '@/components/ui/input';
+import { OrganizationHierarchyChart } from '@/components/organization-simple/OrganizationHierarchyChart';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 // Tạm comment stat cards trong màn hình Cơ cấu tổ chức.
@@ -845,12 +846,12 @@ export default function OrganizationStructure() {
                               />
                         </div>
                         */}
-                        <OrganizationChartPreview
-                              terms={terms}
+                        <OrganizationHierarchyChart
+                              assignments={displayAssignments}
                               roles={roles}
-                              assignments={assignments}
-                              selectedTermId={selectedTermId}
+                              units={units}
                         />
+
                         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
                               <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1fr_260px_220px_220px_auto]">
                                     <div className="relative">
@@ -885,11 +886,11 @@ export default function OrganizationStructure() {
                                           {roles
                                                 .slice()
                                                 .sort((a, b) => {
-                  const levelA = Number(a.level || 3);
-                  const levelB = Number(b.level || 3);
-                  if (levelA !== levelB) return levelA - levelB;
-                  return Number(a.sortOrder || 0) - Number(b.sortOrder || 0);
-            })
+                                                      const levelA = Number(a.level || 3);
+                                                      const levelB = Number(b.level || 3);
+                                                      if (levelA !== levelB) return levelA - levelB;
+                                                      return Number(a.sortOrder || 0) - Number(b.sortOrder || 0);
+                                                })
                                                 .map((role) => (
                                                       <option key={role.id} value={String(role.id)}>
                                                             {role.name}
@@ -1291,224 +1292,6 @@ function StructureFormModal({
       );
 }
 
-function OrganizationChartPreview({
-      terms,
-      assignments,
-      selectedTermId,
-}: {
-      terms: OrganizationTerm[];
-      roles: OrganizationRole[];
-      assignments: OrganizationAssignment[];
-      selectedTermId: string;
-}) {
-      const activeTerm = terms.find((term) => term.status === 'active') || null;
-
-      const displayTerm =
-            selectedTermId !== 'all'
-                  ? terms.find((term) => String(term.id) === selectedTermId) || null
-                  : activeTerm;
-
-      const displayAssignments = assignments
-            .filter((assignment) => {
-                  if (!displayTerm) return false;
-
-                  return (
-                        assignment.termId === displayTerm.id &&
-                        assignment.status === 'active'
-                  );
-            })
-            .slice()
-            .sort((a, b) => {
-                  const levelA = getAssignmentLevel(a);
-                  const levelB = getAssignmentLevel(b);
-
-                  if (levelA !== levelB) return levelA - levelB;
-
-                  return getAssignmentDisplayTitle(a).localeCompare(
-                        getAssignmentDisplayTitle(b),
-                        'vi'
-                  );
-            });
-
-      const level1 = displayAssignments.filter(
-            (assignment) => getAssignmentLevel(assignment) === 1
-      );
-
-      const level2 = displayAssignments.filter(
-            (assignment) => getAssignmentLevel(assignment) === 2
-      );
-
-      const level3Teams = displayAssignments.filter(
-            (assignment) =>
-                  getAssignmentLevel(assignment) === 3 &&
-                  assignment.roleType === 'team_leader'
-      );
-
-      const level3Committees = displayAssignments.filter(
-            (assignment) =>
-                  getAssignmentLevel(assignment) === 3 &&
-                  assignment.roleType === 'committee_head'
-      );
-
-      const level3Others = displayAssignments.filter(
-            (assignment) =>
-                  getAssignmentLevel(assignment) === 3 &&
-                  assignment.roleType !== 'team_leader' &&
-                  assignment.roleType !== 'committee_head'
-      );
-
-      if (!displayTerm) {
-            return (
-                  <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-5 shadow-sm">
-                        <p className="text-sm font-semibold text-slate-900">
-                              Chưa có nhiệm kỳ đang hoạt động.
-                        </p>
-                        <p className="mt-1 text-sm text-slate-500">
-                              Vui lòng tạo hoặc kích hoạt một nhiệm kỳ để xem cơ cấu tổ chức.
-                        </p>
-                  </div>
-            );
-      }
-
-      if (displayAssignments.length === 0) {
-            return (
-                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-                        <OrganizationChartHeader
-                              termName={displayTerm.name}
-                              isActive={displayTerm.status === 'active'}
-                              assignmentCount={0}
-                        />
-
-                        <div className="bg-[linear-gradient(180deg,#ffffff,rgba(248,250,252,0.96))] p-6">
-                              <div className="rounded-2xl border border-dashed border-slate-300 bg-white/80 px-4 py-8 text-center">
-                                    <p className="text-sm font-semibold text-slate-700">
-                                          Chưa có phân công đang đảm nhiệm.
-                                    </p>
-                                    <p className="mt-1 text-xs text-slate-500">
-                                          Chọn Gán vai trò để bắt đầu xây dựng cơ cấu cho nhiệm kỳ này.
-                                    </p>
-                              </div>
-                        </div>
-                  </div>
-            );
-      }
-
-      return (
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-                  <OrganizationChartHeader
-                        termName={displayTerm.name}
-                        isActive={displayTerm.status === 'active'}
-                        assignmentCount={displayAssignments.length}
-                  />
-
-                  <div className="relative bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.10),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.08),transparent_30%),linear-gradient(180deg,#ffffff,rgba(248,250,252,0.96))] p-4">
-                        <div className="mx-auto max-w-6xl space-y-3">
-                              <div className="flex justify-center">
-                                    <div className="w-full max-w-md">
-                                          {level1.length > 0 ? (
-                                                level1.map((assignment) => (
-                                                      <OrganizationPersonCard
-                                                            key={assignment.id}
-                                                            assignment={assignment}
-                                                            variant="head"
-                                                      />
-                                                ))
-                                          ) : (
-                                                <OrganizationEmptySlot label="Chưa có Trưởng phụ trách" />
-                                          )}
-                                    </div>
-                              </div>
-
-                              <OrganizationConnector />
-
-                              <div className="rounded-3xl border border-indigo-100 bg-white/80 p-3 shadow-[0_14px_34px_rgba(79,70,229,0.08)] backdrop-blur-sm">
-                                    <div className="mb-3 flex items-center justify-between gap-2">
-                                          <SectionCaption
-                                                label="Hỗ trợ điều phối"
-                                                tone="indigo"
-                                          />
-                                          <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
-                                                {level2.length}
-                                          </span>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                                          {level2.length > 0 ? (
-                                                level2.map((assignment) => (
-                                                      <OrganizationPersonCard
-                                                            key={assignment.id}
-                                                            assignment={assignment}
-                                                            variant="support"
-                                                      />
-                                                ))
-                                          ) : (
-                                                <OrganizationEmptySlot label="Chưa có nhân sự điều phối" />
-                                          )}
-                                    </div>
-                              </div>
-
-                              <OrganizationConnector />
-
-                              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                                    <OrganizationUnitGroup
-                                          title="Tổ sinh hoạt"
-                                          count={level3Teams.length}
-                                          type="team"
-                                    >
-                                          {level3Teams.length > 0 ? (
-                                                level3Teams.map((assignment) => (
-                                                      <OrganizationPersonCard
-                                                            key={assignment.id}
-                                                            assignment={assignment}
-                                                            variant="unit"
-                                                      />
-                                                ))
-                                          ) : (
-                                                <OrganizationEmptySlot label="Chưa có Tổ trưởng" />
-                                          )}
-                                    </OrganizationUnitGroup>
-
-                                    <OrganizationUnitGroup
-                                          title="Ban chuyên trách"
-                                          count={level3Committees.length}
-                                          type="committee"
-                                    >
-                                          {level3Committees.length > 0 ? (
-                                                level3Committees.map((assignment) => (
-                                                      <OrganizationPersonCard
-                                                            key={assignment.id}
-                                                            assignment={assignment}
-                                                            variant="unit"
-                                                      />
-                                                ))
-                                          ) : (
-                                                <OrganizationEmptySlot label="Chưa có Trưởng ban" />
-                                          )}
-                                    </OrganizationUnitGroup>
-                              </div>
-
-                              {level3Others.length > 0 && (
-                                    <OrganizationUnitGroup
-                                          title="Vai trò khác"
-                                          count={level3Others.length}
-                                          type="other"
-                                    >
-                                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-                                                {level3Others.map((assignment) => (
-                                                      <OrganizationPersonCard
-                                                            key={assignment.id}
-                                                            assignment={assignment}
-                                                            variant="unit"
-                                                      />
-                                                ))}
-                                          </div>
-                                    </OrganizationUnitGroup>
-                              )}
-                        </div>
-                  </div>
-            </div>
-      );
-}
 
 function OrganizationChartHeader({
       termName,
