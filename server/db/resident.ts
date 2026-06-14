@@ -18,9 +18,7 @@ import {
       roomAssignments,
       rooms,
       residentEducation,
-      InsertResidentEducation,
-      // ❌ TODO: residentStudySchedules chưa được định nghĩa trong schema (Phase 2 - Education feature)
-      // residentStudySchedules
+      residentStudySchedules,
 } from "../../drizzle/schema";
 
 function getParentTypePriority(parentType?: string | null) {
@@ -320,150 +318,6 @@ export async function markResidentAsLeft(id: number, departureDate: Date) {
 
       return getResidentById(id);
 }
-type EducationLevel =
-      | "high_school"
-      | "vocational"
-      | "college"
-      | "university"
-      | "other";
-
-export type ResidentEducationInput = {
-      residentId: number;
-      schoolName: string;
-      educationLevel?: EducationLevel | null;
-      classOrMajor?: string | null;
-      academicYear?: string | null;
-      notes?: string | null;
-};
-
-type DayOfWeek =
-      | "monday"
-      | "tuesday"
-      | "wednesday"
-      | "thursday"
-      | "friday"
-      | "saturday"
-      | "sunday";
-
-function getDayOfWeekFromDateText(dateText: string): DayOfWeek {
-      const date = new Date(`${dateText}T00:00:00`);
-
-      const day = date.getDay();
-
-      switch (day) {
-            case 0:
-                  return "sunday";
-            case 1:
-                  return "monday";
-            case 2:
-                  return "tuesday";
-            case 3:
-                  return "wednesday";
-            case 4:
-                  return "thursday";
-            case 5:
-                  return "friday";
-            case 6:
-                  return "saturday";
-            default:
-                  return "monday";
-      }
-}
-function normalizeTimeText(value: string) {
-      if (!value) return "";
-      return value.slice(0, 5);
-}
-
-function timeTextToMinutes(value: string) {
-      const normalized = normalizeTimeText(value);
-
-      const [hourText, minuteText] = normalized.split(":");
-
-      const hour = Number(hourText);
-      const minute = Number(minuteText);
-
-      if (Number.isNaN(hour) || Number.isNaN(minute)) {
-            return 0;
-      }
-
-      return hour * 60 + minute;
-}
-
-function minutesToTimeText(totalMinutes: number) {
-      const safeMinutes = Math.max(0, Math.min(24 * 60, totalMinutes));
-
-      const hour = Math.floor(safeMinutes / 60);
-      const minute = safeMinutes % 60;
-
-      return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function isTimeOverlap(input: {
-      startA: string;
-      endA: string;
-      startB: string;
-      endB: string;
-}) {
-      const startA = timeTextToMinutes(input.startA);
-      const endA = timeTextToMinutes(input.endA);
-      const startB = timeTextToMinutes(input.startB);
-      const endB = timeTextToMinutes(input.endB);
-
-      return startA < endB && endA > startB;
-}
-
-function expandStudyTimeWithTravel(input: {
-      startTime: string;
-      endTime: string;
-      travelMinutes?: number;
-}) {
-      const travelMinutes = input.travelMinutes ?? 60;
-
-      const studyStartMinutes = timeTextToMinutes(input.startTime);
-      const studyEndMinutes = timeTextToMinutes(input.endTime);
-
-      const busyStartMinutes = Math.max(0, studyStartMinutes - travelMinutes);
-      const busyEndMinutes = Math.min(24 * 60, studyEndMinutes + travelMinutes);
-
-      return {
-            busyStartTime: minutesToTimeText(busyStartMinutes),
-            busyEndTime: minutesToTimeText(busyEndMinutes),
-      };
-}
-
-export type ResidentStudyScheduleInput = {
-      residentId: number;
-      dayOfWeek: DayOfWeek;
-      startTime: string;
-      endTime: string;
-      subjectName?: string | null;
-      location?: string | null;
-      notes?: string | null;
-};
-// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2)
-export async function checkResidentStudyScheduleConflict(input: {
-      residentId: number;
-      assignmentDate: string;
-      startTime: string;
-      endTime: string;
-      travelMinutes?: number;
-}) {
-      return {
-            hasConflict: false,
-            conflicts: [],
-      };
-}
-
-export type UpdateResidentStudyScheduleInput = {
-      id: number;
-      residentId: number;
-      dayOfWeek: DayOfWeek;
-      startTime: string;
-      endTime: string;
-      subjectName?: string | null;
-      location?: string | null;
-      notes?: string | null;
-};
 
 export async function deleteResident(id: number) {
       const db = getDb();
@@ -669,10 +523,21 @@ export async function reactivateResident(id: number) {
 
       return getResidentById(id);
 }
+
+
+export type ResidentEducationInput = {
+      residentId: number;
+      schoolName: string;
+      educationLevel?: "high_school" | "vocational" | "college" | "university" | "other" | null;
+      classOrMajor?: string | null;
+      academicYear?: string | null;
+      notes?: string | null;
+};
+
 export async function getResidentEducationByResidentId(residentId: number) {
       const db = getDb();
 
-      const rows = await db
+      const result = await db
             .select()
             .from(residentEducation)
             .where(
@@ -681,27 +546,34 @@ export async function getResidentEducationByResidentId(residentId: number) {
                         eq(residentEducation.isActive, true)
                   )
             )
+            .orderBy(desc(residentEducation.updatedAt))
             .limit(1);
 
-      return rows[0] || null;
+      return result[0] || null;
 }
 
 export async function upsertResidentEducation(data: ResidentEducationInput) {
       const db = getDb();
+      const schoolName = String(data.schoolName || "").trim();
+
+      if (!schoolName) {
+            throw new Error("Vui lòng nhập trường đang học.");
+      }
 
       const existing = await getResidentEducationByResidentId(data.residentId);
 
-      if (existing) {
+      if (existing?.id) {
             await db
                   .update(residentEducation)
                   .set({
-                        schoolName: data.schoolName,
+                        schoolName,
                         educationLevel: data.educationLevel || "university",
-                        classOrMajor: data.classOrMajor || null,
-                        academicYear: data.academicYear || null,
-                        notes: data.notes || null,
+                        classOrMajor: data.classOrMajor?.trim() || null,
+                        academicYear: data.academicYear?.trim() || null,
+                        notes: data.notes?.trim() || null,
+                        isActive: true,
                         updatedAt: new Date(),
-                  })
+                  } as any)
                   .where(eq(residentEducation.id, existing.id));
 
             return getResidentEducationByResidentId(data.residentId);
@@ -709,49 +581,164 @@ export async function upsertResidentEducation(data: ResidentEducationInput) {
 
       await db.insert(residentEducation).values({
             residentId: data.residentId,
-            schoolName: data.schoolName,
+            schoolName,
             educationLevel: data.educationLevel || "university",
-            classOrMajor: data.classOrMajor || null,
-            academicYear: data.academicYear || null,
-            notes: data.notes || null,
+            classOrMajor: data.classOrMajor?.trim() || null,
+            academicYear: data.academicYear?.trim() || null,
+            notes: data.notes?.trim() || null,
             isActive: true,
             createdAt: new Date(),
             updatedAt: new Date(),
-      });
+      } as any);
 
       return getResidentEducationByResidentId(data.residentId);
 }
 
-function isValidTimeRange(startTime: string, endTime: string) {
-      if (!startTime || !endTime) {
-            return false;
+type DayOfWeek =
+      | "monday"
+      | "tuesday"
+      | "wednesday"
+      | "thursday"
+      | "friday"
+      | "saturday"
+      | "sunday";
+
+export type ResidentStudyScheduleInput = {
+      residentId: number;
+      dayOfWeek: DayOfWeek;
+      startTime: string;
+      endTime: string;
+      subjectName?: string | null;
+      location?: string | null;
+      notes?: string | null;
+};
+
+export type UpdateResidentStudyScheduleInput = ResidentStudyScheduleInput & {
+      id: number;
+};
+
+function normalizeTimeForDb(value: string) {
+      return String(value || "").slice(0, 5);
+}
+
+function validateStudyScheduleTimeRange(startTime: string, endTime: string) {
+      const start = normalizeTimeForDb(startTime);
+      const end = normalizeTimeForDb(endTime);
+
+      if (!start || !end) {
+            throw new Error("Vui lòng nhập giờ bắt đầu và giờ kết thúc.");
       }
 
-      return startTime < endTime;
+      if (start >= end) {
+            throw new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
+      }
+
+      return { start, end };
 }
-// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2)
+
 export async function getResidentStudySchedulesByResidentId(residentId: number) {
-      return [];
+      const db = getDb();
+
+      return await db
+            .select()
+            .from(residentStudySchedules)
+            .where(
+                  and(
+                        eq(residentStudySchedules.residentId, residentId),
+                        eq(residentStudySchedules.isActive, true)
+                  )
+            )
+            .orderBy(
+                  asc(residentStudySchedules.dayOfWeek),
+                  asc(residentStudySchedules.startTime)
+            );
 }
 
-// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2)
-export async function createResidentStudySchedule(
-      data: ResidentStudyScheduleInput
-) {
-      return [];
+export async function createResidentStudySchedule(data: ResidentStudyScheduleInput) {
+      const db = getDb();
+      const timeRange = validateStudyScheduleTimeRange(data.startTime, data.endTime);
+
+      await db.insert(residentStudySchedules).values({
+            residentId: data.residentId,
+            dayOfWeek: data.dayOfWeek,
+            startTime: timeRange.start,
+            endTime: timeRange.end,
+            subjectName: data.subjectName || null,
+            location: data.location || null,
+            notes: data.notes || null,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+      } as any);
+
+      return getResidentStudySchedulesByResidentId(data.residentId);
 }
 
-// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2)
-export async function updateResidentStudySchedule(
-      data: UpdateResidentStudyScheduleInput
-) {
-      return [];
+export async function updateResidentStudySchedule(data: UpdateResidentStudyScheduleInput) {
+      const db = getDb();
+      const timeRange = validateStudyScheduleTimeRange(data.startTime, data.endTime);
+
+      const existing = await db
+            .select()
+            .from(residentStudySchedules)
+            .where(
+                  and(
+                        eq(residentStudySchedules.id, data.id),
+                        eq(residentStudySchedules.residentId, data.residentId),
+                        eq(residentStudySchedules.isActive, true)
+                  )
+            )
+            .limit(1);
+
+      if (!existing[0]) {
+            throw new Error("Không tìm thấy lịch học.");
+      }
+
+      await db
+            .update(residentStudySchedules)
+            .set({
+                  dayOfWeek: data.dayOfWeek,
+                  startTime: timeRange.start,
+                  endTime: timeRange.end,
+                  subjectName: data.subjectName || null,
+                  location: data.location || null,
+                  notes: data.notes || null,
+                  updatedAt: new Date(),
+            } as any)
+            .where(eq(residentStudySchedules.id, data.id));
+
+      return getResidentStudySchedulesByResidentId(data.residentId);
 }
 
-// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2)
 export async function deactivateResidentStudySchedule(input: {
       id: number;
       residentId: number;
 }) {
-      return [];
+      const db = getDb();
+
+      const existing = await db
+            .select()
+            .from(residentStudySchedules)
+            .where(
+                  and(
+                        eq(residentStudySchedules.id, input.id),
+                        eq(residentStudySchedules.residentId, input.residentId),
+                        eq(residentStudySchedules.isActive, true)
+                  )
+            )
+            .limit(1);
+
+      if (!existing[0]) {
+            throw new Error("Không tìm thấy lịch học.");
+      }
+
+      await db
+            .update(residentStudySchedules)
+            .set({
+                  isActive: false,
+                  updatedAt: new Date(),
+            } as any)
+            .where(eq(residentStudySchedules.id, input.id));
+
+      return getResidentStudySchedulesByResidentId(input.residentId);
 }

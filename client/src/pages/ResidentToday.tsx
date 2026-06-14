@@ -63,13 +63,7 @@ function SummaryCard({
 
 function StudyCard({ item }: { item: any }) {
       return (
-            <div
-                  className={`rounded-2xl border px-4 py-4 shadow-sm ${
-                        isAssignedToMe
-                              ? "border-blue-200 bg-blue-50/40 ring-1 ring-blue-100"
-                              : "border-slate-200 bg-white"
-                  }`}
-            >
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                               <div className="text-sm font-semibold text-blue-600">
