@@ -47,6 +47,27 @@ export const residentPortalRouter = router({
                   return residentPortalAccessService.getMyDutyScope(userId, input || {});
             }),
 
+      getTodayOverview: protectedProcedure.query(async ({ ctx }) => {
+            const userId = getUserIdFromContext(ctx);
+            return residentPortalAccessService.getTodayOverview(userId);
+      }),
+
+      completeTodayDuty: protectedProcedure
+            .input(
+                  z.object({
+                        assignmentId: z.number().int().positive(),
+                        notes: z.string().trim().optional().nullable(),
+                  })
+            )
+            .mutation(async ({ ctx, input }) => {
+                  const userId = getUserIdFromContext(ctx);
+                  return residentPortalAccessService.completeTodayDuty({
+                        userId,
+                        assignmentId: input.assignmentId,
+                        notes: input.notes,
+                  });
+            }),
+
       changePassword: protectedProcedure
             .input(
                   z.object({

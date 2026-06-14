@@ -627,8 +627,303 @@ export async function getResidentPortalDutyScope(
 }
 
 
+
+function getDayOfWeekKey(date: Date) {
+      const day = date.getDay();
+
+      switch (day) {
+            case 0:
+                  return "sunday";
+            case 1:
+                  return "monday";
+            case 2:
+                  return "tuesday";
+            case 3:
+                  return "wednesday";
+            case 4:
+                  return "thursday";
+            case 5:
+                  return "friday";
+            case 6:
+                  return "saturday";
+            default:
+                  return "monday";
+      }
+}
+
+function getDayOfWeekLabel(dayOfWeek: string) {
+      switch (dayOfWeek) {
+            case "monday":
+                  return "Thứ 2";
+            case "tuesday":
+                  return "Thứ 3";
+            case "wednesday":
+                  return "Thứ 4";
+            case "thursday":
+                  return "Thứ 5";
+            case "friday":
+                  return "Thứ 6";
+            case "saturday":
+                  return "Thứ 7";
+            case "sunday":
+                  return "Chúa nhật";
+            default:
+                  return dayOfWeek;
+      }
+}
+
+async function getTodayStudySchedules(input: {
+      residentId: number;
+      dayOfWeek: string;
+}) {
+      try {
+            const residentDb: any = await import("../db/resident");
+
+            if (typeof residentDb.getResidentStudySchedulesByResidentId === "function") {
+                  const rows = await residentDb.getResidentStudySchedulesByResidentId(
+                        input.residentId
+                  );
+
+                  return (rows || [])
+                        .filter((row: any) => {
+                              const rowDay = String(row.dayOfWeek || "");
+                              const isActive = row.isActive === undefined ? true : Boolean(row.isActive);
+                              return rowDay === input.dayOfWeek && isActive;
+                        })
+                        .map((row: any) => ({
+                              id: Number(row.id || 0),
+                              dayOfWeek: row.dayOfWeek,
+                              dayLabel: getDayOfWeekLabel(row.dayOfWeek),
+                              startTime: formatTimeOnly(row.startTime),
+                              endTime: formatTimeOnly(row.endTime),
+                              timeRange: `${formatTimeOnly(row.startTime) || "--:--"} - ${
+                                    formatTimeOnly(row.endTime) || "--:--"
+                              }`,
+                              subjectName: row.subjectName || null,
+                              location: row.location || null,
+                              notes: row.notes || null,
+                        }));
+            }
+      } catch (error) {
+            console.warn(
+                  "[residentPortalAccessService] Cannot load study schedules from resident DB helper.",
+                  error
+            );
+      }
+
+      return [];
+}
+
+function getResidentRoomText(resident: any) {
+      return (
+            resident?.roomName ||
+            resident?.currentRoomName ||
+            resident?.roomCode ||
+            resident?.currentRoomCode ||
+            null
+      );
+}
+
+export async function getResidentPortalTodayOverview(userId: number) {
+      const accessContext = await getResidentPortalAccessContext(userId);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const dateText = toDateOnlyText(today);
+      const dayOfWeek = getDayOfWeekKey(today);
+
+      if (!accessContext.resident?.id) {
+            return {
+                  ...accessContext,
+                  today: {
+                        date: dateText,
+                        dayOfWeek,
+                        dayLabel: getDayOfWeekLabel(dayOfWeek),
+                  },
+                  studySchedules: [],
+                  duties: [],
+                  room: null,
+                  summary: {
+                        studyCount: 0,
+                        dutyCount: 0,
+                        roleCount: 0,
+                  },
+            };
+      }
+
+      const residentId = Number(accessContext.resident.id);
+
+      let fullResident: any = accessContext.resident;
+      try {
+            const residentDb: any = await import("../db/resident");
+            if (typeof residentDb.getResidentById === "function") {
+                  fullResident = (await residentDb.getResidentById(residentId)) || fullResident;
+            }
+      } catch (error) {
+            console.warn(
+                  "[residentPortalAccessService] Cannot load resident detail for today overview.",
+                  error
+            );
+      }
+
+      const studySchedules = await getTodayStudySchedules({
+            residentId,
+            dayOfWeek,
+      });
+
+      let duties: any[] = [];
+      try {
+            const dutyDb = await import("../db/duty");
+            const rows = await dutyDb.getAssignmentsByResident(residentId, {
+                  startDate: today,
+                  endDate: today,
+            } as any);
+            duties = await normalizeDutyAssignmentRows(rows as any[]);
+      } catch (error) {
+            console.warn(
+                  "[residentPortalAccessService] Cannot load resident duties for today overview.",
+                  error
+            );
+      }
+
+      const activeDuties = duties
+            .filter((duty: any) => duty.status !== "cancelled")
+            .map((duty: any) => ({
+                  ...duty,
+                  isAssignedToMe: Number(duty.residentId || duty.assignedToId || 0) === residentId,
+                  canComplete:
+                        Number(duty.residentId || duty.assignedToId || 0) === residentId &&
+                        !["completed", "skipped", "absent", "cancelled"].includes(
+                              String(duty.status || "pending")
+                        ),
+            }));
+
+      const dutyStats = {
+            total: activeDuties.length,
+            pending: activeDuties.filter((duty: any) =>
+                  ["pending", "in_progress", "confirmed"].includes(
+                        String(duty.status || "pending")
+                  )
+            ).length,
+            completed: activeDuties.filter(
+                  (duty: any) => String(duty.status || "") === "completed"
+            ).length,
+            skipped: activeDuties.filter((duty: any) =>
+                  ["skipped", "absent"].includes(String(duty.status || ""))
+            ).length,
+      };
+
+      return {
+            resident: {
+                  id: residentId,
+                  residentCode:
+                        fullResident?.residentCode || accessContext.resident.residentCode || null,
+                  fullName: fullResident?.fullName || accessContext.resident.fullName || "Học viên",
+                  roomName: getResidentRoomText(fullResident),
+            },
+            activeTerm: accessContext.activeTerm || null,
+            roles: accessContext.roles || [],
+            roleKeys: accessContext.roleKeys || [],
+            access: accessContext.access,
+            today: {
+                  date: dateText,
+                  dayOfWeek,
+                  dayLabel: getDayOfWeekLabel(dayOfWeek),
+            },
+            studySchedules,
+            duties: activeDuties,
+            room: getResidentRoomText(fullResident)
+                  ? {
+                          name: getResidentRoomText(fullResident),
+                    }
+                  : null,
+            summary: {
+                  studyCount: studySchedules.length,
+                  dutyCount: activeDuties.length,
+                  roleCount: (accessContext.roles || []).length,
+                  dutyStats,
+            },
+      };
+}
+
+export async function completeResidentPortalTodayDuty(input: {
+      userId: number;
+      assignmentId: number;
+      notes?: string | null;
+}) {
+      if (!input.userId) {
+            throw new Error("Vui lòng đăng nhập để tiếp tục.");
+      }
+
+      if (!input.assignmentId) {
+            throw new Error("Không xác định được công tác cần hoàn thành.");
+      }
+
+      const linkedResident = await db.getResidentLinkedToUser(input.userId);
+
+      if (!linkedResident?.id) {
+            throw new Error("Không tìm thấy hồ sơ học viên được liên kết với tài khoản này.");
+      }
+
+      const residentId = Number(linkedResident.id);
+      const dutyDb = await import("../db/duty");
+      const assignment = await dutyDb.getAssignmentById(input.assignmentId);
+
+      if (!assignment) {
+            throw new Error("Không tìm thấy phân công công tác.");
+      }
+
+      const assignmentResidentId = Number(
+            (assignment as any).residentId ||
+                  ((assignment as any).assignedToType === "resident"
+                        ? (assignment as any).assignedToId
+                        : 0)
+      );
+
+      if (assignmentResidentId !== residentId) {
+            throw new Error("Bạn chỉ có thể hoàn thành công tác được phân công trực tiếp cho mình.");
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayText = toDateOnlyText(today);
+      const assignmentDateText = toDateOnlyText((assignment as any).assignedDate);
+
+      if (assignmentDateText !== todayText) {
+            throw new Error("Chỉ có thể hoàn thành công tác của hôm nay trong màn hình này.");
+      }
+
+      const status = String((assignment as any).status || "pending");
+
+      if (status === "completed") {
+            return {
+                  success: true,
+                  message: "Công tác này đã được hoàn thành trước đó.",
+                  assignmentId: input.assignmentId,
+            };
+      }
+
+      if (["cancelled", "skipped", "absent"].includes(status)) {
+            throw new Error("Công tác này đã kết thúc trạng thái, không thể đánh dấu hoàn thành.");
+      }
+
+      await dutyDb.updateAssignmentForResident(residentId, input.assignmentId, {
+            status: "completed" as any,
+            completedAt: new Date(),
+            notes: input.notes || undefined,
+      } as any);
+
+      return {
+            success: true,
+            message: "Đã đánh dấu hoàn thành công tác.",
+            assignmentId: input.assignmentId,
+      };
+}
+
 export const residentPortalAccessService = {
       getMyAccessContext: getResidentPortalAccessContext,
       getMyOrganizationScope: getResidentPortalOrganizationScope,
       getMyDutyScope: getResidentPortalDutyScope,
+      getTodayOverview: getResidentPortalTodayOverview,
+      completeTodayDuty: completeResidentPortalTodayDuty,
 };
