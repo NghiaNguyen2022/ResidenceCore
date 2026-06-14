@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OrganizationHierarchyChart
  *
  * Layout yêu cầu:
@@ -17,7 +17,7 @@
  */
 
 import React from 'react';
-import { AlertCircle, Crown, ShieldCheck, UserRound, Users } from 'lucide-react';
+import { AlertCircle, Crown, Edit2, ShieldCheck, UserRound, Users, X } from 'lucide-react';
 import { normalizeText } from '@/lib/text';
 
 export type OrganizationAssignment = {
@@ -66,6 +66,9 @@ type Props = {
       assignments: OrganizationAssignment[];
       roles?: OrganizationRole[];
       units?: OrganizationUnit[];
+      onEditAssignment?: (assignment: OrganizationAssignment) => void;
+      onEndAssignment?: (assignment: OrganizationAssignment) => void;
+      showActions?: boolean;
 };
 
 type RoleBucket =
@@ -161,10 +164,18 @@ function getAssignmentName(assignment?: OrganizationAssignment) {
 function getAssignmentSubInfo(assignment?: OrganizationAssignment) {
       if (!assignment) return [];
 
+      const roomLabel =
+            (assignment as any).roomCode && (assignment as any).roomName
+                  ? `${(assignment as any).roomCode} - ${(assignment as any).roomName}`
+                  : (assignment as any).roomCode ||
+                    (assignment as any).roomName ||
+                    assignment.currentRoomCode ||
+                    assignment.currentRoom;
+
       return [
             assignment.residentCode,
             assignment.holyName,
-            assignment.currentRoomCode || assignment.currentRoom,
+            roomLabel,
       ].filter(Boolean) as string[];
 }
 
@@ -173,11 +184,17 @@ function PersonCard({
       label,
       tone = 'default',
       size = 'md',
+      onEditAssignment,
+      onEndAssignment,
+      showActions = true,
 }: {
       assignment?: OrganizationAssignment;
       label?: string;
       tone?: 'leader' | 'default' | 'unit';
       size?: 'sm' | 'md' | 'lg';
+      onEditAssignment?: (assignment: OrganizationAssignment) => void;
+      onEndAssignment?: (assignment: OrganizationAssignment) => void;
+      showActions?: boolean;
 }) {
       const isEmpty = !assignment;
       const name = getAssignmentName(assignment);
@@ -228,6 +245,32 @@ function PersonCard({
                                           ))}
                                     </div>
                               )}
+
+                              {showActions && assignment && (onEditAssignment || onEndAssignment) && (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                          {onEditAssignment && (
+                                                <button
+                                                      type="button"
+                                                      onClick={() => onEditAssignment(assignment)}
+                                                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                                >
+                                                      <Edit2 className="h-3.5 w-3.5" />
+                                                      Cập nhật
+                                                </button>
+                                          )}
+
+                                          {onEndAssignment && assignment.status !== 'ended' && (
+                                                <button
+                                                      type="button"
+                                                      onClick={() => onEndAssignment(assignment)}
+                                                      className="inline-flex items-center gap-1.5 rounded-xl border border-orange-100 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 hover:bg-orange-100"
+                                                >
+                                                      <X className="h-3.5 w-3.5" />
+                                                      Kết thúc
+                                                </button>
+                                          )}
+                                    </div>
+                              )}
                         </>
                   )}
             </div>
@@ -269,11 +312,17 @@ function UnitGroup({
       count,
       assignments,
       emptyText,
+      onEditAssignment,
+      onEndAssignment,
+      showActions,
 }: {
       title: string;
       count?: number;
       assignments: OrganizationAssignment[];
       emptyText: string;
+      onEditAssignment?: (assignment: OrganizationAssignment) => void;
+      onEndAssignment?: (assignment: OrganizationAssignment) => void;
+      showActions?: boolean;
 }) {
       return (
             <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
@@ -294,6 +343,9 @@ function UnitGroup({
                                           assignment={assignment}
                                           tone="unit"
                                           size="sm"
+                                          onEditAssignment={onEditAssignment}
+                                          onEndAssignment={onEndAssignment}
+                                          showActions={showActions}
                                     />
                               ))
                         ) : (
@@ -341,6 +393,9 @@ export function OrganizationHierarchyChart({
       assignments = [],
       roles = [],
       units = [],
+      onEditAssignment,
+      onEndAssignment,
+      showActions = true,
 }: Props) {
       const activeAssignments = assignments.filter((assignment) => assignment.status === 'active');
 
@@ -404,6 +459,9 @@ export function OrganizationHierarchyChart({
                                     label="Điều hành chính"
                                     tone="leader"
                                     size="lg"
+                                    onEditAssignment={onEditAssignment}
+                                    onEndAssignment={onEndAssignment}
+                                    showActions={showActions}
                               />
                         </div>
                   </div>
@@ -432,6 +490,9 @@ export function OrganizationHierarchyChart({
                                                                         key={assignment.id}
                                                                         assignment={assignment}
                                                                         size="md"
+                                                                        onEditAssignment={onEditAssignment}
+                                                                        onEndAssignment={onEndAssignment}
+                                                                        showActions={showActions}
                                                                   />
                                                             ))
                                                       ) : (
@@ -452,6 +513,9 @@ export function OrganizationHierarchyChart({
                                                       assignment={assignment}
                                                       label={!assignment ? column.emptyText : undefined}
                                                       size="md"
+                                                      onEditAssignment={onEditAssignment}
+                                                      onEndAssignment={onEndAssignment}
+                                                      showActions={showActions}
                                                 />
                                           </div>
                                     );
@@ -490,6 +554,9 @@ export function OrganizationHierarchyChart({
                                                             count={group.assignments.length}
                                                             assignments={group.assignments}
                                                             emptyText="Chưa có Tổ trưởng"
+                                                            onEditAssignment={onEditAssignment}
+                                                            onEndAssignment={onEndAssignment}
+                                                            showActions={showActions}
                                                       />
                                                 ))
                                           ) : (
@@ -497,6 +564,7 @@ export function OrganizationHierarchyChart({
                                                       title="Chưa có Tổ"
                                                       assignments={[]}
                                                       emptyText="Tạo Tổ và bổ nhiệm Tổ trưởng"
+                                                      showActions={showActions}
                                                 />
                                           )}
                                     </div>
@@ -522,6 +590,9 @@ export function OrganizationHierarchyChart({
                                                             count={group.assignments.length}
                                                             assignments={group.assignments}
                                                             emptyText="Chưa có Trưởng ban"
+                                                            onEditAssignment={onEditAssignment}
+                                                            onEndAssignment={onEndAssignment}
+                                                            showActions={showActions}
                                                       />
                                                 ))
                                           ) : (
@@ -529,6 +600,7 @@ export function OrganizationHierarchyChart({
                                                       title="Chưa có Ban"
                                                       assignments={[]}
                                                       emptyText="Tạo Ban và bổ nhiệm Trưởng ban"
+                                                      showActions={showActions}
                                                 />
                                           )}
                                     </div>

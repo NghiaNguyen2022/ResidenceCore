@@ -537,12 +537,39 @@ export default function OrganizationSimple() {
 
             const selectedRoleMax = selectedRole?.maxAssignees ?? null;
             const roleAllowsMultiple = Boolean(selectedRole?.allowMultipleMembers);
+            const isUnitScopedLeaderRole =
+                  selectedRole?.roleType === 'team_leader' ||
+                  selectedRole?.roleType === 'committee_head';
 
-            if (selectedRoleMax && activeSameRole.length >= selectedRoleMax) {
+            const activeRowsForLimit = isUnitScopedLeaderRole
+                  ? activeSameRole.filter(
+                          (assignment) =>
+                                Number(assignment.unitId || 0) ===
+                                Number(assignmentForm.unitId || 0)
+                    )
+                  : activeSameRole;
+
+            if (selectedRoleMax && activeRowsForLimit.length >= selectedRoleMax) {
+                  if (selectedRole?.roleType === 'team_leader') {
+                        return `Tổ này đã có Tổ trưởng. Mỗi Tổ chỉ được phân công tối đa ${selectedRoleMax} Tổ trưởng.`;
+                  }
+
+                  if (selectedRole?.roleType === 'committee_head') {
+                        return `Ban này đã có Trưởng ban. Mỗi Ban chỉ được phân công tối đa ${selectedRoleMax} Trưởng ban.`;
+                  }
+
                   return `Chức vụ này đã đủ số lượng tối đa (${selectedRoleMax}).`;
             }
 
-            if (!selectedRoleMax && !roleAllowsMultiple && activeSameRole.length >= 1) {
+            if (!selectedRoleMax && !roleAllowsMultiple && activeRowsForLimit.length >= 1) {
+                  if (selectedRole?.roleType === 'team_leader') {
+                        return 'Tổ này đã có Tổ trưởng.';
+                  }
+
+                  if (selectedRole?.roleType === 'committee_head') {
+                        return 'Ban này đã có Trưởng ban.';
+                  }
+
                   return 'Chức vụ này chỉ cho một người đảm nhiệm trong cùng nhiệm kỳ.';
             }
 

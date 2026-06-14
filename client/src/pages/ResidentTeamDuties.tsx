@@ -1,26 +1,13 @@
-import { ResidentRolePlaceholderPage } from "./ResidentRolePlaceholderPage";
+import { ResidentRoleDutiesScopePage } from "./ResidentRoleDutiesScopePage";
 
 export default function ResidentTeamDuties() {
       return (
-            <ResidentRolePlaceholderPage
+            <ResidentRoleDutiesScopePage
+                  kind="team"
                   title="Công tác của tổ"
-                  description="Dành cho Tổ trưởng theo dõi và phân công công tác trong phạm vi tổ mình."
-                  scopeTitle="Phạm vi công tác của Tổ"
-                  features={[
-                        {
-                              title: "Xem công tác của tổ",
-                              description: "Theo dõi công tác được giao cho tổ và từng thành viên.",
-                              status: "ready",
-                        },
-                        {
-                              title: "Phân công trong tổ",
-                              description: "Tạo phân công cho thành viên trong tổ, có kiểm tra lịch học.",
-                        },
-                        {
-                              title: "Theo dõi hoàn thành / vắng",
-                              description: "Cập nhật tình trạng công tác trong phạm vi tổ.",
-                        },
-                  ]}
+                  description="Dành cho Tổ trưởng theo dõi các công tác được giao cho tổ mình phụ trách."
+                  emptyTitle="Bạn chưa phụ trách Tổ nào"
+                  emptyDescription="Menu này sẽ có dữ liệu khi học viên được bổ nhiệm làm Tổ trưởng trong nhiệm kỳ hiện tại."
             />
       );
 }

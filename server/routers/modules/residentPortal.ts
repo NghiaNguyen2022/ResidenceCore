@@ -33,6 +33,20 @@ export const residentPortalRouter = router({
             return residentPortalAccessService.getMyOrganizationScope(userId);
       }),
 
+      getMyDutyScope: protectedProcedure
+            .input(
+                  z
+                        .object({
+                              startDate: z.string().optional().nullable(),
+                              endDate: z.string().optional().nullable(),
+                        })
+                        .optional()
+            )
+            .query(async ({ ctx, input }) => {
+                  const userId = getUserIdFromContext(ctx);
+                  return residentPortalAccessService.getMyDutyScope(userId, input || {});
+            }),
+
       changePassword: protectedProcedure
             .input(
                   z.object({
