@@ -4,6 +4,7 @@ export type AppRole =
       | "team_leader"
       | "committee_head"
       | "house_leader"
+      | "head"
       | "deputy"
       | "secretary"
       | "treasurer";

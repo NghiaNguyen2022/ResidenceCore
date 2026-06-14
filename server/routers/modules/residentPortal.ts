@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../../_core/trpc";
 import { residentPortalService } from "../../services/residentPortalService";
+import { residentPortalAccessService } from "../../services/residentPortalAccessService";
 
 function getUserIdFromContext(ctx: any) {
       const userId =
@@ -19,8 +20,17 @@ function getUserIdFromContext(ctx: any) {
 export const residentPortalRouter = router({
       me: protectedProcedure.query(async ({ ctx }) => {
             const userId = getUserIdFromContext(ctx);
-
             return residentPortalService.me(userId);
+      }),
+
+      getMyAccessContext: protectedProcedure.query(async ({ ctx }) => {
+            const userId = getUserIdFromContext(ctx);
+            return residentPortalAccessService.getMyAccessContext(userId);
+      }),
+
+      getMyOrganizationScope: protectedProcedure.query(async ({ ctx }) => {
+            const userId = getUserIdFromContext(ctx);
+            return residentPortalAccessService.getMyOrganizationScope(userId);
       }),
 
       changePassword: protectedProcedure

@@ -10,7 +10,6 @@ import {
       type NavigationItem,
 } from "@/navigation";
 import { trpc } from "@/lib/trpc";
-//import { useAuth } from "@/hooks/useAuth";
 import { useSystemDisplayMode } from "@/hooks/useSystemDisplayMode";
 import { MandatoryChangePasswordModal } from "@/components/MandatoryChangePasswordModal";
 
@@ -31,10 +30,25 @@ type CurrentUserLike =
       | null
       | undefined;
 
+type AccessContextRole = {
+      roleCode?: string | null;
+      roleName?: string | null;
+      unitType?: string | null;
+      unitId?: number | null;
+      unitName?: string | null;
+};
+
+type RolePanelItem = {
+      key: string;
+      label: string;
+      scope?: string | null;
+};
+
 const APPOINTMENT_ROLE_KEYS = [
       "team_leader",
       "committee_head",
       "house_leader",
+      "head",
       "deputy",
       "secretary",
       "treasurer",
@@ -60,6 +74,191 @@ function hasAppointmentRole(user: CurrentUserLike) {
       return getUserRoles(user).some((role) =>
             APPOINTMENT_ROLE_KEYS.includes(role)
       );
+}
+
+function normalizeRoleCode(value?: string | null) {
+      const roleCode = String(value || "")
+            .trim()
+            .toLowerCase()
+            .replace(/-/g, "_");
+
+      if (roleCode === "head") return "house_leader";
+
+      return roleCode;
+}
+
+function normalizeText(value?: string | null) {
+      return String(value || "")
+            .trim()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+}
+
+function getRoleLabelFromCode(roleCode?: string | null, fallback?: string | null) {
+      const normalizedRoleCode = normalizeRoleCode(roleCode);
+      const normalizedFallback = normalizeText(fallback);
+
+      if (
+            normalizedRoleCode === "house_leader" ||
+            normalizedFallback === "truong" ||
+            normalizedFallback.includes("truong luu xa")
+      ) {
+            return "Trưởng";
+      }
+
+      if (normalizedRoleCode === "deputy" || normalizedFallback === "pho") {
+            return "Phó";
+      }
+
+      if (normalizedRoleCode === "secretary" || normalizedFallback === "thu ky") {
+            return "Thư ký";
+      }
+
+      if (normalizedRoleCode === "treasurer" || normalizedFallback === "thu quy") {
+            return "Thủ quỹ";
+      }
+
+      if (
+            normalizedRoleCode === "team_leader" ||
+            normalizedFallback === "to truong" ||
+            normalizedFallback.includes("truong to")
+      ) {
+            return "Tổ trưởng";
+      }
+
+      if (
+            normalizedRoleCode === "committee_head" ||
+            normalizedFallback === "truong ban" ||
+            normalizedFallback.includes("truong ban")
+      ) {
+            return "Trưởng ban";
+      }
+
+      return fallback || "Người phụ trách";
+}
+
+function getRoleScopeText(role: AccessContextRole) {
+      if (role.unitName) return role.unitName;
+
+      const roleCode = normalizeRoleCode(role.roleCode);
+
+      if (roleCode === "team_leader") return "Tổ được phân công";
+      if (roleCode === "committee_head") return "Ban được phân công";
+
+      return "Toàn lưu xá";
+}
+
+function buildRolePanelItems(input: {
+      user: CurrentUserLike;
+      accessContext?: any;
+}): RolePanelItem[] {
+      const { user, accessContext } = input;
+
+      if (hasRole(user, "manager")) {
+            return [
+                  {
+                        key: "manager",
+                        label: "Quản lý lưu xá",
+                        scope: "Toàn hệ thống",
+                  },
+            ];
+      }
+
+      const accessRoles = Array.isArray(accessContext?.roles)
+            ? (accessContext.roles as AccessContextRole[])
+            : [];
+
+      if (accessRoles.length > 0) {
+            const uniqueMap = new Map<string, RolePanelItem>();
+
+            accessRoles.forEach((role) => {
+                  const roleCode = normalizeRoleCode(role.roleCode);
+                  const label = getRoleLabelFromCode(role.roleCode, role.roleName);
+                  const scope = getRoleScopeText(role);
+                  const key = [roleCode, role.unitType || "", role.unitId || "", scope].join(":");
+
+                  if (!uniqueMap.has(key)) {
+                        uniqueMap.set(key, {
+                              key,
+                              label,
+                              scope,
+                        });
+                  }
+            });
+
+            return Array.from(uniqueMap.values());
+      }
+
+      const fallbackAppointmentRoles = getUserRoles(user)
+            .filter((role) => APPOINTMENT_ROLE_KEYS.includes(role))
+            .map((role) => ({
+                  key: role,
+                  label: getRoleLabelFromCode(role),
+                  scope: role === "team_leader" || role === "committee_head" ? null : "Toàn lưu xá",
+            }));
+
+      if (fallbackAppointmentRoles.length > 0) {
+            const uniqueMap = new Map<string, RolePanelItem>();
+
+            fallbackAppointmentRoles.forEach((role) => {
+                  if (!uniqueMap.has(role.key)) {
+                        uniqueMap.set(role.key, role);
+                  }
+            });
+
+            return Array.from(uniqueMap.values());
+      }
+
+      if (hasRole(user, "resident")) {
+            return [
+                  {
+                        key: "resident",
+                        label: "Học viên lưu trú",
+                        scope: null,
+                  },
+            ];
+      }
+
+      return [
+            {
+                  key: "user",
+                  label: "Người dùng",
+                  scope: null,
+            },
+      ];
+}
+
+function getUserRoleText(user: CurrentUserLike, rolePanelItems: RolePanelItem[]) {
+      if (hasRole(user, "manager")) {
+            return "Quản lý lưu xá";
+      }
+
+      if (hasRole(user, "resident") && hasAppointmentRole(user)) {
+            const appointedRoles = rolePanelItems.filter((item) => item.key !== "resident");
+
+            if (appointedRoles.length === 0) {
+                  return "Học viên kiêm phụ trách";
+            }
+
+            if (appointedRoles.length === 1) {
+                  return `Học viên · ${appointedRoles[0].label}`;
+            }
+
+            return `Học viên · ${appointedRoles[0].label} +${appointedRoles.length - 1}`;
+      }
+
+      if (hasRole(user, "resident")) {
+            return "Học viên";
+      }
+
+      if (hasAppointmentRole(user)) {
+            const firstRole = rolePanelItems[0];
+
+            return firstRole?.label || "Người phụ trách";
+      }
+
+      return "Người dùng";
 }
 
 function canShowNavigationItem(item: NavigationItem, user: CurrentUserLike) {
@@ -106,26 +305,6 @@ function isItemActive(item: NavigationItem, currentPath: string): boolean {
       }
 
       return item.children?.some((child) => isItemActive(child, currentPath)) ?? false;
-}
-
-function getUserRoleText(user: CurrentUserLike) {
-      if (hasRole(user, "manager")) {
-            return "Quản lý lưu xá";
-      }
-
-      if (hasRole(user, "resident") && hasAppointmentRole(user)) {
-            return "Học viên kiêm phụ trách";
-      }
-
-      if (hasRole(user, "resident")) {
-            return "Học viên";
-      }
-
-      if (hasAppointmentRole(user)) {
-            return "Người phụ trách";
-      }
-
-      return "Người dùng";
 }
 
 function SidebarItem({
@@ -275,7 +454,48 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
       });
 
       const user = authQuery.data ?? null;
-      const mustChangePassword = Boolean(user?.mustChangePassword);
+
+      const accessContextQuery = trpc.residentPortal.getMyAccessContext.useQuery(undefined, {
+            enabled: Boolean(user?.id) && hasRole(user, "resident"),
+            retry: false,
+            refetchOnWindowFocus: false,
+      });
+
+      const enhancedUser = useMemo(() => {
+            if (!user) return user;
+
+            const roles = new Set<string>(getUserRoles(user));
+
+            const roleKeys = Array.isArray((accessContextQuery.data as any)?.roleKeys)
+                  ? ((accessContextQuery.data as any).roleKeys as string[])
+                  : [];
+
+            roleKeys.forEach((role) => {
+                  if (role) roles.add(String(role));
+            });
+
+            accessContextQuery.data?.roles?.forEach((role: any) => {
+                  const roleCode = String(role?.roleCode || "").trim();
+                  if (roleCode) roles.add(roleCode);
+            });
+
+            if (roles.has("head")) roles.add("house_leader");
+            if (roles.has("house_leader")) roles.add("head");
+
+            return {
+                  ...user,
+                  roles: Array.from(roles),
+            };
+      }, [user, accessContextQuery.data]);
+
+      const rolePanelItems = useMemo(() => {
+            return buildRolePanelItems({
+                  user: enhancedUser,
+                  accessContext: accessContextQuery.data,
+            });
+      }, [enhancedUser, accessContextQuery.data]);
+
+      const mustChangePassword = Boolean(enhancedUser?.mustChangePassword);
 
       function logout() {
             logoutMutation.mutate();
@@ -296,38 +516,38 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
 
       const [showProfileModal, setShowProfileModal] = useState(false);
       const [profileForm, setProfileForm] = useState({
-            name: user?.name ?? "",
-            email: user?.email ?? "",
+            name: enhancedUser?.name ?? "",
+            email: enhancedUser?.email ?? "",
       });
 
       const selectedNavigationItems = useMemo(() => {
-            if (hasRole(user, "manager")) {
+            if (hasRole(enhancedUser, "manager")) {
                   return isDetailed ? detailedManagerNavigation : simpleManagerNavigation;
             }
 
-            if (hasRole(user, "resident")) {
-                  if (hasAppointmentRole(user)) {
+            if (hasRole(enhancedUser, "resident")) {
+                  if (hasAppointmentRole(enhancedUser)) {
                         return [...residentNavigation, ...appointedResidentNavigation];
                   }
 
                   return residentNavigation;
             }
 
-            if (hasAppointmentRole(user)) {
+            if (hasAppointmentRole(enhancedUser)) {
                   return appointedResidentNavigation;
             }
 
             return [];
-      }, [user, isDetailed]);
+      }, [enhancedUser, isDetailed]);
 
       const visibleNavigationItems = useMemo(() => {
-            return filterNavigationItems(selectedNavigationItems, user);
-      }, [selectedNavigationItems, user]);
+            return filterNavigationItems(selectedNavigationItems, enhancedUser);
+      }, [selectedNavigationItems, enhancedUser]);
 
       const displayName =
-            user?.name || user?.username || user?.email || "Người dùng";
+            enhancedUser?.name || enhancedUser?.username || enhancedUser?.email || "Người dùng";
 
-      const roleText = getUserRoleText(user);
+      const roleText = getUserRoleText(enhancedUser, rolePanelItems);
 
       const updateMyProfileMutation = trpc.auth.updateMyProfile.useMutation({
             onSuccess: async () => {
@@ -347,8 +567,8 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
             }
 
             setProfileForm({
-                  name: user?.name ?? "",
-                  email: user?.email ?? "",
+                  name: enhancedUser?.name ?? "",
+                  email: enhancedUser?.email ?? "",
             });
             setShowProfileModal(true);
       }
@@ -391,6 +611,29 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                     </div>
                                     <div className="mt-0.5 text-xs text-slate-500">{roleText}</div>
                               </button>
+
+                              <div className="mb-3 rounded-2xl border border-slate-200 bg-white p-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                          Vai trò hiện tại
+                                    </div>
+                                    <div className="mt-2 space-y-1.5">
+                                          {rolePanelItems.map((item) => (
+                                                <div
+                                                      key={item.key}
+                                                      className="rounded-xl bg-slate-50 px-3 py-2"
+                                                >
+                                                      <div className="text-sm font-semibold text-slate-800">
+                                                            {item.label}
+                                                      </div>
+                                                      {item.scope && (
+                                                            <div className="mt-0.5 text-xs text-slate-500">
+                                                                  {item.scope}
+                                                            </div>
+                                                      )}
+                                                </div>
+                                          ))}
+                                    </div>
+                              </div>
 
                               <button
                                     type="button"
@@ -497,7 +740,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                                 <div>
                                                       Tên đăng nhập:{" "}
                                                       <span className="font-medium text-slate-900">
-                                                            {user?.username || "Chưa có"}
+                                                            {enhancedUser?.username || "Chưa có"}
                                                       </span>
                                                 </div>
                                                 <div className="mt-1">

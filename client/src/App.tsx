@@ -53,6 +53,15 @@ import MyProfile from "./pages/MyProfile";
 
 import OrganizationSimple from "@/pages/OrganizationSimple";
 
+import ResidentToday from "@/pages/ResidentToday";
+import ResidentLeadershipOverview from "@/pages/ResidentLeadershipOverview";
+import ResidentLeadershipOrganization from "@/pages/ResidentLeadershipOrganization";
+import ResidentLeadershipDuties from "@/pages/ResidentLeadershipDuties";
+import ResidentTeamMembers from "@/pages/ResidentTeamMembers";
+import ResidentTeamDuties from "@/pages/ResidentTeamDuties";
+import ResidentCommitteeMembers from "@/pages/ResidentCommitteeMembers";
+import ResidentCommitteeDuties from "@/pages/ResidentCommitteeDuties";
+
 
 function Router() {
       return (
@@ -112,6 +121,23 @@ function Router() {
 
                   <Route path="/settings/users" component={UserManagement} />
                   <Route path="/my-profile" component={MyProfile} />
+
+                  {/* Resident portal */}
+                  <Route path="/resident/today" component={ResidentToday} />
+
+                  {/* Vai trò điều hành */}
+                  <Route path="/resident/leadership/overview" component={ResidentLeadershipOverview} />
+                  <Route path="/resident/leadership/organization" component={ResidentLeadershipOrganization} />
+                  <Route path="/resident/leadership/duties" component={ResidentLeadershipDuties} />
+
+                  {/* Vai trò Tổ trưởng */}
+                  <Route path="/resident/team/members" component={ResidentTeamMembers} />
+                  <Route path="/resident/team/duties" component={ResidentTeamDuties} />
+
+                  {/* Vai trò Trưởng ban */}
+                  <Route path="/resident/committee/members" component={ResidentCommitteeMembers} />
+                  <Route path="/resident/committee/duties" component={ResidentCommitteeDuties} />
+
                   {/* Final fallback route */}
                   <Route component={NotFound} />
             </Switch>

@@ -1,7 +1,14 @@
 import type { AppRole, NavigationItem } from "./types";
 import { simpleManagerNavigation } from "./managerNavigation";
 import { residentNavigation } from "./residentNavigation";
-import { appointedResidentNavigation } from "./appointedResidentNavigation";
+import {
+      appointedResidentNavigation,
+      appointedResidentRoleKeys,
+} from "./appointedResidentNavigation";
+
+export function hasAnyAppointmentRole(roles: AppRole[]) {
+      return roles.some((role) => appointedResidentRoleKeys.includes(role));
+}
 
 export function getNavigationByRoles(
       roles: AppRole[],
@@ -9,17 +16,7 @@ export function getNavigationByRoles(
 ): NavigationItem[] {
       const hasManager = roles.includes("manager");
       const hasResident = roles.includes("resident");
-
-      const hasAppointmentRole = roles.some((role) =>
-            [
-                  "team_leader",
-                  "committee_head",
-                  "house_leader",
-                  "deputy",
-                  "secretary",
-                  "treasurer",
-            ].includes(role)
-      );
+      const hasAppointmentRole = hasAnyAppointmentRole(roles);
 
       if (hasManager) {
             return simpleManagerNavigation;
@@ -30,6 +27,10 @@ export function getNavigationByRoles(
                   ...residentNavigation,
                   ...(hasAppointmentRole ? appointedResidentNavigation : []),
             ];
+      }
+
+      if (hasAppointmentRole) {
+            return appointedResidentNavigation;
       }
 
       return [];
