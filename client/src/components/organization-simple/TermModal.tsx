@@ -1,8 +1,9 @@
-import { X } from 'lucide-react';
+﻿import { X } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 import type { TermForm, TermStatus } from './types';
 
@@ -93,8 +94,7 @@ export function TermModal({
 
                               <label className="space-y-1.5">
                                     <Label>Ngày bắt đầu</Label>
-                                    <Input
-                                          type="date"
+                                    <DatePickerInput
                                           value={termForm.startDate}
                                           onChange={(event) =>
                                                 updateForm({
@@ -107,8 +107,7 @@ export function TermModal({
 
                               <label className="space-y-1.5">
                                     <Label>Ngày kết thúc</Label>
-                                    <Input
-                                          type="date"
+                                    <DatePickerInput
                                           value={termForm.endDate}
                                           onChange={(event) =>
                                                 updateForm({

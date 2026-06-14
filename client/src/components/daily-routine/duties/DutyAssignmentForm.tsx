@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import DutyPreviewBox from './DutyPreviewBox';
 import { formatTime } from '@/lib/format';
 import { DAY_OPTIONS, type DayOfWeek } from '@/lib/days';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type AssignToType = 'resident' | 'team' | 'room' | 'committee';
 
@@ -159,8 +160,7 @@ export function DutyAssignmentForm({
                   <div className="space-y-4">
                         <label className="space-y-1.5">
                               <Label>Ngày bắt đầu</Label>
-                              <Input
-                                    type="date"
+                              <DatePickerInput
                                     value={form.assignedDate}
                                     onChange={(event) =>
                                           updateForm({
@@ -250,8 +250,7 @@ export function DutyAssignmentForm({
                               {isRepeatAssignment && (
                                     <label className="mt-4 block space-y-1.5">
                                           <Label>Đến ngày</Label>
-                                          <Input
-                                                type="date"
+                                          <DatePickerInput
                                                 value={form.repeatEndDate || form.assignedDate}
                                                 min={form.assignedDate || undefined}
                                                 onChange={(event) =>

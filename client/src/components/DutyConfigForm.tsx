@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import TemplateSelector from "./TemplateSelector";
+import { DEFAULT_TIME } from "@/lib/formDefaults";
 
 interface ChecklistItem {
   id?: number;
@@ -46,8 +47,8 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
     dutyName: "",
     description: "",
     dutyType: "daily" as "daily" | "weekly" | "monthly",
-    startTime: "",
-    endTime: "",
+    startTime: DEFAULT_TIME,
+    endTime: DEFAULT_TIME,
     minPersons: 1,
     maxPersons: 5,
     frequency: "daily" as "daily" | "weekly" | "monthly",
@@ -75,8 +76,8 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
         dutyName: duty.dutyName,
         description: duty.description || "",
         dutyType: duty.dutyType,
-        startTime: duty.startTime || "",
-        endTime: duty.endTime || "",
+        startTime: duty.startTime || DEFAULT_TIME,
+        endTime: duty.endTime || DEFAULT_TIME,
         minPersons: duty.minPersons,
         maxPersons: duty.maxPersons,
         frequency: duty.frequency,
@@ -90,8 +91,8 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
         dutyName: "",
         description: "",
         dutyType: "daily",
-        startTime: "",
-        endTime: "",
+        startTime: DEFAULT_TIME,
+        endTime: DEFAULT_TIME,
         minPersons: 1,
         maxPersons: 5,
         frequency: "daily",

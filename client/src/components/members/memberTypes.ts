@@ -1,3 +1,5 @@
+import { DEFAULT_DOB, DEFAULT_GENDER, defaultAdmissionDate } from '@/lib/formDefaults';
+
 export type Gender = 'male' | 'female' | 'other';
 export type RoomEventType = 'new_entry' | 'transfer' | 'temporary_leave' | 'left';
 export type ParentType = 'father' | 'mother' | 'guardian';
@@ -48,12 +50,12 @@ export type CreateResidentUserFormData = {
 export const defaultFormData: MemberFormData = {
       holyName: '',
       fullName: '',
-      dateOfBirth: '',
-      gender: 'male',
+      dateOfBirth: DEFAULT_DOB,
+      gender: DEFAULT_GENDER,
       idNumber: '',
       permanentAddress: '',
       phoneNumber: '',
-      admissionDate: new Date().toISOString().split('T')[0],
+      admissionDate: defaultAdmissionDate(),
       notes: '',
 };
 
@@ -91,7 +93,7 @@ export const defaultCreateResidentUserFormData: CreateResidentUserFormData = {
 export function resetMemberForm(): MemberFormData {
       return {
             ...defaultFormData,
-            admissionDate: new Date().toISOString().split('T')[0],
+            admissionDate: defaultAdmissionDate(),
       };
 }
 

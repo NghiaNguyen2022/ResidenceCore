@@ -26,6 +26,7 @@ import {
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
 import { formatDate } from '@/lib/format';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type RuleStatus = 'active' | 'inactive';
 type RuleSeverity = 'low' | 'medium' | 'high' | 'critical';
@@ -820,9 +821,8 @@ function RuleFormModal({
 
                                     <div>
                                           <Label htmlFor="effectiveFrom">Ngày áp dụng</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="effectiveFrom"
-                                                type="date"
                                                 value={formData.effectiveFrom}
                                                 onChange={(event) =>
                                                       setFormData({

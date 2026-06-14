@@ -29,6 +29,7 @@ import {
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
 import { formatDate, formatDateRange, formatTimeRange, timeToMinutes } from '@/lib/format';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type SkillClassStatus = 'planned' | 'open' | 'in_progress' | 'completed' | 'cancelled';
 type SkillClassType = 'workshop' | 'course' | 'sharing' | 'practice' | 'retreat' | 'other';
@@ -1207,9 +1208,8 @@ function SkillClassFormModal({
 
                                     <div>
                                           <Label htmlFor="startDate">Ngày bắt đầu</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="startDate"
-                                                type="date"
                                                 value={formData.startDate}
                                                 onChange={(event) =>
                                                       setFormData({
@@ -1223,9 +1223,8 @@ function SkillClassFormModal({
 
                                     <div>
                                           <Label htmlFor="endDate">Ngày kết thúc</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="endDate"
-                                                type="date"
                                                 value={formData.endDate}
                                                 onChange={(event) =>
                                                       setFormData({

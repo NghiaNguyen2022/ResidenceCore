@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { normalizeText } from '@/lib/text';
 import { formatDate } from '@/lib/format';
 import { AssignmentsTab } from '@/components/organization-simple/AssignmentsTab';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type SimpleTab = 'structure' | 'assignments' | 'units' | 'terms';
 
@@ -1810,8 +1811,7 @@ export default function OrganizationSimple() {
 
                                                 <label className="space-y-1.5">
                                                       <Label>Ngày bắt đầu</Label>
-                                                      <Input
-                                                            type="date"
+                                                      <DatePickerInput
                                                             value={assignmentForm.startDate}
                                                             onChange={(event) =>
                                                                   setAssignmentForm((current) =>
@@ -1824,8 +1824,7 @@ export default function OrganizationSimple() {
 
                                                 <label className="space-y-1.5">
                                                       <Label>Ngày kết thúc</Label>
-                                                      <Input
-                                                            type="date"
+                                                      <DatePickerInput
                                                             value={assignmentForm.endDate}
                                                             onChange={(event) =>
                                                                   setAssignmentForm((current) =>
@@ -2056,8 +2055,7 @@ export default function OrganizationSimple() {
                                                 </label>
                                                 <label className="space-y-1.5">
                                                       <Label>Ngày bắt đầu</Label>
-                                                      <Input
-                                                            type="date"
+                                                      <DatePickerInput
                                                             value={termForm.startDate}
                                                             onChange={(event) =>
                                                                   setTermForm((current) =>
@@ -2069,8 +2067,7 @@ export default function OrganizationSimple() {
                                                 </label>
                                                 <label className="space-y-1.5">
                                                       <Label>Ngày kết thúc</Label>
-                                                      <Input
-                                                            type="date"
+                                                      <DatePickerInput
                                                             value={termForm.endDate}
                                                             onChange={(event) =>
                                                                   setTermForm((current) =>

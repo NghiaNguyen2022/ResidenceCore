@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
 
 import { CalendarDays } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 import { todayValue } from './dailyRoutineUtils';
 
 type DateNavigatorProps = {
@@ -31,8 +32,7 @@ export function DateNavigator({
 
                   <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
                         <CalendarDays className="h-4 w-4 text-slate-400" />
-                        <Input
-                              type="date"
+                        <DatePickerInput
                               value={value}
                               onChange={(event) => onChange(event.target.value)}
                               className="h-8 border-0 p-0 shadow-none focus-visible:ring-0"

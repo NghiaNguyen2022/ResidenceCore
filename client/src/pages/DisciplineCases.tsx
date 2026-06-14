@@ -28,6 +28,7 @@ import {
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
 import { formatDate } from '@/lib/format';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type CaseStatus = 'open' | 'reviewing' | 'resolved' | 'closed';
 type CaseSeverity = 'low' | 'medium' | 'high' | 'critical';
@@ -907,9 +908,8 @@ function CaseFormModal({
 
                                     <div>
                                           <Label htmlFor="caseDate">Ngày ghi nhận</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="caseDate"
-                                                type="date"
                                                 value={formData.caseDate}
                                                 onChange={(event) =>
                                                       setFormData({
@@ -1040,9 +1040,8 @@ function CaseFormModal({
 
                                     <div>
                                           <Label htmlFor="followUpDate">Ngày theo dõi tiếp</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="followUpDate"
-                                                type="date"
                                                 value={formData.followUpDate}
                                                 onChange={(event) =>
                                                       setFormData({

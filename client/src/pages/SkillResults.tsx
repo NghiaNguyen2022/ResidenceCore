@@ -29,6 +29,7 @@ import {
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
 import { formatDate } from '@/lib/format';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type ResultStatus = 'draft' | 'completed' | 'not_completed' | 'exempted' | 'cancelled';
 type ResultLevel = 'excellent' | 'good' | 'passed' | 'needs_practice' | 'not_passed';
@@ -1312,9 +1313,8 @@ function SkillResultFormModal({
 
                                     <div>
                                           <Label htmlFor="completedDate">Ngày ghi nhận</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="completedDate"
-                                                type="date"
                                                 value={formData.completedDate}
                                                 onChange={(event) =>
                                                       setFormData({

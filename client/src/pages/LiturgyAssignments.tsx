@@ -27,6 +27,7 @@ import {
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
 import { formatDate } from '@/lib/format';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type AssignmentStatus = 'planned' | 'confirmed' | 'completed' | 'cancelled';
 type ServiceRole =
@@ -745,9 +746,8 @@ function AssignmentFormModal({
 
                                     <div>
                                           <Label htmlFor="serviceDate">Ngày phục vụ</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="serviceDate"
-                                                type="date"
                                                 value={formData.serviceDate}
                                                 onChange={(event) =>
                                                       setFormData({

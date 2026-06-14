@@ -22,6 +22,7 @@ import {
       type AppMessageBoxState,
 } from '@/components/common/AppMessageBox';
 import { formatTime } from '@/lib/format';
+import { DEFAULT_TIME } from '@/lib/formDefaults';
 
 type DayType = 'weekday' | 'sunday' | 'special';
 
@@ -97,8 +98,8 @@ const emptyTemplateForm: TemplateForm = {
 
 const emptyItemForm: ItemForm = {
       templateId: '',
-      startTime: '',
-      endTime: '',
+      startTime: DEFAULT_TIME,
+      endTime: DEFAULT_TIME,
       title: '',
       location: '',
       description: '',

@@ -28,6 +28,7 @@ import {
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
 import { formatDate, formatDateRange, formatVND } from '@/lib/format';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type ActivityPlanStatus = 'draft' | 'planned' | 'in_progress' | 'completed' | 'cancelled';
 type ActivityPlanType =
@@ -901,9 +902,8 @@ function PlanFormModal({
 
                                     <div>
                                           <Label htmlFor="startDate">Ngày bắt đầu</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="startDate"
-                                                type="date"
                                                 value={formData.startDate}
                                                 onChange={(event) =>
                                                       setFormData({
@@ -917,9 +917,8 @@ function PlanFormModal({
 
                                     <div>
                                           <Label htmlFor="endDate">Ngày kết thúc</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="endDate"
-                                                type="date"
                                                 value={formData.endDate}
                                                 onChange={(event) =>
                                                       setFormData({

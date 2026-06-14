@@ -33,12 +33,35 @@ export function timeToMinutes(value: string): number {
 
 // ─── Date ────────────────────────────────────────────────────────────────────
 
-/** Format a date string / Date to Vietnamese locale "DD/MM/YYYY". */
+/** Format a date string / Date to "DD/MM/YYYY" — không dùng toLocaleDateString để tránh lệ thuộc locale OS. */
 export function formatDate(value?: string | Date | null): string {
       if (!value) return '—';
-      const d = value instanceof Date ? value : new Date(value);
+      if (value instanceof Date) {
+            if (Number.isNaN(value.getTime())) return '—';
+            const dd = String(value.getDate()).padStart(2, '0');
+            const mm = String(value.getMonth() + 1).padStart(2, '0');
+            return `${dd}/${mm}/${value.getFullYear()}`;
+      }
+      // "YYYY-MM-DD..." — parse trực tiếp, tránh lỗi timezone khi new Date() đọc UTC midnight
+      const iso = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+      // fallback cho các định dạng khác
+      const d = new Date(value);
       if (Number.isNaN(d.getTime())) return String(value);
-      return d.toLocaleDateString('vi-VN');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+/**
+ * Parse chuỗi "DD/MM/YYYY" (người dùng nhập) → "YYYY-MM-DD" (giá trị HTML input).
+ * Trả về '' nếu định dạng không hợp lệ.
+ */
+export function parseDateInput(ddmmyyyy: string): string {
+      const match = ddmmyyyy.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (!match) return '';
+      const [, d, m, y] = match;
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
 /** "DD/MM/YYYY – DD/MM/YYYY", collapses same-day ranges. */

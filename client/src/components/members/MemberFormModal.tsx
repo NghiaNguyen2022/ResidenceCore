@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { FormDateInput } from '@/components/shared/form/FormDateInput';
 import type {
       CreateResidentUserFormData,
       Gender,
@@ -117,9 +118,8 @@ export function MemberFormModal({
 
                                           <div>
                                                 <Label htmlFor="dateOfBirth">Ngày sinh</Label>
-                                                <Input
+                                                <FormDateInput
                                                       id="dateOfBirth"
-                                                      type="date"
                                                       value={formData.dateOfBirth}
                                                       onChange={(event) =>
                                                             setFormData({
@@ -181,9 +181,8 @@ export function MemberFormModal({
 
                                           <div>
                                                 <Label htmlFor="admissionDate">Ngày vào lưu trú *</Label>
-                                                <Input
+                                                <FormDateInput
                                                       id="admissionDate"
-                                                      type="date"
                                                       value={formData.admissionDate}
                                                       onChange={(event) =>
                                                             setFormData({

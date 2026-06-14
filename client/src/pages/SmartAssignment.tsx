@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import {
@@ -30,6 +30,7 @@ import {
       StatusBadge,
 } from '@/components/shared';
 import { ConfigurableStatCard } from '@/components/configurable/ConfigurableStatCard';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 const DAY_LABELS: Record<number, string> = {
       0: 'Chủ nhật',
@@ -175,8 +176,7 @@ export default function SmartAssignment() {
                                     </FormField>
 
                                     <FormField label="Ngày phân công" required>
-                                          <input
-                                                type="date"
+                                          <DatePickerInput
                                                 value={targetDate}
                                                 onChange={(e) => {
                                                       setTargetDate(e.target.value);

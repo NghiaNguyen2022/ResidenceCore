@@ -26,6 +26,7 @@ import {
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
 import { formatDate } from '@/lib/format';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type TermStatus = 'active' | 'inactive' | 'closed';
 
@@ -653,9 +654,8 @@ function TermFormModal({
 
                                     <div>
                                           <Label htmlFor="startDate">Ngày bắt đầu *</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="startDate"
-                                                type="date"
                                                 value={formData.startDate}
                                                 onChange={(event) =>
                                                       setFormData({ ...formData, startDate: event.target.value })
@@ -666,9 +666,8 @@ function TermFormModal({
 
                                     <div>
                                           <Label htmlFor="endDate">Ngày kết thúc *</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="endDate"
-                                                type="date"
                                                 value={formData.endDate}
                                                 onChange={(event) =>
                                                       setFormData({ ...formData, endDate: event.target.value })

@@ -27,6 +27,7 @@ import {
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
 import { formatDate, formatTimeRange, timeToMinutes } from '@/lib/format';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type LiturgyType =
       | 'mass'
@@ -893,9 +894,8 @@ function LiturgyFormModal({
 
                                     <div>
                                           <Label htmlFor="scheduleDate">Ngày thực hiện</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="scheduleDate"
-                                                type="date"
                                                 value={formData.scheduleDate}
                                                 onChange={(event) =>
                                                       setFormData({

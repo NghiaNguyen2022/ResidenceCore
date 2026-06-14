@@ -27,6 +27,7 @@ import {
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type AttendanceSessionType =
       | 'daily_routine'
@@ -551,9 +552,8 @@ export default function Attendance() {
                               <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[220px_260px_1fr_220px_auto]">
                                     <div>
                                           <Label htmlFor="attendanceDate">Ngày điểm danh</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="attendanceDate"
-                                                type="date"
                                                 value={attendanceDate}
                                                 onChange={(event) =>
                                                       setAttendanceDate(event.target.value)

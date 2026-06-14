@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DAY_OPTIONS, type DayOfWeek } from "@/lib/days";
+import { DEFAULT_TIME } from "@/lib/formDefaults";
 
 type StudySchedule = {
       id?: number;
@@ -38,7 +39,7 @@ type StudyScheduleModalProps = {
 };
 
 function normalizeTimeForInput(value?: string | null) {
-      if (!value) return "";
+      if (!value) return DEFAULT_TIME;
       return value.slice(0, 5);
 }
 
@@ -51,8 +52,8 @@ export function StudyScheduleModal({
       onSave,
 }: StudyScheduleModalProps) {
       const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>("monday");
-      const [startTime, setStartTime] = useState("");
-      const [endTime, setEndTime] = useState("");
+      const [startTime, setStartTime] = useState(DEFAULT_TIME);
+      const [endTime, setEndTime] = useState(DEFAULT_TIME);
       const [subjectName, setSubjectName] = useState("");
       const [location, setLocation] = useState("");
       const [notes, setNotes] = useState("");

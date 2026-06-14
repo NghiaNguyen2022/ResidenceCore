@@ -1,8 +1,9 @@
-import { useEffect, type Dispatch, type SetStateAction } from 'react';
+﻿import { useEffect, type Dispatch, type SetStateAction } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 import type { QuickRoomFormData, RoomAssignmentData, RoomEventType } from './memberTypes';
 import {
       getRoomAvailableSlots,
@@ -235,8 +236,7 @@ export function AssignRoomModal({
 
                                           <div>
                                                 <Label>Ngày hiệu lực *</Label>
-                                                <Input
-                                                      type="date"
+                                                <DatePickerInput
                                                       value={formData.assignedDate}
                                                       onChange={(event) =>
                                                             setFormData({

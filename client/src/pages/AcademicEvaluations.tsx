@@ -29,6 +29,7 @@ import {
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
 import { formatDate } from '@/lib/format';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type EvaluationStatus = 'draft' | 'reviewed' | 'approved' | 'archived';
 type AcademicLevel = 'excellent' | 'good' | 'average' | 'warning' | 'support_needed';
@@ -1260,9 +1261,8 @@ function EvaluationFormModal({
 
                                     <div>
                                           <Label htmlFor="reviewedDate">Ngày lượng giá</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="reviewedDate"
-                                                type="date"
                                                 value={formData.reviewedDate}
                                                 onChange={(event) =>
                                                       setFormData({

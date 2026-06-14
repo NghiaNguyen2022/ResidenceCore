@@ -25,6 +25,8 @@ import {
       type AppMessageBoxState,
 } from '@/components/common/AppMessageBox';
 import { formatTime, formatTimeRange } from '@/lib/format';
+import { DEFAULT_TIME } from '@/lib/formDefaults';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 
 type DutyStatus =
       | 'pending'
@@ -189,8 +191,8 @@ export default function Duties() {
       const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>({
             dutyConfigId: '',
             assignedDate: todayValue(),
-            startTime: '',
-            endTime: '',
+            startTime: DEFAULT_TIME,
+            endTime: DEFAULT_TIME,
             assignedToType: 'resident',
             assignedToId: '',
             notes: '',
@@ -657,8 +659,7 @@ export default function Duties() {
 
                                           <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
                                                 <CalendarDays className="h-4 w-4 text-slate-400" />
-                                                <Input
-                                                      type="date"
+                                                <DatePickerInput
                                                       value={selectedDate}
                                                       onChange={(event) =>
                                                             setSelectedDate(event.target.value)
@@ -822,8 +823,7 @@ export default function Duties() {
                                     <div className="grid gap-4 md:grid-cols-2">
                                           <label className="space-y-1.5">
                                                 <Label>Ngày công tác</Label>
-                                                <Input
-                                                      type="date"
+                                                <DatePickerInput
                                                       value={assignmentForm.assignedDate}
                                                       onChange={(event) =>
                                                             setAssignmentForm((current) => ({

@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { normalizeText } from '@/lib/text';
 import { formatDate } from '@/lib/format';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 // Tạm comment stat cards trong màn hình Cơ cấu tổ chức.
 // Khi cần mở lại, bật import này và block JSX bên dưới.
 // import { ConfigurableStatCard } from '@/components/configurable/ConfigurableStatCard';
@@ -1216,9 +1217,8 @@ function StructureFormModal({
 
                                     <div>
                                           <Label htmlFor="startDate">Ngày bắt đầu *</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="startDate"
-                                                type="date"
                                                 value={formData.startDate}
                                                 onChange={(event) =>
                                                       setFormData({ ...formData, startDate: event.target.value })
@@ -1229,9 +1229,8 @@ function StructureFormModal({
 
                                     <div>
                                           <Label htmlFor="endDate">Ngày kết thúc</Label>
-                                          <Input
+                                          <DatePickerInput
                                                 id="endDate"
-                                                type="date"
                                                 value={formData.endDate}
                                                 onChange={(event) =>
                                                       setFormData({ ...formData, endDate: event.target.value })
