@@ -45,7 +45,7 @@ import { assignUserRoles, getUserRoleKeys, type RoleKey } from "../db/roles";
 import { and, eq, sql } from "drizzle-orm";
 import { normalizeText } from '../lib/utils';
 import { getDb } from "../db/connection";
-import { organizationUnitMembers, organizationUnits, residents, roomAssignments, rooms } from "../../drizzle/schema";
+import { organizationUnitMembers, organizationUnits, residents, rooms } from "../../drizzle/schema";
 
 /* =========================================================
  * ROLE INPUTS
@@ -1050,18 +1050,11 @@ class OrganizationService {
                         residentStatus: residents.status,
                         roomId: rooms.id,
                         roomCode: rooms.roomCode,
-                        roomName: rooms.roomName,
+                        roomName: rooms.roomCode,
                   })
                   .from(organizationUnitMembers)
                   .innerJoin(residents, eq(organizationUnitMembers.residentId, residents.id))
-                  .leftJoin(
-                        roomAssignments,
-                        and(
-                              eq(roomAssignments.residentId, residents.id),
-                              eq(roomAssignments.status, "active")
-                        )
-                  )
-                  .leftJoin(rooms, eq(roomAssignments.roomId, rooms.id))
+                  .leftJoin(rooms, eq(residents.currentRoomId, rooms.id))
                   .where(and(...conditions));
 
             return rows;
