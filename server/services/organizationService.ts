@@ -1,4 +1,4 @@
-﻿import {
+import {
       CreateOrganizationAssignmentInput,
       CreateOrganizationRoleInput,
       CreateOrganizationTermInput,
@@ -42,7 +42,10 @@
 } from "../db/organization";
 import { getResidentById } from "../db/resident";
 import { assignUserRoles, getUserRoleKeys, type RoleKey } from "../db/roles";
+import { and, eq, sql } from "drizzle-orm";
 import { normalizeText } from '../lib/utils';
+import { getDb } from "../db/connection";
+import { organizationUnitMembers, organizationUnits, residents, roomAssignments, rooms } from "../../drizzle/schema";
 
 /* =========================================================
  * ROLE INPUTS
@@ -120,6 +123,34 @@ export type UpdateUnitInput = {
       description?: string | null;
       isActive?: boolean;
       sortOrder?: number;
+};
+
+export type UnitMemberRole = "member" | "leader" | "head";
+
+export type ListUnitMembersInput = {
+      unitId: number;
+      status?: "active" | "inactive" | "all";
+};
+
+export type AddUnitMemberInput = {
+      unitId: number;
+      residentId: number;
+      memberRole?: UnitMemberRole;
+      startDate?: string | Date;
+      notes?: string | null;
+};
+
+export type RemoveUnitMemberInput = {
+      memberId: number;
+      endDate?: string | Date;
+};
+
+export type TransferTeamMemberInput = {
+      residentId: number;
+      fromUnitId?: number | null;
+      toUnitId: number;
+      startDate?: string | Date;
+      notes?: string | null;
 };
 
 /* =========================================================
@@ -779,6 +810,12 @@ class OrganizationService {
        * ======================================================= */
 
       async listUnits(input?: ListUnitsInput) {
+            /*
+             * Giữ nguyên logic lấy Tổ/Ban gốc từ db/organization.
+             * Chỉ bổ sung số lượng thành viên sau khi đã có danh sách units.
+             * Nếu phần đếm member lỗi vì migration/table chưa sẵn sàng,
+             * vẫn trả về units để không làm mất dữ liệu Tổ/Ban trên UI.
+             */
             const filters: OrganizationUnitFilters = {
                   search: input?.search,
                   unitType: input?.unitType,
@@ -787,7 +824,48 @@ class OrganizationService {
                   offset: input?.offset ?? 0,
             };
 
-            return await listOrganizationUnits(filters);
+            const units = await listOrganizationUnits(filters);
+
+            if (!units.length) {
+                  return units;
+            }
+
+            try {
+                  const db = getDb();
+
+                  const memberCounts = await db
+                        .select({
+                              unitId: organizationUnitMembers.unitId,
+                              activeMemberCount: sql<number>`count(*)`,
+                        })
+                        .from(organizationUnitMembers)
+                        .where(eq(organizationUnitMembers.status, "active"))
+                        .groupBy(organizationUnitMembers.unitId);
+
+                  const countByUnitId = new Map(
+                        memberCounts.map((item: any) => [
+                              Number(item.unitId),
+                              Number(item.activeMemberCount || 0),
+                        ])
+                  );
+
+                  return units.map((unit: any) => ({
+                        ...unit,
+                        memberCount: countByUnitId.get(Number(unit.id)) || 0,
+                        activeMemberCount: countByUnitId.get(Number(unit.id)) || 0,
+                  }));
+            } catch (error) {
+                  console.warn(
+                        "[organizationService.listUnits] Cannot load member counts. Returning units without counts.",
+                        error
+                  );
+
+                  return units.map((unit: any) => ({
+                        ...unit,
+                        memberCount: Number((unit as any).memberCount || 0),
+                        activeMemberCount: Number((unit as any).activeMemberCount || 0),
+                  }));
+            }
       }
 
       async getUnitById(id: number) {
@@ -897,6 +975,312 @@ class OrganizationService {
                         : "Đã kích hoạt Tổ/Ban.",
             };
       }
+
+
+      /* =========================================================
+       * UNIT MEMBERS
+       * ======================================================= */
+
+      private normalizeDateInput(value?: string | Date | null) {
+            if (!value) {
+                  return new Date().toISOString().split("T")[0];
+            }
+
+            if (value instanceof Date) {
+                  return value.toISOString().split("T")[0];
+            }
+
+            return String(value).slice(0, 10);
+      }
+
+      private async getActiveTeamMembershipForResident(residentId: number, excludeUnitId?: number | null) {
+            const db = getDb();
+
+            const rows = await db
+                  .select({
+                        id: organizationUnitMembers.id,
+                        unitId: organizationUnitMembers.unitId,
+                        unitName: organizationUnits.name,
+                        unitType: organizationUnits.unitType,
+                  })
+                  .from(organizationUnitMembers)
+                  .innerJoin(
+                        organizationUnits,
+                        eq(organizationUnitMembers.unitId, organizationUnits.id)
+                  )
+                  .where(
+                        and(
+                              eq(organizationUnitMembers.residentId, residentId),
+                              eq(organizationUnitMembers.status, "active"),
+                              eq(organizationUnits.unitType, "team")
+                        )
+                  );
+
+            return rows.find((row: any) => Number(row.unitId) !== Number(excludeUnitId || 0)) || null;
+      }
+
+      async listUnitMembers(input: ListUnitMembersInput) {
+            if (!input.unitId || input.unitId <= 0) {
+                  throw new Error("ID Tổ/Ban không hợp lệ.");
+            }
+
+            const db = getDb();
+
+            const status = input.status || "active";
+            const conditions: any[] = [eq(organizationUnitMembers.unitId, input.unitId)];
+
+            if (status !== "all") {
+                  conditions.push(eq(organizationUnitMembers.status, status));
+            }
+
+            const rows = await db
+                  .select({
+                        id: organizationUnitMembers.id,
+                        unitId: organizationUnitMembers.unitId,
+                        residentId: organizationUnitMembers.residentId,
+                        memberRole: organizationUnitMembers.memberRole,
+                        status: organizationUnitMembers.status,
+                        startDate: organizationUnitMembers.startDate,
+                        endDate: organizationUnitMembers.endDate,
+                        notes: organizationUnitMembers.notes,
+                        residentName: residents.fullName,
+                        residentCode: residents.residentCode,
+                        holyName: residents.holyName,
+                        phoneNumber: residents.phoneNumber,
+                        residentStatus: residents.status,
+                        roomId: rooms.id,
+                        roomCode: rooms.roomCode,
+                        roomName: rooms.roomName,
+                  })
+                  .from(organizationUnitMembers)
+                  .innerJoin(residents, eq(organizationUnitMembers.residentId, residents.id))
+                  .leftJoin(
+                        roomAssignments,
+                        and(
+                              eq(roomAssignments.residentId, residents.id),
+                              eq(roomAssignments.status, "active")
+                        )
+                  )
+                  .leftJoin(rooms, eq(roomAssignments.roomId, rooms.id))
+                  .where(and(...conditions));
+
+            return rows;
+      }
+
+      async getAvailableResidentsForUnit(unitId: number) {
+            if (!unitId || unitId <= 0) {
+                  throw new Error("ID Tổ/Ban không hợp lệ.");
+            }
+
+            const unit = await getOrganizationUnitById(unitId);
+
+            if (!unit) {
+                  throw new Error("Không tìm thấy Tổ/Ban.");
+            }
+
+            const db = getDb();
+
+            const activeResidents = await db
+                  .select({
+                        id: residents.id,
+                        fullName: residents.fullName,
+                        residentCode: residents.residentCode,
+                        holyName: residents.holyName,
+                        phoneNumber: residents.phoneNumber,
+                        currentRoomId: residents.currentRoomId,
+                  })
+                  .from(residents)
+                  .where(eq(residents.status, "active"));
+
+            const activeMemberships = await db
+                  .select({
+                        residentId: organizationUnitMembers.residentId,
+                        unitId: organizationUnitMembers.unitId,
+                        unitType: organizationUnits.unitType,
+                  })
+                  .from(organizationUnitMembers)
+                  .innerJoin(
+                        organizationUnits,
+                        eq(organizationUnitMembers.unitId, organizationUnits.id)
+                  )
+                  .where(eq(organizationUnitMembers.status, "active"));
+
+            const activeSameUnitResidentIds = new Set(
+                  activeMemberships
+                        .filter((item: any) => Number(item.unitId) === Number(unitId))
+                        .map((item: any) => Number(item.residentId))
+            );
+
+            const activeTeamResidentIds = new Set(
+                  activeMemberships
+                        .filter((item: any) => item.unitType === "team")
+                        .map((item: any) => Number(item.residentId))
+            );
+
+            return activeResidents
+                  .filter((resident: any) => {
+                        if (activeSameUnitResidentIds.has(Number(resident.id))) {
+                              return false;
+                        }
+
+                        if (unit.unitType === "team" && activeTeamResidentIds.has(Number(resident.id))) {
+                              return false;
+                        }
+
+                        return true;
+                  })
+                  .map((resident: any) => ({
+                        ...resident,
+                        displayName: `${resident.holyName ? `${resident.holyName} ` : ""}${resident.fullName}`.trim(),
+                  }));
+      }
+
+      async addUnitMember(input: AddUnitMemberInput) {
+            if (!input.unitId || input.unitId <= 0) {
+                  throw new Error("Vui lòng chọn Tổ/Ban.");
+            }
+
+            if (!input.residentId || input.residentId <= 0) {
+                  throw new Error("Vui lòng chọn học viên.");
+            }
+
+            const unit = await getOrganizationUnitById(input.unitId);
+
+            if (!unit) {
+                  throw new Error("Không tìm thấy Tổ/Ban.");
+            }
+
+            if (!this.isTruthy(unit.isActive)) {
+                  throw new Error("Tổ/Ban này đã ngưng sử dụng.");
+            }
+
+            const resident = await getResidentById(input.residentId);
+
+            if (!resident) {
+                  throw new Error("Không tìm thấy học viên.");
+            }
+
+            if (resident.status !== "active") {
+                  throw new Error("Chỉ có thể thêm học viên đang lưu trú.");
+            }
+
+            const db = getDb();
+
+            const existingSameUnit = await db
+                  .select()
+                  .from(organizationUnitMembers)
+                  .where(
+                        and(
+                              eq(organizationUnitMembers.unitId, input.unitId),
+                              eq(organizationUnitMembers.residentId, input.residentId),
+                              eq(organizationUnitMembers.status, "active")
+                        )
+                  )
+                  .limit(1);
+
+            if (existingSameUnit[0]) {
+                  throw new Error("Học viên này đã có trong Tổ/Ban.");
+            }
+
+            if (unit.unitType === "team") {
+                  const existingTeam = await this.getActiveTeamMembershipForResident(
+                        input.residentId,
+                        input.unitId
+                  );
+
+                  if (existingTeam) {
+                        throw new Error(
+                              `Học viên này đang thuộc ${existingTeam.unitName}. Vui lòng dùng chức năng chuyển tổ.`
+                        );
+                  }
+            }
+
+            await db.insert(organizationUnitMembers).values({
+                  unitId: input.unitId,
+                  residentId: input.residentId,
+                  memberRole: input.memberRole || "member",
+                  status: "active",
+                  startDate: this.normalizeDateInput(input.startDate),
+                  endDate: null,
+                  notes: input.notes?.trim() || null,
+            } as any);
+
+            return {
+                  success: true,
+                  message: "Đã thêm thành viên vào Tổ/Ban.",
+            };
+      }
+
+      async removeUnitMember(input: RemoveUnitMemberInput) {
+            if (!input.memberId || input.memberId <= 0) {
+                  throw new Error("ID thành viên không hợp lệ.");
+            }
+
+            const db = getDb();
+
+            await db
+                  .update(organizationUnitMembers)
+                  .set({
+                        status: "inactive",
+                        endDate: this.normalizeDateInput(input.endDate),
+                        updatedAt: new Date(),
+                  } as any)
+                  .where(eq(organizationUnitMembers.id, input.memberId));
+
+            return {
+                  success: true,
+                  message: "Đã gỡ thành viên khỏi Tổ/Ban.",
+            };
+      }
+
+      async transferTeamMember(input: TransferTeamMemberInput) {
+            if (!input.residentId || input.residentId <= 0) {
+                  throw new Error("Vui lòng chọn học viên.");
+            }
+
+            if (!input.toUnitId || input.toUnitId <= 0) {
+                  throw new Error("Vui lòng chọn Tổ chuyển đến.");
+            }
+
+            const targetUnit = await getOrganizationUnitById(input.toUnitId);
+
+            if (!targetUnit || targetUnit.unitType !== "team") {
+                  throw new Error("Đơn vị chuyển đến phải là Tổ.");
+            }
+
+            const db = getDb();
+            const today = this.normalizeDateInput(input.startDate);
+
+            await db
+                  .update(organizationUnitMembers)
+                  .set({
+                        status: "inactive",
+                        endDate: today,
+                        updatedAt: new Date(),
+                  } as any)
+                  .where(
+                        and(
+                              eq(organizationUnitMembers.residentId, input.residentId),
+                              eq(organizationUnitMembers.status, "active")
+                        )
+                  );
+
+            await db.insert(organizationUnitMembers).values({
+                  unitId: input.toUnitId,
+                  residentId: input.residentId,
+                  memberRole: "member",
+                  status: "active",
+                  startDate: today,
+                  endDate: null,
+                  notes: input.notes?.trim() || null,
+            } as any);
+
+            return {
+                  success: true,
+                  message: "Đã chuyển tổ cho học viên.",
+            };
+      }
+
 
       /* =========================================================
        * TERMS
@@ -1046,6 +1430,72 @@ class OrganizationService {
             return assignment;
       }
 
+
+      private async ensureUnitMembershipForAssignment(input: {
+            residentId: number;
+            roleId: number;
+            unitId?: number | null;
+      }) {
+            if (!input.unitId || input.unitId <= 0) return;
+
+            const role = await getOrganizationRoleById(input.roleId);
+            if (!role) return;
+
+            const unit = await getOrganizationUnitById(input.unitId);
+            if (!unit) return;
+
+            const isTeamLeader = isTeamLeaderRole(role);
+            const isCommitteeHead = isCommitteeHeadRole(role);
+
+            if (!isTeamLeader && !isCommitteeHead) return;
+
+            if (isTeamLeader && unit.unitType !== "team") return;
+            if (isCommitteeHead && unit.unitType !== "committee") return;
+
+            const db = getDb();
+
+            const existingSameUnit = await db
+                  .select()
+                  .from(organizationUnitMembers)
+                  .where(
+                        and(
+                              eq(organizationUnitMembers.unitId, input.unitId),
+                              eq(organizationUnitMembers.residentId, input.residentId),
+                              eq(organizationUnitMembers.status, "active")
+                        )
+                  )
+                  .limit(1);
+
+            if (existingSameUnit[0]) {
+                  return;
+            }
+
+            if (isTeamLeader) {
+                  const existingTeam = await this.getActiveTeamMembershipForResident(
+                        input.residentId,
+                        input.unitId
+                  );
+
+                  if (existingTeam) {
+                        throw new Error(
+                              `Học viên này đang thuộc ${existingTeam.unitName}. Cần xác nhận chuyển tổ trước khi bổ nhiệm Tổ trưởng sang tổ khác.`
+                        );
+                  }
+            }
+
+            await db.insert(organizationUnitMembers).values({
+                  unitId: input.unitId,
+                  residentId: input.residentId,
+                  memberRole: isTeamLeader ? "leader" : "head",
+                  status: "active",
+                  startDate: this.normalizeDateInput(),
+                  endDate: null,
+                  notes: isTeamLeader
+                        ? "Tự động thêm khi bổ nhiệm Tổ trưởng."
+                        : "Tự động thêm khi bổ nhiệm Trưởng ban.",
+            } as any);
+      }
+
       async createAssignment(input: CreateAssignmentInput) {
             if (!input.termId || input.termId <= 0) {
                   throw new Error("Vui lòng chọn nhiệm kỳ.");
@@ -1090,6 +1540,12 @@ class OrganizationService {
                   await this.grantAppointmentRoleForAssignment({
                         residentId: payload.residentId,
                         roleId: payload.roleId,
+                  });
+
+                  await this.ensureUnitMembershipForAssignment({
+                        residentId: payload.residentId,
+                        roleId: payload.roleId,
+                        unitId: payload.unitId,
                   });
             }
 
@@ -1161,6 +1617,12 @@ class OrganizationService {
                   await this.grantAppointmentRoleForAssignment({
                         residentId: nextResidentId,
                         roleId: nextRoleId,
+                  });
+
+                  await this.ensureUnitMembershipForAssignment({
+                        residentId: nextResidentId,
+                        roleId: nextRoleId,
+                        unitId: mergedAssignment.unitId,
                   });
             }
 

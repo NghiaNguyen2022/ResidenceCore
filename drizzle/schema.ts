@@ -1039,6 +1039,63 @@ export const organizationUnits = mysqlTable(
 export type OrganizationUnit = typeof organizationUnits.$inferSelect;
 export type InsertOrganizationUnit = typeof organizationUnits.$inferInsert;
 
+export const organizationUnitMemberRoleEnum = [
+      "member",
+      "leader",
+      "head",
+] as const;
+
+export const organizationUnitMemberStatusEnum = [
+      "active",
+      "inactive",
+] as const;
+
+export const organizationUnitMembers = mysqlTable(
+      "organization_unit_members",
+      {
+            id: int("id").autoincrement().primaryKey(),
+
+            unitId: int("unit_id")
+                  .notNull()
+                  .references(() => organizationUnits.id, { onDelete: "cascade" }),
+
+            residentId: int("resident_id")
+                  .notNull()
+                  .references(() => residents.id, { onDelete: "cascade" }),
+
+            memberRole: mysqlEnum("member_role", organizationUnitMemberRoleEnum)
+                  .notNull()
+                  .default("member"),
+
+            status: mysqlEnum("status", organizationUnitMemberStatusEnum)
+                  .notNull()
+                  .default("active"),
+
+            startDate: date("start_date").notNull(),
+
+            endDate: date("end_date"),
+
+            notes: text("notes"),
+
+            createdAt: timestamp("created_at").defaultNow().notNull(),
+
+            updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+      },
+      (table) => ({
+            unitIdx: index("idx_organization_unit_members_unit").on(table.unitId),
+            residentIdx: index("idx_organization_unit_members_resident").on(table.residentId),
+            statusIdx: index("idx_organization_unit_members_status").on(table.status),
+            unitResidentStatusIdx: index("idx_org_unit_members_unit_resident_status").on(
+                  table.unitId,
+                  table.residentId,
+                  table.status
+            ),
+      })
+);
+
+export type OrganizationUnitMember = typeof organizationUnitMembers.$inferSelect;
+export type InsertOrganizationUnitMember = typeof organizationUnitMembers.$inferInsert;
+
 export const roles = mysqlTable("roles", {
       id: int("id").autoincrement().primaryKey(),
 

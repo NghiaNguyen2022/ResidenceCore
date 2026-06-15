@@ -34,6 +34,33 @@ const organizationAssignmentStatusSchema = z.enum([
 ]);
 const organizationUnitTypeSchema = z.enum(["team", "committee"]);
 
+
+const listUnitMembersSchema = z.object({
+      unitId: z.number().int().positive(),
+      status: z.enum(["active", "inactive", "all"]).optional().default("active"),
+});
+
+const addUnitMemberSchema = z.object({
+      unitId: z.number().int().positive(),
+      residentId: z.number().int().positive(),
+      memberRole: z.enum(["member", "leader", "head"]).optional().default("member"),
+      startDate: z.union([z.string(), z.date()]).optional(),
+      notes: z.string().trim().optional().nullable(),
+});
+
+const removeUnitMemberSchema = z.object({
+      memberId: z.number().int().positive(),
+      endDate: z.union([z.string(), z.date()]).optional(),
+});
+
+const transferTeamMemberSchema = z.object({
+      residentId: z.number().int().positive(),
+      fromUnitId: z.number().int().positive().optional().nullable(),
+      toUnitId: z.number().int().positive(),
+      startDate: z.union([z.string(), z.date()]).optional(),
+      notes: z.string().trim().optional().nullable(),
+});
+
 export const organizationRouter = router({
       ensureDefaultRoles: protectedProcedure.mutation(async () => {
             return await organizationService.ensureDefaultOrganizationRoles();
@@ -398,4 +425,42 @@ export const organizationRouter = router({
             .mutation(async ({ input }) => {
                   return await organizationService.toggleUnitActive(input.id);
             }),
+
+
+      listUnitMembers: protectedProcedure
+            .input(listUnitMembersSchema)
+            .query(async ({ input }) => {
+                  return await organizationService.listUnitMembers(input);
+            }),
+
+      getAvailableResidentsForUnit: protectedProcedure
+            .input(
+                  z.object({
+                        unitId: z.number().int().positive(),
+                  })
+            )
+            .query(async ({ input }) => {
+                  return await organizationService.getAvailableResidentsForUnit(
+                        input.unitId
+                  );
+            }),
+
+      addUnitMember: protectedProcedure
+            .input(addUnitMemberSchema)
+            .mutation(async ({ input }) => {
+                  return await organizationService.addUnitMember(input);
+            }),
+
+      removeUnitMember: protectedProcedure
+            .input(removeUnitMemberSchema)
+            .mutation(async ({ input }) => {
+                  return await organizationService.removeUnitMember(input);
+            }),
+
+      transferTeamMember: protectedProcedure
+            .input(transferTeamMemberSchema)
+            .mutation(async ({ input }) => {
+                  return await organizationService.transferTeamMember(input);
+            }),
+
 });

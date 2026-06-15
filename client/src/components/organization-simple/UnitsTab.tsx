@@ -1,4 +1,4 @@
-import { Building2, Plus } from 'lucide-react';
+import { Building2, Plus, UsersRound } from 'lucide-react';
 
 import type { OrganizationUnit } from './types';
 import {
@@ -12,6 +12,7 @@ type UnitsTabProps = {
       onCreateUnit: () => void;
       onEditUnit: (unit: OrganizationUnit) => void;
       onToggleUnit: (unit: OrganizationUnit) => void;
+      onManageMembers?: (unit: OrganizationUnit) => void;
 };
 
 export function UnitsTab({
@@ -19,6 +20,7 @@ export function UnitsTab({
       onCreateUnit,
       onEditUnit,
       onToggleUnit,
+      onManageMembers,
 }: UnitsTabProps) {
       return (
             <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -88,6 +90,16 @@ export function UnitsTab({
                                           )}
 
                                           <div className="mt-4 flex flex-wrap gap-2">
+                                                {onManageMembers && (
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => onManageMembers(unit)}
+                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                                                      >
+                                                            <UsersRound className="h-3.5 w-3.5" />
+                                                            Thành viên
+                                                      </button>
+                                                )}
                                                 <button
                                                       type="button"
                                                       onClick={() => onEditUnit(unit)}
