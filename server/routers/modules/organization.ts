@@ -462,4 +462,9 @@ export const organizationRouter = router({
             .mutation(async ({ input }) => {
                   return await organizationService.transferTeamMember(input);
             }),
+
+
+      syncUnitLeadersToMembers: protectedProcedure.mutation(async () => {
+            return await organizationService.syncUnitLeadersToMembers();
+      }),
 });

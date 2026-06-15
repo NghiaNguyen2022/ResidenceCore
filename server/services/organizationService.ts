@@ -42,11 +42,8 @@ import {
 } from "../db/organization";
 import { getResidentById } from "../db/resident";
 import { assignUserRoles, getUserRoleKeys, type RoleKey } from "../db/roles";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { normalizeText } from '../lib/utils';
-import { and, eq, inArray, sql } from "drizzle-orm";
-import { getDb } from "../db/connection";
-import { organizationUnitMembers, organizationUnits, residents, rooms } from "../../drizzle/schema";
 import { getDb } from "../db/connection";
 import { organizationUnitMembers, organizationUnits, residents, rooms } from "../../drizzle/schema";
 
@@ -338,28 +335,41 @@ function isHouseLevelRole(role: any): boolean {
 }
 
 
+function normalizeRoleKey(value: unknown): string {
+      return normalizeText(String(value || ""))
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/^_+|_+$/g, "");
+}
+
+function normalizeRoleLabel(value: unknown): string {
+      return normalizeText(String(value || ""))
+            .replace(/[^a-z0-9]+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+}
+
 function isTeamLeaderRole(role: any): boolean {
-      const roleType = normalizeText(String(role?.roleType || ""));
-      const roleCode = normalizeText(String(role?.code || ""));
-      const roleName = normalizeText(String(role?.name || role?.roleName || ""));
+      const roleType = normalizeRoleKey(role?.roleType);
+      const roleCode = normalizeRoleKey(role?.code);
+      const roleName = normalizeRoleLabel(role?.name || role?.roleName);
 
       return (
             roleType === "team_leader" ||
+            roleCode === "team_leader" ||
             roleCode === "to_truong" ||
-            roleCode.includes("to_truong") ||
             roleName.includes("to truong")
       );
 }
 
 function isCommitteeHeadRole(role: any): boolean {
-      const roleType = normalizeText(String(role?.roleType || ""));
-      const roleCode = normalizeText(String(role?.code || ""));
-      const roleName = normalizeText(String(role?.name || role?.roleName || ""));
+      const roleType = normalizeRoleKey(role?.roleType);
+      const roleCode = normalizeRoleKey(role?.code);
+      const roleName = normalizeRoleLabel(role?.name || role?.roleName);
 
       return (
             roleType === "committee_head" ||
+            roleCode === "committee_head" ||
             roleCode === "truong_ban" ||
-            roleCode.includes("truong_ban") ||
             roleName.includes("truong ban")
       );
 }
@@ -813,6 +823,12 @@ class OrganizationService {
        * ======================================================= */
 
       async listUnits(input?: ListUnitsInput) {
+            /*
+             * Giữ nguyên logic lấy Tổ/Ban gốc từ db/organization.
+             * Chỉ bổ sung số lượng thành viên sau khi đã có danh sách units.
+             * Nếu phần đếm member lỗi vì migration/table chưa sẵn sàng,
+             * vẫn trả về units để không làm mất dữ liệu Tổ/Ban trên UI.
+             */
             const filters: OrganizationUnitFilters = {
                   search: input?.search,
                   unitType: input?.unitType,
@@ -823,53 +839,44 @@ class OrganizationService {
 
             const units = await listOrganizationUnits(filters);
 
-            const unitIds = units
-                  .map((unit: any) => Number(unit.id))
-                  .filter((id: number) => id > 0);
-
-            if (unitIds.length === 0) {
-                  return units.map((unit: any) => ({
-                        ...unit,
-                        memberCount: 0,
-                        activeMemberCount: 0,
-                  }));
+            if (!units.length) {
+                  return units;
             }
 
             try {
                   const db = getDb();
 
-                  const countRows = await db
+                  const memberCounts = await db
                         .select({
                               unitId: organizationUnitMembers.unitId,
-                              memberCount: sql<number>`count(*)`,
+                              activeMemberCount: sql<number>`count(*)`,
                         })
                         .from(organizationUnitMembers)
-                        .where(
-                              and(
-                                    inArray(organizationUnitMembers.unitId, unitIds),
-                                    eq(organizationUnitMembers.status, "active")
-                              )
-                        )
+                        .where(eq(organizationUnitMembers.status, "active"))
                         .groupBy(organizationUnitMembers.unitId);
 
-                  const countMap = new Map<number, number>();
-
-                  for (const row of countRows as any[]) {
-                        countMap.set(Number(row.unitId), Number(row.memberCount || 0));
-                  }
+                  const countByUnitId = new Map(
+                        memberCounts.map((item: any) => [
+                              Number(item.unitId),
+                              Number(item.activeMemberCount || 0),
+                        ])
+                  );
 
                   return units.map((unit: any) => ({
                         ...unit,
-                        memberCount: countMap.get(Number(unit.id)) || 0,
-                        activeMemberCount: countMap.get(Number(unit.id)) || 0,
+                        memberCount: countByUnitId.get(Number(unit.id)) || 0,
+                        activeMemberCount: countByUnitId.get(Number(unit.id)) || 0,
                   }));
             } catch (error) {
-                  console.warn("[organizationService.listUnits] Không thể tính số thành viên Tổ/Ban:", error);
+                  console.warn(
+                        "[organizationService.listUnits] Cannot load member counts. Returning units without counts.",
+                        error
+                  );
 
                   return units.map((unit: any) => ({
                         ...unit,
-                        memberCount: 0,
-                        activeMemberCount: 0,
+                        memberCount: Number((unit as any).memberCount || 0),
+                        activeMemberCount: Number((unit as any).activeMemberCount || 0),
                   }));
             }
       }
@@ -1247,36 +1254,81 @@ class OrganizationService {
                   throw new Error("Đơn vị chuyển đến phải là Tổ.");
             }
 
-            const db = getDb();
-            const today = this.normalizeDateInput(input.startDate);
+            if (!this.isTruthy(targetUnit.isActive)) {
+                  throw new Error("Tổ chuyển đến đã ngưng sử dụng.");
+            }
 
-            await db
-                  .update(organizationUnitMembers)
-                  .set({
-                        status: "inactive",
-                        endDate: today,
-                        updatedAt: new Date(),
-                  } as any)
+            const resident = await getResidentById(input.residentId);
+
+            if (!resident || resident.status !== "active") {
+                  throw new Error("Chỉ có thể chuyển tổ cho học viên đang lưu trú.");
+            }
+
+            const db = getDb();
+            const transferDate = this.normalizeDateInput(input.startDate);
+
+            const activeTeamMemberships = await db
+                  .select({
+                        id: organizationUnitMembers.id,
+                        unitId: organizationUnitMembers.unitId,
+                        memberRole: organizationUnitMembers.memberRole,
+                        unitName: organizationUnits.name,
+                  })
+                  .from(organizationUnitMembers)
+                  .innerJoin(
+                        organizationUnits,
+                        eq(organizationUnitMembers.unitId, organizationUnits.id)
+                  )
                   .where(
                         and(
                               eq(organizationUnitMembers.residentId, input.residentId),
-                              eq(organizationUnitMembers.status, "active")
+                              eq(organizationUnitMembers.status, "active"),
+                              eq(organizationUnits.unitType, "team")
                         )
                   );
+
+            const sameTargetMembership = activeTeamMemberships.find(
+                  (membership: any) => Number(membership.unitId) === Number(input.toUnitId)
+            );
+
+            if (sameTargetMembership) {
+                  throw new Error("Học viên đã thuộc Tổ này.");
+            }
+
+            const leaderMembership = activeTeamMemberships.find(
+                  (membership: any) => membership.memberRole === "leader"
+            );
+
+            if (leaderMembership) {
+                  throw new Error(
+                        `Học viên này đang là Tổ trưởng của ${leaderMembership.unitName || "một Tổ khác"}. Vui lòng cập nhật hoặc kết thúc vai trò Tổ trưởng trước khi chuyển tổ.`
+                  );
+            }
+
+            for (const membership of activeTeamMemberships) {
+                  await db
+                        .update(organizationUnitMembers)
+                        .set({
+                              status: "inactive",
+                              endDate: transferDate,
+                              updatedAt: new Date(),
+                        } as any)
+                        .where(eq(organizationUnitMembers.id, membership.id));
+            }
 
             await db.insert(organizationUnitMembers).values({
                   unitId: input.toUnitId,
                   residentId: input.residentId,
                   memberRole: "member",
                   status: "active",
-                  startDate: today,
+                  startDate: transferDate,
                   endDate: null,
-                  notes: input.notes?.trim() || null,
+                  notes: input.notes?.trim() || "Chuyển tổ từ màn quản lý thành viên Tổ/Ban",
             } as any);
 
             return {
                   success: true,
-                  message: "Đã chuyển tổ cho học viên.",
+                  message: `Đã chuyển học viên sang ${targetUnit.name || "Tổ mới"}.`,
             };
       }
 
@@ -1466,17 +1518,6 @@ class OrganizationService {
                   .limit(1);
 
             if (existingSameUnit[0]) {
-                  await db
-                        .update(organizationUnitMembers)
-                        .set({
-                              memberRole: isTeamLeader ? "leader" : "head",
-                              notes: isTeamLeader
-                                    ? "Tự động cập nhật từ bổ nhiệm Tổ trưởng."
-                                    : "Tự động cập nhật từ bổ nhiệm Trưởng ban.",
-                              updatedAt: new Date(),
-                        } as any)
-                        .where(eq(organizationUnitMembers.id, existingSameUnit[0].id));
-
                   return;
             }
 
@@ -1507,72 +1548,50 @@ class OrganizationService {
       }
 
       async syncUnitLeadersToMembers() {
-            const activeAssignments = await this.listAssignments({
+            const assignments = await listOrganizationAssignments({
                   status: "active",
                   limit: 1000,
                   offset: 0,
             });
 
             const result = {
-                  created: 0,
-                  updated: 0,
+                  createdOrUpdated: 0,
                   skipped: 0,
                   errors: [] as string[],
             };
 
-            for (const assignment of activeAssignments as any[]) {
-                  const roleId = Number(assignment.roleId || 0);
-                  const residentId = Number(assignment.residentId || 0);
-                  const unitId = Number(assignment.unitId || 0);
-
-                  if (!roleId || !residentId || !unitId) {
+            for (const assignment of assignments as any[]) {
+                  if (!assignment?.residentId || !assignment?.roleId || !assignment?.unitId) {
                         result.skipped += 1;
                         continue;
                   }
 
-                  const role = await getOrganizationRoleById(roleId);
-                  if (!role || (!isTeamLeaderRole(role) && !isCommitteeHeadRole(role))) {
+                  const role = await getOrganizationRoleById(Number(assignment.roleId));
+                  const isSupportedRole = role && (isTeamLeaderRole(role) || isCommitteeHeadRole(role));
+
+                  if (!isSupportedRole) {
                         result.skipped += 1;
                         continue;
                   }
 
                   try {
-                        const beforeRows = await getDb()
-                              .select({
-                                    id: organizationUnitMembers.id,
-                                    memberRole: organizationUnitMembers.memberRole,
-                              })
-                              .from(organizationUnitMembers)
-                              .where(
-                                    and(
-                                          eq(organizationUnitMembers.unitId, unitId),
-                                          eq(organizationUnitMembers.residentId, residentId),
-                                          eq(organizationUnitMembers.status, "active")
-                                    )
-                              )
-                              .limit(1);
-
                         await this.ensureUnitMembershipForAssignment({
-                              residentId,
-                              roleId,
-                              unitId,
+                              residentId: Number(assignment.residentId),
+                              roleId: Number(assignment.roleId),
+                              unitId: Number(assignment.unitId),
                         });
-
-                        if (beforeRows[0]) {
-                              result.updated += 1;
-                        } else {
-                              result.created += 1;
-                        }
+                        result.createdOrUpdated += 1;
                   } catch (error: any) {
                         result.errors.push(
-                              error?.message || "Không thể đồng bộ người phụ trách."
+                              error?.message || `Không thể đồng bộ phân công ${assignment.id || ""}.`
                         );
                   }
             }
 
             return {
+                  success: true,
+                  message: `Đã đồng bộ ${result.createdOrUpdated} người phụ trách vào danh sách thành viên.`,
                   ...result,
-                  message: `Đã đồng bộ ${result.created} người phụ trách, cập nhật ${result.updated}, bỏ qua ${result.skipped}.`,
             };
       }
 

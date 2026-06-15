@@ -404,6 +404,12 @@ export default function OrganizationSimple() {
       const [unitForm, setUnitForm] = useState<UnitForm | null>(null);
       const [selectedUnitForMembers, setSelectedUnitForMembers] = useState<OrganizationUnit | null>(null);
       const [selectedResidentToAdd, setSelectedResidentToAdd] = useState<string>("");
+      const [selectedResidentToTransfer, setSelectedResidentToTransfer] = useState<string>("");
+      const [transferConfirm, setTransferConfirm] = useState<{
+            residentId: number;
+            residentName: string;
+            targetUnitName: string;
+      } | null>(null);
       const [termForm, setTermForm] = useState<TermForm | null>(null);
 
       const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -461,6 +467,7 @@ export default function OrganizationSimple() {
       const toggleUnitActiveMutation = trpc.organization.toggleUnitActive.useMutation();
       const addUnitMemberMutation = trpc.organization.addUnitMember.useMutation();
       const removeUnitMemberMutation = trpc.organization.removeUnitMember.useMutation();
+      const transferTeamMemberMutation = trpc.organization.transferTeamMember.useMutation();
       const syncUnitLeadersMutation = trpc.organization.syncUnitLeadersToMembers.useMutation();
 
       const createTermMutation = trpc.organization.createTerm.useMutation();
@@ -620,14 +627,41 @@ export default function OrganizationSimple() {
                         assignment.id !== assignmentForm.id
             );
 
+            const isUnitScopedRole =
+                  selectedRole?.roleType === 'team_leader' ||
+                  selectedRole?.roleType === 'committee_head';
+
+            const activeSameRoleForLimit = isUnitScopedRole
+                  ? activeSameRole.filter(
+                          (assignment) =>
+                                Number(assignment.unitId || 0) === Number(assignmentForm.unitId || 0)
+                    )
+                  : activeSameRole;
+
             const selectedRoleMax = selectedRole?.maxAssignees ?? null;
             const roleAllowsMultiple = Boolean(selectedRole?.allowMultipleMembers);
 
-            if (selectedRoleMax && activeSameRole.length >= selectedRoleMax) {
+            if (selectedRoleMax && activeSameRoleForLimit.length >= selectedRoleMax) {
+                  if (selectedRole?.roleType === 'team_leader') {
+                        return `Tổ này đã có Tổ trưởng. Mỗi Tổ chỉ được phân công tối đa ${selectedRoleMax} Tổ trưởng.`;
+                  }
+
+                  if (selectedRole?.roleType === 'committee_head') {
+                        return `Ban này đã có Trưởng ban. Mỗi Ban chỉ được phân công tối đa ${selectedRoleMax} Trưởng ban.`;
+                  }
+
                   return `Chức vụ này đã đủ số lượng tối đa (${selectedRoleMax}).`;
             }
 
-            if (!selectedRoleMax && !roleAllowsMultiple && activeSameRole.length >= 1) {
+            if (!selectedRoleMax && !roleAllowsMultiple && activeSameRoleForLimit.length >= 1) {
+                  if (selectedRole?.roleType === 'team_leader') {
+                        return 'Tổ này đã có Tổ trưởng.';
+                  }
+
+                  if (selectedRole?.roleType === 'committee_head') {
+                        return 'Ban này đã có Trưởng ban.';
+                  }
+
                   return 'Chức vụ này chỉ cho một người đảm nhiệm trong cùng nhiệm kỳ.';
             }
 
@@ -828,11 +862,15 @@ export default function OrganizationSimple() {
             setMessage(null);
             setSelectedUnitForMembers(unit);
             setSelectedResidentToAdd("");
+            setSelectedResidentToTransfer("");
+            setTransferConfirm(null);
       };
 
       const closeUnitMembers = () => {
             setSelectedUnitForMembers(null);
             setSelectedResidentToAdd("");
+            setSelectedResidentToTransfer("");
+            setTransferConfirm(null);
       };
 
       const addSelectedUnitMember = async () => {
@@ -867,11 +905,83 @@ export default function OrganizationSimple() {
                         utils.organization.listUnits.invalidate(),
                   ]);
             } catch (err: any) {
+                  const errorMessage = err?.message || 'Không thể thêm thành viên.';
+
+                  if (
+                        selectedUnitForMembers?.unitType === 'team' &&
+                        errorMessage.toLowerCase().includes('chuyển tổ')
+                  ) {
+                        setSelectedResidentToTransfer(String(residentId));
+                  }
+
                   setMessage({
                         type: 'error',
-                        text: err?.message || 'Không thể thêm thành viên.',
+                        text: errorMessage,
                   });
             }
+      };
+
+      const requestTransferSelectedResident = () => {
+            if (!selectedUnitForMembers || selectedUnitForMembers.unitType !== 'team') {
+                  setMessage({ type: 'error', text: 'Chỉ có thể chuyển học viên giữa các Tổ.' });
+                  return;
+            }
+
+            const residentId = Number(selectedResidentToTransfer);
+
+            if (!residentId) {
+                  setMessage({ type: 'error', text: 'Vui lòng chọn học viên cần chuyển tổ.' });
+                  return;
+            }
+
+            const resident = activeMembers.find(
+                  (item: any) => Number(item.id) === residentId
+            ) as any;
+
+            const residentName = `${resident?.holyName ? `${resident.holyName} ` : ''}${resident?.fullName || resident?.displayName || 'Học viên được chọn'}`.trim();
+
+            setTransferConfirm({
+                  residentId,
+                  residentName,
+                  targetUnitName: selectedUnitForMembers.name,
+            });
+      };
+
+      const confirmTransferSelectedResident = async () => {
+            if (!selectedUnitForMembers || !transferConfirm) return;
+
+            try {
+                  await transferTeamMemberMutation.mutateAsync({
+                        residentId: transferConfirm.residentId,
+                        toUnitId: selectedUnitForMembers.id,
+                        startDate: today,
+                        notes: `Chuyển sang ${selectedUnitForMembers.name} từ màn quản lý Tổ/Ban`,
+                  });
+
+                  setMessage({ type: 'success', text: `Đã chuyển ${transferConfirm.residentName} sang ${selectedUnitForMembers.name}.` });
+                  setSelectedResidentToTransfer('');
+                  setTransferConfirm(null);
+
+                  await Promise.all([
+                        utils.organization.listUnitMembers.invalidate({
+                              unitId: selectedUnitForMembers.id,
+                              status: 'active',
+                        }),
+                        utils.organization.getAvailableResidentsForUnit.invalidate({
+                              unitId: selectedUnitForMembers.id,
+                        }),
+                        utils.organization.listUnits.invalidate(),
+                  ]);
+            } catch (err: any) {
+                  setMessage({
+                        type: 'error',
+                        text: err?.message || 'Không thể chuyển tổ cho học viên.',
+                  });
+            }
+      };
+
+      const cancelTransferSelectedResident = () => {
+            setTransferConfirm(null);
       };
 
       const removeSelectedUnitMember = async (member: OrganizationUnitMember) => {
@@ -2018,10 +2128,83 @@ export default function OrganizationSimple() {
                                                 </div>
                                                 {selectedUnitForMembers.unitType === 'team' && (
                                                       <p className="mt-2 text-xs leading-5 text-neutral-500">
-                                                            Một học viên chỉ thuộc một Tổ tại một thời điểm. Nếu học viên đã thuộc Tổ khác, hãy dùng chức năng chuyển tổ ở bước sau.
+                                                            Một học viên chỉ thuộc một Tổ tại một thời điểm. Nếu học viên đã thuộc Tổ khác, dùng chức năng chuyển tổ bên dưới.
                                                       </p>
                                                 )}
                                           </div>
+
+                                          {selectedUnitForMembers.unitType === 'team' && (
+                                                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                                      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                                                            <div className="flex-1">
+                                                                  <p className="text-sm font-bold text-amber-900">Chuyển học viên từ Tổ khác</p>
+                                                                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                                                                        Dùng khi học viên đã thuộc một Tổ khác. Hệ thống sẽ kết thúc Tổ cũ và tạo membership mới ở {selectedUnitForMembers.name}. Nếu học viên đang là Tổ trưởng, hệ thống sẽ chặn và yêu cầu cập nhật vai trò trước.
+                                                                  </p>
+                                                                  <select
+                                                                        value={selectedResidentToTransfer}
+                                                                        onChange={(event) => {
+                                                                              setSelectedResidentToTransfer(event.target.value);
+                                                                              setTransferConfirm(null);
+                                                                        }}
+                                                                        className="mt-3 h-10 w-full rounded-2xl border border-amber-200 bg-white px-3 text-sm"
+                                                                  >
+                                                                        <option value="">Chọn học viên cần chuyển tổ</option>
+                                                                        {activeMembers
+                                                                              .filter((resident: any) => {
+                                                                                    const activeSameUnitResidentIds = new Set(
+                                                                                          (unitMembersQuery.data || []).map((member: OrganizationUnitMember) => Number(member.residentId))
+                                                                                    );
+                                                                                    return !activeSameUnitResidentIds.has(Number(resident.id));
+                                                                              })
+                                                                              .map((resident: any) => (
+                                                                                    <option key={resident.id} value={resident.id}>
+                                                                                          {`${resident.holyName ? `${resident.holyName} ` : ''}${resident.fullName}`.trim()} · {resident.residentCode}
+                                                                                    </option>
+                                                                              ))}
+                                                                  </select>
+                                                            </div>
+
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={requestTransferSelectedResident}
+                                                                  disabled={transferTeamMemberMutation.isPending || !selectedResidentToTransfer}
+                                                                  className="rounded-2xl border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-60"
+                                                            >
+                                                                  Chuyển tổ
+                                                            </button>
+                                                      </div>
+
+                                                      {transferConfirm && (
+                                                            <div className="mt-4 rounded-2xl border border-amber-300 bg-white p-4">
+                                                                  <p className="text-sm font-semibold text-neutral-950">
+                                                                        Xác nhận chuyển {transferConfirm.residentName} sang {transferConfirm.targetUnitName}?
+                                                                  </p>
+                                                                  <p className="mt-1 text-xs leading-5 text-neutral-500">
+                                                                        Membership Tổ cũ sẽ được kết thúc. Thao tác này không tự cập nhật chức vụ Tổ trưởng nếu học viên đang phụ trách Tổ khác.
+                                                                  </p>
+                                                                  <div className="mt-3 flex flex-wrap gap-2">
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={confirmTransferSelectedResident}
+                                                                              disabled={transferTeamMemberMutation.isPending}
+                                                                              className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+                                                                        >
+                                                                              {transferTeamMemberMutation.isPending ? 'Đang chuyển...' : 'Xác nhận chuyển'}
+                                                                        </button>
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={cancelTransferSelectedResident}
+                                                                              disabled={transferTeamMemberMutation.isPending}
+                                                                              className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
+                                                                        >
+                                                                              Hủy
+                                                                        </button>
+                                                                  </div>
+                                                            </div>
+                                                      )}
+                                                </div>
+                                          )}
 
                                           <div className="mt-5 space-y-3">
                                                 {unitMembersQuery.isLoading || unitMembersQuery.isFetching ? (

@@ -3,6 +3,7 @@ import {
       getActiveOrganizationTerm,
       listOrganizationAssignments,
 } from "../db/organization";
+import { organizationService } from "./organizationService";
 
 type ResidentPortalRoleKey =
       | "head"
@@ -29,11 +30,16 @@ type ResidentPortalRoleContext = {
 };
 
 type OrganizationScopeMember = {
-      assignmentId: number;
+      assignmentId?: number | null;
+      memberId?: number | null;
       residentId: number;
       residentName: string;
       residentCode?: string | null;
+      holyName?: string | null;
+      phoneNumber?: string | null;
+      roomCode?: string | null;
       roleName: string;
+      memberRole?: "member" | "leader" | "head" | string | null;
       roleCode?: string | null;
       roleType?: string | null;
       unitId?: number | null;
@@ -224,19 +230,52 @@ function mapAssignmentToScopeMember(row: any): OrganizationScopeMember {
       };
 }
 
-function buildScopedUnit(input: {
+function getUnitMemberRoleLabel(role?: string | null) {
+      switch (role) {
+            case "leader":
+                  return "Tổ trưởng";
+            case "head":
+                  return "Trưởng ban";
+            default:
+                  return "Thành viên";
+      }
+}
+
+function mapUnitMemberToScopeMember(row: any, unit: {
+      unitId?: number | null;
+      unitName?: string | null;
+      unitType: "team" | "committee";
+}): OrganizationScopeMember {
+      const memberRole = row.memberRole || "member";
+
+      return {
+            memberId: row.id || null,
+            residentId: Number(row.residentId || 0),
+            residentName: row.residentName || row.fullName || "Chưa rõ tên",
+            residentCode: row.residentCode || null,
+            holyName: row.holyName || null,
+            phoneNumber: row.phoneNumber || null,
+            roomCode: row.roomCode || row.roomName || null,
+            roleName: getUnitMemberRoleLabel(memberRole),
+            memberRole,
+            unitId: unit.unitId || row.unitId || null,
+            unitName: unit.unitName || row.unitName || null,
+            unitType: unit.unitType,
+      };
+}
+
+async function buildScopedUnit(input: {
       unitId?: number | null;
       unitName?: string | null;
       unitType: "team" | "committee";
       myRoleName?: string | null;
-      allAssignments: any[];
-}): OrganizationScopeUnit {
-      const members = input.allAssignments
-            .filter((assignment: any) => {
-                  if (!input.unitId) return false;
-                  return Number(assignment.unitId || 0) === Number(input.unitId);
-            })
-            .map(mapAssignmentToScopeMember);
+}): Promise<OrganizationScopeUnit> {
+      const members = input.unitId
+            ? await organizationService.listUnitMembers({
+                    unitId: Number(input.unitId),
+                    status: "active",
+              } as any)
+            : [];
 
       return {
             unitId: input.unitId || null,
@@ -245,7 +284,13 @@ function buildScopedUnit(input: {
                   (input.unitType === "team" ? "Tổ chưa xác định" : "Ban chưa xác định"),
             unitType: input.unitType,
             myRoleName: input.myRoleName || null,
-            members,
+            members: members.map((member: any) =>
+                  mapUnitMemberToScopeMember(member, {
+                        unitId: input.unitId,
+                        unitName: input.unitName,
+                        unitType: input.unitType,
+                  })
+            ),
       };
 }
 
@@ -349,24 +394,26 @@ export async function getResidentPortalOrganizationScope(userId: number) {
             (role: ResidentPortalRoleContext) => role.roleCode === "committee_head"
       );
 
-      const teams = teamRoles.map((role: ResidentPortalRoleContext) =>
-            buildScopedUnit({
-                  unitId: role.unitId,
-                  unitName: role.unitName,
-                  unitType: "team",
-                  myRoleName: role.roleName,
-                  allAssignments,
-            })
+      const teams = await Promise.all(
+            teamRoles.map((role: ResidentPortalRoleContext) =>
+                  buildScopedUnit({
+                        unitId: role.unitId,
+                        unitName: role.unitName,
+                        unitType: "team",
+                        myRoleName: role.roleName,
+                  })
+            )
       );
 
-      const committees = committeeRoles.map((role: ResidentPortalRoleContext) =>
-            buildScopedUnit({
-                  unitId: role.unitId,
-                  unitName: role.unitName,
-                  unitType: "committee",
-                  myRoleName: role.roleName,
-                  allAssignments,
-            })
+      const committees = await Promise.all(
+            committeeRoles.map((role: ResidentPortalRoleContext) =>
+                  buildScopedUnit({
+                        unitId: role.unitId,
+                        unitName: role.unitName,
+                        unitType: "committee",
+                        myRoleName: role.roleName,
+                  })
+            )
       );
 
       return {
