@@ -20,63 +20,43 @@ export const appointedResidentRoleKeys: AppRole[] = [
 
 export const appointedResidentNavigation: NavigationItem[] = [
       {
-            label: "Điều hành lưu xá",
-            icon: "🧭",
-            roles: executiveRoleKeys,
+            label: "Vai trò của tôi",
+            icon: "⭐",
+            roles: appointedResidentRoleKeys,
             children: [
                   {
-                        label: "Tổng quan điều hành",
-                        path: "/resident/leadership/overview",
-                        icon: "📊",
-                        roles: executiveRoleKeys,
-                  },
-                  {
-                        label: "Cơ cấu tổ chức",
-                        path: "/resident/leadership/organization",
+                        label: "Cơ cấu lưu xá",
+                        path: "/resident/organization",
                         icon: "🏛️",
                         roles: executiveRoleKeys,
                   },
                   {
-                        label: "Công tác & phân công",
-                        path: "/resident/leadership/duties",
+                        label: "Công tác điều hành",
+                        path: "/resident/role-duties",
                         icon: "✅",
                         roles: executiveRoleKeys,
                   },
-            ],
-      },
-      {
-            label: "Tổ của tôi",
-            icon: "👥",
-            roles: teamLeaderRoleKeys,
-            children: [
                   {
-                        label: "Thành viên trong tổ",
-                        path: "/resident/team/members",
+                        label: "Thành viên tổ",
+                        path: "/resident/my-team",
                         icon: "👥",
                         roles: teamLeaderRoleKeys,
                   },
                   {
-                        label: "Công tác của tổ",
-                        path: "/resident/team/duties",
+                        label: "Công tác tổ",
+                        path: "/resident/team-duties",
                         icon: "✅",
                         roles: teamLeaderRoleKeys,
                   },
-            ],
-      },
-      {
-            label: "Ban của tôi",
-            icon: "📌",
-            roles: committeeHeadRoleKeys,
-            children: [
                   {
-                        label: "Thành viên trong ban",
-                        path: "/resident/committee/members",
+                        label: "Thành viên ban",
+                        path: "/resident/my-committee",
                         icon: "👥",
                         roles: committeeHeadRoleKeys,
                   },
                   {
-                        label: "Công tác của ban",
-                        path: "/resident/committee/duties",
+                        label: "Công tác ban",
+                        path: "/resident/committee-duties",
                         icon: "✅",
                         roles: committeeHeadRoleKeys,
                   },

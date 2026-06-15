@@ -178,6 +178,109 @@ function DutyStats({ stats }: { stats: any }) {
       );
 }
 
+function ScopeDutyGroup({
+      title,
+      description,
+      assignments,
+}: {
+      title: string;
+      description?: string;
+      assignments: any[];
+}) {
+      return (
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                        <div>
+                              <h3 className="text-lg font-bold text-slate-950">{title}</h3>
+                              {description && (
+                                    <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+                              )}
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                              {assignments.length} việc
+                        </span>
+                  </div>
+
+                  <div className="space-y-3">
+                        {assignments.length === 0 ? (
+                              <EmptyBox
+                                    title="Chưa có công tác trong phạm vi này"
+                                    description="Hôm nay chưa có công tác nào được giao cho phạm vi vai trò này."
+                              />
+                        ) : (
+                              assignments.map((item: any) => (
+                                    <DutyCard
+                                          key={`${title}-${item.id}`}
+                                          item={{
+                                                ...item,
+                                                canComplete: false,
+                                                isAssignedToMe: false,
+                                          }}
+                                    />
+                              ))
+                        )}
+                  </div>
+            </div>
+      );
+}
+
+function ScopeDutiesPanel({ scopeDuties }: { scopeDuties: any }) {
+      const executiveAssignments = scopeDuties?.executive?.assignments || [];
+      const teams = scopeDuties?.teams || [];
+      const committees = scopeDuties?.committees || [];
+      const hasAnyScope =
+            Boolean(scopeDuties?.executive?.enabled) || teams.length > 0 || committees.length > 0;
+
+      if (!hasAnyScope) {
+            return null;
+      }
+
+      return (
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                              <h2 className="text-xl font-bold text-slate-950">Công tác theo vai trò hôm nay</h2>
+                              <p className="mt-1 text-sm leading-6 text-slate-500">
+                                    Các công tác thuộc phạm vi bạn đang phụ trách. Phần này dùng để theo dõi,
+                                    không đánh dấu hoàn thành thay cho từng cá nhân.
+                              </p>
+                        </div>
+                        <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
+                              {scopeDuties?.summary?.total || 0} công tác
+                        </span>
+                  </div>
+
+                  <div className="grid gap-4 xl:grid-cols-2">
+                        {scopeDuties?.executive?.enabled && (
+                              <ScopeDutyGroup
+                                    title="Toàn lưu xá"
+                                    description="Công tác toàn hệ thống dành cho nhóm điều hành."
+                                    assignments={executiveAssignments}
+                              />
+                        )}
+
+                        {teams.map((team: any) => (
+                              <ScopeDutyGroup
+                                    key={`team-${team.unitId || team.unitName}`}
+                                    title={`Tổ của tôi · ${team.unitName || "Tổ chưa xác định"}`}
+                                    description="Công tác được giao cho tổ bạn phụ trách."
+                                    assignments={team.assignments || []}
+                              />
+                        ))}
+
+                        {committees.map((committee: any) => (
+                              <ScopeDutyGroup
+                                    key={`committee-${committee.unitId || committee.unitName}`}
+                                    title={`Ban của tôi · ${committee.unitName || "Ban chưa xác định"}`}
+                                    description="Công tác được giao cho ban bạn phụ trách."
+                                    assignments={committee.assignments || []}
+                              />
+                        ))}
+                  </div>
+            </section>
+      );
+}
+
 function RoleCard({ role }: { role: any }) {
       return (
             <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
@@ -218,6 +321,7 @@ export default function ResidentToday() {
       const studySchedules = data?.studySchedules || [];
       const duties = data?.duties || [];
       const roles = data?.roles || [];
+      const scopeDuties = data?.scopeDuties || null;
       const resident = data?.resident;
       const today = data?.today;
       const dutyStats = data?.summary?.dutyStats || {
@@ -296,7 +400,7 @@ export default function ResidentToday() {
                                           />
                                           <SummaryCard
                                                 icon={BriefcaseBusiness}
-                                                label="Công tác"
+                                                label="Công tác của tôi"
                                                 value={dutyStats.total}
                                                 hint={`${dutyStats.pending} chưa làm · ${dutyStats.completed} hoàn thành`}
                                           />
@@ -373,6 +477,8 @@ export default function ResidentToday() {
                                                 </div>
                                           </div>
                                     </section>
+
+                                    <ScopeDutiesPanel scopeDuties={scopeDuties} />
 
                                     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                                           <div className="mb-4 flex items-center justify-between gap-3">

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +53,12 @@ export function DatePickerInput({
       const ref = React.useRef<HTMLDivElement>(null);
 
       const selected = React.useMemo(() => parseYMD(value), [value]);
+      const [month, setMonth] = React.useState<Date>(() => selected ?? new Date());
+
+      // Reset month khi mở lại
+      React.useEffect(() => {
+            if (open) setMonth(selected ?? new Date());
+      }, [open]);
 
       // Đóng khi click bên ngoài
       React.useEffect(() => {
@@ -98,42 +104,58 @@ export function DatePickerInput({
                         <CalendarIcon className="h-4 w-4 shrink-0 opacity-50" />
                   </button>
 
-                  {/* Calendar dropdown — không dùng Portal, absolute trong wrapper */}
+                  {/* Calendar dropdown */}
                   {open && (
-                        <div className="absolute left-0 top-full z-[9999] mt-1 rounded-lg border border-input bg-white p-3 shadow-2xl">
+                        <div className="absolute left-0 top-full z-[9999] mt-1 rounded-lg border border-slate-200 bg-white p-3 shadow-2xl">
+                              {/* Custom header với nav tháng + năm */}
+                              <div className="mb-3 flex items-center justify-between gap-1">
+                                    {/* Lùi 1 năm */}
+                                    <button type="button" onClick={() => setMonth(d => new Date(d.getFullYear() - 1, d.getMonth(), 1))}
+                                          className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100">
+                                          <ChevronsLeft className="h-4 w-4" />
+                                    </button>
+                                    {/* Lùi 1 tháng */}
+                                    <button type="button" onClick={() => setMonth(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                                          className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100">
+                                          <ChevronLeft className="h-4 w-4" />
+                                    </button>
+
+                                    <span className="flex-1 text-center text-sm font-semibold text-slate-800 select-none">
+                                          {VI_MONTHS[month.getMonth()]} {month.getFullYear()}
+                                    </span>
+
+                                    {/* Tiến 1 tháng */}
+                                    <button type="button" onClick={() => setMonth(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                                          className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100">
+                                          <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                    {/* Tiến 1 năm */}
+                                    <button type="button" onClick={() => setMonth(d => new Date(d.getFullYear() + 1, d.getMonth(), 1))}
+                                          className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100">
+                                          <ChevronsRight className="h-4 w-4" />
+                                    </button>
+                              </div>
+
                               <DayPicker
                                     mode="single"
                                     selected={selected}
                                     onSelect={handleSelect}
-                                    defaultMonth={selected ?? new Date()}
+                                    month={month}
+                                    onMonthChange={setMonth}
+                                    hideNavigation
                                     showOutsideDays
                                     disabled={disabledDays.length ? disabledDays : undefined}
                                     formatters={{
-                                          formatMonthCaption: (d) => `${VI_MONTHS[d.getMonth()]} ${d.getFullYear()}`,
                                           formatWeekdayName: (d) => VI_WEEKDAYS[d.getDay()],
                                     }}
                                     classNames={{
                                           root: "w-[252px]",
-                                          months: "relative",
-                                          month: "flex flex-col gap-3",
-                                          month_caption: "flex h-8 items-center justify-center px-8",
-                                          caption_label: "text-sm font-semibold text-slate-800 select-none",
-                                          nav: "absolute top-0 inset-x-0 flex items-center justify-between",
-                                          button_previous: cn(
-                                                "h-8 w-8 flex items-center justify-center rounded-md",
-                                                "border border-slate-200 bg-white text-slate-500",
-                                                "hover:bg-slate-100 hover:text-slate-800",
-                                                "disabled:pointer-events-none disabled:opacity-30"
-                                          ),
-                                          button_next: cn(
-                                                "h-8 w-8 flex items-center justify-center rounded-md",
-                                                "border border-slate-200 bg-white text-slate-500",
-                                                "hover:bg-slate-100 hover:text-slate-800",
-                                                "disabled:pointer-events-none disabled:opacity-30"
-                                          ),
+                                          months: "",
+                                          month: "flex flex-col gap-1",
+                                          month_caption: "hidden",
                                           weekdays: "flex",
                                           weekday: "w-9 text-center text-[0.75rem] font-medium text-slate-400 py-1",
-                                          weeks: "flex flex-col gap-0.5 mt-1",
+                                          weeks: "flex flex-col gap-0.5",
                                           week: "flex",
                                           day: "w-9 h-9 flex items-center justify-center p-0",
                                           day_button: cn(
@@ -146,12 +168,7 @@ export function DatePickerInput({
                                           outside: "[&>button]:text-slate-300",
                                           disabled: "[&>button]:opacity-30 [&>button]:pointer-events-none",
                                           hidden: "invisible",
-                                    }}
-                                    components={{
-                                          Chevron: ({ orientation }) =>
-                                                orientation === "left"
-                                                      ? <ChevronLeft className="h-4 w-4" />
-                                                      : <ChevronRight className="h-4 w-4" />,
+                                          nav: "hidden",
                                     }}
                               />
                         </div>

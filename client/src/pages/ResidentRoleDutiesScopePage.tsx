@@ -1,4 +1,3 @@
-﻿import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 import { useMemo, useState } from "react";
 import { CalendarDays } from "lucide-react";
 
@@ -229,12 +228,14 @@ export function ResidentRoleDutiesScopePage({
                                                 Khoảng xem
                                           </div>
                                           <div className="grid gap-2 sm:grid-cols-2">
-                                                <DatePickerInput
+                                                <input
+                                                      type="date"
                                                       value={startDate}
                                                       onChange={(event) => setStartDate(event.target.value)}
                                                       className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
                                                 />
-                                                <DatePickerInput
+                                                <input
+                                                      type="date"
                                                       value={endDate}
                                                       onChange={(event) => setEndDate(event.target.value)}
                                                       className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"

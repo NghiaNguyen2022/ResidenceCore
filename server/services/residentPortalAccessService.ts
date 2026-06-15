@@ -860,6 +860,38 @@ export async function getResidentPortalTodayOverview(userId: number) {
             ).length,
       };
 
+      let scopeDuties: any = {
+            executive: { enabled: false, assignments: [] },
+            teams: [],
+            committees: [],
+            summary: { total: 0, pending: 0, completed: 0, skipped: 0, cancelled: 0 },
+      };
+
+      try {
+            const roleScope = await getResidentPortalDutyScope(userId, {
+                  startDate: dateText,
+                  endDate: dateText,
+            });
+
+            scopeDuties = {
+                  executive: roleScope.executive || { enabled: false, assignments: [] },
+                  teams: roleScope.teams || [],
+                  committees: roleScope.committees || [],
+                  summary: roleScope.summary || {
+                        total: 0,
+                        pending: 0,
+                        completed: 0,
+                        skipped: 0,
+                        cancelled: 0,
+                  },
+            };
+      } catch (error) {
+            console.warn(
+                  "[residentPortalAccessService] Cannot load role-scope duties for today overview.",
+                  error
+            );
+      }
+
       return {
             resident: {
                   id: residentId,
@@ -879,6 +911,7 @@ export async function getResidentPortalTodayOverview(userId: number) {
             },
             studySchedules,
             duties: activeDuties,
+            scopeDuties,
             room: getResidentRoomText(fullResident)
                   ? {
                           name: getResidentRoomText(fullResident),
@@ -887,8 +920,16 @@ export async function getResidentPortalTodayOverview(userId: number) {
             summary: {
                   studyCount: studySchedules.length,
                   dutyCount: activeDuties.length,
+                  scopeDutyCount: Number(scopeDuties?.summary?.total || 0),
                   roleCount: (accessContext.roles || []).length,
                   dutyStats,
+                  scopeDutyStats: scopeDuties?.summary || {
+                        total: 0,
+                        pending: 0,
+                        completed: 0,
+                        skipped: 0,
+                        cancelled: 0,
+                  },
             },
       };
 }

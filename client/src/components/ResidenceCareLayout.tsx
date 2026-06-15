@@ -149,6 +149,71 @@ function getRoleScopeText(role: AccessContextRole) {
       return "Toàn lưu xá";
 }
 
+function getRoleChipClasses(roleKey: string) {
+      const roleCode = normalizeRoleCode(roleKey);
+
+      if (roleCode === "team_leader") {
+            return {
+                  wrapper: "border-emerald-200/80 bg-emerald-50/90",
+                  label: "text-emerald-800",
+                  scope: "text-emerald-600",
+                  dot: "bg-emerald-400",
+            };
+      }
+
+      if (roleCode === "committee_head") {
+            return {
+                  wrapper: "border-violet-200/80 bg-violet-50/90",
+                  label: "text-violet-800",
+                  scope: "text-violet-600",
+                  dot: "bg-violet-400",
+            };
+      }
+
+      if (roleCode === "house_leader") {
+            return {
+                  wrapper: "border-amber-200/80 bg-amber-50/90",
+                  label: "text-amber-800",
+                  scope: "text-amber-600",
+                  dot: "bg-amber-400",
+            };
+      }
+
+      if (roleCode === "deputy") {
+            return {
+                  wrapper: "border-sky-200/80 bg-sky-50/90",
+                  label: "text-sky-800",
+                  scope: "text-sky-600",
+                  dot: "bg-sky-400",
+            };
+      }
+
+      if (roleCode === "secretary") {
+            return {
+                  wrapper: "border-rose-200/80 bg-rose-50/90",
+                  label: "text-rose-800",
+                  scope: "text-rose-600",
+                  dot: "bg-rose-400",
+            };
+      }
+
+      if (roleCode === "treasurer") {
+            return {
+                  wrapper: "border-indigo-200/80 bg-indigo-50/90",
+                  label: "text-indigo-800",
+                  scope: "text-indigo-600",
+                  dot: "bg-indigo-400",
+            };
+      }
+
+      return {
+            wrapper: "border-slate-200 bg-slate-50/90",
+            label: "text-slate-800",
+            scope: "text-slate-500",
+            dot: "bg-slate-400",
+      };
+}
+
 function buildRolePanelItems(input: {
       user: CurrentUserLike;
       accessContext?: any;
@@ -548,6 +613,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
             enhancedUser?.name || enhancedUser?.username || enhancedUser?.email || "Người dùng";
 
       const roleText = getUserRoleText(enhancedUser, rolePanelItems);
+      const roleCards = rolePanelItems.filter((item) => item.key !== "resident" && item.key !== "user");
 
       const updateMyProfileMutation = trpc.auth.updateMyProfile.useMutation({
             onSuccess: async () => {
@@ -600,48 +666,28 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                               ))}
                         </nav>
 
-                        <div className="border-t p-4">
-                              <button
-                                    type="button"
-                                    onClick={openProfileModal}
-                                    className="mb-3 w-full rounded-xl bg-slate-50 px-3 py-2 text-left transition hover:bg-slate-100"
-                              >
-                                    <div className="truncate text-sm font-medium text-slate-900">
-                                          {displayName}
-                                    </div>
-                                    <div className="mt-0.5 text-xs text-slate-500">{roleText}</div>
-                              </button>
+                        <div className="border-t bg-white px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                    <button
+                                          type="button"
+                                          onClick={openProfileModal}
+                                          className="min-w-0 flex-1 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-50"
+                                          title={`${displayName} · ${roleText}`}
+                                    >
+                                          <div className="truncate text-sm font-semibold text-slate-900">
+                                                {displayName}
+                                          </div>
+                                          <div className="truncate text-xs text-slate-500">{roleText}</div>
+                                    </button>
 
-                              <div className="mb-3 rounded-2xl border border-slate-200 bg-white p-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                          Vai trò hiện tại
-                                    </div>
-                                    <div className="mt-2 space-y-1.5">
-                                          {rolePanelItems.map((item) => (
-                                                <div
-                                                      key={item.key}
-                                                      className="rounded-xl bg-slate-50 px-3 py-2"
-                                                >
-                                                      <div className="text-sm font-semibold text-slate-800">
-                                                            {item.label}
-                                                      </div>
-                                                      {item.scope && (
-                                                            <div className="mt-0.5 text-xs text-slate-500">
-                                                                  {item.scope}
-                                                            </div>
-                                                      )}
-                                                </div>
-                                          ))}
-                                    </div>
+                                    <button
+                                          type="button"
+                                          onClick={logout}
+                                          className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                    >
+                                          Đăng xuất
+                                    </button>
                               </div>
-
-                              <button
-                                    type="button"
-                                    onClick={logout}
-                                    className="w-full rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                              >
-                                    Đăng xuất
-                              </button>
                         </div>
                   </aside>
 
@@ -657,25 +703,60 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                           </div>
                                     </div>
 
-                                    <div className="flex items-center gap-3">
-                                          <button
-                                                type="button"
-                                                onClick={openProfileModal}
-                                                className="hidden rounded-xl px-3 py-2 text-right transition hover:bg-slate-100 sm:block"
-                                          >
-                                                <div className="text-sm font-medium text-slate-900">
-                                                      {displayName}
-                                                </div>
-                                                <div className="text-xs text-slate-500">{roleText}</div>
-                                          </button>
+                                    <div className="ml-auto min-w-0 flex-1 pl-4 lg:max-w-[72%]">
+                                          {roleCards.length > 0 ? (
+                                                <div className="flex min-w-0 items-start justify-end gap-3">
+                                                      <span className="hidden shrink-0 pt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 xl:inline">
+                                                            Vai trò
+                                                      </span>
 
-                                          <button
-                                                type="button"
-                                                onClick={logout}
-                                                className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 lg:hidden"
-                                          >
-                                                Đăng xuất
-                                          </button>
+                                                      <div className="flex min-w-0 justify-end gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                                                            {roleCards.map((item) => {
+                                                                  const chipClasses = getRoleChipClasses(item.key);
+
+                                                                  return (
+                                                                        <div
+                                                                              key={item.key}
+                                                                              title={
+                                                                                    item.scope
+                                                                                          ? `${item.label} · ${item.scope}`
+                                                                                          : item.label
+                                                                              }
+                                                                              className={[
+                                                                                    "shrink-0 rounded-2xl border px-3 py-2 shadow-sm shadow-slate-100/70 transition hover:-translate-y-[1px]",
+                                                                                    chipClasses.wrapper,
+                                                                              ].join(" ")}
+                                                                        >
+                                                                              <div className="flex items-center gap-2">
+                                                                                    <span className={[
+                                                                                          "h-2 w-2 rounded-full",
+                                                                                          chipClasses.dot,
+                                                                                    ].join(" ")} />
+                                                                                    <div className={[
+                                                                                          "whitespace-nowrap text-sm font-semibold leading-none",
+                                                                                          chipClasses.label,
+                                                                                    ].join(" ")}>
+                                                                                          {item.label}
+                                                                                    </div>
+                                                                              </div>
+                                                                              {item.scope && (
+                                                                                    <div className={[
+                                                                                          "mt-1 whitespace-nowrap pl-4 text-[11px] leading-none",
+                                                                                          chipClasses.scope,
+                                                                                    ].join(" ")}>
+                                                                                          {item.scope}
+                                                                                    </div>
+                                                                              )}
+                                                                        </div>
+                                                                  );
+                                                            })}
+                                                      </div>
+                                                </div>
+                                          ) : (
+                                                <div className="hidden text-right text-xs text-slate-400 lg:block">
+                                                      Không có vai trò phụ trách
+                                                </div>
+                                          )}
                                     </div>
                               </div>
                         </header>

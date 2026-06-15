@@ -54,6 +54,8 @@ import MyProfile from "./pages/MyProfile";
 import OrganizationSimple from "@/pages/OrganizationSimple";
 
 import ResidentToday from "@/pages/ResidentToday";
+import ResidentInformation from "@/pages/ResidentInformation";
+import ResidentFinance from "@/pages/ResidentFinance";
 import ResidentLeadershipOverview from "@/pages/ResidentLeadershipOverview";
 import ResidentLeadershipOrganization from "@/pages/ResidentLeadershipOrganization";
 import ResidentLeadershipDuties from "@/pages/ResidentLeadershipDuties";
@@ -124,17 +126,27 @@ function Router() {
 
                   {/* Resident portal */}
                   <Route path="/resident/today" component={ResidentToday} />
+                  <Route path="/resident/information" component={ResidentInformation} />
+                  <Route path="/resident/finance" component={ResidentFinance} />
 
-                  {/* Vai trò điều hành */}
+                  {/* Vai trò của tôi - Simple Mode paths */}
+                  <Route path="/resident/organization" component={ResidentLeadershipOrganization} />
+                  <Route path="/resident/role-duties" component={ResidentLeadershipDuties} />
+                  <Route path="/resident/my-team" component={ResidentTeamMembers} />
+                  <Route path="/resident/team-duties" component={ResidentTeamDuties} />
+                  <Route path="/resident/my-committee" component={ResidentCommitteeMembers} />
+                  <Route path="/resident/committee-duties" component={ResidentCommitteeDuties} />
+
+                  {/* Vai trò điều hành - old route aliases kept to avoid breaking existing links */}
                   <Route path="/resident/leadership/overview" component={ResidentLeadershipOverview} />
                   <Route path="/resident/leadership/organization" component={ResidentLeadershipOrganization} />
                   <Route path="/resident/leadership/duties" component={ResidentLeadershipDuties} />
 
-                  {/* Vai trò Tổ trưởng */}
+                  {/* Vai trò Tổ trưởng - old route aliases kept */}
                   <Route path="/resident/team/members" component={ResidentTeamMembers} />
                   <Route path="/resident/team/duties" component={ResidentTeamDuties} />
 
-                  {/* Vai trò Trưởng ban */}
+                  {/* Vai trò Trưởng ban - old route aliases kept */}
                   <Route path="/resident/committee/members" component={ResidentCommitteeMembers} />
                   <Route path="/resident/committee/duties" component={ResidentCommitteeDuties} />
 
