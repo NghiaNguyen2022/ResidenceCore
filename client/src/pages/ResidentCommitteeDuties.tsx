@@ -1,26 +1,13 @@
-import { ResidentRolePlaceholderPage } from "./ResidentRolePlaceholderPage";
+import { ResidentRoleDutiesScopePage } from "./ResidentRoleDutiesScopePage";
 
 export default function ResidentCommitteeDuties() {
       return (
-            <ResidentRolePlaceholderPage
-                  title="Công tác của ban"
-                  description="Dành cho Trưởng ban theo dõi và phân công công tác trong phạm vi ban mình."
-                  scopeTitle="Phạm vi công tác của Ban"
-                  features={[
-                        {
-                              title: "Xem công tác của ban",
-                              description: "Theo dõi công tác được giao cho ban và từng thành viên.",
-                              status: "ready",
-                        },
-                        {
-                              title: "Phân công trong ban",
-                              description: "Tạo phân công cho thành viên trong ban, có kiểm tra lịch học.",
-                        },
-                        {
-                              title: "Theo dõi hoàn thành / vắng",
-                              description: "Cập nhật tình trạng công tác trong phạm vi ban.",
-                        },
-                  ]}
+            <ResidentRoleDutiesScopePage
+                  kind="committee"
+                  title="Công tác ban"
+                  description="Dành cho Trưởng ban theo dõi các công tác được giao cho ban mình phụ trách."
+                  emptyTitle="Bạn chưa phụ trách Ban nào"
+                  emptyDescription="Trang này sẽ có dữ liệu khi bạn được bổ nhiệm làm Trưởng ban trong nhiệm kỳ hiện tại."
             />
       );
 }

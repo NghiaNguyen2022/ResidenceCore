@@ -25,6 +25,12 @@ export const appointedResidentNavigation: NavigationItem[] = [
             roles: appointedResidentRoleKeys,
             children: [
                   {
+                        label: "Tổng quan",
+                        path: "/resident/roles",
+                        icon: "⭐",
+                        roles: appointedResidentRoleKeys,
+                  },
+                  {
                         label: "Cơ cấu lưu xá",
                         path: "/resident/organization",
                         icon: "🏛️",

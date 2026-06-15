@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
       AlertCircle,
       BedDouble,
@@ -158,6 +158,49 @@ function EmptyState(props: { text: string }) {
       );
 }
 
+
+function QuickInfoCard(props: {
+      label: string;
+      value: string;
+      hint?: string;
+      icon: React.ReactNode;
+      tone?: 'slate' | 'blue' | 'emerald' | 'amber';
+}) {
+      const toneClass =
+            props.tone === 'blue'
+                  ? 'border-blue-100 bg-blue-50 text-blue-700'
+                  : props.tone === 'emerald'
+                        ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                        : props.tone === 'amber'
+                              ? 'border-amber-100 bg-amber-50 text-amber-700'
+                              : 'border-slate-200 bg-slate-50 text-slate-700';
+
+      return (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start gap-3">
+                        <div
+                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${toneClass}`}
+                        >
+                              {props.icon}
+                        </div>
+                        <div className="min-w-0">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                    {props.label}
+                              </div>
+                              <div className="mt-1 truncate text-sm font-bold text-slate-950">
+                                    {props.value}
+                              </div>
+                              {props.hint && (
+                                    <div className="mt-0.5 truncate text-xs text-slate-500">
+                                          {props.hint}
+                                    </div>
+                              )}
+                        </div>
+                  </div>
+            </div>
+      );
+}
+
 export default function MyProfile() {
       const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
       const [passwordForm, setPasswordForm] =
@@ -183,7 +226,26 @@ export default function MyProfile() {
             return member?.displayName || member?.fullName || 'Học viên';
       }, [member]);
 
+      useEffect(() => {
+            if (!message) return;
+
+            const timeout = message.type === 'error' ? 7000 : 5000;
+            const timer = window.setTimeout(() => {
+                  setMessage(null);
+            }, timeout);
+
+            return () => window.clearTimeout(timer);
+      }, [message]);
+
       const primaryContact = contacts[0];
+
+      const quickRoomText = room
+            ? room.roomName || room.roomCode || 'Đã gán phòng'
+            : 'Chưa gán phòng';
+
+      const quickContactText = primaryContact?.fullName || 'Chưa có liên hệ chính';
+
+      const quickAccountText = user?.isActive ? 'Đang hoạt động' : 'Đã khóa';
 
       const resetPasswordModal = () => {
             setPasswordForm(emptyPasswordForm);
@@ -321,6 +383,43 @@ export default function MyProfile() {
                                           {message.text}
                                     </div>
                               )}
+
+                              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                                    <QuickInfoCard
+                                          label="Phòng ở"
+                                          value={quickRoomText}
+                                          hint={
+                                                room
+                                                      ? `${roommates.length} bạn cùng phòng`
+                                                      : 'Chờ quản lý gán phòng'
+                                          }
+                                          icon={<BedDouble className="h-5 w-5" />}
+                                          tone="blue"
+                                    />
+
+                                    <QuickInfoCard
+                                          label="Liên hệ chính"
+                                          value={quickContactText}
+                                          hint={
+                                                primaryContact?.phoneNumber ||
+                                                'Chưa có số điện thoại liên hệ'
+                                          }
+                                          icon={<Phone className="h-5 w-5" />}
+                                          tone="emerald"
+                                    />
+
+                                    <QuickInfoCard
+                                          label="Tài khoản"
+                                          value={quickAccountText}
+                                          hint={
+                                                user?.mustChangePassword
+                                                      ? 'Cần đổi mật khẩu'
+                                                      : 'Không yêu cầu đổi mật khẩu'
+                                          }
+                                          icon={<ShieldCheck className="h-5 w-5" />}
+                                          tone={user?.mustChangePassword ? 'amber' : 'slate'}
+                                    />
+                              </div>
                         </div>
 
                         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">

@@ -392,10 +392,10 @@ function SidebarItem({
       const isDeepChild = depth >= 2;
 
       const itemClass = [
-            "group flex w-full items-center gap-3 rounded-xl transition",
-            isParent ? "px-3 py-2.5 text-[15px] font-semibold" : "",
-            isChild ? "px-3 py-2 text-sm font-medium" : "",
-            isDeepChild ? "px-3 py-1.5 text-sm" : "",
+            "group flex w-full items-center gap-2 rounded-xl transition",
+            isParent ? "px-2.5 py-2 text-[14px] font-semibold" : "",
+            isChild ? "px-2.5 py-1.5 text-[13px] font-medium" : "",
+            isDeepChild ? "px-2.5 py-1.5 text-[13px]" : "",
             isDirectActive
                   ? "bg-slate-900 text-white shadow-sm"
                   : active && hasChildren
@@ -408,7 +408,7 @@ function SidebarItem({
 
       const iconClass = [
             "flex shrink-0 items-center justify-center rounded-lg text-center",
-            isParent ? "h-8 w-8 text-base" : "h-7 w-7 text-sm",
+            isParent ? "h-7 w-7 text-sm" : "h-6 w-6 text-xs",
             isDirectActive
                   ? "bg-white/15 text-white"
                   : isParent
@@ -648,15 +648,15 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
 
       return (
             <div className="min-h-screen bg-slate-50">
-                  <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r bg-white lg:flex lg:flex-col">
-                        <div className="border-b px-5 py-5">
-                              <div className="text-xl font-bold tracking-tight text-slate-900">
+                  <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-white lg:flex lg:flex-col">
+                        <div className="border-b px-4 py-4">
+                              <div className="text-lg font-bold tracking-tight text-slate-900">
                                     ResidenceCore
                               </div>
-                              <div className="mt-1 text-sm text-slate-500">Quản lý lưu xá</div>
+                              <div className="mt-0.5 text-xs text-slate-500">Quản lý lưu xá</div>
                         </div>
 
-                        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
+                        <nav className="flex-1 space-y-1 overflow-y-auto px-2.5 py-3">
                               {visibleNavigationItems.map((item) => (
                                     <SidebarItem
                                           key={`${item.label}-${item.path ?? "group"}`}
@@ -691,9 +691,9 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                         </div>
                   </aside>
 
-                  <div className="lg:pl-72">
+                  <div className="lg:pl-64">
                         <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur">
-                              <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+                              <div className="flex h-14 items-center justify-between px-4 lg:px-6">
                                     <div>
                                           <div className="text-sm font-medium text-slate-900">
                                                 App Lưu Xá
@@ -728,22 +728,28 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                                                               ].join(" ")}
                                                                         >
                                                                               <div className="flex items-center gap-2">
-                                                                                    <span className={[
-                                                                                          "h-2 w-2 rounded-full",
-                                                                                          chipClasses.dot,
-                                                                                    ].join(" ")} />
-                                                                                    <div className={[
-                                                                                          "whitespace-nowrap text-sm font-semibold leading-none",
-                                                                                          chipClasses.label,
-                                                                                    ].join(" ")}>
+                                                                                    <span
+                                                                                          className={[
+                                                                                                "h-2 w-2 rounded-full",
+                                                                                                chipClasses.dot,
+                                                                                          ].join(" ")}
+                                                                                    />
+                                                                                    <div
+                                                                                          className={[
+                                                                                                "whitespace-nowrap text-sm font-semibold leading-none",
+                                                                                                chipClasses.label,
+                                                                                          ].join(" ")}
+                                                                                    >
                                                                                           {item.label}
                                                                                     </div>
                                                                               </div>
                                                                               {item.scope && (
-                                                                                    <div className={[
-                                                                                          "mt-1 whitespace-nowrap pl-4 text-[11px] leading-none",
-                                                                                          chipClasses.scope,
-                                                                                    ].join(" ")}>
+                                                                                    <div
+                                                                                          className={[
+                                                                                                "mt-1 whitespace-nowrap pl-4 text-[11px] leading-none",
+                                                                                                chipClasses.scope,
+                                                                                          ].join(" ")}
+                                                                                    >
                                                                                           {item.scope}
                                                                                     </div>
                                                                               )}

@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Filter } from "lucide-react";
 
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { trpc } from "@/lib/trpc";
 
 type DutyScopeKind = "executive" | "team" | "committee";
+type DutyStatusFilter = "all" | "pending" | "completed" | "skipped" | "cancelled";
 
 type ResidentRoleDutiesScopePageProps = {
       kind: DutyScopeKind;
@@ -34,17 +35,43 @@ function formatDateText(value?: string | null) {
       return `${day}/${month}/${year}`;
 }
 
+function normalizeStatus(status?: string | null) {
+      const value = String(status || "pending").toLowerCase();
+
+      if (value === "absent") return "skipped";
+
+      if (["pending", "completed", "skipped", "cancelled"].includes(value)) {
+            return value as Exclude<DutyStatusFilter, "all">;
+      }
+
+      return "pending";
+}
+
 function getStatusTone(status?: string | null) {
-      switch (String(status || "pending")) {
+      switch (normalizeStatus(status)) {
             case "completed":
                   return "bg-emerald-50 text-emerald-700 ring-emerald-100";
             case "skipped":
-            case "absent":
                   return "bg-amber-50 text-amber-700 ring-amber-100";
             case "cancelled":
                   return "bg-slate-100 text-slate-500 ring-slate-200";
             default:
                   return "bg-orange-50 text-orange-700 ring-orange-100";
+      }
+}
+
+function getStatusLabel(status?: string | null, fallback?: string | null) {
+      if (fallback) return fallback;
+
+      switch (normalizeStatus(status)) {
+            case "completed":
+                  return "Hoàn thành";
+            case "skipped":
+                  return "Vắng";
+            case "cancelled":
+                  return "Đã hủy";
+            default:
+                  return "Chưa làm";
       }
 }
 
@@ -68,11 +95,29 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
       );
 }
 
+function getAssignmentCounts(assignments: any[]) {
+      return assignments.reduce(
+            (result, duty) => {
+                  const status = normalizeStatus(duty?.status);
+                  result.total += 1;
+                  result[status] += 1;
+                  return result;
+            },
+            {
+                  total: 0,
+                  pending: 0,
+                  completed: 0,
+                  skipped: 0,
+                  cancelled: 0,
+            }
+      );
+}
+
 function DutyCard({ duty }: { duty: any }) {
       return (
             <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
+                        <div className="min-w-0">
                               <div className="text-sm font-semibold text-slate-500">
                                     {formatDateText(duty.assignedDate)}
                                     {duty.timeRange ? ` · ${duty.timeRange}` : ""}
@@ -97,7 +142,7 @@ function DutyCard({ duty }: { duty: any }) {
                                     duty.status
                               )}`}
                         >
-                              {duty.statusLabel || "Chưa làm"}
+                              {getStatusLabel(duty.status, duty.statusLabel)}
                         </span>
                   </div>
             </div>
@@ -117,6 +162,8 @@ function ScopeSection({
       emptyTitle: string;
       emptyDescription: string;
 }) {
+      const counts = getAssignmentCounts(assignments);
+
       return (
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -126,9 +173,21 @@ function ScopeSection({
                                     <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p>
                               )}
                         </div>
-                        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
-                              {assignments.length} công tác
-                        </span>
+                        <div className="flex flex-wrap gap-1.5 sm:justify-end">
+                              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
+                                    {counts.total} công tác
+                              </span>
+                              {counts.pending > 0 && (
+                                    <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700 ring-1 ring-orange-100">
+                                          {counts.pending} chưa làm
+                                    </span>
+                              )}
+                              {counts.completed > 0 && (
+                                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                                          {counts.completed} hoàn thành
+                                    </span>
+                              )}
+                        </div>
                   </div>
 
                   <div className="mt-4 space-y-3">
@@ -154,6 +213,7 @@ export function ResidentRoleDutiesScopePage({
       const today = useMemo(() => new Date(), []);
       const [startDate, setStartDate] = useState(toDateInput(today));
       const [endDate, setEndDate] = useState(toDateInput(addDays(today, 7)));
+      const [statusFilter, setStatusFilter] = useState<DutyStatusFilter>("all");
 
       const dutyScopeQuery = trpc.residentPortal.getMyDutyScope.useQuery(
             { startDate, endDate },
@@ -162,6 +222,11 @@ export function ResidentRoleDutiesScopePage({
                   refetchOnWindowFocus: false,
             }
       );
+
+      function applyQuickRange(days: number) {
+            setStartDate(toDateInput(today));
+            setEndDate(toDateInput(addDays(today, days)));
+      }
 
       const data: any = dutyScopeQuery.data;
       const summary = data?.summary || {
@@ -172,6 +237,12 @@ export function ResidentRoleDutiesScopePage({
             cancelled: 0,
       };
 
+      function filterAssignments(assignments: any[]) {
+            if (statusFilter === "all") return assignments || [];
+
+            return (assignments || []).filter((duty) => normalizeStatus(duty?.status) === statusFilter);
+      }
+
       const sections = useMemo(() => {
             if (!data) return [];
 
@@ -181,8 +252,9 @@ export function ResidentRoleDutiesScopePage({
                                 {
                                       key: "executive",
                                       title: "Công tác toàn lưu xá",
-                                      subtitle: "Nhóm điều hành theo dõi toàn bộ công tác trong khoảng thời gian đã chọn.",
-                                      assignments: data.executive?.assignments || [],
+                                      subtitle:
+                                            "Nhóm điều hành theo dõi toàn bộ công tác trong khoảng thời gian đã chọn.",
+                                      assignments: filterAssignments(data.executive?.assignments || []),
                                 },
                           ]
                         : [];
@@ -193,7 +265,7 @@ export function ResidentRoleDutiesScopePage({
                         key: `team-${team.unitId || team.unitName}`,
                         title: team.unitName || "Tổ chưa xác định",
                         subtitle: `${team.myRoleName || "Tổ trưởng"} · Công tác được giao cho tổ`,
-                        assignments: team.assignments || [],
+                        assignments: filterAssignments(team.assignments || []),
                   }));
             }
 
@@ -201,9 +273,11 @@ export function ResidentRoleDutiesScopePage({
                   key: `committee-${committee.unitId || committee.unitName}`,
                   title: committee.unitName || "Ban chưa xác định",
                   subtitle: `${committee.myRoleName || "Trưởng ban"} · Công tác được giao cho ban`,
-                  assignments: committee.assignments || [],
+                  assignments: filterAssignments(committee.assignments || []),
             }));
-      }, [data, kind]);
+      }, [data, kind, statusFilter]);
+
+      const hasAnyAssignmentAfterFilter = sections.some((section: any) => section.assignments.length > 0);
 
       return (
             <ResidenceCareLayout>
@@ -241,6 +315,29 @@ export function ResidentRoleDutiesScopePage({
                                                       className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
                                                 />
                                           </div>
+                                          <div className="mt-2 flex flex-wrap gap-1.5">
+                                                <button
+                                                      type="button"
+                                                      onClick={() => applyQuickRange(0)}
+                                                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                                >
+                                                      Hôm nay
+                                                </button>
+                                                <button
+                                                      type="button"
+                                                      onClick={() => applyQuickRange(7)}
+                                                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                                >
+                                                      7 ngày
+                                                </button>
+                                                <button
+                                                      type="button"
+                                                      onClick={() => applyQuickRange(30)}
+                                                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                                >
+                                                      30 ngày
+                                                </button>
+                                          </div>
                                     </div>
                               </div>
                         </section>
@@ -251,6 +348,39 @@ export function ResidentRoleDutiesScopePage({
                               <SummaryCard label="Hoàn thành" value={summary.completed || 0} />
                               <SummaryCard label="Vắng" value={summary.skipped || 0} />
                               <SummaryCard label="Đã hủy" value={summary.cancelled || 0} />
+                        </section>
+
+                        <section className="rounded-3xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                          <Filter className="h-4 w-4 text-slate-400" />
+                                          Lọc trạng thái
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+                                          {[
+                                                ["all", "Tất cả"],
+                                                ["pending", "Chưa làm"],
+                                                ["completed", "Hoàn thành"],
+                                                ["skipped", "Vắng"],
+                                                ["cancelled", "Đã hủy"],
+                                          ].map(([value, label]) => (
+                                                <button
+                                                      key={value}
+                                                      type="button"
+                                                      onClick={() => setStatusFilter(value as DutyStatusFilter)}
+                                                      className={[
+                                                            "rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition",
+                                                            statusFilter === value
+                                                                  ? "bg-slate-900 text-white ring-slate-900"
+                                                                  : "bg-slate-50 text-slate-600 ring-slate-200 hover:bg-slate-100",
+                                                      ].join(" ")}
+                                                >
+                                                      {label}
+                                                </button>
+                                          ))}
+                                    </div>
+                              </div>
                         </section>
 
                         {dutyScopeQuery.isLoading && (
@@ -270,6 +400,18 @@ export function ResidentRoleDutiesScopePage({
                                     <EmptyBox title={emptyTitle} description={emptyDescription} />
                               </section>
                         )}
+
+                        {!dutyScopeQuery.isLoading &&
+                              !dutyScopeQuery.error &&
+                              sections.length > 0 &&
+                              !hasAnyAssignmentAfterFilter && (
+                                    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                                          <EmptyBox
+                                                title="Không có công tác theo bộ lọc"
+                                                description="Thử đổi trạng thái hoặc mở rộng khoảng ngày để xem thêm dữ liệu."
+                                          />
+                                    </section>
+                              )}
 
                         <div className="space-y-5">
                               {sections.map((section: any) => (

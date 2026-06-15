@@ -57,6 +57,7 @@ import ResidentToday from "@/pages/ResidentToday";
 import ResidentInformation from "@/pages/ResidentInformation";
 import ResidentFinance from "@/pages/ResidentFinance";
 import ResidentLeadershipOverview from "@/pages/ResidentLeadershipOverview";
+import ResidentRoleOverview from "@/pages/ResidentRoleOverview";
 import ResidentLeadershipOrganization from "@/pages/ResidentLeadershipOrganization";
 import ResidentLeadershipDuties from "@/pages/ResidentLeadershipDuties";
 import ResidentTeamMembers from "@/pages/ResidentTeamMembers";
@@ -130,6 +131,7 @@ function Router() {
                   <Route path="/resident/finance" component={ResidentFinance} />
 
                   {/* Vai trò của tôi - Simple Mode paths */}
+                  <Route path="/resident/roles" component={ResidentRoleOverview} />
                   <Route path="/resident/organization" component={ResidentLeadershipOrganization} />
                   <Route path="/resident/role-duties" component={ResidentLeadershipDuties} />
                   <Route path="/resident/my-team" component={ResidentTeamMembers} />

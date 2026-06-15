@@ -168,9 +168,9 @@ function getAssignmentSubInfo(assignment?: OrganizationAssignment) {
             (assignment as any).roomCode && (assignment as any).roomName
                   ? `${(assignment as any).roomCode} - ${(assignment as any).roomName}`
                   : (assignment as any).roomCode ||
-                    (assignment as any).roomName ||
-                    assignment.currentRoomCode ||
-                    assignment.currentRoom;
+                  (assignment as any).roomName ||
+                  assignment.currentRoomCode ||
+                  assignment.currentRoom;
 
       return [
             assignment.residentCode,
@@ -530,7 +530,7 @@ export function OrganizationHierarchyChart({
                         <SectionTitle
                               icon={<Users className="h-5 w-5" />}
                               title="Tổ / Ban hỗ trợ"
-                              subtitle="Tổ đặt bên trái, Ban đặt bên phải để không lẫn vào hàng điều hành"
+                              subtitle="Các tổ quản lý và các ban chức năng hỗ trợ điều hành"
                         />
 
                         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

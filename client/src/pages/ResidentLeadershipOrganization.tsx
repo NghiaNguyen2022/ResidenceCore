@@ -1,9 +1,24 @@
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { trpc } from "@/lib/trpc";
 
-function RoleBadge({ children }: { children: string }) {
+function RoleBadge({
+      children,
+      tone = "blue",
+}: {
+      children: string;
+      tone?: "blue" | "emerald" | "purple" | "slate";
+}) {
+      const toneClass =
+            tone === "emerald"
+                  ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+                  : tone === "purple"
+                        ? "bg-purple-50 text-purple-700 ring-purple-100"
+                        : tone === "slate"
+                              ? "bg-slate-50 text-slate-600 ring-slate-200"
+                              : "bg-blue-50 text-blue-700 ring-blue-100";
+
       return (
-            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${toneClass}`}>
                   {children}
             </span>
       );
@@ -197,20 +212,27 @@ function UnitScopeCard({ unit }: { unit: any }) {
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                               <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                    {unit.unitType === "committee" ? "Ban của tôi" : "Tổ của tôi"}
+                                    {unit.unitType === "committee" ? "Ban phụ trách" : "Tổ phụ trách"}
                               </div>
                               <h3 className="mt-1 text-xl font-bold text-slate-950">
                                     {unit.unitName || "Chưa xác định"}
                               </h3>
+                              <p className="mt-1 text-sm text-slate-500">
+                                    {members.length} thành viên đang hoạt động
+                              </p>
                         </div>
-                        {unit.myRoleName && <RoleBadge>{unit.myRoleName}</RoleBadge>}
+                        {unit.myRoleName && (
+                              <RoleBadge tone={unit.unitType === "committee" ? "purple" : "emerald"}>
+                                    {unit.myRoleName}
+                              </RoleBadge>
+                        )}
                   </div>
 
                   <div className="mt-4">
                         {members.length === 0 ? (
                               <EmptyBox
                                     title="Chưa có thành viên trong cơ cấu"
-                                    description="Hiện mới ghi nhận vai trò phụ trách. Danh sách thành viên chính thức của Tổ/Ban sẽ được bổ sung ở bước tiếp theo."
+                                    description="Quản lý có thể thêm thành viên tại màn hình Tổ chức lưu xá > Tổ / Ban."
                               />
                         ) : (
                               <div className="space-y-3">
@@ -313,7 +335,7 @@ export default function ResidentLeadershipOrganization() {
                                                                   Danh sách các vai trò điều hành đang hoạt động trong nhiệm kỳ hiện tại.
                                                             </p>
                                                       </div>
-                                                      <RoleBadge>Toàn lưu xá</RoleBadge>
+                                                      <RoleBadge tone="blue">Toàn lưu xá</RoleBadge>
                                                 </div>
 
                                                 <div className="mt-4">

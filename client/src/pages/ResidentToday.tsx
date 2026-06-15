@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BookOpen, BriefcaseBusiness, CalendarDays, CheckCircle2, Home, ShieldCheck } from "lucide-react";
 
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
@@ -11,12 +11,51 @@ function formatDateText(value?: string | null) {
       return `${day}/${month}/${year}`;
 }
 
+
+function normalizeStatus(status?: string | null) {
+      const value = String(status || "pending").toLowerCase();
+
+      if (value === "absent") return "skipped";
+
+      if (["pending", "in_progress", "confirmed"].includes(value)) {
+            return "pending";
+      }
+
+      if (["completed", "skipped", "cancelled"].includes(value)) {
+            return value;
+      }
+
+      return "pending";
+}
+
+function sortTodayDuties(items: any[]) {
+      const priority: Record<string, number> = {
+            pending: 1,
+            skipped: 2,
+            completed: 3,
+            cancelled: 4,
+      };
+
+      return [...items].sort((left, right) => {
+            const leftPriority = priority[normalizeStatus(left?.status)] || 9;
+            const rightPriority = priority[normalizeStatus(right?.status)] || 9;
+
+            if (leftPriority !== rightPriority) {
+                  return leftPriority - rightPriority;
+            }
+
+            const leftTime = String(left?.startTime || left?.timeRange || "");
+            const rightTime = String(right?.startTime || right?.timeRange || "");
+
+            return leftTime.localeCompare(rightTime);
+      });
+}
+
 function getStatusTone(status?: string | null) {
-      switch (String(status || "pending")) {
+      switch (normalizeStatus(status)) {
             case "completed":
                   return "bg-emerald-50 text-emerald-700 ring-emerald-100";
             case "skipped":
-            case "absent":
                   return "bg-amber-50 text-amber-700 ring-amber-100";
             case "cancelled":
                   return "bg-slate-100 text-slate-500 ring-slate-200";
@@ -317,18 +356,43 @@ export default function ResidentToday() {
             },
       });
 
+      useEffect(() => {
+            if (!successMessage) return;
+
+            const timer = window.setTimeout(() => {
+                  setSuccessMessage("");
+            }, 5000);
+
+            return () => window.clearTimeout(timer);
+      }, [successMessage]);
+
+      useEffect(() => {
+            if (!errorMessage) return;
+
+            const timer = window.setTimeout(() => {
+                  setErrorMessage("");
+            }, 7000);
+
+            return () => window.clearTimeout(timer);
+      }, [errorMessage]);
+
       const data: any = todayQuery.data;
       const studySchedules = data?.studySchedules || [];
       const duties = data?.duties || [];
+      const sortedDuties = useMemo(() => sortTodayDuties(duties), [duties]);
+      const pendingDirectDutyCount = sortedDuties.filter(
+            (item: any) => normalizeStatus(item?.status) === "pending"
+      ).length;
+
       const roles = data?.roles || [];
       const scopeDuties = data?.scopeDuties || null;
       const resident = data?.resident;
       const today = data?.today;
       const dutyStats = data?.summary?.dutyStats || {
             total: duties.length,
-            pending: duties.filter((item: any) => ["pending", "in_progress", "confirmed"].includes(String(item.status || "pending"))).length,
-            completed: duties.filter((item: any) => String(item.status || "") === "completed").length,
-            skipped: duties.filter((item: any) => ["skipped", "absent"].includes(String(item.status || ""))).length,
+            pending: duties.filter((item: any) => normalizeStatus(item.status) === "pending").length,
+            completed: duties.filter((item: any) => normalizeStatus(item.status) === "completed").length,
+            skipped: duties.filter((item: any) => normalizeStatus(item.status) === "skipped").length,
       };
 
       const handleCompleteDuty = (item: any) => {
@@ -351,8 +415,13 @@ export default function ResidentToday() {
                                                 {today?.dayLabel || "Hôm nay"} · {formatDateText(today?.date)}
                                           </h1>
                                           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                                                Tổng hợp lịch học, công tác và thông tin cần chú ý trong ngày.
+                                                Tổng hợp lịch học, công tác trực tiếp và công tác theo vai trò trong ngày.
                                           </p>
+                                          {pendingDirectDutyCount > 0 && (
+                                                <div className="mt-3 inline-flex rounded-full bg-orange-50 px-3 py-1.5 text-sm font-semibold text-orange-700 ring-1 ring-orange-100">
+                                                      Bạn còn {pendingDirectDutyCount} công tác trực tiếp chưa hoàn thành
+                                                </div>
+                                          )}
                                     </div>
 
                                     {resident && (
@@ -447,7 +516,7 @@ export default function ResidentToday() {
                                                                   Công tác hôm nay
                                                             </h2>
                                                             <p className="mt-1 text-sm text-slate-500">
-                                                                  Các công tác được phân công riêng cho bạn trong ngày.
+                                                                  Công tác trực tiếp được ưu tiên sắp xếp việc chưa làm lên trước.
                                                             </p>
                                                       </div>
                                                       <BriefcaseBusiness className="h-5 w-5 text-slate-400" />
@@ -462,7 +531,7 @@ export default function ResidentToday() {
                                                                   description="Bạn chưa được phân công công tác nào trong ngày này."
                                                             />
                                                       ) : (
-                                                            duties.map((item: any) => (
+                                                            sortedDuties.map((item: any) => (
                                                                   <DutyCard
                                                                         key={item.id}
                                                                         item={item}
