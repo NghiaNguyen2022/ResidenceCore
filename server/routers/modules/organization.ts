@@ -462,5 +462,4 @@ export const organizationRouter = router({
             .mutation(async ({ input }) => {
                   return await organizationService.transferTeamMember(input);
             }),
-
 });

@@ -42,8 +42,11 @@ import {
 } from "../db/organization";
 import { getResidentById } from "../db/resident";
 import { assignUserRoles, getUserRoleKeys, type RoleKey } from "../db/roles";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { normalizeText } from '../lib/utils';
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { getDb } from "../db/connection";
+import { organizationUnitMembers, organizationUnits, residents, rooms } from "../../drizzle/schema";
 import { getDb } from "../db/connection";
 import { organizationUnitMembers, organizationUnits, residents, rooms } from "../../drizzle/schema";
 
@@ -810,12 +813,6 @@ class OrganizationService {
        * ======================================================= */
 
       async listUnits(input?: ListUnitsInput) {
-            /*
-             * Giữ nguyên logic lấy Tổ/Ban gốc từ db/organization.
-             * Chỉ bổ sung số lượng thành viên sau khi đã có danh sách units.
-             * Nếu phần đếm member lỗi vì migration/table chưa sẵn sàng,
-             * vẫn trả về units để không làm mất dữ liệu Tổ/Ban trên UI.
-             */
             const filters: OrganizationUnitFilters = {
                   search: input?.search,
                   unitType: input?.unitType,
@@ -826,44 +823,53 @@ class OrganizationService {
 
             const units = await listOrganizationUnits(filters);
 
-            if (!units.length) {
-                  return units;
+            const unitIds = units
+                  .map((unit: any) => Number(unit.id))
+                  .filter((id: number) => id > 0);
+
+            if (unitIds.length === 0) {
+                  return units.map((unit: any) => ({
+                        ...unit,
+                        memberCount: 0,
+                        activeMemberCount: 0,
+                  }));
             }
 
             try {
                   const db = getDb();
 
-                  const memberCounts = await db
+                  const countRows = await db
                         .select({
                               unitId: organizationUnitMembers.unitId,
-                              activeMemberCount: sql<number>`count(*)`,
+                              memberCount: sql<number>`count(*)`,
                         })
                         .from(organizationUnitMembers)
-                        .where(eq(organizationUnitMembers.status, "active"))
+                        .where(
+                              and(
+                                    inArray(organizationUnitMembers.unitId, unitIds),
+                                    eq(organizationUnitMembers.status, "active")
+                              )
+                        )
                         .groupBy(organizationUnitMembers.unitId);
 
-                  const countByUnitId = new Map(
-                        memberCounts.map((item: any) => [
-                              Number(item.unitId),
-                              Number(item.activeMemberCount || 0),
-                        ])
-                  );
+                  const countMap = new Map<number, number>();
+
+                  for (const row of countRows as any[]) {
+                        countMap.set(Number(row.unitId), Number(row.memberCount || 0));
+                  }
 
                   return units.map((unit: any) => ({
                         ...unit,
-                        memberCount: countByUnitId.get(Number(unit.id)) || 0,
-                        activeMemberCount: countByUnitId.get(Number(unit.id)) || 0,
+                        memberCount: countMap.get(Number(unit.id)) || 0,
+                        activeMemberCount: countMap.get(Number(unit.id)) || 0,
                   }));
             } catch (error) {
-                  console.warn(
-                        "[organizationService.listUnits] Cannot load member counts. Returning units without counts.",
-                        error
-                  );
+                  console.warn("[organizationService.listUnits] Không thể tính số thành viên Tổ/Ban:", error);
 
                   return units.map((unit: any) => ({
                         ...unit,
-                        memberCount: Number((unit as any).memberCount || 0),
-                        activeMemberCount: Number((unit as any).activeMemberCount || 0),
+                        memberCount: 0,
+                        activeMemberCount: 0,
                   }));
             }
       }
@@ -1460,6 +1466,17 @@ class OrganizationService {
                   .limit(1);
 
             if (existingSameUnit[0]) {
+                  await db
+                        .update(organizationUnitMembers)
+                        .set({
+                              memberRole: isTeamLeader ? "leader" : "head",
+                              notes: isTeamLeader
+                                    ? "Tự động cập nhật từ bổ nhiệm Tổ trưởng."
+                                    : "Tự động cập nhật từ bổ nhiệm Trưởng ban.",
+                              updatedAt: new Date(),
+                        } as any)
+                        .where(eq(organizationUnitMembers.id, existingSameUnit[0].id));
+
                   return;
             }
 
@@ -1487,6 +1504,76 @@ class OrganizationService {
                         ? "Tự động thêm khi bổ nhiệm Tổ trưởng."
                         : "Tự động thêm khi bổ nhiệm Trưởng ban.",
             } as any);
+      }
+
+      async syncUnitLeadersToMembers() {
+            const activeAssignments = await this.listAssignments({
+                  status: "active",
+                  limit: 1000,
+                  offset: 0,
+            });
+
+            const result = {
+                  created: 0,
+                  updated: 0,
+                  skipped: 0,
+                  errors: [] as string[],
+            };
+
+            for (const assignment of activeAssignments as any[]) {
+                  const roleId = Number(assignment.roleId || 0);
+                  const residentId = Number(assignment.residentId || 0);
+                  const unitId = Number(assignment.unitId || 0);
+
+                  if (!roleId || !residentId || !unitId) {
+                        result.skipped += 1;
+                        continue;
+                  }
+
+                  const role = await getOrganizationRoleById(roleId);
+                  if (!role || (!isTeamLeaderRole(role) && !isCommitteeHeadRole(role))) {
+                        result.skipped += 1;
+                        continue;
+                  }
+
+                  try {
+                        const beforeRows = await getDb()
+                              .select({
+                                    id: organizationUnitMembers.id,
+                                    memberRole: organizationUnitMembers.memberRole,
+                              })
+                              .from(organizationUnitMembers)
+                              .where(
+                                    and(
+                                          eq(organizationUnitMembers.unitId, unitId),
+                                          eq(organizationUnitMembers.residentId, residentId),
+                                          eq(organizationUnitMembers.status, "active")
+                                    )
+                              )
+                              .limit(1);
+
+                        await this.ensureUnitMembershipForAssignment({
+                              residentId,
+                              roleId,
+                              unitId,
+                        });
+
+                        if (beforeRows[0]) {
+                              result.updated += 1;
+                        } else {
+                              result.created += 1;
+                        }
+                  } catch (error: any) {
+                        result.errors.push(
+                              error?.message || "Không thể đồng bộ người phụ trách."
+                        );
+                  }
+            }
+
+            return {
+                  ...result,
+                  message: `Đã đồng bộ ${result.created} người phụ trách, cập nhật ${result.updated}, bỏ qua ${result.skipped}.`,
+            };
       }
 
       async createAssignment(input: CreateAssignmentInput) {

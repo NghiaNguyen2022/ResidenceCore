@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
       Building2,
       CalendarDays,
@@ -41,9 +41,6 @@ type OrganizationTerm = {
       status: TermStatus;
       description?: string | null;
       assignedCount?: number;
-      memberCount?: number;
-      activeMemberCount?: number;
-      membersCount?: number;
 };
 
 type OrganizationRole = {
@@ -72,20 +69,6 @@ type OrganizationUnit = {
       assignedCount?: number;
 };
 
-type OrganizationUnitMember = {
-      id: number;
-      unitId: number;
-      residentId: number;
-      residentName?: string | null;
-      fullName?: string | null;
-      holyName?: string | null;
-      residentCode?: string | null;
-      roomCode?: string | null;
-      roomName?: string | null;
-      memberRole?: string | null;
-      status?: string | null;
-};
-
 type OrganizationAssignment = {
       id: number;
       termId: number;
@@ -111,6 +94,22 @@ type OrganizationAssignment = {
       roleLevel?: number | null;
       roleType?: string | null;
       roleRequiresUnit?: boolean | null;
+};
+
+type OrganizationUnitMember = {
+      id: number;
+      unitId: number;
+      residentId: number;
+      memberRole: 'member' | 'leader' | 'head';
+      status: 'active' | 'inactive';
+      startDate?: string | Date | null;
+      endDate?: string | Date | null;
+      residentName?: string | null;
+      residentCode?: string | null;
+      holyName?: string | null;
+      phoneNumber?: string | null;
+      roomCode?: string | null;
+      roomName?: string | null;
 };
 
 type AssignmentForm = {
@@ -239,6 +238,29 @@ function getUnitTypeClass(unitType?: string | null) {
       if (unitType === 'team') return 'border-blue-200 bg-blue-50 text-blue-700';
       if (unitType === 'committee') return 'border-purple-200 bg-purple-50 text-purple-700';
       return 'border-neutral-200 bg-neutral-50 text-neutral-700';
+}
+
+
+function getUnitMemberRoleLabel(role?: string | null) {
+      switch (role) {
+            case 'leader':
+                  return 'Tổ trưởng';
+            case 'head':
+                  return 'Trưởng ban';
+            default:
+                  return 'Thành viên';
+      }
+}
+
+function getUnitMemberRoleClass(role?: string | null) {
+      switch (role) {
+            case 'leader':
+                  return 'border-blue-100 bg-blue-50 text-blue-700';
+            case 'head':
+                  return 'border-purple-100 bg-purple-50 text-purple-700';
+            default:
+                  return 'border-slate-200 bg-slate-50 text-slate-600';
+      }
 }
 
 function getAssignmentStatusLabel(status?: string | null) {
@@ -381,7 +403,7 @@ export default function OrganizationSimple() {
       const [assignmentForm, setAssignmentForm] = useState<AssignmentForm | null>(null);
       const [unitForm, setUnitForm] = useState<UnitForm | null>(null);
       const [selectedUnitForMembers, setSelectedUnitForMembers] = useState<OrganizationUnit | null>(null);
-      const [selectedResidentToAdd, setSelectedResidentToAdd] = useState('');
+      const [selectedResidentToAdd, setSelectedResidentToAdd] = useState<string>("");
       const [termForm, setTermForm] = useState<TermForm | null>(null);
 
       const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -417,7 +439,6 @@ export default function OrganizationSimple() {
             {
                   enabled: selectedUnitId > 0,
                   refetchOnWindowFocus: false,
-                  retry: false,
             }
       );
 
@@ -428,29 +449,8 @@ export default function OrganizationSimple() {
             {
                   enabled: selectedUnitId > 0,
                   refetchOnWindowFocus: false,
-                  retry: false,
             }
       );
-
-      const unitMembers = useMemo(() => {
-            const rawData = unitMembersQuery.data as any;
-
-            if (Array.isArray(rawData)) return rawData;
-            if (Array.isArray(rawData?.items)) return rawData.items;
-            if (Array.isArray(rawData?.data)) return rawData.data;
-
-            return [];
-      }, [unitMembersQuery.data]);
-
-      const availableUnitResidents = useMemo(() => {
-            const rawData = availableUnitResidentsQuery.data as any;
-
-            if (Array.isArray(rawData)) return rawData;
-            if (Array.isArray(rawData?.items)) return rawData.items;
-            if (Array.isArray(rawData?.data)) return rawData.data;
-
-            return [];
-      }, [availableUnitResidentsQuery.data]);
 
       const createAssignmentMutation = trpc.organization.createAssignment.useMutation();
       const updateAssignmentMutation = trpc.organization.updateAssignment.useMutation();
@@ -461,6 +461,7 @@ export default function OrganizationSimple() {
       const toggleUnitActiveMutation = trpc.organization.toggleUnitActive.useMutation();
       const addUnitMemberMutation = trpc.organization.addUnitMember.useMutation();
       const removeUnitMemberMutation = trpc.organization.removeUnitMember.useMutation();
+      const syncUnitLeadersMutation = trpc.organization.syncUnitLeadersToMembers.useMutation();
 
       const createTermMutation = trpc.organization.createTerm.useMutation();
       const updateTermMutation = trpc.organization.updateTerm.useMutation();
@@ -824,67 +825,47 @@ export default function OrganizationSimple() {
 
 
       const openUnitMembers = (unit: OrganizationUnit) => {
-            const unitId = Number(unit?.id || 0);
-
-            if (unitId <= 0) {
-                  setMessage({
-                        type: 'error',
-                        text: 'Không xác định được Tổ/Ban cần xem thành viên.',
-                  });
-                  return;
-            }
-
             setMessage(null);
             setSelectedUnitForMembers(unit);
-            setSelectedResidentToAdd('');
+            setSelectedResidentToAdd("");
       };
 
       const closeUnitMembers = () => {
             setSelectedUnitForMembers(null);
-            setSelectedResidentToAdd('');
-      };
-
-      const refreshUnitMembers = async () => {
-            if (selectedUnitId <= 0) return;
-
-            await Promise.all([
-                  unitMembersQuery.refetch(),
-                  availableUnitResidentsQuery.refetch(),
-                  utils.organization.listUnitMembers.invalidate({
-                        unitId: selectedUnitId,
-                        status: 'active',
-                  }),
-                  utils.organization.getAvailableResidentsForUnit.invalidate({
-                        unitId: selectedUnitId,
-                  }),
-                  utils.organization.listUnits.invalidate(),
-            ]);
+            setSelectedResidentToAdd("");
       };
 
       const addSelectedUnitMember = async () => {
-            if (!selectedUnitForMembers || selectedUnitId <= 0) {
-                  setMessage({ type: 'error', text: 'Không xác định được Tổ/Ban cần thêm thành viên.' });
-                  return;
-            }
+            if (!selectedUnitForMembers) return;
 
             const residentId = Number(selectedResidentToAdd);
 
-            if (residentId <= 0) {
+            if (!residentId) {
                   setMessage({ type: 'error', text: 'Vui lòng chọn học viên cần thêm.' });
                   return;
             }
 
             try {
                   await addUnitMemberMutation.mutateAsync({
-                        unitId: selectedUnitId,
+                        unitId: selectedUnitForMembers.id,
                         residentId,
                         memberRole: 'member',
                         startDate: today,
                   });
 
                   setMessage({ type: 'success', text: 'Đã thêm thành viên.' });
-                  setSelectedResidentToAdd('');
-                  await refreshUnitMembers();
+                  setSelectedResidentToAdd("");
+
+                  await Promise.all([
+                        utils.organization.listUnitMembers.invalidate({
+                              unitId: selectedUnitForMembers.id,
+                              status: 'active',
+                        }),
+                        utils.organization.getAvailableResidentsForUnit.invalidate({
+                              unitId: selectedUnitForMembers.id,
+                        }),
+                        utils.organization.listUnits.invalidate(),
+                  ]);
             } catch (err: any) {
                   setMessage({
                         type: 'error',
@@ -896,16 +877,63 @@ export default function OrganizationSimple() {
       const removeSelectedUnitMember = async (member: OrganizationUnitMember) => {
             try {
                   await removeUnitMemberMutation.mutateAsync({
-                        memberId: Number(member.id),
+                        memberId: member.id,
                         endDate: today,
                   });
 
                   setMessage({ type: 'success', text: 'Đã gỡ thành viên.' });
-                  await refreshUnitMembers();
+
+                  if (selectedUnitForMembers?.id) {
+                        await Promise.all([
+                              utils.organization.listUnitMembers.invalidate({
+                                    unitId: selectedUnitForMembers.id,
+                                    status: 'active',
+                              }),
+                              utils.organization.getAvailableResidentsForUnit.invalidate({
+                                    unitId: selectedUnitForMembers.id,
+                              }),
+                              utils.organization.listUnits.invalidate(),
+                        ]);
+                  }
             } catch (err: any) {
                   setMessage({
                         type: 'error',
                         text: err?.message || 'Không thể gỡ thành viên.',
+                  });
+            }
+      };
+
+      const syncUnitLeadersToMembers = async () => {
+            try {
+                  const result = await syncUnitLeadersMutation.mutateAsync();
+
+                  setMessage({
+                        type: 'success',
+                        text:
+                              result?.message ||
+                              `Đã đồng bộ ${result?.created || 0} người phụ trách vào danh sách thành viên.`,
+                  });
+
+                  await Promise.all([
+                        utils.organization.listUnits.invalidate(),
+                        selectedUnitForMembers?.id
+                              ? utils.organization.listUnitMembers.invalidate({
+                                      unitId: selectedUnitForMembers.id,
+                                      status: 'active',
+                                })
+                              : Promise.resolve(),
+                        selectedUnitForMembers?.id
+                              ? utils.organization.getAvailableResidentsForUnit.invalidate({
+                                      unitId: selectedUnitForMembers.id,
+                                })
+                              : Promise.resolve(),
+                  ]);
+            } catch (err: any) {
+                  setMessage({
+                        type: 'error',
+                        text:
+                              err?.message ||
+                              'Không thể đồng bộ người phụ trách vào danh sách thành viên.',
                   });
             }
       };
@@ -1260,14 +1288,7 @@ export default function OrganizationSimple() {
                                           />
                                     )}
 
-                                    {currentTerm && activeAssignments.length === 0 && (
-                                          <SectionEmpty
-                                                title="Chưa có phân công trong nhiệm kỳ này"
-                                                description="Bấm Bổ nhiệm để thêm người phụ trách cho nhiệm kỳ hiện tại."
-                                          />
-                                    )}
-
-                                    {currentTerm && activeAssignments.length > 0 && (
+                                    {currentTerm && (
                                           <OrganizationHierarchyChart
                                                 assignments={activeAssignments as any}
                                                 roles={roles as any}
@@ -1360,14 +1381,28 @@ export default function OrganizationSimple() {
                                                       Quản lý các tổ và ban đang sử dụng trong lưu xá.
                                                 </p>
                                           </div>
-                                          <button
-                                                type="button"
-                                                onClick={openUnitCreate}
-                                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                                          >
-                                                <Plus className="h-4 w-4" />
-                                                Thêm Tổ/Ban
-                                          </button>
+                                          <div className="flex flex-wrap gap-2">
+                                                <button
+                                                      type="button"
+                                                      onClick={syncUnitLeadersToMembers}
+                                                      disabled={syncUnitLeadersMutation.isPending}
+                                                      className="inline-flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
+                                                >
+                                                      <UsersRound className="h-4 w-4" />
+                                                      {syncUnitLeadersMutation.isPending
+                                                            ? 'Đang đồng bộ...'
+                                                            : 'Đồng bộ phụ trách'}
+                                                </button>
+
+                                                <button
+                                                      type="button"
+                                                      onClick={openUnitCreate}
+                                                      className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                                >
+                                                      <Plus className="h-4 w-4" />
+                                                      Thêm Tổ/Ban
+                                                </button>
+                                          </div>
                                     </div>
 
                                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -1378,7 +1413,7 @@ export default function OrganizationSimple() {
                                                                   <p className="font-bold text-neutral-950">{unit.name}</p>
                                                                   <p className="mt-1 text-xs text-neutral-500">{unit.code}</p>
                                                                   <p className="mt-2 text-xs font-semibold text-neutral-600">
-                                                                        Thành viên: {(unit as any).activeMemberCount ?? (unit as any).memberCount ?? (unit as any).membersCount ?? 0}
+                                                                        Thành viên: {(unit as any).memberCount ?? (unit as any).membersCount ?? (unit as any).activeMemberCount ?? 0}
                                                                   </p>
                                                             </div>
                                                             <Badge className={getUnitTypeClass(unit.unitType)}>
@@ -1810,133 +1845,6 @@ export default function OrganizationSimple() {
                               </div>
                         )}
 
-
-                        {selectedUnitForMembers && (
-                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-                                    <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
-                                          <div className="mb-5 flex items-start justify-between gap-3">
-                                                <div>
-                                                      <p className="text-sm font-semibold text-neutral-500">
-                                                            {selectedUnitForMembers.unitType === 'team' ? 'Tổ' : 'Ban'}
-                                                      </p>
-                                                      <h2 className="text-2xl font-bold text-neutral-950">
-                                                            Thành viên {selectedUnitForMembers.name}
-                                                      </h2>
-                                                      <p className="mt-1 text-sm text-neutral-500">
-                                                            Quản lý danh sách học viên thuộc {selectedUnitForMembers.unitType === 'team' ? 'Tổ' : 'Ban'}.
-                                                      </p>
-                                                </div>
-
-                                                <button
-                                                      type="button"
-                                                      onClick={closeUnitMembers}
-                                                      className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-                                                >
-                                                      Đóng
-                                                </button>
-                                          </div>
-
-                                          <div className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
-                                                <Label>Thêm học viên</Label>
-                                                <div className="mt-2 flex flex-col gap-2 md:flex-row">
-                                                      <select
-                                                            value={selectedResidentToAdd}
-                                                            onChange={(event) => setSelectedResidentToAdd(event.target.value)}
-                                                            disabled={availableUnitResidentsQuery.isLoading || addUnitMemberMutation.isPending}
-                                                            className="h-10 flex-1 rounded-2xl border border-neutral-200 bg-white px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                                                      >
-                                                            <option value="">
-                                                                  {availableUnitResidentsQuery.isLoading
-                                                                        ? 'Đang tải học viên...'
-                                                                        : 'Chọn học viên đang lưu trú'}
-                                                            </option>
-                                                            {availableUnitResidents.map((resident: any) => (
-                                                                  <option key={resident.id} value={resident.id}>
-                                                                        {resident.displayName || resident.fullName || resident.residentName} · {resident.residentCode || 'Chưa có mã'}
-                                                                  </option>
-                                                            ))}
-                                                      </select>
-
-                                                      <button
-                                                            type="button"
-                                                            onClick={addSelectedUnitMember}
-                                                            disabled={addUnitMemberMutation.isPending || selectedUnitId <= 0}
-                                                            className="rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                                      >
-                                                            {addUnitMemberMutation.isPending ? 'Đang thêm...' : 'Thêm thành viên'}
-                                                      </button>
-                                                </div>
-
-                                                {availableUnitResidentsQuery.error && (
-                                                      <p className="mt-2 text-sm text-red-600">
-                                                            {availableUnitResidentsQuery.error.message || 'Không tải được danh sách học viên có thể thêm.'}
-                                                      </p>
-                                                )}
-
-                                                {selectedUnitForMembers.unitType === 'team' && (
-                                                      <p className="mt-2 text-xs leading-5 text-neutral-500">
-                                                            Một học viên chỉ thuộc một Tổ tại một thời điểm. Nếu học viên đã thuộc Tổ khác, hãy dùng chức năng chuyển tổ ở bước sau.
-                                                      </p>
-                                                )}
-                                          </div>
-
-                                          <div className="mt-5 space-y-3">
-                                                {selectedUnitId <= 0 ? (
-                                                      <SectionEmpty
-                                                            title="Chưa xác định Tổ/Ban"
-                                                            description="Vui lòng đóng cửa sổ và mở lại từ đúng Tổ/Ban cần xem."
-                                                      />
-                                                ) : unitMembersQuery.isLoading || (unitMembersQuery.isFetching && unitMembers.length === 0) ? (
-                                                      <SectionEmpty
-                                                            title="Đang tải thành viên"
-                                                            description="Vui lòng chờ trong giây lát."
-                                                      />
-                                                ) : unitMembersQuery.error ? (
-                                                      <SectionEmpty
-                                                            title="Không tải được danh sách thành viên"
-                                                            description={
-                                                                  unitMembersQuery.error.message ||
-                                                                  'Vui lòng kiểm tra lại dữ liệu Tổ/Ban.'
-                                                            }
-                                                      />
-                                                ) : unitMembers.length === 0 ? (
-                                                      <SectionEmpty
-                                                            title="Chưa có thành viên"
-                                                            description="Thêm học viên vào Tổ/Ban để Tổ trưởng hoặc Trưởng ban có thể theo dõi phạm vi phụ trách."
-                                                      />
-                                                ) : (
-                                                      unitMembers.map((member: OrganizationUnitMember) => (
-                                                            <div
-                                                                  key={member.id}
-                                                                  className="rounded-2xl border border-neutral-200 bg-white p-4"
-                                                            >
-                                                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                                                        <div>
-                                                                              <p className="font-semibold text-neutral-950">
-                                                                                    {`${member.holyName ? `${member.holyName} ` : ''}${member.residentName || member.fullName || 'Chưa rõ tên'}`.trim()}
-                                                                              </p>
-                                                                              <p className="mt-1 text-sm text-neutral-500">
-                                                                                    {member.residentCode || 'Chưa có mã'} · {member.roomCode || member.roomName || 'Chưa gán phòng'}
-                                                                              </p>
-                                                                        </div>
-
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() => removeSelectedUnitMember(member)}
-                                                                              disabled={removeUnitMemberMutation.isPending}
-                                                                              className="w-fit rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
-                                                                        >
-                                                                              Gỡ khỏi {selectedUnitForMembers.unitType === 'team' ? 'Tổ' : 'Ban'}
-                                                                        </button>
-                                                                  </div>
-                                                            </div>
-                                                      ))
-                                                )}
-                                          </div>
-                                    </div>
-                              </div>
-                        )}
-
                         {termForm && (
                               <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-4 py-6 backdrop-blur-sm">
                                     <div className="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
@@ -2057,6 +1965,127 @@ export default function OrganizationSimple() {
                                     </div>
                               </div>
                         )}
+
+                        {selectedUnitForMembers && (
+                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-4 py-6 backdrop-blur-sm">
+                                    <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
+                                          <div className="mb-5 flex items-start justify-between gap-3">
+                                                <div>
+                                                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+                                                            {getUnitTypeLabel(selectedUnitForMembers.unitType)}
+                                                      </p>
+                                                      <h2 className="mt-1 text-xl font-bold text-neutral-950">
+                                                            Thành viên {selectedUnitForMembers.name}
+                                                      </h2>
+                                                      <p className="mt-1 text-sm text-neutral-500">
+                                                            Quản lý danh sách học viên thuộc {selectedUnitForMembers.unitType === 'team' ? 'Tổ' : 'Ban'}.
+                                                      </p>
+                                                </div>
+
+                                                <button
+                                                      type="button"
+                                                      onClick={closeUnitMembers}
+                                                      className="rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+                                                >
+                                                      Đóng
+                                                </button>
+                                          </div>
+
+                                          <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+                                                <Label>Thêm học viên</Label>
+                                                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                                                      <select
+                                                            value={selectedResidentToAdd}
+                                                            onChange={(event) => setSelectedResidentToAdd(event.target.value)}
+                                                            className="h-10 flex-1 rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                      >
+                                                            <option value="">Chọn học viên đang lưu trú</option>
+                                                            {(availableUnitResidentsQuery.data || []).map((resident: any) => (
+                                                                  <option key={resident.id} value={resident.id}>
+                                                                        {resident.displayName || resident.fullName} · {resident.residentCode}
+                                                                  </option>
+                                                            ))}
+                                                      </select>
+
+                                                      <button
+                                                            type="button"
+                                                            onClick={addSelectedUnitMember}
+                                                            disabled={addUnitMemberMutation.isPending}
+                                                            className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                                                      >
+                                                            {addUnitMemberMutation.isPending ? 'Đang thêm...' : 'Thêm thành viên'}
+                                                      </button>
+                                                </div>
+                                                {selectedUnitForMembers.unitType === 'team' && (
+                                                      <p className="mt-2 text-xs leading-5 text-neutral-500">
+                                                            Một học viên chỉ thuộc một Tổ tại một thời điểm. Nếu học viên đã thuộc Tổ khác, hãy dùng chức năng chuyển tổ ở bước sau.
+                                                      </p>
+                                                )}
+                                          </div>
+
+                                          <div className="mt-5 space-y-3">
+                                                {unitMembersQuery.isLoading || unitMembersQuery.isFetching ? (
+                                                      <SectionEmpty
+                                                            title="Đang tải thành viên"
+                                                            description="Vui lòng chờ trong giây lát."
+                                                      />
+                                                ) : unitMembersQuery.error ? (
+                                                      <SectionEmpty
+                                                            title="Không tải được danh sách thành viên"
+                                                            description={
+                                                                  unitMembersQuery.error.message ||
+                                                                  "Vui lòng kiểm tra lại dữ liệu Tổ/Ban."
+                                                            }
+                                                      />
+                                                ) : (unitMembersQuery.data || []).length === 0 ? (
+                                                      <SectionEmpty
+                                                            title="Chưa có thành viên"
+                                                            description="Thêm học viên vào Tổ/Ban để Tổ trưởng hoặc Trưởng ban có thể theo dõi phạm vi phụ trách."
+                                                      />
+                                                ) : (
+                                                      (unitMembersQuery.data || []).map((member: OrganizationUnitMember) => (
+                                                            <div
+                                                                  key={member.id}
+                                                                  className="rounded-2xl border border-neutral-200 bg-white p-4"
+                                                            >
+                                                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                                        <div>
+                                                                              <p className="font-semibold text-neutral-950">
+                                                                                    {`${member.holyName ? `${member.holyName} ` : ''}${member.residentName || 'Chưa rõ tên'}`.trim()}
+                                                                              </p>
+                                                                              <p className="mt-1 text-sm text-neutral-500">
+                                                                                    {member.residentCode || 'Chưa có mã'} · {member.roomCode || member.roomName || 'Chưa gán phòng'}
+                                                                              </p>
+                                                                        </div>
+
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                              <span
+                                                                                    className={[
+                                                                                          'rounded-full border px-3 py-1 text-xs font-semibold',
+                                                                                          getUnitMemberRoleClass(member.memberRole),
+                                                                                    ].join(' ')}
+                                                                              >
+                                                                                    {getUnitMemberRoleLabel(member.memberRole)}
+                                                                              </span>
+
+                                                                              <button
+                                                                                    type="button"
+                                                                                    onClick={() => removeSelectedUnitMember(member)}
+                                                                                    disabled={removeUnitMemberMutation.isPending}
+                                                                                    className="w-fit rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                                                                              >
+                                                                                    Gỡ khỏi {selectedUnitForMembers.unitType === 'team' ? 'Tổ' : 'Ban'}
+                                                                              </button>
+                                                                        </div>
+                                                                  </div>
+                                                            </div>
+                                                      ))
+                                                )}
+                                          </div>
+                                    </div>
+                              </div>
+                        )}
+
                   </div>
             </ResidenceCareLayout>
       );
