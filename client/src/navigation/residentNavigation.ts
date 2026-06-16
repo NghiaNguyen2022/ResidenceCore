@@ -25,6 +25,12 @@ export const residentNavigation: NavigationItem[] = [
                         roles: ["resident"],
                   },
                   {
+                        label: "Nội quy & nhắc nhở",
+                        path: "/resident/rules",
+                        icon: "📌",
+                        roles: ["resident"],
+                  },
+                  {
                         label: "Tài chính",
                         path: "/resident/finance",
                         icon: "💰",

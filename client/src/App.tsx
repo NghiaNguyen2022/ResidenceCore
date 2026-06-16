@@ -56,6 +56,7 @@ import OrganizationSimple from "@/pages/OrganizationSimple";
 import ResidentToday from "@/pages/ResidentToday";
 import ResidentInformation from "@/pages/ResidentInformation";
 import ResidentFinance from "@/pages/ResidentFinance";
+import ResidentRules from "@/pages/ResidentRules";
 import ResidentLeadershipOverview from "@/pages/ResidentLeadershipOverview";
 import ResidentRoleOverview from "@/pages/ResidentRoleOverview";
 import ResidentLeadershipOrganization from "@/pages/ResidentLeadershipOrganization";
@@ -128,6 +129,7 @@ function Router() {
                   {/* Resident portal */}
                   <Route path="/resident/today" component={ResidentToday} />
                   <Route path="/resident/information" component={ResidentInformation} />
+                  <Route path="/resident/rules" component={ResidentRules} />
                   <Route path="/resident/finance" component={ResidentFinance} />
 
                   {/* Vai trò của tôi - Simple Mode paths */}
