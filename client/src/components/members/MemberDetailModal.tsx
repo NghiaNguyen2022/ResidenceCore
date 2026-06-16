@@ -157,9 +157,12 @@ type StudySchedulePayload = {
 
 export function MemberDetailModal({
       member,
+      organizationTitles = [],
+      organizationUnits = [],
       onClose,
       onEdit,
       onAssignRoom,
+      onOpenOrganization,
       onCreateUser,
       onReactivate,
       isCreatingUser = false,
@@ -173,9 +176,12 @@ export function MemberDetailModal({
       isDeletingStudySchedule = false,
 }: {
       member: any;
+      organizationTitles?: string[];
+      organizationUnits?: string[];
       onClose: () => void;
       onEdit: () => void;
       onAssignRoom: () => void;
+      onOpenOrganization?: (member: any) => void;
       onCreateUser?: (member: any) => void;
       onReactivate?: (member: any) => void;
       isCreatingUser?: boolean;
@@ -349,6 +355,37 @@ export function MemberDetailModal({
                                                 label="Ghi chú"
                                                 value={member.notes || '-'}
                                           />
+                                    </DetailCard>
+
+                                    <DetailCard title="Tổ chức lưu xá">
+                                          <DetailItem
+                                                icon={<Users className="h-4 w-4" />}
+                                                label="Tổ / Ban"
+                                                value={
+                                                      organizationUnits.length > 0
+                                                            ? organizationUnits.join(', ')
+                                                            : 'Chưa phân tổ'
+                                                }
+                                          />
+                                          <DetailItem
+                                                icon={<Database className="h-4 w-4" />}
+                                                label="Chức vụ hiện tại"
+                                                value={
+                                                      organizationTitles.length > 0
+                                                            ? organizationTitles.join(', ')
+                                                            : 'Chưa có chức vụ'
+                                                }
+                                          />
+
+                                          {!isLeft && onOpenOrganization && (
+                                                <button
+                                                      type="button"
+                                                      onClick={() => onOpenOrganization(member)}
+                                                      className="inline-flex w-fit items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                                                >
+                                                      Quản lý bổ nhiệm
+                                                </button>
+                                          )}
                                     </DetailCard>
 
                                     <DetailCard title="Tài khoản đăng nhập">

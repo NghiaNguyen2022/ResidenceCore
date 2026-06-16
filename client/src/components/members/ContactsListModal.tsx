@@ -69,11 +69,13 @@ function buildContactFormData(contact: any): ContactFormData {
 export function ContactsListModal({
       onClose,
       onChanged,
+      initialSearchTerm = '',
 }: {
       onClose: () => void;
       onChanged?: () => void | Promise<void>;
+      initialSearchTerm?: string;
 }) {
-      const [searchTerm, setSearchTerm] = useState('');
+      const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
       const [parentTypeFilter, setParentTypeFilter] = useState<'all' | ParentType>('all');
       const [editingContact, setEditingContact] = useState<any>(null);
       const [formData, setFormData] = useState<ContactFormData>(defaultContactFormData);

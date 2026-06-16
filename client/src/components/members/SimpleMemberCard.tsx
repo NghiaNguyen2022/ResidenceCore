@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
       getAccountBadge,
       getAttentionItems,
@@ -24,11 +25,6 @@ function isResidentInactive(member: any) {
 }
 
 function getRoomTextForCard(member: any) {
-      /**
-       * Card Simple Mode chỉ hiển thị phòng hiện tại.
-       * Không dùng roomId/roomCode/roomName fallback để quyết định học viên đang có phòng,
-       * vì các field đó có thể là dữ liệu lịch sử sau khi học viên rời và đăng ký lại.
-       */
       if (isResidentLeft(member) || isResidentInactive(member)) {
             return getRoomLabelFromMember(member);
       }
@@ -40,23 +36,95 @@ function getRoomTextForCard(member: any) {
       return 'Chưa gán';
 }
 
-function getLeftCardClass(member: any) {
-      if (isResidentLeft(member)) {
-            return 'border-rose-200 bg-rose-50/60 hover:border-rose-300';
-      }
+function getInitials(name: string) {
+      const words = name.trim().split(/\s+/).filter(Boolean);
+      const picked = words.length >= 2 ? [words[0], words[words.length - 1]] : words;
 
-      if (isResidentInactive(member)) {
-            return 'border-amber-200 bg-amber-50/40 hover:border-amber-300';
-      }
+      return picked
+            .map((word) => word.charAt(0).toUpperCase())
+            .join('')
+            .slice(0, 2);
+}
 
-      return 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md';
+function getAccentClasses(index: number) {
+      const accents = [
+            {
+                  strip: 'from-blue-400 to-indigo-400',
+                  avatar: 'from-slate-800 to-blue-700',
+                  soft: 'bg-blue-50 text-blue-700 ring-blue-100',
+            },
+            {
+                  strip: 'from-emerald-400 to-teal-400',
+                  avatar: 'from-emerald-700 to-teal-600',
+                  soft: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+            },
+            {
+                  strip: 'from-violet-300 to-fuchsia-300',
+                  avatar: 'from-violet-700 to-indigo-600',
+                  soft: 'bg-violet-50 text-violet-700 ring-violet-100',
+            },
+            {
+                  strip: 'from-amber-300 to-orange-300',
+                  avatar: 'from-amber-700 to-orange-600',
+                  soft: 'bg-amber-50 text-amber-700 ring-amber-100',
+            },
+      ];
+
+      return accents[index % accents.length];
+}
+
+function InfoItem({ label, value, warning = false, muted = false }: { label: string; value: string; warning?: boolean; muted?: boolean }) {
+      return (
+            <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                        {label}
+                  </div>
+                  <div
+                        className={[
+                              'mt-0.5 truncate text-sm font-semibold',
+                              warning ? 'text-amber-700' : muted ? 'text-slate-500' : 'text-slate-800',
+                        ].join(' ')}
+                        title={value}
+                  >
+                        {value}
+                  </div>
+            </div>
+      );
+}
+
+function ActionButton({ children, onClick, disabled, tone = 'light' }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; tone?: 'dark' | 'green' | 'light'; }) {
+      const toneClass = {
+            dark: 'bg-slate-900 text-white hover:bg-slate-800',
+            green: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100',
+            light: 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50',
+      }[tone];
+
+      return (
+            <button
+                  type="button"
+                  onClick={onClick}
+                  disabled={disabled}
+                  className={[
+                        'inline-flex h-9 items-center justify-center rounded-2xl px-3.5 text-sm font-semibold transition',
+                        'disabled:cursor-not-allowed disabled:opacity-60',
+                        toneClass,
+                  ].join(' ')}
+            >
+                  {children}
+            </button>
+      );
 }
 
 export function SimpleMemberCard({
       member,
+      memberIndex = 0,
       organizationTitles = [],
+      organizationUnits = [],
       onView,
+      onEdit,
+      onContacts,
       onRoomAction,
+      onOrganization,
       onLeaveOrDelete,
       onReactivate,
       isRoomProcessing = false,
@@ -64,183 +132,151 @@ export function SimpleMemberCard({
       isReactivating = false,
 }: {
       member: any;
+      memberIndex?: number;
       organizationTitles?: string[];
+      organizationUnits?: string[];
       onView: (member: any) => void;
+      onEdit?: (member: any) => void;
+      onContacts?: (member: any) => void;
       onRoomAction: (member: any) => void;
+      onOrganization?: (member: any) => void;
       onLeaveOrDelete: (member: any) => void;
       onReactivate: (member: any) => void;
       isRoomProcessing?: boolean;
       isLeaving?: boolean;
       isReactivating?: boolean;
 }) {
+      const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
       const memberHasRoom = hasCurrentRoom(member);
       const memberIsLeft = isResidentLeft(member);
       const memberIsInactive = isResidentInactive(member);
+      const memberIsClosed = memberIsLeft || memberIsInactive;
       const accountBadge = getAccountBadge(member);
       const attentionItems = getAttentionItems(member);
+      const accent = getAccentClasses(memberIndex);
 
-      const statusLabel = getStatusLabel(
-            member?.status || member?.residenceStatus || 'active'
-      );
-
+      const displayName = getDisplayName(member);
+      const statusLabel = getStatusLabel(member?.status || member?.residenceStatus || 'active');
       const roomText = getRoomTextForCard(member);
       const primaryContactText = getPrimaryContactText(member);
-      const shouldHighlightMissingRoom =
-            !memberHasRoom && !memberIsLeft && !memberIsInactive;
+      const residentCode = member?.residentCode || member?.code || 'Chưa có mã';
+      const phoneNumber = member?.phoneNumber || 'Chưa có SĐT';
+      const unitText = organizationUnits.length > 0 ? organizationUnits.join(', ') : 'Chưa phân tổ';
+      const titleText = organizationTitles.length > 0 ? organizationTitles.join(', ') : 'Chưa có chức vụ';
+      const shouldHighlightMissingRoom = !memberHasRoom && !memberIsLeft && !memberIsInactive;
+      const shouldHighlightMissingContact = primaryContactText === 'Chưa có người liên hệ' && !memberIsClosed;
+
+      const cardClass = memberIsLeft
+            ? 'border-rose-200 bg-rose-50/80'
+            : memberIsInactive
+                  ? 'border-amber-200 bg-amber-50/80'
+                  : 'border-slate-200 bg-white hover:border-slate-300';
 
       return (
-            <div
-                  className={[
-                        'w-full rounded-2xl border p-4 text-left shadow-sm transition',
-                        getLeftCardClass(member),
-                  ].join(' ')}
-            >
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <article className={['relative overflow-visible rounded-3xl border p-4 shadow-sm transition hover:shadow-md', cardClass].join(' ')}>
+                  <div className={["absolute inset-x-0 top-0 h-1 rounded-t-3xl bg-gradient-to-r", accent.strip].join(' ')} />
+
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                         <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                    <div className="text-base font-semibold text-slate-900">
-                                          {getDisplayName(member)}
+                              <div className="flex items-start gap-3">
+                                    <div className={["hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-sm font-bold text-white shadow-sm sm:flex", accent.avatar].join(' ')}>
+                                          {getInitials(displayName)}
                                     </div>
 
-                                    <span
-                                          className={[
-                                                'inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1',
-                                                getStatusBadgeClass(member),
-                                          ].join(' ')}
-                                    >
-                                          {statusLabel}
-                                    </span>
-
-                                    <span
-                                          className={[
-                                                'inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1',
-                                                accountBadge.className,
-                                          ].join(' ')}
-                                    >
-                                          {accountBadge.label}
-                                    </span>
-                              </div>
-
-                              <div className="mt-3 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-                                    <div>
-                                          <div className="text-xs text-slate-400">Phòng</div>
-                                          <div
-                                                className={
-                                                      shouldHighlightMissingRoom
-                                                            ? 'font-medium text-amber-700'
-                                                            : 'font-medium text-slate-800'
-                                                }
-                                          >
-                                                {roomText}
-                                          </div>
-                                    </div>
-
-                                    <div>
-                                          <div className="text-xs text-slate-400">
-                                                Gia đình / liên hệ
-                                          </div>
-                                          <div
-                                                className={
-                                                      primaryContactText === 'Chưa có người liên hệ' &&
-                                                            !memberIsLeft
-                                                            ? 'font-medium text-amber-700'
-                                                            : 'font-medium text-slate-800'
-                                                }
-                                          >
-                                                {primaryContactText}
-                                          </div>
-                                    </div>
-
-                                    <div>
-                                          <div className="text-xs text-slate-400">Điện thoại</div>
-                                          <div className="font-medium text-slate-800">
-                                                {member?.phoneNumber || '-'}
-                                          </div>
-                                    </div>
-
-                                    <div>
-                                          <div className="text-xs text-slate-400">Mã học viên</div>
-                                          <div className="font-medium text-slate-800">
-                                                {member?.residentCode || member?.code || 'Chưa có'}
-                                          </div>
-                                    </div>
-                              </div>
-
-                              {organizationTitles.length > 0 && (
-                                    <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-2">
+                                    <div className="min-w-0 flex-1">
                                           <div className="flex flex-wrap items-center gap-2">
-                                                <span className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
-                                                      Chức vụ
+                                                <h3 className="truncate text-base font-bold leading-6 text-slate-950 sm:text-[17px]">
+                                                      {displayName}
+                                                </h3>
+
+                                                <span className={['inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1', getStatusBadgeClass(member)].join(' ')}>
+                                                      {statusLabel}
                                                 </span>
 
-                                                {organizationTitles.map((title) => (
-                                                      <span
-                                                            key={title}
-                                                            className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-100"
-                                                      >
-                                                            {title}
-                                                      </span>
-                                                ))}
+                                                <span className={['inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1', accountBadge.className].join(' ')}>
+                                                      {accountBadge.label}
+                                                </span>
+                                          </div>
+
+                                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-500">
+                                                <span>{residentCode}</span>
+                                                <span className="text-slate-300">•</span>
+                                                <span>{phoneNumber}</span>
                                           </div>
                                     </div>
-                              )}
+                              </div>
 
-                              {attentionItems.length > 0 && (
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                          {attentionItems.map((item) => (
-                                                <span
-                                                      key={item}
-                                                      className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200"
-                                                >
+                              <div className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
+                                    <InfoItem label="Phòng" value={roomText} warning={shouldHighlightMissingRoom} />
+                                    <InfoItem label="Tổ / Ban" value={unitText} muted={organizationUnits.length === 0} />
+                                    <InfoItem label="Chức vụ" value={titleText} muted={organizationTitles.length === 0} />
+                                    <InfoItem label="Liên hệ chính" value={primaryContactText} warning={shouldHighlightMissingContact} />
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                    {attentionItems.length > 0 ? (
+                                          attentionItems.map((item) => (
+                                                <span key={item} className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
                                                       {item}
                                                 </span>
-                                          ))}
-                                    </div>
-                              )}
+                                          ))
+                                    ) : (
+                                          <span className={["inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1", accent.soft].join(' ')}>
+                                                Hồ sơ ổn định
+                                          </span>
+                                    )}
+                              </div>
                         </div>
 
                         <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
-                              <button
-                                    type="button"
-                                    onClick={() => onView(member)}
-                                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                              >
-                                    Xem chi tiết
-                              </button>
+                              <ActionButton onClick={() => onView(member)} tone="dark">
+                                    Xem
+                              </ActionButton>
 
-                              {memberIsLeft ? (
-                                    <button
-                                          type="button"
-                                          onClick={() => onReactivate(member)}
-                                          disabled={isReactivating}
-                                          className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
+                              {memberIsClosed ? (
+                                    <ActionButton onClick={() => onReactivate(member)} disabled={isReactivating} tone="green">
                                           {isReactivating ? 'Đang đăng ký...' : 'Đăng ký lại'}
-                                    </button>
+                                    </ActionButton>
                               ) : (
                                     <>
-                                          <button
-                                                type="button"
-                                                onClick={() => onRoomAction(member)}
-                                                disabled={isRoomProcessing}
-                                                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                          >
+                                          <ActionButton onClick={() => onRoomAction(member)} disabled={isRoomProcessing} tone="green">
                                                 {memberHasRoom ? 'Chuyển phòng' : 'Gắn phòng'}
-                                          </button>
+                                          </ActionButton>
 
-                                          <button
-                                                type="button"
-                                                onClick={() => onLeaveOrDelete(member)}
-                                                disabled={isLeaving}
-                                                className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                          >
-                                                Ngừng / Rời
-                                          </button>
+                                          <div className="relative">
+                                                <ActionButton onClick={() => setIsActionMenuOpen((value) => !value)}>
+                                                      Thao tác
+                                                </ActionButton>
+
+                                                {isActionMenuOpen && (
+                                                      <div className="absolute right-0 top-full z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl">
+                                                            {onEdit && (
+                                                                  <button type="button" onClick={() => { setIsActionMenuOpen(false); onEdit(member); }} className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                                                        Sửa hồ sơ
+                                                                  </button>
+                                                            )}
+                                                            {onContacts && (
+                                                                  <button type="button" onClick={() => { setIsActionMenuOpen(false); onContacts(member); }} className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                                                        Liên hệ gia đình
+                                                                  </button>
+                                                            )}
+                                                            {onOrganization && (
+                                                                  <button type="button" onClick={() => { setIsActionMenuOpen(false); onOrganization(member); }} className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                                                        Chức vụ / tổ chức
+                                                                  </button>
+                                                            )}
+                                                            <div className="my-1 border-t border-slate-100" />
+                                                            <button type="button" onClick={() => { setIsActionMenuOpen(false); onLeaveOrDelete(member); }} disabled={isLeaving} className="w-full px-4 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60">
+                                                                  Ngừng / Rời lưu xá
+                                                            </button>
+                                                      </div>
+                                                )}
+                                          </div>
                                     </>
                               )}
                         </div>
                   </div>
-            </div>
+            </article>
       );
 }
 

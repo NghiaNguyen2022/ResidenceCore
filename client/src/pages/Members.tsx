@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useLocation } from 'wouter';
 import { useEffect, useMemo, useState } from 'react';
 import {
       AlertCircle,
@@ -188,45 +189,45 @@ function SimpleStatCard({
       details?: Array<{ label: string; value: number }>;
 }) {
       return (
-            <div className="flex min-h-[168px] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-slate-300 via-blue-300 to-emerald-300 opacity-80" />
+
                   <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                              <div className="text-sm font-semibold text-slate-500">
+                              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
                                     {label}
                               </div>
-                              <div className="mt-2 text-4xl font-bold tracking-tight text-slate-800">
+                              <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
                                     {value}
+                              </div>
+                              <div className="mt-1 text-xs leading-5 text-slate-500">
+                                    {description}
                               </div>
                         </div>
 
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 ring-1 ring-slate-200">
                               {icon}
                         </div>
                   </div>
 
-                  <div className="mt-4">
-                        <div className="text-sm leading-5 text-slate-500">
-                              {description}
+                  {details && details.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                              {details.map((item) => (
+                                    <span
+                                          key={item.label}
+                                          className="rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200"
+                                    >
+                                          {item.label}: {item.value}
+                                    </span>
+                              ))}
                         </div>
-
-                        {details && details.length > 0 && (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                    {details.map((item) => (
-                                          <span
-                                                key={item.label}
-                                                className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
-                                          >
-                                                {item.label}: {item.value}
-                                          </span>
-                                    ))}
-                              </div>
-                        )}
-                  </div>
+                  )}
             </div>
       );
 }
 
 export default function Members() {
+      const [, navigate] = useLocation();
       const { isDetailed } = useSystemDisplayMode();
       const isSimple = !isDetailed;
 
@@ -235,6 +236,7 @@ export default function Members() {
       const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
       const [isContactsDialogOpen, setIsContactsDialogOpen] = useState(false);
       const [isRoomsQuickDialogOpen, setIsRoomsQuickDialogOpen] = useState(false);
+      const [contactsInitialSearchTerm, setContactsInitialSearchTerm] = useState('');
 
       const [simplePage, setSimplePage] = useState(1);
       const [simplePageSize, setSimplePageSize] = useState(7);
@@ -443,13 +445,15 @@ export default function Members() {
             selectedStudySchedulesQuery.data,
       ]);
 
-      const organizationTitlesByResidentId = useMemo(() => {
-            const map = new Map<number, string[]>();
+      const organizationSummaryByResidentId = useMemo(() => {
+            const map = new Map<number, { titles: string[]; units: string[] }>();
 
             organizationAssignments.forEach((assignment: any) => {
                   const residentId = Number(assignment.residentId || 0);
 
                   if (!residentId) return;
+
+                  const current = map.get(residentId) || { titles: [], units: [] };
 
                   const title =
                         assignment.assignmentTitle ||
@@ -457,16 +461,28 @@ export default function Members() {
                         assignment.roleCode ||
                         'Chức vụ';
 
-                  const currentTitles = map.get(residentId) || [];
-                  currentTitles.push(title);
-                  map.set(residentId, currentTitles);
+                  if (title && !current.titles.includes(title)) {
+                        current.titles.push(title);
+                  }
+
+                  const unitName = assignment.unitName || assignment.unitCode || '';
+
+                  if (unitName && !current.units.includes(unitName)) {
+                        current.units.push(unitName);
+                  }
+
+                  map.set(residentId, current);
             });
 
             return map;
       }, [organizationAssignments]);
 
       const getOrganizationTitlesForMember = (member: any) => {
-            return organizationTitlesByResidentId.get(Number(member?.id || 0)) || [];
+            return organizationSummaryByResidentId.get(Number(member?.id || 0))?.titles || [];
+      };
+
+      const getOrganizationUnitsForMember = (member: any) => {
+            return organizationSummaryByResidentId.get(Number(member?.id || 0))?.units || [];
       };
 
       const sortedMembers = useMemo(() => sortMembersByStatus(members), [members]);
@@ -686,6 +702,25 @@ export default function Members() {
             });
             setError(null);
             setIsAssignRoomDialogOpen(true);
+      };
+
+
+      const handleOpenMemberContacts = (member: any) => {
+            setContactsInitialSearchTerm(getDisplayName(member));
+            setIsContactsDialogOpen(true);
+      };
+
+      const handleOpenOrganizationForMember = (member: any) => {
+            try {
+                  sessionStorage.setItem(
+                        'residencecare.organization.focusResidentId',
+                        String(member?.id || '')
+                  );
+            } catch {
+                  // Ignore storage errors; navigation should still work.
+            }
+
+            navigate('/organization');
       };
 
       const handleAssignRoom = async () => {
@@ -1276,103 +1311,118 @@ export default function Members() {
 
       return (
             <ResidenceCareLayout>
-                  <div className="space-y-6">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                              <div>
-                                    <p className="text-sm font-semibold text-neutral-500">
-                                          Quản lý lưu trú
-                                    </p>
-                                    <h1 className="text-4xl font-bold tracking-tight text-slate-950">
-                                          Học viên lưu trú
-                                    </h1>
-                                    <p className="mt-2 text-base text-slate-600">
-                                          Quản lý hồ sơ học viên, phòng ở, gia đình và tài khoản trong một màn hình.
-                                    </p>
-                              </div>
+                  <div className="min-h-full bg-slate-50/60">
+                        <div className="mx-auto max-w-[1420px] space-y-5 px-2 pb-8">
+                              <div className="overflow-visible rounded-[28px] border border-slate-200/90 bg-white shadow-sm">
+                                    <div className="relative overflow-visible bg-gradient-to-r from-slate-100 via-white to-blue-50 px-5 py-5 text-slate-900 sm:px-6">
+                                          <div className="absolute inset-0 opacity-70 [background-image:radial-gradient(circle_at_20%_20%,white,transparent_26%),radial-gradient(circle_at_85%_0%,#dbeafe,transparent_30%)]" />
 
-                              <div className="flex flex-wrap items-center gap-2">
-                                    <div className="relative">
-                                          <button
-                                                type="button"
-                                                onClick={() =>
-                                                      setIsQuickActionOpen((value) => !value)
-                                                }
-                                                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                                          >
-                                                Tác vụ nhanh
-                                          </button>
+                                          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                                <div className="min-w-0">
+                                                      <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="rounded-full bg-white/12 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-600 ring-1 ring-slate-200">
+                                                                  Quản lý lưu trú
+                                                            </span>
+                                                            <span className="text-sm text-slate-500">
+                                                                  Học viên · Phòng · Liên hệ · Chức vụ
+                                                            </span>
+                                                      </div>
 
-                                          {isQuickActionOpen && (
-                                                <div className="absolute right-0 z-20 mt-2 w-80 overflow-hidden rounded-2xl border bg-white py-2 shadow-xl">
-                                                      <div className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                                            Quản lý phòng
+                                                      <h1 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
+                                                            Học viên lưu trú
+                                                      </h1>
+
+                                                      <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                                                            Một màn hình để theo dõi hồ sơ, phòng ở, liên hệ gia đình và vai trò tổ chức của từng học viên.
+                                                      </p>
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                      <div className="relative">
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() =>
+                                                                        setIsQuickActionOpen((value) => !value)
+                                                                  }
+                                                                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                                                            >
+                                                                  Tác vụ nhanh
+                                                            </button>
+
+                                                            {isQuickActionOpen && (
+                                                                  <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 text-slate-800 shadow-2xl">
+                                                                        <div className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                                                              Quản lý phòng
+                                                                        </div>
+
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => {
+                                                                                    setIsQuickActionOpen(false);
+                                                                                    setIsRoomsQuickDialogOpen(true);
+                                                                              }}
+                                                                              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                                                        >
+                                                                              Danh sách phòng & sức chứa
+                                                                              <div className="mt-0.5 text-xs text-slate-400">
+                                                                                    Xem phòng, thêm phòng, sửa sức chứa cơ bản
+                                                                              </div>
+                                                                        </button>
+
+                                                                        <div className="my-1 border-t" />
+
+                                                                        <div className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                                                              Tài khoản & liên hệ
+                                                                        </div>
+
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => {
+                                                                                    setIsQuickActionOpen(false);
+                                                                                    handleBulkCreateResidentUsers();
+                                                                              }}
+                                                                              disabled={
+                                                                                    bulkCreateResidentUsersMutation.isPending ||
+                                                                                    (residentsWithoutUserQuery.data?.length ?? 0) === 0
+                                                                              }
+                                                                              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                        >
+                                                                              Tạo tài khoản học viên chưa có user
+                                                                              <div className="mt-0.5 text-xs text-slate-400">
+                                                                                    Còn {residentsWithoutUserQuery.data?.length ?? 0} học viên
+                                                                              </div>
+                                                                        </button>
+
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => {
+                                                                                    setIsQuickActionOpen(false);
+                                                                                    setContactsInitialSearchTerm('');
+                                                                                    setIsContactsDialogOpen(true);
+                                                                              }}
+                                                                              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                                                        >
+                                                                              Danh sách liên hệ
+                                                                              <div className="mt-0.5 text-xs text-slate-400">
+                                                                                    Xem và cập nhật nhanh cha, mẹ, người giám hộ
+                                                                              </div>
+                                                                        </button>
+                                                                  </div>
+                                                            )}
                                                       </div>
 
                                                       <button
                                                             type="button"
-                                                            onClick={() => {
-                                                                  setIsQuickActionOpen(false);
-                                                                  setIsRoomsQuickDialogOpen(true);
-                                                            }}
-                                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                                            onClick={handleOpenAddDialog}
+                                                            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800"
                                                       >
-                                                            Danh sách phòng & sức chứa
-                                                            <div className="mt-0.5 text-xs text-slate-400">
-                                                                  Xem phòng, thêm phòng, sửa sức chứa cơ bản
-                                                            </div>
-                                                      </button>
-
-                                                      <div className="my-1 border-t" />
-
-                                                      <div className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                                            Tài khoản & liên hệ
-                                                      </div>
-
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                  setIsQuickActionOpen(false);
-                                                                  handleBulkCreateResidentUsers();
-                                                            }}
-                                                            disabled={
-                                                                  bulkCreateResidentUsersMutation.isPending ||
-                                                                  (residentsWithoutUserQuery.data?.length ?? 0) === 0
-                                                            }
-                                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                                      >
-                                                            Tạo tài khoản học viên chưa có user
-                                                            <div className="mt-0.5 text-xs text-slate-400">
-                                                                  Còn {residentsWithoutUserQuery.data?.length ?? 0} học viên
-                                                            </div>
-                                                      </button>
-
-                                                      <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                  setIsQuickActionOpen(false);
-                                                                  setIsContactsDialogOpen(true);
-                                                            }}
-                                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                                                      >
-                                                            Danh sách liên hệ
-                                                            <div className="mt-0.5 text-xs text-slate-400">
-                                                                  Xem và cập nhật nhanh cha, mẹ, người giám hộ
-                                                            </div>
+                                                            <Plus className="h-4 w-4" />
+                                                            Thêm học viên
                                                       </button>
                                                 </div>
-                                          )}
+                                          </div>
                                     </div>
-
-                                    <button
-                                          type="button"
-                                          onClick={handleOpenAddDialog}
-                                          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-                                    >
-                                          <Plus className="h-4 w-4" />
-                                          Thêm học viên
-                                    </button>
                               </div>
-                        </div>
 
                         {error && (
                               <div className="flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
@@ -1387,7 +1437,7 @@ export default function Members() {
                         )}
 
                         {isSimple ? (
-                              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                                     <SimpleStatCard
                                           label="Tổng học viên"
                                           value={stats.total}
@@ -1467,52 +1517,75 @@ export default function Members() {
                               </div>
                         )}
 
-                        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-                              <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_220px_auto]">
-                                    <div className="relative">
-                                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                        <div className="rounded-[26px] border border-slate-200/80 bg-white/90 p-3 shadow-sm">
+                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                                    <div className="relative min-w-0 flex-1">
+                                          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                           <Input
                                                 value={searchTerm}
                                                 onChange={(event) =>
                                                       setSearchTerm(event.target.value)
                                                 }
                                                 placeholder="Tìm theo tên, mã lưu trú, số điện thoại..."
-                                                className="pl-10"
+                                                className="h-11 rounded-2xl border-slate-200 bg-slate-50/80 pl-10 text-sm shadow-none transition placeholder:text-slate-400 focus:bg-white"
                                           />
                                     </div>
 
-                                    <select
-                                          value={statusFilter}
-                                          onChange={(event) =>
-                                                setStatusFilter(event.target.value)
-                                          }
-                                          className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                    >
-                                          <option value="all">Tất cả trạng thái</option>
-                                          <option value="active">Đang ở</option>
-                                          <option value="inactive">Tạm rời</option>
-                                          <option value="transferred_out">Đã rời</option>
-                                    </select>
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                          <div className="relative">
+                                                <select
+                                                      value={statusFilter}
+                                                      onChange={(event) =>
+                                                            setStatusFilter(event.target.value)
+                                                      }
+                                                      className="h-11 min-w-[190px] appearance-none rounded-2xl border border-slate-200 bg-slate-50/80 py-0 pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition hover:bg-white focus:border-slate-300 focus:bg-white focus:ring-2 focus:ring-slate-100"
+                                                >
+                                                      <option value="all">Tất cả trạng thái</option>
+                                                      <option value="active">Đang ở</option>
+                                                      <option value="inactive">Tạm rời</option>
+                                                      <option value="transferred_out">Đã rời</option>
+                                                </select>
 
-                                    <button
-                                          type="button"
-                                          onClick={clearFilters}
-                                          className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
-                                    >
-                                          Xóa lọc
-                                    </button>
+                                                <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                                                      ▾
+                                                </span>
+                                          </div>
+
+                                          <button
+                                                type="button"
+                                                onClick={clearFilters}
+                                                className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                                          >
+                                                Xóa lọc
+                                          </button>
+                                    </div>
                               </div>
                         </div>
 
-                        <div>
-                              <div className="mb-4">
-                                    <h2 className="text-2xl font-bold text-slate-950">
-                                          Danh sách học viên
-                                    </h2>
-                                    <p className="mt-1 text-sm text-slate-500">
-                                          {sortedMembers.length} học viên đang hiển thị từ dữ liệu hệ thống
-                                    </p>
+                        <section className="overflow-visible rounded-[28px] border border-slate-200/90 bg-white shadow-sm">
+                              <div className="border-b border-slate-100 bg-white px-5 py-4">
+                                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                                          <div>
+                                                <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
+                                                      Danh sách học viên
+                                                </h2>
+                                                <p className="mt-1 text-sm text-slate-500">
+                                                      {sortedMembers.length} học viên đang hiển thị. Các hồ sơ cần xử lý được đánh dấu nhẹ trên từng dòng.
+                                                </p>
+                                          </div>
+
+                                          <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                                                <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 ring-1 ring-emerald-100">
+                                                      Đang lưu trú: {stats.active}
+                                                </span>
+                                                <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700 ring-1 ring-amber-100">
+                                                      Cần xử lý: {attentionStats.needAttentionCount}
+                                                </span>
+                                          </div>
+                                    </div>
                               </div>
+
+                              <div className="bg-slate-50/50 p-4 sm:p-5">
 
                               {membersQuery.isLoading ? (
                                     <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-500">
@@ -1526,13 +1599,18 @@ export default function Members() {
                                                 </div>
                                           ) : (
                                                 <div className="space-y-3">
-                                                      {simplePagedMembers.map((member: any) => (
+                                                      {simplePagedMembers.map((member: any, index: number) => (
                                                             <SimpleMemberCard
                                                                   key={member.id}
                                                                   member={member}
+                                                                  memberIndex={index}
                                                                   organizationTitles={getOrganizationTitlesForMember(member)}
+                                                                  organizationUnits={getOrganizationUnitsForMember(member)}
                                                                   onView={handleOpenDetail}
+                                                                  onEdit={handleEditMember}
+                                                                  onContacts={handleOpenMemberContacts}
                                                                   onRoomAction={handleOpenAssignRoomDialog}
+                                                                  onOrganization={handleOpenOrganizationForMember}
                                                                   onLeaveOrDelete={handleLeaveOrDeleteMember}
                                                                   onReactivate={handleReactivateMember}
                                                                   isRoomProcessing={assignRoomMutation.isPending}
@@ -1543,7 +1621,7 @@ export default function Members() {
                                                 </div>
                                           )}
 
-                                          <div className="mt-4 flex flex-col gap-3 rounded-2xl border bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
+                                          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
                                                 <div className="text-sm text-slate-500">
                                                       Hiển thị{' '}
                                                       <span className="font-medium text-slate-900">
@@ -1621,7 +1699,8 @@ export default function Members() {
                                           emptyDescription="Thử thay đổi bộ lọc hoặc thêm học viên mới."
                                     />
                               )}
-                        </div>
+                              </div>
+                        </section>
 
                         {isAddDialogOpen && (
                               <MemberFormModal
@@ -1665,6 +1744,9 @@ export default function Members() {
                         {isDetailDialogOpen && selectedMemberForDetail && (
                               <MemberDetailModal
                                     member={selectedMemberForDetail}
+                                    organizationTitles={getOrganizationTitlesForMember(selectedMemberForDetail)}
+                                    organizationUnits={getOrganizationUnitsForMember(selectedMemberForDetail)}
+                                    onOpenOrganization={handleOpenOrganizationForMember}
                                     onClose={() => {
                                           setIsDetailDialogOpen(false);
                                           setSelectedMember(null);
@@ -1755,6 +1837,7 @@ export default function Members() {
 
                         {isContactsDialogOpen && (
                               <ContactsListModal
+                                    initialSearchTerm={contactsInitialSearchTerm}
                                     onClose={() => setIsContactsDialogOpen(false)}
                                     onChanged={refetchMembers}
                               />
@@ -1771,6 +1854,7 @@ export default function Members() {
                                     bulkCreateResidentUsersMutation.isPending
                               }
                         />
+                  </div>
                   </div>
             </ResidenceCareLayout>
       );

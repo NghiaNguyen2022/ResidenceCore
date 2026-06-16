@@ -21,6 +21,57 @@ function toDMY(d: Date): string {
       return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
+/**
+ * Xử lý chuỗi digits thô → trả về { formatted, date }
+ * - Auto-pad: nếu chữ số đầu tiên của ngày > 3 (hoặc tháng > 1) → tự thêm 0 phía trước
+ * - Clamp: tháng tối đa 12, ngày tối đa 31
+ */
+function processDigits(raw: string): { digits: string; formatted: string; date?: Date } {
+      let d = raw.replace(/\D/g, "");
+
+      // Auto-pad ngày nếu chữ số đầu > 3
+      if (d.length >= 1 && parseInt(d[0]) > 3) d = "0" + d;
+
+      // Clamp ngày ≤ 31
+      if (d.length >= 2) {
+            const dd = parseInt(d.slice(0, 2));
+            if (dd > 31) d = "3" + "1" + d.slice(2);
+            if (dd === 0) d = "0" + d.slice(1); // giữ "0" chờ digit thứ 2
+      }
+
+      // Auto-pad tháng nếu chữ số đầu > 1
+      if (d.length >= 3 && parseInt(d[2]) > 1) d = d.slice(0, 2) + "0" + d.slice(2);
+
+      // Clamp tháng ≤ 12
+      if (d.length >= 4) {
+            const mm = parseInt(d.slice(2, 4));
+            if (mm > 12) d = d.slice(0, 2) + "1" + "2" + d.slice(4);
+            if (mm === 0) d = d.slice(0, 3) + d.slice(3); // giữ "0" chờ
+      }
+
+      d = d.slice(0, 8);
+
+      // Format: dd/mm/yyyy
+      let formatted = d.slice(0, 2);
+      if (d.length > 2) formatted += "/" + d.slice(2, 4);
+      if (d.length > 4) formatted += "/" + d.slice(4, 8);
+
+      // Parse thành Date nếu đủ 8 chữ số
+      let date: Date | undefined;
+      if (d.length === 8) {
+            const dd = parseInt(d.slice(0, 2));
+            const mm = parseInt(d.slice(2, 4));
+            const yyyy = parseInt(d.slice(4, 8));
+            if (mm >= 1 && mm <= 12 && dd >= 1 && yyyy >= 1000) {
+                  const candidate = new Date(yyyy, mm - 1, dd);
+                  if (candidate.getDate() === dd && candidate.getMonth() === mm - 1)
+                        date = candidate;
+            }
+      }
+
+      return { digits: d, formatted, date };
+}
+
 const VI_MONTHS = ["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"];
 const VI_WEEKDAYS = ["CN","T2","T3","T4","T5","T6","T7"];
 
@@ -50,32 +101,62 @@ export function DatePickerInput({
       max,
 }: DatePickerInputProps) {
       const [open, setOpen] = React.useState(false);
-      const ref = React.useRef<HTMLDivElement>(null);
+      const [inputText, setInputText] = React.useState(() => {
+            const d = parseYMD(value);
+            return d ? toDMY(d) : "";
+      });
+      const wrapperRef = React.useRef<HTMLDivElement>(null);
+      const inputRef = React.useRef<HTMLInputElement>(null);
 
-      const selected = React.useMemo(() => parseYMD(value), [value]);
-      const [month, setMonth] = React.useState<Date>(() => selected ?? new Date());
-
-      // Reset month khi mở lại
+      // Sync khi value thay đổi từ bên ngoài (không phải do user đang gõ)
+      const lastEmitted = React.useRef(value);
       React.useEffect(() => {
-            if (open) setMonth(selected ?? new Date());
-      }, [open]);
+            if (value !== lastEmitted.current) {
+                  const d = parseYMD(value);
+                  setInputText(d ? toDMY(d) : "");
+                  lastEmitted.current = value;
+            }
+      }, [value]);
 
-      // Đóng khi click bên ngoài
+      // Đóng calendar khi click ngoài
       React.useEffect(() => {
             if (!open) return;
             function onPointerDown(e: PointerEvent) {
-                  if (ref.current && !ref.current.contains(e.target as Node)) {
+                  if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node))
                         setOpen(false);
-                  }
             }
             document.addEventListener("pointerdown", onPointerDown);
             return () => document.removeEventListener("pointerdown", onPointerDown);
       }, [open]);
 
-      const handleSelect = (date: Date | undefined) => {
-            if (date) onChange?.({ target: { value: toYMD(date) } });
+      // Chọn từ calendar
+      const handleCalendarSelect = (date: Date | undefined) => {
+            if (date) {
+                  const ymd = toYMD(date);
+                  setInputText(toDMY(date));
+                  lastEmitted.current = ymd;
+                  onChange?.({ target: { value: ymd } });
+            }
             setOpen(false);
       };
+
+      // User gõ trực tiếp
+      const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            const { formatted, date } = processDigits(e.target.value);
+            setInputText(formatted);
+            if (date) {
+                  const ymd = toYMD(date);
+                  lastEmitted.current = ymd;
+                  onChange?.({ target: { value: ymd } });
+            }
+      };
+
+      // Month state cho calendar
+      const selected = React.useMemo(() => parseYMD(value), [value]);
+      const [month, setMonth] = React.useState<Date>(() => selected ?? new Date());
+      React.useEffect(() => {
+            if (open) setMonth(selected ?? new Date());
+      }, [open]);
 
       const disabledDays: any[] = [];
       const fromDate = parseYMD(min);
@@ -84,53 +165,63 @@ export function DatePickerInput({
       if (toDate)   disabledDays.push({ after: toDate });
 
       return (
-            <div ref={ref} className="relative">
-                  {/* Trigger button */}
-                  <button
-                        id={id}
-                        type="button"
-                        disabled={disabled}
-                        aria-required={required}
-                        onClick={() => setOpen((v) => !v)}
-                        className={cn(
-                              "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm",
-                              "ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                              "disabled:cursor-not-allowed disabled:opacity-50",
-                              !selected && "text-muted-foreground",
-                              className
-                        )}
-                  >
-                        <span>{selected ? toDMY(selected) : placeholder}</span>
-                        <CalendarIcon className="h-4 w-4 shrink-0 opacity-50" />
-                  </button>
+            <div ref={wrapperRef} className="relative">
+                  {/* Input row: text field + calendar icon */}
+                  <div className={cn(
+                        "flex h-10 w-full items-center rounded-md border border-input bg-background text-sm",
+                        "focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ring-offset-background",
+                        disabled && "cursor-not-allowed opacity-50",
+                        className
+                  )}>
+                        <input
+                              ref={inputRef}
+                              id={id}
+                              type="text"
+                              inputMode="numeric"
+                              value={inputText}
+                              onChange={handleTextChange}
+                              disabled={disabled}
+                              required={required}
+                              placeholder={placeholder}
+                              maxLength={10}
+                              className="flex-1 bg-transparent px-3 py-2 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+                        />
+                        <button
+                              type="button"
+                              disabled={disabled}
+                              tabIndex={-1}
+                              onClick={() => { setOpen(v => !v); inputRef.current?.focus(); }}
+                              className="flex h-full items-center px-2.5 text-muted-foreground hover:text-foreground disabled:pointer-events-none"
+                        >
+                              <CalendarIcon className="h-4 w-4" />
+                        </button>
+                  </div>
 
                   {/* Calendar dropdown */}
                   {open && (
                         <div className="absolute left-0 top-full z-[9999] mt-1 rounded-lg border border-slate-200 bg-white p-3 shadow-2xl">
-                              {/* Custom header với nav tháng + năm */}
+                              {/* Header: năm + tháng */}
                               <div className="mb-3 flex items-center justify-between gap-1">
-                                    {/* Lùi 1 năm */}
-                                    <button type="button" onClick={() => setMonth(d => new Date(d.getFullYear() - 1, d.getMonth(), 1))}
+                                    <button type="button" tabIndex={-1}
+                                          onClick={() => setMonth(d => new Date(d.getFullYear() - 1, d.getMonth(), 1))}
                                           className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100">
                                           <ChevronsLeft className="h-4 w-4" />
                                     </button>
-                                    {/* Lùi 1 tháng */}
-                                    <button type="button" onClick={() => setMonth(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                                    <button type="button" tabIndex={-1}
+                                          onClick={() => setMonth(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
                                           className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100">
                                           <ChevronLeft className="h-4 w-4" />
                                     </button>
-
                                     <span className="flex-1 text-center text-sm font-semibold text-slate-800 select-none">
                                           {VI_MONTHS[month.getMonth()]} {month.getFullYear()}
                                     </span>
-
-                                    {/* Tiến 1 tháng */}
-                                    <button type="button" onClick={() => setMonth(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                                    <button type="button" tabIndex={-1}
+                                          onClick={() => setMonth(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
                                           className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100">
                                           <ChevronRight className="h-4 w-4" />
                                     </button>
-                                    {/* Tiến 1 năm */}
-                                    <button type="button" onClick={() => setMonth(d => new Date(d.getFullYear() + 1, d.getMonth(), 1))}
+                                    <button type="button" tabIndex={-1}
+                                          onClick={() => setMonth(d => new Date(d.getFullYear() + 1, d.getMonth(), 1))}
                                           className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100">
                                           <ChevronsRight className="h-4 w-4" />
                                     </button>
@@ -139,15 +230,13 @@ export function DatePickerInput({
                               <DayPicker
                                     mode="single"
                                     selected={selected}
-                                    onSelect={handleSelect}
+                                    onSelect={handleCalendarSelect}
                                     month={month}
                                     onMonthChange={setMonth}
                                     hideNavigation
                                     showOutsideDays
                                     disabled={disabledDays.length ? disabledDays : undefined}
-                                    formatters={{
-                                          formatWeekdayName: (d) => VI_WEEKDAYS[d.getDay()],
-                                    }}
+                                    formatters={{ formatWeekdayName: (d) => VI_WEEKDAYS[d.getDay()] }}
                                     classNames={{
                                           root: "w-[252px]",
                                           months: "",
