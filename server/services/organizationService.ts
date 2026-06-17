@@ -132,6 +132,13 @@ export type ListUnitMembersInput = {
       status?: "active" | "inactive" | "all";
 };
 
+export type ListResidentUnitMembershipsInput = {
+      residentIds?: number[];
+      residentId?: number;
+      status?: "active" | "inactive" | "all";
+      unitType?: OrganizationUnitType | "all";
+};
+
 export type AddUnitMemberInput = {
       unitId: number;
       residentId: number;
@@ -1071,6 +1078,56 @@ class OrganizationService {
                   .where(and(...conditions));
 
             return rows;
+      }
+
+
+      async listResidentUnitMemberships(input?: ListResidentUnitMembershipsInput) {
+            const db = getDb();
+
+            const status = input?.status || "active";
+            const unitType = input?.unitType || "all";
+            const residentIds = [
+                  ...(input?.residentId ? [Number(input.residentId)] : []),
+                  ...(input?.residentIds || []).map((id) => Number(id)).filter((id) => id > 0),
+            ];
+            const uniqueResidentIds = Array.from(new Set(residentIds));
+
+            const conditions: any[] = [];
+
+            if (status !== "all") {
+                  conditions.push(eq(organizationUnitMembers.status, status));
+            }
+
+            if (unitType !== "all") {
+                  conditions.push(eq(organizationUnits.unitType, unitType));
+            }
+
+            const rows = await db
+                  .select({
+                        id: organizationUnitMembers.id,
+                        unitId: organizationUnitMembers.unitId,
+                        unitCode: organizationUnits.code,
+                        unitName: organizationUnits.name,
+                        unitType: organizationUnits.unitType,
+                        residentId: organizationUnitMembers.residentId,
+                        memberRole: organizationUnitMembers.memberRole,
+                        status: organizationUnitMembers.status,
+                        startDate: organizationUnitMembers.startDate,
+                        endDate: organizationUnitMembers.endDate,
+                        notes: organizationUnitMembers.notes,
+                  })
+                  .from(organizationUnitMembers)
+                  .innerJoin(
+                        organizationUnits,
+                        eq(organizationUnitMembers.unitId, organizationUnits.id)
+                  )
+                  .where(conditions.length > 0 ? and(...conditions) : sql`1=1`);
+
+            return rows.filter((row: any) => {
+                  if (uniqueResidentIds.length === 0) return true;
+
+                  return uniqueResidentIds.includes(Number(row.residentId));
+            });
       }
 
       async getAvailableResidentsForUnit(unitId: number) {

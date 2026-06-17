@@ -1,4 +1,4 @@
-﻿import { useEffect, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, type Dispatch, type SetStateAction } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -111,7 +111,7 @@ export function AssignRoomModal({
             formData.eventType === 'new_entry' || formData.eventType === 'transfer';
 
       return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4">
                   <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-xl">
                         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
                               <div>

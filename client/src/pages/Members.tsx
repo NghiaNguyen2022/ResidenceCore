@@ -49,6 +49,7 @@ import {
       getAttentionItems,
       getDisplayName,
       getGenderLabel,
+      getPrimaryContactText,
       getRoomActionLabel,
       getRoomLabelFromMember,
       getStatusClass,
@@ -59,6 +60,11 @@ import {
       AppMessageBox,
       type AppMessageBoxState,
 } from '@/components/common/AppMessageBox';
+import {
+      buildMemberOrganizationDisplay,
+      createEmptyOrganizationDisplay,
+      type MemberOrganizationDisplay,
+} from '@/components/members/memberOrganizationDisplay';
 
 type EducationLevel =
       | 'high_school'
@@ -226,6 +232,131 @@ function SimpleStatCard({
       );
 }
 
+function SimpleMemberListTable({
+      members,
+      getOrganizationDisplayForMember,
+}: {
+      members: any[];
+      getOrganizationDisplayForMember: (member: any) => MemberOrganizationDisplay;
+}) {
+      return (
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                  <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-100 text-sm">
+                              <thead className="bg-slate-50">
+                                    <tr>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Học viên
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Mã
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Trạng thái
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Phòng
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Tổ / Ban
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Chức vụ
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Liên hệ chính
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Điện thoại
+                                          </th>
+                                    </tr>
+                              </thead>
+
+                              <tbody className="divide-y divide-slate-100 bg-white">
+                                    {members.map((member) => {
+                                          const statusLabel = getStatusLabel(
+                                                member?.status || member?.residenceStatus || 'active'
+                                          );
+                                          const organizationDisplay =
+                                                getOrganizationDisplayForMember(member);
+                                          const organizationUnits = [
+                                                ...organizationDisplay.teams.map((unit) => unit.unitName),
+                                                ...organizationDisplay.committees.map((unit) => unit.unitName),
+                                          ];
+                                          const organizationTitles = organizationDisplay.roles.map(
+                                                (role) => role.title
+                                          );
+                                          const contactText = getPrimaryContactText(member);
+                                          const missingContact =
+                                                contactText === 'Chưa có người liên hệ';
+
+                                          return (
+                                                <tr
+                                                      key={member.id}
+                                                      className="transition hover:bg-slate-50/80"
+                                                >
+                                                      <td className="whitespace-nowrap px-4 py-3">
+                                                            <div className="font-semibold text-slate-900">
+                                                                  {getDisplayName(member)}
+                                                            </div>
+                                                            <div className="text-xs text-slate-400">
+                                                                  {member?.gender
+                                                                        ? getGenderLabel(member.gender)
+                                                                        : 'Thông tin cơ bản'}
+                                                            </div>
+                                                      </td>
+
+                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">
+                                                            {member?.residentCode || member?.code || 'Chưa có'}
+                                                      </td>
+
+                                                      <td className="whitespace-nowrap px-4 py-3">
+                                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                                                                  {statusLabel}
+                                                            </span>
+                                                      </td>
+
+                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-700">
+                                                            {getRoomLabelFromMember(member) || 'Chưa gán'}
+                                                      </td>
+
+                                                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                                                            {organizationUnits.length > 0
+                                                                  ? organizationUnits.join(', ')
+                                                                  : 'Chưa phân tổ'}
+                                                      </td>
+
+                                                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                                                            {organizationTitles.length > 0
+                                                                  ? organizationTitles.join(', ')
+                                                                  : 'Chưa có'}
+                                                      </td>
+
+                                                      <td
+                                                            className={[
+                                                                  'whitespace-nowrap px-4 py-3 font-medium',
+                                                                  missingContact
+                                                                        ? 'text-amber-700'
+                                                                        : 'text-slate-700',
+                                                            ].join(' ')}
+                                                      >
+                                                            {contactText}
+                                                      </td>
+
+                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-700">
+                                                            {member?.phoneNumber || '-'}
+                                                      </td>
+                                                </tr>
+                                          );
+                                    })}
+                              </tbody>
+                        </table>
+                  </div>
+            </div>
+      );
+}
+
+
 export default function Members() {
       const [, navigate] = useLocation();
       const { isDetailed } = useSystemDisplayMode();
@@ -233,10 +364,12 @@ export default function Members() {
 
       const [searchTerm, setSearchTerm] = useState('');
       const [statusFilter, setStatusFilter] = useState('all');
+      const [simpleViewMode, setSimpleViewMode] = useState<'cards' | 'list'>('cards');
       const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
       const [isContactsDialogOpen, setIsContactsDialogOpen] = useState(false);
       const [isRoomsQuickDialogOpen, setIsRoomsQuickDialogOpen] = useState(false);
       const [contactsInitialSearchTerm, setContactsInitialSearchTerm] = useState('');
+      const [selectedMemberForContacts, setSelectedMemberForContacts] = useState<any>(null);
 
       const [simplePage, setSimplePage] = useState(1);
       const [simplePageSize, setSimplePageSize] = useState(7);
@@ -288,6 +421,27 @@ export default function Members() {
                   refetchOnWindowFocus: false,
             }
       );
+
+      const memberIdsForOrganization = useMemo(
+            () =>
+                  (membersQuery.data || [])
+                        .map((member: any) => Number(member.id))
+                        .filter((id) => id > 0),
+            [membersQuery.data]
+      );
+
+      const residentUnitMembershipsQuery =
+            trpc.organization.listResidentUnitMemberships.useQuery(
+                  {
+                        residentIds: memberIdsForOrganization,
+                        status: 'active' as any,
+                        unitType: 'all' as any,
+                  },
+                  {
+                        enabled: memberIdsForOrganization.length > 0,
+                        refetchOnWindowFocus: false,
+                  }
+            );
 
       const residentsWithoutUserQuery =
             trpc.members.listResidentsWithoutUser.useQuery(undefined, {
@@ -427,6 +581,7 @@ export default function Members() {
       const members = membersQuery.data || [];
       const rooms = roomsQuery.data || [];
       const organizationAssignments = organizationAssignmentsQuery.data || [];
+      const residentUnitMemberships = residentUnitMembershipsQuery.data || [];
 
       const selectedMemberForDetail = useMemo(() => {
             if (!selectedMember) return null;
@@ -446,43 +601,58 @@ export default function Members() {
       ]);
 
       const organizationSummaryByResidentId = useMemo(() => {
-            const map = new Map<number, { titles: string[]; units: string[] }>();
+            const grouped = new Map<number, any[]>();
 
             organizationAssignments.forEach((assignment: any) => {
                   const residentId = Number(assignment.residentId || 0);
 
                   if (!residentId) return;
 
-                  const current = map.get(residentId) || { titles: [], units: [] };
+                  const current = grouped.get(residentId) || [];
+                  current.push(assignment);
+                  grouped.set(residentId, current);
+            });
 
-                  const title =
-                        assignment.assignmentTitle ||
-                        assignment.roleName ||
-                        assignment.roleCode ||
-                        'Chức vụ';
+            residentUnitMemberships.forEach((membership: any) => {
+                  const residentId = Number(membership.residentId || 0);
 
-                  if (title && !current.titles.includes(title)) {
-                        current.titles.push(title);
-                  }
+                  if (!residentId) return;
 
-                  const unitName = assignment.unitName || assignment.unitCode || '';
+                  const current = grouped.get(residentId) || [];
+                  current.push({
+                        ...membership,
+                        source: 'unit_membership',
+                  });
+                  grouped.set(residentId, current);
+            });
 
-                  if (unitName && !current.units.includes(unitName)) {
-                        current.units.push(unitName);
-                  }
+            const map = new Map<number, MemberOrganizationDisplay>();
 
-                  map.set(residentId, current);
+            grouped.forEach((items, residentId) => {
+                  map.set(residentId, buildMemberOrganizationDisplay(items));
             });
 
             return map;
-      }, [organizationAssignments]);
+      }, [organizationAssignments, residentUnitMemberships]);
+
+      const getOrganizationDisplayForMember = (member: any) => {
+            return (
+                  organizationSummaryByResidentId.get(Number(member?.id || 0)) ||
+                  createEmptyOrganizationDisplay()
+            );
+      };
 
       const getOrganizationTitlesForMember = (member: any) => {
-            return organizationSummaryByResidentId.get(Number(member?.id || 0))?.titles || [];
+            return getOrganizationDisplayForMember(member).roles.map((role) => role.title);
       };
 
       const getOrganizationUnitsForMember = (member: any) => {
-            return organizationSummaryByResidentId.get(Number(member?.id || 0))?.units || [];
+            const display = getOrganizationDisplayForMember(member);
+
+            return [
+                  ...display.teams.map((unit) => unit.unitName),
+                  ...display.committees.map((unit) => unit.unitName),
+            ];
       };
 
       const sortedMembers = useMemo(() => sortMembersByStatus(members), [members]);
@@ -536,11 +706,30 @@ export default function Members() {
             setSimplePage(1);
       }, [searchTerm, statusFilter, simplePageSize]);
 
-      const refetchMembers = async () => {
-            await membersQuery.refetch();
+      const refetchMembers = async (focusResidentId?: number) => {
+            const membersResult = await membersQuery.refetch();
             await statsQuery.refetch();
             await residentsWithoutUserQuery.refetch();
             await organizationAssignmentsQuery.refetch();
+
+            if (focusResidentId && membersResult.data) {
+                  const latestMember = membersResult.data.find(
+                        (member: any) => Number(member.id) === Number(focusResidentId)
+                  );
+
+                  if (latestMember) {
+                        setSelectedMember((current: any) =>
+                              current && Number(current.id) === Number(focusResidentId)
+                                    ? {
+                                          ...current,
+                                          ...latestMember,
+                                    }
+                                    : current
+                        );
+                  }
+            }
+
+            return membersResult.data;
       };
 
       const clearFilters = () => {
@@ -682,7 +871,7 @@ export default function Members() {
                   setIsEditDialogOpen(false);
                   setEditingMember(null);
                   setError(null);
-                  await refetchMembers();
+                  await refetchMembers(editingMember.id);
             } catch (err: any) {
                   setError(err.message || 'Lỗi khi cập nhật học viên');
             }
@@ -706,16 +895,47 @@ export default function Members() {
 
 
       const handleOpenMemberContacts = (member: any) => {
-            setContactsInitialSearchTerm(getDisplayName(member));
+            setSelectedMemberForContacts(member);
+            setContactsInitialSearchTerm('');
             setIsContactsDialogOpen(true);
       };
 
-      const handleOpenOrganizationForMember = (member: any) => {
+      const handleOpenOrganizationForMember = (
+            member: any,
+            action?: 'add_team' | 'transfer_team' | 'add_committee' | 'appointment',
+            context?: { unitId?: number | null }
+      ) => {
+            const focusActionMap = {
+                  add_team: 'add_team_member',
+                  transfer_team: 'transfer_team_member',
+                  add_committee: 'add_committee_member',
+                  appointment: 'create_assignment',
+            } as const;
+
             try {
                   sessionStorage.setItem(
                         'residencecare.organization.focusResidentId',
                         String(member?.id || '')
                   );
+                  sessionStorage.setItem('residencecare.organization.returnTo', '/members');
+                  sessionStorage.setItem(
+                        'residencecare.organization.returnLabel',
+                        'Quay lại học viên'
+                  );
+
+                  if (context?.unitId) {
+                        sessionStorage.setItem(
+                              'residencecare.organization.focusUnitId',
+                              String(context.unitId)
+                        );
+                  }
+
+                  if (action) {
+                        sessionStorage.setItem(
+                              'residencecare.organization.focusAction',
+                              focusActionMap[action]
+                        );
+                  }
             } catch {
                   // Ignore storage errors; navigation should still work.
             }
@@ -751,7 +971,7 @@ export default function Members() {
                   setSelectedMemberForRoom(null);
                   setRoomAssignmentData(resetRoomAssignmentForm());
                   setError(null);
-                  await refetchMembers();
+                  await refetchMembers(selectedMemberForRoom.id);
                   await roomsQuery.refetch();
             } catch (err: any) {
                   setError(err.message || 'Lỗi khi xử lý phòng ở');
@@ -1398,6 +1618,7 @@ export default function Members() {
                                                                               onClick={() => {
                                                                                     setIsQuickActionOpen(false);
                                                                                     setContactsInitialSearchTerm('');
+                                                                                    setSelectedMemberForContacts(null);
                                                                                     setIsContactsDialogOpen(true);
                                                                               }}
                                                                               className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
@@ -1574,11 +1795,39 @@ export default function Members() {
                                                 </p>
                                           </div>
 
-                                          <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                                                <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 ring-1 ring-emerald-100">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                                <div className="flex rounded-2xl bg-slate-100 p-1 text-sm font-semibold">
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => setSimpleViewMode('cards')}
+                                                            className={[
+                                                                  'rounded-xl px-3 py-1.5 transition',
+                                                                  simpleViewMode === 'cards'
+                                                                        ? 'bg-white text-slate-900 shadow-sm'
+                                                                        : 'text-slate-500 hover:text-slate-800',
+                                                            ].join(' ')}
+                                                      >
+                                                            Thẻ
+                                                      </button>
+
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => setSimpleViewMode('list')}
+                                                            className={[
+                                                                  'rounded-xl px-3 py-1.5 transition',
+                                                                  simpleViewMode === 'list'
+                                                                        ? 'bg-white text-slate-900 shadow-sm'
+                                                                        : 'text-slate-500 hover:text-slate-800',
+                                                            ].join(' ')}
+                                                      >
+                                                            List
+                                                      </button>
+                                                </div>
+
+                                                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
                                                       Đang lưu trú: {stats.active}
                                                 </span>
-                                                <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700 ring-1 ring-amber-100">
+                                                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-100">
                                                       Cần xử lý: {attentionStats.needAttentionCount}
                                                 </span>
                                           </div>
@@ -1598,28 +1847,36 @@ export default function Members() {
                                                       Không có học viên nào phù hợp.
                                                 </div>
                                           ) : (
-                                                <div className="space-y-3">
-                                                      {simplePagedMembers.map((member: any, index: number) => (
-                                                            <SimpleMemberCard
-                                                                  key={member.id}
-                                                                  member={member}
-                                                                  memberIndex={index}
-                                                                  organizationTitles={getOrganizationTitlesForMember(member)}
-                                                                  organizationUnits={getOrganizationUnitsForMember(member)}
-                                                                  onView={handleOpenDetail}
-                                                                  onEdit={handleEditMember}
-                                                                  onContacts={handleOpenMemberContacts}
-                                                                  onRoomAction={handleOpenAssignRoomDialog}
-                                                                  onOrganization={handleOpenOrganizationForMember}
-                                                                  onLeaveOrDelete={handleLeaveOrDeleteMember}
-                                                                  onReactivate={handleReactivateMember}
-                                                                  isRoomProcessing={assignRoomMutation.isPending}
-                                                                  isLeaving={markAsLeftMutation.isPending}
-                                                                  isReactivating={reactivateMemberMutation.isPending}
-                                                            />
-                                                      ))}
-                                                </div>
-                                          )}
+                                                <>
+                                                      {simpleViewMode === 'list' ? (
+                                                      <SimpleMemberListTable
+                                                            members={simplePagedMembers}
+                                                            getOrganizationDisplayForMember={getOrganizationDisplayForMember}
+                                                      />
+                                                ) : (
+                                                      <div className="space-y-3">
+                                                            {simplePagedMembers.map((member: any, index: number) => (
+                                                                  <SimpleMemberCard
+                                                                        key={member.id}
+                                                                        member={member}
+                                                                        memberIndex={index}
+                                                                        organizationDisplay={getOrganizationDisplayForMember(member)}
+                                                                        organizationTitles={getOrganizationTitlesForMember(member)}
+                                                                        organizationUnits={getOrganizationUnitsForMember(member)}
+                                                                        onView={handleOpenDetail}
+                                                                        onEdit={handleEditMember}
+                                                                        onContacts={handleOpenMemberContacts}
+                                                                        onRoomAction={handleOpenAssignRoomDialog}
+                                                                        onOrganization={handleOpenOrganizationForMember}
+                                                                        onLeaveOrDelete={handleLeaveOrDeleteMember}
+                                                                        onReactivate={handleReactivateMember}
+                                                                        isRoomProcessing={assignRoomMutation.isPending}
+                                                                        isLeaving={markAsLeftMutation.isPending}
+                                                                        isReactivating={reactivateMemberMutation.isPending}
+                                                                  />
+                                                            ))}
+                                                      </div>
+                                                )}
 
                                           <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
                                                 <div className="text-sm text-slate-500">
@@ -1685,6 +1942,8 @@ export default function Members() {
                                                       </button>
                                                 </div>
                                           </div>
+                                                </>
+                                          )}
                                     </>
                               ) : (
                                     <ConfigurableDataTable
@@ -1752,11 +2011,9 @@ export default function Members() {
                                           setSelectedMember(null);
                                     }}
                                     onEdit={() => {
-                                          setIsDetailDialogOpen(false);
                                           handleEditMember(selectedMemberForDetail);
                                     }}
                                     onAssignRoom={() => {
-                                          setIsDetailDialogOpen(false);
                                           handleOpenAssignRoomDialog(selectedMemberForDetail);
                                     }}
                                     onCreateUser={handleCreateUserFromDetail}
@@ -1838,8 +2095,29 @@ export default function Members() {
                         {isContactsDialogOpen && (
                               <ContactsListModal
                                     initialSearchTerm={contactsInitialSearchTerm}
-                                    onClose={() => setIsContactsDialogOpen(false)}
-                                    onChanged={refetchMembers}
+                                    residentId={
+                                          selectedMemberForContacts?.id
+                                                ? Number(selectedMemberForContacts.id)
+                                                : undefined
+                                    }
+                                    residentName={
+                                          selectedMemberForContacts
+                                                ? getDisplayName(selectedMemberForContacts)
+                                                : undefined
+                                    }
+                                    onClose={() => {
+                                          setIsContactsDialogOpen(false);
+                                          setSelectedMemberForContacts(null);
+                                    }}
+                                    onChanged={() =>
+                                          refetchMembers(
+                                                selectedMemberForContacts?.id
+                                                      ? Number(selectedMemberForContacts.id)
+                                                      : selectedMember?.id
+                                                            ? Number(selectedMember.id)
+                                                            : undefined
+                                          )
+                                    }
                               />
                         )}
 

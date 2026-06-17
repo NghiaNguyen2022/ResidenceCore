@@ -40,6 +40,15 @@ const listUnitMembersSchema = z.object({
       status: z.enum(["active", "inactive", "all"]).optional().default("active"),
 });
 
+const listResidentUnitMembershipsSchema = z
+      .object({
+            residentId: z.number().int().positive().optional(),
+            residentIds: z.array(z.number().int().positive()).optional(),
+            status: z.enum(["active", "inactive", "all"]).optional().default("active"),
+            unitType: z.union([organizationUnitTypeSchema, z.literal("all")]).optional().default("all"),
+      })
+      .optional();
+
 const addUnitMemberSchema = z.object({
       unitId: z.number().int().positive(),
       residentId: z.number().int().positive(),
@@ -431,6 +440,12 @@ export const organizationRouter = router({
             .input(listUnitMembersSchema)
             .query(async ({ input }) => {
                   return await organizationService.listUnitMembers(input);
+            }),
+
+      listResidentUnitMemberships: protectedProcedure
+            .input(listResidentUnitMembershipsSchema)
+            .query(async ({ input }) => {
+                  return await organizationService.listResidentUnitMemberships(input);
             }),
 
       getAvailableResidentsForUnit: protectedProcedure

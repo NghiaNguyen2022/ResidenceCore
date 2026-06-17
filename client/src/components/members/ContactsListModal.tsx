@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Edit2, Phone, Search, UserRound, X } from 'lucide-react';
+import { Edit2, Phone, Plus, Search, UserRound, X } from 'lucide-react';
 
 import { trpc } from '@/lib/trpc';
 import { Input } from '@/components/ui/input';
@@ -70,12 +70,17 @@ export function ContactsListModal({
       onClose,
       onChanged,
       initialSearchTerm = '',
+      residentId,
+      residentName,
 }: {
       onClose: () => void;
       onChanged?: () => void | Promise<void>;
       initialSearchTerm?: string;
+      residentId?: number;
+      residentName?: string;
 }) {
-      const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+      const isResidentScoped = Boolean(residentId && residentId > 0);
+      const [searchTerm, setSearchTerm] = useState(isResidentScoped ? '' : initialSearchTerm);
       const [parentTypeFilter, setParentTypeFilter] = useState<'all' | ParentType>('all');
       const [editingContact, setEditingContact] = useState<any>(null);
       const [formData, setFormData] = useState<ContactFormData>(defaultContactFormData);
@@ -85,6 +90,7 @@ export function ContactsListModal({
             {
                   search: searchTerm.trim() || undefined,
                   parentType: parentTypeFilter !== 'all' ? parentTypeFilter : undefined,
+                  residentId: isResidentScoped ? residentId : undefined,
             },
             {
                   refetchOnWindowFocus: false,
@@ -92,6 +98,13 @@ export function ContactsListModal({
       );
 
       const updateParentMutation = trpc.members.updateParent.useMutation({
+            onSuccess: async () => {
+                  await contactsQuery.refetch();
+                  await onChanged?.();
+            },
+      });
+
+      const createParentMutation = trpc.members.createParent.useMutation({
             onSuccess: async () => {
                   await contactsQuery.refetch();
                   await onChanged?.();
@@ -122,7 +135,58 @@ export function ContactsListModal({
             setError(null);
       };
 
+      const handleStartCreateContact = () => {
+            if (!residentId) {
+                  setError('Vui lòng mở liên hệ từ một học viên cụ thể để thêm mới.');
+                  return;
+            }
+
+            setEditingContact({ id: 'new' });
+            setFormData(defaultContactFormData);
+            setError(null);
+      };
+
+      const handleSaveNewContact = async () => {
+            if (!residentId) {
+                  setError('Không tìm thấy học viên cần thêm liên hệ.');
+                  return;
+            }
+
+            if (!formData.fullName.trim()) {
+                  setError('Vui lòng nhập họ tên người liên hệ.');
+                  return;
+            }
+
+            if (!formData.phoneNumber.trim()) {
+                  setError('Vui lòng nhập số điện thoại người liên hệ.');
+                  return;
+            }
+
+            try {
+                  await createParentMutation.mutateAsync({
+                        residentId,
+                        parentType: formData.parentType,
+                        fullName: formData.fullName.trim(),
+                        phoneNumber: formData.phoneNumber.trim(),
+                        email: formData.email.trim() || null,
+                        idNumber: formData.idNumber.trim() || null,
+                        occupation: formData.occupation.trim() || null,
+                        address: formData.address.trim() || null,
+                        notes: formData.notes.trim() || null,
+                  });
+
+                  handleCancelEdit();
+            } catch (err: any) {
+                  setError(err?.message || 'Không thể thêm liên hệ.');
+            }
+      };
+
       const handleSaveContact = async () => {
+            if (editingContact?.id === 'new') {
+                  await handleSaveNewContact();
+                  return;
+            }
+
             if (!editingContact?.id) {
                   setError('Không tìm thấy liên hệ cần cập nhật.');
                   return;
@@ -163,13 +227,21 @@ export function ContactsListModal({
                         <div className="flex items-start justify-between border-b border-neutral-200 px-6 py-4">
                               <div>
                                     <h2 className="text-2xl font-bold text-neutral-900">
-                                          Danh sách liên hệ gia đình
+                                          {isResidentScoped ? 'Liên hệ gia đình' : 'Danh sách liên hệ gia đình'}
                                     </h2>
                                     <p className="mt-1 text-sm text-neutral-500">
-                                          Xem và cập nhật nhanh thông tin cha, mẹ, người giám hộ của học viên.
+                                          {isResidentScoped
+                                                ? `Học viên: ${residentName || 'Chưa rõ học viên'}`
+                                                : 'Xem và cập nhật nhanh thông tin cha, mẹ, người giám hộ của học viên.'}
                                     </p>
 
                                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                                          {isResidentScoped && (
+                                                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700 ring-1 ring-blue-100">
+                                                      Đang xem đúng học viên
+                                                </span>
+                                          )}
+
                                           <span className="rounded-full bg-slate-100 px-2.5 py-1">
                                                 Tổng liên hệ: <span className="font-semibold text-slate-800">{summary.total}</span>
                                           </span>
@@ -179,13 +251,26 @@ export function ContactsListModal({
                                     </div>
                               </div>
 
-                              <button
-                                    type="button"
-                                    onClick={onClose}
-                                    className="rounded-lg p-2 transition hover:bg-neutral-100"
-                              >
-                                    <X className="h-5 w-5" />
-                              </button>
+                              <div className="flex items-center gap-2">
+                                    {isResidentScoped && (
+                                          <button
+                                                type="button"
+                                                onClick={handleStartCreateContact}
+                                                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                                          >
+                                                <Plus className="h-4 w-4" />
+                                                Thêm liên hệ
+                                          </button>
+                                    )}
+
+                                    <button
+                                          type="button"
+                                          onClick={onClose}
+                                          className="rounded-lg p-2 transition hover:bg-neutral-100"
+                                    >
+                                          <X className="h-5 w-5" />
+                                    </button>
+                              </div>
                         </div>
 
                         <div className="grid max-h-[calc(90vh-104px)] grid-cols-1 overflow-hidden lg:grid-cols-[1fr_360px]">
@@ -196,7 +281,11 @@ export function ContactsListModal({
                                                 <Input
                                                       value={searchTerm}
                                                       onChange={(event) => setSearchTerm(event.target.value)}
-                                                      placeholder="Tìm tên học viên, tên liên hệ, số điện thoại..."
+                                                      placeholder={
+                                                            isResidentScoped
+                                                                  ? "Tìm tên liên hệ hoặc số điện thoại..."
+                                                                  : "Tìm tên học viên, tên liên hệ, số điện thoại..."
+                                                      }
                                                       className="pl-10"
                                                 />
                                           </div>
@@ -253,10 +342,12 @@ export function ContactsListModal({
                                                                                     <span>{contact.phoneNumber || 'Chưa có số điện thoại'}</span>
                                                                               </div>
 
-                                                                              <div className="flex items-center gap-2">
-                                                                                    <UserRound className="h-4 w-4 text-slate-400" />
-                                                                                    <span>{getResidentDisplayName(contact)}</span>
-                                                                              </div>
+                                                                              {!isResidentScoped && (
+                                                                                    <div className="flex items-center gap-2">
+                                                                                          <UserRound className="h-4 w-4 text-slate-400" />
+                                                                                          <span>{getResidentDisplayName(contact)}</span>
+                                                                                    </div>
+                                                                              )}
                                                                         </div>
 
                                                                         {(contact.email || contact.occupation) && (
@@ -283,10 +374,12 @@ export function ContactsListModal({
 
                               <div className="border-t bg-slate-50 p-6 lg:border-l lg:border-t-0">
                                     <h3 className="text-lg font-bold text-slate-900">
-                                          {editingContact ? 'Sửa liên hệ' : 'Thông tin liên hệ'}
+                                          {editingContact?.id === 'new' ? 'Thêm liên hệ' : editingContact ? 'Sửa liên hệ' : 'Thông tin liên hệ'}
                                     </h3>
                                     <p className="mt-1 text-sm text-slate-500">
-                                          Chọn một liên hệ bên trái để cập nhật thông tin cơ bản.
+                                          {isResidentScoped
+                                                ? 'Chọn liên hệ của học viên này để cập nhật thông tin cơ bản.'
+                                                : 'Chọn một liên hệ bên trái để cập nhật thông tin cơ bản.'}
                                     </p>
 
                                     {error && (
@@ -297,7 +390,16 @@ export function ContactsListModal({
 
                                     {!editingContact ? (
                                           <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-                                                Chưa chọn liên hệ để sửa.
+                                                <div>Chưa chọn liên hệ để sửa.</div>
+                                                {isResidentScoped && (
+                                                      <button
+                                                            type="button"
+                                                            onClick={handleStartCreateContact}
+                                                            className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                                                      >
+                                                            Thêm liên hệ mới
+                                                      </button>
+                                                )}
                                           </div>
                                     ) : (
                                           <div className="mt-5 space-y-4">
@@ -411,10 +513,10 @@ export function ContactsListModal({
                                                       <button
                                                             type="button"
                                                             onClick={handleSaveContact}
-                                                            disabled={updateParentMutation.isPending}
+                                                            disabled={updateParentMutation.isPending || createParentMutation.isPending}
                                                             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                                                       >
-                                                            {updateParentMutation.isPending ? 'Đang lưu...' : 'Lưu liên hệ'}
+                                                            {updateParentMutation.isPending || createParentMutation.isPending ? 'Đang lưu...' : editingContact?.id === 'new' ? 'Thêm liên hệ' : 'Lưu liên hệ'}
                                                       </button>
                                                 </div>
                                           </div>
