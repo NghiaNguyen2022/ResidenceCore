@@ -161,14 +161,29 @@ export async function getCurrentRoomAssignmentByResident(residentId: number) {
 
 export async function closeCurrentRoomAssignment(
   assignmentId: number,
-  unassignedDate: Date
+  unassignedDate: Date,
+  reason?: string
 ) {
   const db = getDb();
+
+  const current = await db
+    .select({ reason: roomAssignments.reason })
+    .from(roomAssignments)
+    .where(eq(roomAssignments.id, assignmentId))
+    .limit(1);
+
+  const currentReason = current[0]?.reason;
+  const nextReason = reason
+    ? currentReason
+      ? `${currentReason}; ${reason}`
+      : reason
+    : currentReason;
 
   return await db
     .update(roomAssignments)
     .set({
       unassignedDate,
+      reason: nextReason,
     })
     .where(eq(roomAssignments.id, assignmentId));
 }

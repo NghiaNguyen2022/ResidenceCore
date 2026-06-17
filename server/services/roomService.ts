@@ -244,8 +244,21 @@ export class RoomService {
                   throw new Error("Không tìm thấy học viên.");
             }
 
-            if ((resident as any).status === "transferred_out") {
-                  throw new Error("Học viên đã rời lưu xá, không thể gán/chuyển phòng.");
+            const residentStatus = String((resident as any).status || "");
+            const residentHasCurrentRoom = Boolean((resident as any).currentRoomId);
+            const currentRoomId = (resident as any).currentRoomId
+                  ? Number((resident as any).currentRoomId)
+                  : null;
+
+            /**
+             * Nghiệp vụ phòng hiện tại phải dựa trên residents.currentRoomId.
+             * roomAssignments chỉ là lịch sử/đối soát và có thể còn dữ liệu cũ.
+             */
+            if (
+                  ["transferred_out", "left", "inactive"].includes(residentStatus) &&
+                  payload.eventType !== "left"
+            ) {
+                  throw new Error("Học viên đã rời/ngừng lưu trú, không thể gán/chuyển phòng.");
             }
 
             const processDate = payload.assignedDate
@@ -256,25 +269,20 @@ export class RoomService {
                   payload.residentId
             );
 
-            const hasCurrentRoom = Boolean(currentAssignment);
-
             /**
              * Trả phòng / rời phòng:
-             * - Đóng assignment hiện tại bằng unassignedDate.
+             * - Đóng assignment đang mở nếu có.
              * - Set residents.currentRoomId = null để nhả suất.
-             * - Không xóa roomAssignments để giữ lịch sử.
+             * - Không xóa roomAssignments để giữ lịch sử phòng.
              */
             if (payload.eventType === "left") {
-                  if (!currentAssignment) {
-                        await db.updateResidentCurrentRoom(payload.residentId, null);
-                        return { success: true } as const;
+                  if (currentAssignment) {
+                        await db.closeCurrentRoomAssignment(
+                              currentAssignment.id,
+                              processDate,
+                              payload.reason || "Trả phòng / rời phòng"
+                        );
                   }
-
-                  await db.closeCurrentRoomAssignment(
-                        currentAssignment.id,
-                        processDate,
-                        payload.reason || "Trả phòng / rời phòng"
-                  );
 
                   await db.updateResidentCurrentRoom(payload.residentId, null);
 
@@ -285,13 +293,13 @@ export class RoomService {
                   throw new Error("Vui lòng chọn phòng.");
             }
 
-            if (!hasCurrentRoom && payload.eventType !== "new_entry") {
+            if (!residentHasCurrentRoom && payload.eventType !== "new_entry") {
                   throw new Error(
                         "Học viên chưa có phòng, chỉ được gán phòng mới / nhập lưu trú."
                   );
             }
 
-            if (hasCurrentRoom && payload.eventType === "new_entry") {
+            if (residentHasCurrentRoom && payload.eventType === "new_entry") {
                   throw new Error(
                         "Học viên đã có phòng, chỉ được chuyển phòng hoặc trả phòng."
                   );
@@ -305,8 +313,8 @@ export class RoomService {
 
             if (
                   payload.eventType === "transfer" &&
-                  currentAssignment &&
-                  currentAssignment.roomId === payload.roomId
+                  currentRoomId &&
+                  currentRoomId === Number(payload.roomId)
             ) {
                   throw new Error("Phòng chuyển đến không được trùng với phòng hiện tại.");
             }
@@ -323,6 +331,18 @@ export class RoomService {
                         currentAssignment.id,
                         processDate,
                         payload.reason || "Chuyển phòng"
+                  );
+            }
+
+            /**
+             * Nếu currentRoomId đang null nhưng còn assignment mở do dữ liệu cũ,
+             * đóng assignment cũ trước khi tạo dòng mới để tránh tính sai sức chứa.
+             */
+            if (payload.eventType === "new_entry" && currentAssignment && !residentHasCurrentRoom) {
+                  await db.closeCurrentRoomAssignment(
+                        currentAssignment.id,
+                        processDate,
+                        "Đóng dữ liệu phòng cũ trước khi gán phòng mới"
                   );
             }
 

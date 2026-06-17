@@ -232,33 +232,168 @@ function SimpleStatCard({
       );
 }
 
+
+type MemberListSortKey = 'name' | 'room' | 'team' | 'status';
+type MemberListSortDirection = 'asc' | 'desc';
+
+type MemberListSortState = {
+      key: MemberListSortKey;
+      direction: MemberListSortDirection;
+};
+
+function getListSortValue(
+      member: any,
+      organizationDisplay: MemberOrganizationDisplay,
+      key: MemberListSortKey
+) {
+      if (key === 'name') return getDisplayName(member).toLowerCase();
+      if (key === 'room') return getRoomLabelFromMember(member) || '';
+      if (key === 'team') {
+            return organizationDisplay.teams.map((unit) => unit.unitName).join(', ');
+      }
+
+      return getStatusLabel(member?.status || member?.residenceStatus || 'active');
+}
+
+function sortMemberListRows(
+      members: any[],
+      getOrganizationDisplayForMember: (member: any) => MemberOrganizationDisplay,
+      sortState: MemberListSortState
+) {
+      return [...members].sort((left, right) => {
+            const leftOrganization = getOrganizationDisplayForMember(left);
+            const rightOrganization = getOrganizationDisplayForMember(right);
+            const leftValue = getListSortValue(left, leftOrganization, sortState.key);
+            const rightValue = getListSortValue(right, rightOrganization, sortState.key);
+            const direction = sortState.direction === 'asc' ? 1 : -1;
+
+            return String(leftValue).localeCompare(String(rightValue), 'vi') * direction;
+      });
+}
+
+function SortableHeader({
+      label,
+      sortKey,
+      sortState,
+      onSort,
+}: {
+      label: string;
+      sortKey: MemberListSortKey;
+      sortState: MemberListSortState;
+      onSort: (key: MemberListSortKey) => void;
+}) {
+      const isActive = sortState.key === sortKey;
+
+      return (
+            <button
+                  type="button"
+                  onClick={() => onSort(sortKey)}
+                  className={[
+                        'inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide transition',
+                        isActive ? 'text-slate-800' : 'text-slate-400 hover:text-slate-600',
+                  ].join(' ')}
+            >
+                  {label}
+                  <span className="text-[10px]">
+                        {isActive ? (sortState.direction === 'asc' ? '↑' : '↓') : '↕'}
+                  </span>
+            </button>
+      );
+}
+
+function CompactValueList({
+      values,
+      emptyText,
+}: {
+      values: string[];
+      emptyText: string;
+}) {
+      if (values.length === 0) {
+            return <span className="text-slate-400">{emptyText}</span>;
+      }
+
+      return (
+            <div className="space-y-1">
+                  {values.map((value) => (
+                        <div key={value} className="whitespace-normal font-medium text-slate-700">
+                              {value}
+                        </div>
+                  ))}
+            </div>
+      );
+}
+
 function SimpleMemberListTable({
       members,
       getOrganizationDisplayForMember,
+      sortState,
+      onSort,
 }: {
       members: any[];
       getOrganizationDisplayForMember: (member: any) => MemberOrganizationDisplay;
+      sortState: MemberListSortState;
+      onSort: (key: MemberListSortKey) => void;
 }) {
+      const sortedRows = sortMemberListRows(
+            members,
+            getOrganizationDisplayForMember,
+            sortState
+      );
+
       return (
             <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="text-sm font-semibold text-slate-700">
+                                    Chế độ List view
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                    View only · {sortedRows.length} học viên · Có thể sort theo tên, phòng, tổ, trạng thái
+                              </div>
+                        </div>
+                  </div>
+
                   <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-100 text-sm">
-                              <thead className="bg-slate-50">
+                        <table className="min-w-[1180px] divide-y divide-slate-100 text-sm">
+                              <thead className="bg-white">
                                     <tr>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Học viên
+                                          <th className="px-4 py-3 text-left">
+                                                <SortableHeader
+                                                      label="Học viên"
+                                                      sortKey="name"
+                                                      sortState={sortState}
+                                                      onSort={onSort}
+                                                />
                                           </th>
                                           <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
                                                 Mã
                                           </th>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Trạng thái
+                                          <th className="px-4 py-3 text-left">
+                                                <SortableHeader
+                                                      label="Trạng thái"
+                                                      sortKey="status"
+                                                      sortState={sortState}
+                                                      onSort={onSort}
+                                                />
+                                          </th>
+                                          <th className="px-4 py-3 text-left">
+                                                <SortableHeader
+                                                      label="Phòng"
+                                                      sortKey="room"
+                                                      sortState={sortState}
+                                                      onSort={onSort}
+                                                />
+                                          </th>
+                                          <th className="px-4 py-3 text-left">
+                                                <SortableHeader
+                                                      label="Tổ"
+                                                      sortKey="team"
+                                                      sortState={sortState}
+                                                      onSort={onSort}
+                                                />
                                           </th>
                                           <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Phòng
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Tổ / Ban
+                                                Ban
                                           </th>
                                           <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
                                                 Chức vụ
@@ -273,16 +408,18 @@ function SimpleMemberListTable({
                               </thead>
 
                               <tbody className="divide-y divide-slate-100 bg-white">
-                                    {members.map((member) => {
+                                    {sortedRows.map((member) => {
                                           const statusLabel = getStatusLabel(
                                                 member?.status || member?.residenceStatus || 'active'
                                           );
                                           const organizationDisplay =
                                                 getOrganizationDisplayForMember(member);
-                                          const organizationUnits = [
-                                                ...organizationDisplay.teams.map((unit) => unit.unitName),
-                                                ...organizationDisplay.committees.map((unit) => unit.unitName),
-                                          ];
+                                          const teamNames = organizationDisplay.teams.map(
+                                                (unit) => unit.unitName
+                                          );
+                                          const committeeNames = organizationDisplay.committees.map(
+                                                (unit) => unit.unitName
+                                          );
                                           const organizationTitles = organizationDisplay.roles.map(
                                                 (role) => role.title
                                           );
@@ -320,21 +457,30 @@ function SimpleMemberListTable({
                                                             {getRoomLabelFromMember(member) || 'Chưa gán'}
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                                                            {organizationUnits.length > 0
-                                                                  ? organizationUnits.join(', ')
-                                                                  : 'Chưa phân tổ'}
+                                                      <td className="px-4 py-3 text-slate-700">
+                                                            <CompactValueList
+                                                                  values={teamNames}
+                                                                  emptyText="Chưa vào tổ"
+                                                            />
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                                                            {organizationTitles.length > 0
-                                                                  ? organizationTitles.join(', ')
-                                                                  : 'Chưa có'}
+                                                      <td className="px-4 py-3 text-slate-700">
+                                                            <CompactValueList
+                                                                  values={committeeNames}
+                                                                  emptyText="Chưa vào ban"
+                                                            />
+                                                      </td>
+
+                                                      <td className="px-4 py-3 text-slate-700">
+                                                            <CompactValueList
+                                                                  values={organizationTitles}
+                                                                  emptyText="Chưa có"
+                                                            />
                                                       </td>
 
                                                       <td
                                                             className={[
-                                                                  'whitespace-nowrap px-4 py-3 font-medium',
+                                                                  'min-w-[220px] px-4 py-3 font-medium',
                                                                   missingContact
                                                                         ? 'text-amber-700'
                                                                         : 'text-slate-700',
@@ -355,6 +501,97 @@ function SimpleMemberListTable({
             </div>
       );
 }
+type MemberQuickFilterKey =
+      | 'all'
+      | 'active'
+      | 'missing_room'
+      | 'missing_contact'
+      | 'no_team'
+      | 'has_role'
+      | 'left';
+
+const memberQuickFilters: Array<{
+      key: MemberQuickFilterKey;
+      label: string;
+      description: string;
+}> = [
+      {
+            key: 'all',
+            label: 'Tất cả',
+            description: 'Toàn bộ danh sách đang lọc',
+      },
+      {
+            key: 'active',
+            label: 'Đang lưu trú',
+            description: 'Học viên đang ở lưu xá',
+      },
+      {
+            key: 'missing_room',
+            label: 'Chưa có phòng',
+            description: 'Cần gắn phòng',
+      },
+      {
+            key: 'missing_contact',
+            label: 'Thiếu liên hệ',
+            description: 'Cần bổ sung liên hệ',
+      },
+      {
+            key: 'no_team',
+            label: 'Chưa vào tổ',
+            description: 'Cần phân tổ',
+      },
+      {
+            key: 'has_role',
+            label: 'Có chức vụ',
+            description: 'Đang giữ vai trò',
+      },
+      {
+            key: 'left',
+            label: 'Đã rời',
+            description: 'Hồ sơ lưu trữ',
+      },
+];
+
+function isMemberActive(member: any) {
+      const status = member?.status || member?.residenceStatus;
+
+      return status === 'active' || status === 'Đang ở';
+}
+
+function isMemberLeft(member: any) {
+      const status = member?.status || member?.residenceStatus;
+
+      return (
+            status === 'transferred_out' ||
+            status === 'left' ||
+            status === 'Đã rời lưu xá'
+      );
+}
+
+function filterMembersByQuickFilter(
+      members: any[],
+      quickFilter: MemberQuickFilterKey,
+      getOrganizationDisplayForMember: (member: any) => MemberOrganizationDisplay
+) {
+      if (quickFilter === 'all') return members;
+
+      return members.filter((member) => {
+            const attentionItems = getAttentionItems(member);
+            const organizationDisplay = getOrganizationDisplayForMember(member);
+
+            if (quickFilter === 'active') return isMemberActive(member);
+            if (quickFilter === 'missing_room') return attentionItems.includes('Chưa có phòng');
+            if (quickFilter === 'missing_contact') return attentionItems.includes('Thiếu liên hệ');
+            if (quickFilter === 'no_team') {
+                  return isMemberActive(member) && organizationDisplay.teams.length === 0;
+            }
+            if (quickFilter === 'has_role') return organizationDisplay.roles.length > 0;
+            if (quickFilter === 'left') return isMemberLeft(member);
+
+            return true;
+      });
+}
+
 
 
 export default function Members() {
@@ -364,7 +601,12 @@ export default function Members() {
 
       const [searchTerm, setSearchTerm] = useState('');
       const [statusFilter, setStatusFilter] = useState('all');
+      const [quickFilter, setQuickFilter] = useState<MemberQuickFilterKey>('all');
       const [simpleViewMode, setSimpleViewMode] = useState<'cards' | 'list'>('cards');
+      const [memberListSort, setMemberListSort] = useState<MemberListSortState>({
+            key: 'name',
+            direction: 'asc',
+      });
       const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
       const [isContactsDialogOpen, setIsContactsDialogOpen] = useState(false);
       const [isRoomsQuickDialogOpen, setIsRoomsQuickDialogOpen] = useState(false);
@@ -655,7 +897,20 @@ export default function Members() {
             ];
       };
 
-      const sortedMembers = useMemo(() => sortMembersByStatus(members), [members]);
+      const quickFilteredMembers = useMemo(
+            () =>
+                  filterMembersByQuickFilter(
+                        members,
+                        quickFilter,
+                        getOrganizationDisplayForMember
+                  ),
+            [members, quickFilter, organizationSummaryByResidentId]
+      );
+
+      const sortedMembers = useMemo(
+            () => sortMembersByStatus(quickFilteredMembers),
+            [quickFilteredMembers]
+      );
 
       const stats = statsQuery.data || {
             total: 0,
@@ -689,6 +944,23 @@ export default function Members() {
             };
       }, [members]);
 
+      const quickFilterCounts = useMemo(() => {
+            const counts = new Map<MemberQuickFilterKey, number>();
+
+            memberQuickFilters.forEach((filter) => {
+                  counts.set(
+                        filter.key,
+                        filterMembersByQuickFilter(
+                              members,
+                              filter.key,
+                              getOrganizationDisplayForMember
+                        ).length
+                  );
+            });
+
+            return counts;
+      }, [members, organizationSummaryByResidentId]);
+
 
       const simpleTotalItems = sortedMembers.length;
 
@@ -704,7 +976,7 @@ export default function Members() {
 
       useEffect(() => {
             setSimplePage(1);
-      }, [searchTerm, statusFilter, simplePageSize]);
+      }, [searchTerm, statusFilter, quickFilter, simplePageSize]);
 
       const refetchMembers = async (focusResidentId?: number) => {
             const membersResult = await membersQuery.refetch();
@@ -735,10 +1007,27 @@ export default function Members() {
       const clearFilters = () => {
             setSearchTerm('');
             setStatusFilter('all');
+            setQuickFilter('all');
       };
 
       const clearSelectedMembers = () => {
             // Simple Mode actions are now handled per member row.
+      };
+
+      const handleMemberListSort = (key: MemberListSortKey) => {
+            setMemberListSort((current) => {
+                  if (current.key !== key) {
+                        return {
+                              key,
+                              direction: 'asc',
+                        };
+                  }
+
+                  return {
+                        key,
+                        direction: current.direction === 'asc' ? 'desc' : 'asc',
+                  };
+            });
       };
 
       const handleOpenAddDialog = () => {
@@ -1781,6 +2070,40 @@ export default function Members() {
                                           </button>
                                     </div>
                               </div>
+
+                              <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                                    {memberQuickFilters.map((filter) => {
+                                          const isActive = quickFilter === filter.key;
+                                          const count = quickFilterCounts.get(filter.key) || 0;
+
+                                          return (
+                                                <button
+                                                      key={filter.key}
+                                                      type="button"
+                                                      onClick={() => setQuickFilter(filter.key)}
+                                                      title={filter.description}
+                                                      className={[
+                                                            'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition',
+                                                            isActive
+                                                                  ? 'bg-slate-900 text-white ring-slate-900 shadow-sm'
+                                                                  : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50 hover:text-slate-900',
+                                                      ].join(' ')}
+                                                >
+                                                      <span>{filter.label}</span>
+                                                      <span
+                                                            className={[
+                                                                  'rounded-full px-2 py-0.5 text-[11px]',
+                                                                  isActive
+                                                                        ? 'bg-white/15 text-white'
+                                                                        : 'bg-slate-100 text-slate-500',
+                                                            ].join(' ')}
+                                                      >
+                                                            {count}
+                                                      </span>
+                                                </button>
+                                          );
+                                    })}
+                              </div>
                         </div>
 
                         <section className="overflow-visible rounded-[28px] border border-slate-200/90 bg-white shadow-sm">
@@ -1852,6 +2175,8 @@ export default function Members() {
                                                       <SimpleMemberListTable
                                                             members={simplePagedMembers}
                                                             getOrganizationDisplayForMember={getOrganizationDisplayForMember}
+                                                            sortState={memberListSort}
+                                                            onSort={handleMemberListSort}
                                                       />
                                                 ) : (
                                                       <div className="space-y-3">
@@ -2003,9 +2328,11 @@ export default function Members() {
                         {isDetailDialogOpen && selectedMemberForDetail && (
                               <MemberDetailModal
                                     member={selectedMemberForDetail}
+                                    organizationDisplay={getOrganizationDisplayForMember(selectedMemberForDetail)}
                                     organizationTitles={getOrganizationTitlesForMember(selectedMemberForDetail)}
                                     organizationUnits={getOrganizationUnitsForMember(selectedMemberForDetail)}
                                     onOpenOrganization={handleOpenOrganizationForMember}
+                                    onOpenContacts={handleOpenMemberContacts}
                                     onClose={() => {
                                           setIsDetailDialogOpen(false);
                                           setSelectedMember(null);
