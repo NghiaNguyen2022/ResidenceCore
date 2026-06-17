@@ -174,6 +174,69 @@ function getPrimaryContactSummary(member: any): PrimaryContactSummary {
       return splitContactText(getPrimaryContactText(member));
 }
 
+
+function getRoomBadgeText(roomText: string, hasRoom: boolean) {
+      if (!hasRoom || roomText === 'Chưa gán' || roomText === 'Chưa gán phòng') {
+            return 'Chưa có phòng';
+      }
+
+      if (roomText.toLowerCase().includes('phòng')) {
+            return roomText;
+      }
+
+      return `Phòng ${roomText}`;
+}
+
+function getProfileSummary(input: {
+      memberIsLeft: boolean;
+      memberIsInactive: boolean;
+      attentionItems: string[];
+}) {
+      if (input.memberIsLeft) {
+            return {
+                  label: 'Hồ sơ lưu trữ',
+                  message: 'Học viên đã rời lưu xá. Các thao tác lưu trú thường ngày đã được khóa.',
+                  className: 'border-rose-200 bg-rose-50 text-rose-800',
+                  icon: '●',
+            };
+      }
+
+      if (input.memberIsInactive) {
+            return {
+                  label: 'Tạm ngưng lưu trú',
+                  message: 'Hồ sơ đang tạm ngưng. Có thể đăng ký lại khi học viên quay lại lưu xá.',
+                  className: 'border-amber-200 bg-amber-50 text-amber-800',
+                  icon: '●',
+            };
+      }
+
+      if (input.attentionItems.length > 0) {
+            return {
+                  label: 'Cần bổ sung',
+                  message: input.attentionItems.join(' · '),
+                  className: 'border-amber-200 bg-amber-50 text-amber-800',
+                  icon: '!',
+            };
+      }
+
+      return {
+            label: 'Hồ sơ ổn định',
+            message: 'Thông tin lưu trú, liên hệ và tổ chức đang đầy đủ.',
+            className: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+            icon: '✓',
+      };
+}
+
+function getOrganizationSummaryText(display: MemberOrganizationDisplay) {
+      const parts = [
+            `${display.teams.length} tổ`,
+            `${display.committees.length} ban`,
+            `${display.roles.length} chức vụ`,
+      ];
+
+      return parts.join(' · ');
+}
+
 function ActionButton({
       children,
       onClick,
@@ -246,189 +309,164 @@ function UnitBadge({ unit }: { unit: OrganizationUnitDisplay }) {
       );
 }
 
-function UnitLine({
-      label,
-      units,
-      emptyText,
-      addText,
-      changeText,
-      actionText,
-      onAdd,
-}: {
-      label: string;
-      units: OrganizationUnitDisplay[];
-      emptyText: string;
-      addText: string;
-      changeText: string;
-      actionText?: string;
-      onAdd?: () => void;
-}) {
+function EmptyValue({ children }: { children: ReactNode }) {
       return (
-            <div className="grid grid-cols-[56px_1fr_auto] items-start gap-2">
-                  <div className="pt-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                        {label}
-                  </div>
-
-                  <div className="flex min-w-0 flex-wrap gap-1.5">
-                        {units.length > 0 ? (
-                              units.map((unit) => (
-                                    <UnitBadge
-                                          key={`${unit.unitType}-${unit.unitId || unit.unitName}`}
-                                          unit={unit}
-                                    />
-                              ))
-                        ) : (
-                              <span className="pt-1 text-sm font-medium text-slate-500">
-                                    {emptyText}
-                              </span>
-                        )}
-                  </div>
-
-                  <InlineActionButton onClick={onAdd}>
-                        {actionText || (units.length > 0 ? changeText : addText)}
-                  </InlineActionButton>
-            </div>
+            <span className="text-sm font-medium text-slate-400">
+                  {children}
+            </span>
       );
 }
 
-function RoleList({
-      roles,
-      onAppoint,
-}: {
-      roles: OrganizationRoleDisplay[];
-      onAppoint?: () => void;
-}) {
+function RoleBadge({ role }: { role: OrganizationRoleDisplay }) {
       return (
-            <div>
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                        <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                              Chức vụ
-                        </div>
-
-                        <InlineActionButton onClick={onAppoint}>
-                              Bổ nhiệm
-                        </InlineActionButton>
-                  </div>
-
-                  {roles.length > 0 ? (
-                        <div className="space-y-1">
-                              {roles.map((role) => (
-                                    <div
-                                          key={`${role.id || role.title}`}
-                                          className="rounded-xl bg-white px-3 py-2 text-sm font-semibold leading-5 text-slate-800 ring-1 ring-slate-100"
-                                    >
-                                          {role.title}
-                                    </div>
-                              ))}
-                        </div>
-                  ) : (
-                        <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm font-medium text-slate-500 ring-1 ring-slate-100">
-                              Chưa có chức vụ
-                        </div>
-                  )}
-            </div>
+            <span
+                  className="inline-flex max-w-full rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200"
+                  title={role.title}
+            >
+                  <span className="truncate">{role.title}</span>
+            </span>
       );
 }
 
-function OrganizationBlock({
-      display,
-      onOrganization,
-}: {
-      display: MemberOrganizationDisplay;
-      onOrganization?: (action: OrganizationAction, context?: { unitId?: number | null }) => void;
-}) {
-      const currentTeam = display.teams[0] || null;
-
-      return (
-            <div className="h-full rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                        <div>
-                              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                    Tổ chức
-                              </div>
-                              <div className="mt-0.5 text-xs font-medium text-slate-500">
-                                    Tổ, ban và chức vụ hiện tại
-                              </div>
-                        </div>
-
-                        <InlineActionButton onClick={onOrganization ? () => onOrganization('appointment') : undefined}>
-                              Bổ nhiệm
-                        </InlineActionButton>
-                  </div>
-
-                  <div className="grid gap-3 2xl:grid-cols-[1fr_1.15fr]">
-                        <div className="rounded-2xl bg-slate-50/80 p-3 ring-1 ring-slate-100">
-                              <UnitLine
-                                    label="Tổ"
-                                    units={display.teams}
-                                    emptyText="Chưa vào tổ"
-                                    addText="+ Tổ"
-                                    changeText="Đổi tổ"
-                                    onAdd={
-                                          onOrganization
-                                                ? () =>
-                                                        onOrganization(
-                                                              currentTeam ? 'transfer_team' : 'add_team',
-                                                              { unitId: currentTeam?.unitId ?? null }
-                                                        )
-                                                : undefined
-                                    }
-                              />
-
-                              <div className="my-2 border-t border-slate-100" />
-
-                              <UnitLine
-                                    label="Ban"
-                                    units={display.committees}
-                                    emptyText="Chưa vào ban"
-                                    addText="+ Ban"
-                                    changeText="+ Ban"
-                                    actionText="+ Ban"
-                                    onAdd={onOrganization ? () => onOrganization('add_committee') : undefined}
-                              />
-                        </div>
-
-                        <RoleList
-                              roles={display.roles}
-                              onAppoint={undefined}
-                        />
-                  </div>
-            </div>
-      );
-}
-
-function ContactBlock({
+function ResidenceContactSummary({
       contact,
+      roomText,
+      shouldHighlightMissingRoom,
       onOpenContacts,
 }: {
       contact: PrimaryContactSummary;
+      roomText: string;
+      shouldHighlightMissingRoom: boolean;
       onOpenContacts?: () => void;
 }) {
       return (
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3">
-                  <div className="mb-1 flex items-center justify-between gap-2">
+            <section className="rounded-2xl border border-slate-100 bg-slate-50/50 px-4 py-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
                         <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                              Liên hệ chính
+                              Lưu trú & liên hệ
                         </div>
 
-                        <InlineActionButton onClick={onOpenContacts}>
-                              {contact.isMissing ? '+ Liên hệ' : 'Liên hệ'}
-                        </InlineActionButton>
-                  </div>
-
-                  <div
-                        className={[
-                              'space-y-0.5 text-sm',
-                              contact.isMissing ? 'text-amber-700' : 'text-slate-800',
-                        ].join(' ')}
-                  >
-                        <div className="font-bold">{contact.relation}</div>
-                        <div className="font-semibold">{contact.name}</div>
-                        {contact.phone && (
-                              <div className="font-medium text-slate-600">{contact.phone}</div>
+                        {onOpenContacts && (
+                              <button
+                                    type="button"
+                                    onClick={onOpenContacts}
+                                    className="rounded-full px-2.5 py-1 text-xs font-semibold text-slate-500 transition hover:bg-white hover:text-slate-800 hover:ring-1 hover:ring-slate-200"
+                              >
+                                    {contact.isMissing ? '+ Bổ sung' : 'Xem/sửa'}
+                              </button>
                         )}
                   </div>
-            </div>
+
+                  <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                              <span className="font-bold text-slate-900">Phòng</span>
+                              <span className="text-slate-300">•</span>
+                              <span
+                                    className={[
+                                          'font-semibold',
+                                          shouldHighlightMissingRoom ? 'text-amber-700' : 'text-slate-700',
+                                    ].join(' ')}
+                              >
+                                    {roomText}
+                              </span>
+                        </div>
+
+                        {contact.isMissing ? (
+                              <div className="text-sm font-semibold text-amber-700">
+                                    Chưa có liên hệ chính
+                              </div>
+                        ) : (
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-700">
+                                    <span className="font-bold text-slate-900">{contact.relation}</span>
+                                    <span className="text-slate-300">•</span>
+                                    <span className="font-semibold">{contact.name}</span>
+                                    {contact.phone && (
+                                          <>
+                                                <span className="text-slate-300">•</span>
+                                                <span className="font-medium text-slate-600">{contact.phone}</span>
+                                          </>
+                                    )}
+                              </div>
+                        )}
+                  </div>
+            </section>
+      );
+}
+
+function OrganizationSummary({
+      display,
+}: {
+      display: MemberOrganizationDisplay;
+}) {
+      return (
+            <section className="rounded-2xl border border-slate-100 bg-slate-50/50 px-4 py-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                    Tổ chức lưu xá
+                              </div>
+                              <div className="mt-0.5 text-xs font-medium text-slate-500">
+                                    {getOrganizationSummaryText(display)}
+                              </div>
+                        </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                        <div className="grid grid-cols-[58px_1fr] gap-2">
+                              <div className="pt-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                    Tổ
+                              </div>
+                              <div className="flex min-w-0 flex-wrap gap-1.5">
+                                    {display.teams.length > 0 ? (
+                                          display.teams.map((unit) => (
+                                                <UnitBadge
+                                                      key={`${unit.unitType}-${unit.unitId || unit.unitName}`}
+                                                      unit={unit}
+                                                />
+                                          ))
+                                    ) : (
+                                          <EmptyValue>Chưa vào tổ</EmptyValue>
+                                    )}
+                              </div>
+                        </div>
+
+                        <div className="grid grid-cols-[58px_1fr] gap-2">
+                              <div className="pt-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                    Ban
+                              </div>
+                              <div className="flex min-w-0 flex-wrap gap-1.5">
+                                    {display.committees.length > 0 ? (
+                                          display.committees.map((unit) => (
+                                                <UnitBadge
+                                                      key={`${unit.unitType}-${unit.unitId || unit.unitName}`}
+                                                      unit={unit}
+                                                />
+                                          ))
+                                    ) : (
+                                          <EmptyValue>Chưa vào ban</EmptyValue>
+                                    )}
+                              </div>
+                        </div>
+
+                        <div className="grid grid-cols-[58px_1fr] gap-2">
+                              <div className="pt-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                    Chức vụ
+                              </div>
+                              <div className="flex min-w-0 flex-wrap gap-1.5">
+                                    {display.roles.length > 0 ? (
+                                          display.roles.map((role) => (
+                                                <RoleBadge
+                                                      key={`${role.id || role.title}`}
+                                                      role={role}
+                                                />
+                                          ))
+                                    ) : (
+                                          <EmptyValue>Chưa có chức vụ</EmptyValue>
+                                    )}
+                              </div>
+                        </div>
+                  </div>
+            </section>
       );
 }
 
@@ -477,6 +515,7 @@ export function SimpleMemberCard({
       const displayName = getDisplayName(member);
       const statusLabel = getStatusLabel(member?.status || member?.residenceStatus || 'active');
       const roomText = getRoomTextForCard(member);
+      const roomBadgeText = getRoomBadgeText(roomText, memberHasRoom);
       const residentCode = member?.residentCode || member?.code || 'Chưa có mã';
       const phoneNumber = member?.phoneNumber || 'Chưa có SĐT';
       const contact = getPrimaryContactSummary(member);
@@ -501,6 +540,11 @@ export function SimpleMemberCard({
                     }
                   : organization;
       const shouldHighlightMissingRoom = !memberHasRoom && !memberIsLeft && !memberIsInactive;
+      const profileSummary = getProfileSummary({
+            memberIsLeft,
+            memberIsInactive,
+            attentionItems,
+      });
 
       const cardClass = memberIsLeft
             ? 'border-rose-200 bg-rose-50/80'
@@ -516,29 +560,31 @@ export function SimpleMemberCard({
       };
 
       return (
-            <article className={['relative overflow-visible rounded-3xl border p-4 shadow-sm transition hover:shadow-md', cardClass].join(' ')}>
+            <article
+                  className={[
+                        'relative overflow-visible rounded-3xl border p-4 shadow-[0_14px_40px_rgba(15,23,42,0.07)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_55px_rgba(15,23,42,0.10)]',
+                        cardClass,
+                  ].join(' ')}
+            >
                   <div className={["absolute inset-x-0 top-0 h-1 rounded-t-3xl bg-gradient-to-r", accent.strip].join(' ')} />
 
-                  <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                        <div className="min-w-0 flex-1">
-                              <div className="flex items-start gap-3">
-                                    <div className={["hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-sm font-bold text-white shadow-sm sm:flex", accent.avatar].join(' ')}>
+                  <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                              <div className="flex min-w-0 flex-1 items-start gap-3">
+                                    <div
+                                          className={[
+                                                "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-sm font-bold text-white shadow-sm",
+                                                accent.avatar,
+                                          ].join(' ')}
+                                    >
                                           {getInitials(displayName)}
                                     </div>
 
                                     <div className="min-w-0 flex-1">
                                           <div className="flex flex-wrap items-center gap-2">
-                                                <h3 className="truncate text-base font-bold leading-6 text-slate-950 sm:text-[17px]">
+                                                <h3 className="min-w-0 text-xl font-bold leading-7 text-slate-950">
                                                       {displayName}
                                                 </h3>
-
-                                                <span className={['inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1', getStatusBadgeClass(member)].join(' ')}>
-                                                      {statusLabel}
-                                                </span>
-
-                                                <span className={['inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1', accountBadge.className].join(' ')}>
-                                                      {accountBadge.label}
-                                                </span>
                                           </div>
 
                                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-500">
@@ -546,101 +592,196 @@ export function SimpleMemberCard({
                                                 <span className="text-slate-300">•</span>
                                                 <span>{phoneNumber}</span>
                                           </div>
-                                    </div>
-                              </div>
 
-                              <div className="mt-3 grid items-stretch gap-3 xl:grid-cols-[34%_1fr]">
-                                    <div className="grid gap-3">
-                                          <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3">
-                                                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                                      Phòng
-                                                </div>
+                                          <div className="mt-2 flex flex-wrap gap-1.5">
+                                                <span className={['inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1', getStatusBadgeClass(member)].join(' ')}>
+                                                      {statusLabel}
+                                                </span>
 
-                                                <div
+                                                <span
                                                       className={[
-                                                            'mt-1 text-sm font-bold',
+                                                            'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
                                                             shouldHighlightMissingRoom
-                                                                  ? 'text-amber-700'
-                                                                  : 'text-slate-900',
+                                                                  ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                                                                  : 'bg-blue-50 text-blue-700 ring-blue-100',
                                                       ].join(' ')}
                                                 >
-                                                      {roomText}
-                                                </div>
+                                                      {roomBadgeText}
+                                                </span>
+
+                                                <span className={['inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1', accountBadge.className].join(' ')}>
+                                                      {accountBadge.label}
+                                                </span>
+
+                                                {attentionItems.map((item) => (
+                                                      <span
+                                                            key={item}
+                                                            className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200"
+                                                      >
+                                                            {item}
+                                                      </span>
+                                                ))}
                                           </div>
-
-                                          <ContactBlock
-                                                contact={contact}
-                                                onOpenContacts={onContacts ? () => onContacts(member) : undefined}
-                                          />
                                     </div>
-
-                                    <OrganizationBlock
-                                          display={fallbackOrganization}
-                                          onOrganization={
-                                                onOrganization && !memberIsClosed
-                                                      ? openOrganization
-                                                      : undefined
-                                          }
-                                    />
                               </div>
 
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                    {attentionItems.length > 0 ? (
-                                          attentionItems.map((item) => (
-                                                <span key={item} className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
-                                                      {item}
-                                                </span>
-                                          ))
+                              <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
+                                    <ActionButton onClick={() => onView(member)} tone="dark">
+                                          Xem
+                                    </ActionButton>
+
+                                    {memberIsClosed ? (
+                                          <ActionButton onClick={() => onReactivate(member)} disabled={isReactivating} tone="green">
+                                                {isReactivating ? 'Đang đăng ký...' : 'Đăng ký lại'}
+                                          </ActionButton>
                                     ) : (
-                                          <span className={["inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1", accent.soft].join(' ')}>
-                                                Hồ sơ ổn định
-                                          </span>
+                                          <>
+                                                {shouldHighlightMissingRoom && (
+                                                      <ActionButton onClick={() => onRoomAction(member)} disabled={isRoomProcessing} tone="green">
+                                                            Gắn phòng
+                                                      </ActionButton>
+                                                )}
+
+                                                <div className="relative">
+                                                      <ActionButton onClick={() => setIsActionMenuOpen((value) => !value)}>
+                                                            Thao tác
+                                                      </ActionButton>
+
+                                                      {isActionMenuOpen && (
+                                                            <div className="absolute right-0 top-full z-40 mt-2 w-60 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl">
+                                                                  {onEdit && (
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => {
+                                                                                    setIsActionMenuOpen(false);
+                                                                                    onEdit(member);
+                                                                              }}
+                                                                              className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                                                        >
+                                                                              Sửa hồ sơ
+                                                                        </button>
+                                                                  )}
+
+                                                                  {onContacts && (
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => {
+                                                                                    setIsActionMenuOpen(false);
+                                                                                    onContacts(member);
+                                                                              }}
+                                                                              className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                                                        >
+                                                                              Liên hệ gia đình
+                                                                        </button>
+                                                                  )}
+
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                              setIsActionMenuOpen(false);
+                                                                              onRoomAction(member);
+                                                                        }}
+                                                                        disabled={isRoomProcessing}
+                                                                        className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                  >
+                                                                        {memberHasRoom ? 'Chuyển / Trả phòng' : 'Gắn phòng'}
+                                                                  </button>
+
+                                                                  {onOrganization && (
+                                                                        <>
+                                                                              <div className="my-1 border-t border-slate-100" />
+
+                                                                              <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                          setIsActionMenuOpen(false);
+                                                                                          openOrganization(
+                                                                                                fallbackOrganization.teams[0]?.unitId
+                                                                                                      ? 'transfer_team'
+                                                                                                      : 'add_team',
+                                                                                                {
+                                                                                                      unitId: fallbackOrganization.teams[0]?.unitId ?? null,
+                                                                                                }
+                                                                                          );
+                                                                                    }}
+                                                                                    className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                                                              >
+                                                                                    {fallbackOrganization.teams.length > 0 ? 'Đổi tổ' : '+ Tổ'}
+                                                                              </button>
+
+                                                                              <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                          setIsActionMenuOpen(false);
+                                                                                          openOrganization('add_committee');
+                                                                                    }}
+                                                                                    className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                                                              >
+                                                                                    + Ban
+                                                                              </button>
+
+                                                                              <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                          setIsActionMenuOpen(false);
+                                                                                          openOrganization('appointment');
+                                                                                    }}
+                                                                                    className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                                                              >
+                                                                                    Bổ nhiệm chức vụ
+                                                                              </button>
+                                                                        </>
+                                                                  )}
+
+                                                                  <div className="my-1 border-t border-slate-100" />
+
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                              setIsActionMenuOpen(false);
+                                                                              onLeaveOrDelete(member);
+                                                                        }}
+                                                                        disabled={isLeaving}
+                                                                        className="w-full px-4 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                  >
+                                                                        Ngừng / Rời lưu xá
+                                                                  </button>
+                                                            </div>
+                                                      )}
+                                                </div>
+                                          </>
                                     )}
                               </div>
                         </div>
 
-                        <div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
-                              <ActionButton onClick={() => onView(member)} tone="dark">
-                                    Xem
-                              </ActionButton>
-
-                              {memberIsClosed ? (
-                                    <ActionButton onClick={() => onReactivate(member)} disabled={isReactivating} tone="green">
-                                          {isReactivating ? 'Đang đăng ký...' : 'Đăng ký lại'}
-                                    </ActionButton>
-                              ) : (
-                                    <>
-                                          <ActionButton onClick={() => onRoomAction(member)} disabled={isRoomProcessing} tone="green">
-                                                {memberHasRoom ? 'Chuyển phòng' : 'Gắn phòng'}
-                                          </ActionButton>
-
-                                          <div className="relative">
-                                                <ActionButton onClick={() => setIsActionMenuOpen((value) => !value)}>
-                                                      Thao tác
-                                                </ActionButton>
-
-                                                {isActionMenuOpen && (
-                                                      <div className="absolute right-0 top-full z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl">
-                                                            {onEdit && (
-                                                                  <button type="button" onClick={() => { setIsActionMenuOpen(false); onEdit(member); }} className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                                                        Sửa hồ sơ
-                                                                  </button>
-                                                            )}
-                                                            {onContacts && (
-                                                                  <button type="button" onClick={() => { setIsActionMenuOpen(false); onContacts(member); }} className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                                                        Liên hệ gia đình
-                                                                  </button>
-                                                            )}
-                                                            <div className="my-1 border-t border-slate-100" />
-                                                            <button type="button" onClick={() => { setIsActionMenuOpen(false); onLeaveOrDelete(member); }} disabled={isLeaving} className="w-full px-4 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60">
-                                                                  Ngừng / Rời lưu xá
-                                                            </button>
-                                                      </div>
-                                                )}
-                                          </div>
-                                    </>
-                              )}
+                        <div
+                              className={[
+                                    'flex flex-col gap-1 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+                                    profileSummary.className,
+                              ].join(' ')}
+                        >
+                              <div className="flex items-center gap-2">
+                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/70 text-xs font-black">
+                                          {profileSummary.icon}
+                                    </span>
+                                    <span className="text-sm font-bold">{profileSummary.label}</span>
+                              </div>
+                              <div className="text-sm font-semibold sm:text-right">
+                                    {profileSummary.message}
+                              </div>
                         </div>
+
+                        <div className="grid gap-3 xl:grid-cols-[minmax(260px,0.75fr)_minmax(420px,1.25fr)]">
+                              <ResidenceContactSummary
+                                    contact={contact}
+                                    roomText={roomBadgeText}
+                                    shouldHighlightMissingRoom={shouldHighlightMissingRoom}
+                                    onOpenContacts={onContacts ? () => onContacts(member) : undefined}
+                              />
+
+                              <OrganizationSummary display={fallbackOrganization} />
+                        </div>
+
                   </div>
             </article>
       );

@@ -218,6 +218,108 @@ function createPayload(
       };
 }
 
+
+type ScheduleViewMode = "list" | "week" | "month";
+
+const STUDY_HOUR_START = 5;
+const STUDY_HOUR_END = 23;
+const STUDY_HOUR_HEIGHT = 54;
+const STUDY_HOUR_EXPANDED_HEIGHT = 74;
+
+function getScheduleTopOffset(startTime?: string | null, hourHeight = STUDY_HOUR_HEIGHT) {
+      const minutes = timeToMinutes(startTime);
+
+      if (minutes === null) return 0;
+
+      const startMinutes = STUDY_HOUR_START * 60;
+      const endMinutes = STUDY_HOUR_END * 60;
+
+      return Math.max(0, Math.min(endMinutes - startMinutes, minutes - startMinutes)) / 60 * hourHeight;
+}
+
+function getScheduleBlockHeight(
+      startTime?: string | null,
+      endTime?: string | null,
+      hourHeight = STUDY_HOUR_HEIGHT
+) {
+      const startMinutes = timeToMinutes(startTime);
+      const endMinutes = timeToMinutes(endTime);
+
+      if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+            return hourHeight;
+      }
+
+      return Math.max(42, (endMinutes - startMinutes) / 60 * hourHeight);
+}
+
+function getDayOfWeekFromDate(date: Date): DayOfWeek {
+      const day = date.getDay();
+
+      if (day === 0) return "sunday";
+      if (day === 1) return "monday";
+      if (day === 2) return "tuesday";
+      if (day === 3) return "wednesday";
+      if (day === 4) return "thursday";
+      if (day === 5) return "friday";
+      if (day === 6) return "saturday";
+
+      return "monday";
+}
+
+function buildCurrentMonthCells() {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth();
+      const firstDate = new Date(year, month, 1);
+      const lastDate = new Date(year, month + 1, 0);
+      const firstOffset = firstDate.getDay() === 0 ? 6 : firstDate.getDay() - 1;
+      const cells: Array<{ date: Date | null; dayOfWeek?: DayOfWeek }> = [];
+
+      for (let index = 0; index < firstOffset; index += 1) {
+            cells.push({ date: null });
+      }
+
+      for (let day = 1; day <= lastDate.getDate(); day += 1) {
+            const date = new Date(year, month, day);
+            cells.push({
+                  date,
+                  dayOfWeek: getDayOfWeekFromDate(date),
+            });
+      }
+
+      while (cells.length % 7 !== 0) {
+            cells.push({ date: null });
+      }
+
+      return cells;
+}
+
+function getMonthTitle() {
+      const today = new Date();
+
+      return `Tháng ${today.getMonth() + 1}/${today.getFullYear()}`;
+}
+
+function getSchedulesByDay(schedules: StudySchedule[]) {
+      const grouped = new Map<DayOfWeek, StudySchedule[]>();
+
+      WEEK_DAYS.forEach((day) => grouped.set(day, []));
+
+      schedules.forEach((schedule) => {
+            const current = grouped.get(schedule.dayOfWeek) || [];
+            current.push(schedule);
+            grouped.set(schedule.dayOfWeek, current);
+      });
+
+      grouped.forEach((items) => {
+            items.sort((left, right) =>
+                  normalizeTime(left.startTime).localeCompare(normalizeTime(right.startTime))
+            );
+      });
+
+      return grouped;
+}
+
 export function StudyScheduleSection({
       residentId,
       schedules,
@@ -228,6 +330,8 @@ export function StudyScheduleSection({
       onDelete,
 }: StudyScheduleSectionProps) {
       const [isModalOpen, setIsModalOpen] = useState(false);
+      const [scheduleViewMode, setScheduleViewMode] = useState<ScheduleViewMode>("week");
+      const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
       const [editingSchedule, setEditingSchedule] =
             useState<StudySchedule | null>(null);
       const [formData, setFormData] = useState<StudyScheduleFormData>(createEmptyForm());
@@ -254,6 +358,29 @@ export function StudyScheduleSection({
                   );
             });
       }, [schedules]);
+
+      const schedulesByDay = useMemo(
+            () => getSchedulesByDay(sortedSchedules),
+            [sortedSchedules]
+      );
+
+      const monthCells = useMemo(() => buildCurrentMonthCells(), []);
+      const monthTitle = useMemo(() => getMonthTitle(), []);
+
+      const calendarHourHeight = STUDY_HOUR_HEIGHT;
+      const calendarMinWidth = "820px";
+      const calendarMaxHeight = "520px";
+      const expandedCalendarHourHeight = STUDY_HOUR_EXPANDED_HEIGHT;
+      const expandedCalendarMinWidth = "1180px";
+      const expandedCalendarMaxHeight = "calc(100vh - 220px)";
+
+      const openCalendarExpanded = () => {
+            setIsCalendarExpanded(true);
+      };
+
+      const closeCalendarExpanded = () => {
+            setIsCalendarExpanded(false);
+      };
 
       const handleAdd = () => {
             setFormError(null);
@@ -399,6 +526,61 @@ export function StudyScheduleSection({
                               )
                         }
                   >
+                        <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                    <p className="text-sm font-semibold text-slate-900">
+                                          Xem lịch học
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                          Dạng tuần giúp nhìn giờ bận/rảnh trực quan như calendar.
+                                    </p>
+                              </div>
+
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                    <div className="inline-flex w-fit rounded-2xl bg-slate-100 p-1">
+                                          {([
+                                                ["list", "Danh sách"],
+                                                ["week", "Lịch tuần"],
+                                                ["month", "Lịch tháng"],
+                                          ] as Array<[ScheduleViewMode, string]>).map(([key, label]) => (
+                                                <button
+                                                      key={key}
+                                                      type="button"
+                                                      onClick={() => setScheduleViewMode(key)}
+                                                      className={[
+                                                            "rounded-xl px-3 py-1.5 text-xs font-semibold transition",
+                                                            scheduleViewMode === key
+                                                                  ? "bg-white text-blue-700 shadow-sm"
+                                                                  : "text-slate-500 hover:text-slate-800",
+                                                      ].join(" ")}
+                                                >
+                                                      {label}
+                                                </button>
+                                          ))}
+                                    </div>
+
+                                    {(scheduleViewMode === "week" || scheduleViewMode === "month") && (
+                                          <button
+                                                type="button"
+                                                onClick={isCalendarExpanded ? closeCalendarExpanded : openCalendarExpanded}
+                                                className={[
+                                                      "rounded-2xl border px-3 py-2 text-xs font-semibold transition shadow-sm",
+                                                      isCalendarExpanded
+                                                            ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                                                ].join(" ")}
+                                                title={
+                                                      isCalendarExpanded
+                                                            ? "Đóng khung lịch mở rộng"
+                                                            : "Mở rộng lịch ra ngoài form hồ sơ"
+                                                }
+                                          >
+                                                {isCalendarExpanded ? "Đang mở rộng" : "Mở rộng"}
+                                          </button>
+                                    )}
+                              </div>
+                        </div>
+
                         {sortedSchedules.length === 0 ? (
                               <EmptyState
                                     compact
@@ -406,7 +588,7 @@ export function StudyScheduleSection({
                                     title="Chưa có lịch học"
                                     description="Thêm lịch học để làm dữ liệu cảnh báo khi phân công công tác trùng giờ."
                               />
-                        ) : (
+                        ) : scheduleViewMode === "list" ? (
                               <div className="space-y-3">
                                     {sortedSchedules.map((item) => (
                                           <div
@@ -474,8 +656,444 @@ export function StudyScheduleSection({
                                           </div>
                                     ))}
                               </div>
+                        ) : scheduleViewMode === "week" ? (
+                              <div
+                                    className={[
+                                          "rounded-2xl border border-slate-200 bg-white",
+                                          isCalendarExpanded ? "shadow-md" : "overflow-hidden",
+                                    ].join(" ")}
+                              >
+                                    <div className="overflow-x-auto">
+                                          <div
+                                                className="grid grid-cols-[72px_repeat(7,minmax(120px,1fr))] border-b border-slate-200 bg-slate-50"
+                                                style={{ minWidth: calendarMinWidth }}
+                                          >
+                                                <div className="px-3 py-3 text-xs font-bold uppercase text-slate-400">
+                                                      Giờ
+                                                </div>
+                                                {WEEK_DAYS.map((dayOfWeek) => (
+                                                      <div
+                                                            key={dayOfWeek}
+                                                            className="border-l border-slate-200 px-3 py-3 text-center text-xs font-bold uppercase text-slate-500"
+                                                      >
+                                                            {DAY_LABELS[dayOfWeek]}
+                                                      </div>
+                                                ))}
+                                          </div>
+                                    </div>
+
+                                    <div
+                                          className="overflow-auto"
+                                          style={{ maxHeight: calendarMaxHeight }}
+                                    >
+                                          <div
+                                                className="grid grid-cols-[72px_repeat(7,minmax(120px,1fr))]"
+                                                style={{
+                                                      minWidth: calendarMinWidth,
+                                                      height: `${(STUDY_HOUR_END - STUDY_HOUR_START) * calendarHourHeight}px`,
+                                                }}
+                                          >
+                                                <div className="relative bg-slate-50">
+                                                      {Array.from(
+                                                            { length: STUDY_HOUR_END - STUDY_HOUR_START + 1 },
+                                                            (_, index) => STUDY_HOUR_START + index
+                                                      ).map((hour) => (
+                                                            <div
+                                                                  key={hour}
+                                                                  className="absolute left-0 right-0 border-t border-slate-200 px-2 pt-1 text-[11px] font-medium text-slate-400"
+                                                                  style={{
+                                                                        top: `${(hour - STUDY_HOUR_START) * calendarHourHeight}px`,
+                                                                  }}
+                                                            >
+                                                                  {String(hour).padStart(2, "0")}:00
+                                                            </div>
+                                                      ))}
+                                                </div>
+
+                                                {WEEK_DAYS.map((dayOfWeek) => (
+                                                      <div
+                                                            key={dayOfWeek}
+                                                            className="relative border-l border-slate-200"
+                                                      >
+                                                            {Array.from(
+                                                                  { length: STUDY_HOUR_END - STUDY_HOUR_START + 1 },
+                                                                  (_, index) => STUDY_HOUR_START + index
+                                                            ).map((hour) => (
+                                                                  <div
+                                                                        key={hour}
+                                                                        className="absolute left-0 right-0 border-t border-slate-100"
+                                                                        style={{
+                                                                              top: `${(hour - STUDY_HOUR_START) * calendarHourHeight}px`,
+                                                                        }}
+                                                                  />
+                                                            ))}
+
+                                                            {(schedulesByDay.get(dayOfWeek) || []).map((item) => (
+                                                                  <button
+                                                                        key={item.id}
+                                                                        type="button"
+                                                                        onClick={() => handleEdit(item)}
+                                                                        className="group absolute left-2 right-2 overflow-visible rounded-xl border border-blue-200 bg-blue-50 px-2 py-1 text-left shadow-sm transition hover:z-20 hover:bg-blue-100"
+                                                                        style={{
+                                                                              top: `${getScheduleTopOffset(item.startTime, calendarHourHeight)}px`,
+                                                                              height: `${getScheduleBlockHeight(item.startTime, item.endTime, calendarHourHeight)}px`,
+                                                                        }}
+                                                                        title={`${DAY_LABELS[item.dayOfWeek]} ${formatTime(item.startTime)} - ${formatTime(item.endTime)} · ${item.subjectName || "Khung giờ học"}${item.location ? ` · ${item.location}` : ""}`}
+                                                                  >
+                                                                        <div className="overflow-hidden">
+                                                                              <div className="text-[11px] font-bold text-blue-700">
+                                                                                    {formatTime(item.startTime)} - {formatTime(item.endTime)}
+                                                                              </div>
+                                                                              <div className="mt-0.5 line-clamp-2 text-xs font-semibold text-slate-900">
+                                                                                    {item.subjectName || "Khung giờ học"}
+                                                                              </div>
+                                                                              {item.location && (
+                                                                                    <div className="mt-0.5 truncate text-[11px] text-slate-500">
+                                                                                          {item.location}
+                                                                                    </div>
+                                                                              )}
+                                                                        </div>
+
+                                                                        <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-64 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-2xl group-hover:block">
+                                                                              <div className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                                                                                    {DAY_LABELS[item.dayOfWeek]} · {formatTime(item.startTime)} - {formatTime(item.endTime)}
+                                                                              </div>
+                                                                              <div className="mt-1 text-sm font-bold text-slate-950">
+                                                                                    {item.subjectName || "Khung giờ học"}
+                                                                              </div>
+                                                                              {item.location && (
+                                                                                    <div className="mt-1 text-xs text-slate-600">
+                                                                                          Địa điểm: {item.location}
+                                                                                    </div>
+                                                                              )}
+                                                                              {item.notes && (
+                                                                                    <div className="mt-1 text-xs text-slate-500">
+                                                                                          Ghi chú: {item.notes}
+                                                                                    </div>
+                                                                              )}
+                                                                        </div>
+                                                                  </button>
+                                                            ))}
+                                                      </div>
+                                                ))}
+                                          </div>
+                                    </div>
+                              </div>
+                        ) : (
+                              <div className="rounded-2xl border border-slate-200 bg-white">
+                                    <div className="flex flex-col gap-1 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                          <div className="font-bold text-slate-900">{monthTitle}</div>
+                                          <div className="text-xs text-slate-500">
+                                                Lịch tháng được sinh theo lịch học lặp hằng tuần.
+                                          </div>
+                                    </div>
+
+                                    <div className="overflow-auto" style={{ maxHeight: calendarMaxHeight }}>
+                                          <div className="min-w-[760px]">
+                                                <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-xs font-bold uppercase text-slate-500">
+                                                      {WEEK_DAYS.map((dayOfWeek) => (
+                                                            <div key={dayOfWeek} className="px-2 py-2">
+                                                                  {DAY_LABELS[dayOfWeek].replace("Thứ ", "T")}
+                                                            </div>
+                                                      ))}
+                                                </div>
+
+                                                <div className="grid grid-cols-7">
+                                                      {monthCells.map((cell, index) => {
+                                                const daySchedules = cell.dayOfWeek
+                                                      ? schedulesByDay.get(cell.dayOfWeek) || []
+                                                      : [];
+
+                                                return (
+                                                      <div
+                                                            key={cell.date ? cell.date.toISOString() : `empty-${index}`}
+                                                            className={[
+                                                                  isCalendarExpanded
+                                                                        ? "min-h-[170px] border-b border-r border-slate-100 p-2"
+                                                                        : "min-h-[110px] border-b border-r border-slate-100 p-2",
+                                                                  cell.date ? "bg-white" : "bg-slate-50/80",
+                                                            ].join(" ")}
+                                                      >
+                                                            {cell.date && (
+                                                                  <>
+                                                                        <div className="mb-2 text-xs font-bold text-slate-500">
+                                                                              {cell.date.getDate()}
+                                                                        </div>
+
+                                                                        <div className="space-y-1">
+                                                                              {daySchedules.slice(0, 3).map((item) => (
+                                                                                    <button
+                                                                                          key={`${cell.date?.toISOString()}-${item.id}`}
+                                                                                          type="button"
+                                                                                          onClick={() => handleEdit(item)}
+                                                                                          title={`${DAY_LABELS[item.dayOfWeek]} ${formatTime(item.startTime)} - ${formatTime(item.endTime)} · ${item.subjectName || "Khung giờ học"}${item.location ? ` · ${item.location}` : ""}`}
+                                                                                          className="block w-full truncate rounded-lg bg-blue-50 px-2 py-1 text-left text-[11px] font-semibold text-blue-700 hover:bg-blue-100"
+                                                                                    >
+                                                                                          {formatTime(item.startTime)} {item.subjectName || "Khung giờ học"}
+                                                                                    </button>
+                                                                              ))}
+
+                                                                              {daySchedules.length > 3 && (
+                                                                                    <div className="text-[11px] font-medium text-slate-400">
+                                                                                          +{daySchedules.length - 3} lịch khác
+                                                                                    </div>
+                                                                              )}
+                                                                        </div>
+                                                                  </>
+                                                            )}
+                                                      </div>
+                                                );
+                                                      })}
+                                                </div>
+                                          </div>
+                                    </div>
+                              </div>
                         )}
+
                   </AppSection>
+
+
+                  {isCalendarExpanded && (scheduleViewMode === "week" || scheduleViewMode === "month") && (
+                        <div className="fixed bottom-6 right-6 top-20 z-[90] w-[calc(100vw-3rem)] rounded-3xl border border-slate-200 bg-white shadow-2xl lg:left-72 lg:w-auto">
+                              <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                          <p className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                                                Lịch học mở rộng
+                                          </p>
+                                          <h3 className="text-lg font-bold text-slate-950">
+                                                {scheduleViewMode === "week" ? "Lịch tuần" : "Lịch tháng"}
+                                          </h3>
+                                          <p className="mt-1 text-xs text-slate-500">
+                                                Khung xem nằm trên hồ sơ học viên, vẫn giữ menu bên trái. Có thể cuộn ngang/dọc để xem chi tiết.
+                                          </p>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                          <div className="inline-flex rounded-2xl bg-slate-100 p-1">
+                                                {([
+                                                      ["week", "Lịch tuần"],
+                                                      ["month", "Lịch tháng"],
+                                                ] as Array<[ScheduleViewMode, string]>).map(([key, label]) => (
+                                                      <button
+                                                            key={key}
+                                                            type="button"
+                                                            onClick={() => setScheduleViewMode(key)}
+                                                            className={[
+                                                                  "rounded-xl px-3 py-1.5 text-xs font-semibold transition",
+                                                                  scheduleViewMode === key
+                                                                        ? "bg-white text-blue-700 shadow-sm"
+                                                                        : "text-slate-500 hover:text-slate-800",
+                                                            ].join(" ")}
+                                                      >
+                                                            {label}
+                                                      </button>
+                                                ))}
+                                          </div>
+
+                                          <button
+                                                type="button"
+                                                onClick={closeCalendarExpanded}
+                                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                                                title="Trở về trạng thái ban đầu trong form hồ sơ học viên"
+                                          >
+                                                Trở về
+                                          </button>
+
+                                          <button
+                                                type="button"
+                                                onClick={closeCalendarExpanded}
+                                                className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100"
+                                                title="Đóng khung lịch mở rộng"
+                                          >
+                                                <X className="h-5 w-5" />
+                                          </button>
+                                    </div>
+                              </div>
+
+                              <div className="h-[calc(100%-104px)] overflow-hidden p-4">
+                                    {scheduleViewMode === "week" ? (
+                                          <div className="h-full rounded-2xl border border-slate-200 bg-white">
+                                                <div className="overflow-x-auto">
+                                                      <div
+                                                            className="grid grid-cols-[80px_repeat(7,minmax(140px,1fr))] border-b border-slate-200 bg-slate-50"
+                                                            style={{ minWidth: expandedCalendarMinWidth }}
+                                                      >
+                                                            <div className="px-3 py-3 text-xs font-bold uppercase text-slate-400">
+                                                                  Giờ
+                                                            </div>
+                                                            {WEEK_DAYS.map((dayOfWeek) => (
+                                                                  <div
+                                                                        key={dayOfWeek}
+                                                                        className="border-l border-slate-200 px-3 py-3 text-center text-xs font-bold uppercase text-slate-500"
+                                                                  >
+                                                                        {DAY_LABELS[dayOfWeek]}
+                                                                  </div>
+                                                            ))}
+                                                      </div>
+                                                </div>
+
+                                                <div
+                                                      className="overflow-auto"
+                                                      style={{ maxHeight: expandedCalendarMaxHeight }}
+                                                >
+                                                      <div
+                                                            className="grid grid-cols-[80px_repeat(7,minmax(140px,1fr))]"
+                                                            style={{
+                                                                  minWidth: expandedCalendarMinWidth,
+                                                                  height: `${(STUDY_HOUR_END - STUDY_HOUR_START) * expandedCalendarHourHeight}px`,
+                                                            }}
+                                                      >
+                                                            <div className="relative bg-slate-50">
+                                                                  {Array.from(
+                                                                        { length: STUDY_HOUR_END - STUDY_HOUR_START + 1 },
+                                                                        (_, index) => STUDY_HOUR_START + index
+                                                                  ).map((hour) => (
+                                                                        <div
+                                                                              key={hour}
+                                                                              className="absolute left-0 right-0 border-t border-slate-200 px-2 pt-1 text-[11px] font-medium text-slate-400"
+                                                                              style={{
+                                                                                    top: `${(hour - STUDY_HOUR_START) * expandedCalendarHourHeight}px`,
+                                                                              }}
+                                                                        >
+                                                                              {String(hour).padStart(2, "0")}:00
+                                                                        </div>
+                                                                  ))}
+                                                            </div>
+
+                                                            {WEEK_DAYS.map((dayOfWeek) => (
+                                                                  <div
+                                                                        key={dayOfWeek}
+                                                                        className="relative border-l border-slate-200"
+                                                                  >
+                                                                        {Array.from(
+                                                                              { length: STUDY_HOUR_END - STUDY_HOUR_START + 1 },
+                                                                              (_, index) => STUDY_HOUR_START + index
+                                                                        ).map((hour) => (
+                                                                              <div
+                                                                                    key={hour}
+                                                                                    className="absolute left-0 right-0 border-t border-slate-100"
+                                                                                    style={{
+                                                                                          top: `${(hour - STUDY_HOUR_START) * expandedCalendarHourHeight}px`,
+                                                                                    }}
+                                                                              />
+                                                                        ))}
+
+                                                                        {(schedulesByDay.get(dayOfWeek) || []).map((item) => (
+                                                                              <button
+                                                                                    key={item.id}
+                                                                                    type="button"
+                                                                                    onClick={() => handleEdit(item)}
+                                                                                    className="group absolute left-2 right-2 overflow-visible rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-left shadow-sm transition hover:z-20 hover:bg-blue-100"
+                                                                                    style={{
+                                                                                          top: `${getScheduleTopOffset(item.startTime, expandedCalendarHourHeight)}px`,
+                                                                                          height: `${getScheduleBlockHeight(item.startTime, item.endTime, expandedCalendarHourHeight)}px`,
+                                                                                    }}
+                                                                                    title={`${DAY_LABELS[item.dayOfWeek]} ${formatTime(item.startTime)} - ${formatTime(item.endTime)} · ${item.subjectName || "Khung giờ học"}${item.location ? ` · ${item.location}` : ""}`}
+                                                                              >
+                                                                                    <div className="overflow-hidden">
+                                                                                          <div className="text-xs font-bold text-blue-700">
+                                                                                                {formatTime(item.startTime)} - {formatTime(item.endTime)}
+                                                                                          </div>
+                                                                                          <div className="mt-1 line-clamp-2 text-sm font-semibold text-slate-900">
+                                                                                                {item.subjectName || "Khung giờ học"}
+                                                                                          </div>
+                                                                                          {item.location && (
+                                                                                                <div className="mt-1 truncate text-xs text-slate-500">
+                                                                                                      {item.location}
+                                                                                                </div>
+                                                                                          )}
+                                                                                    </div>
+
+                                                                                    <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-72 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-2xl group-hover:block">
+                                                                                          <div className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                                                                                                {DAY_LABELS[item.dayOfWeek]} · {formatTime(item.startTime)} - {formatTime(item.endTime)}
+                                                                                          </div>
+                                                                                          <div className="mt-1 text-sm font-bold text-slate-950">
+                                                                                                {item.subjectName || "Khung giờ học"}
+                                                                                          </div>
+                                                                                          {item.location && (
+                                                                                                <div className="mt-1 text-xs text-slate-600">
+                                                                                                      Địa điểm: {item.location}
+                                                                                                </div>
+                                                                                          )}
+                                                                                          {item.notes && (
+                                                                                                <div className="mt-1 text-xs text-slate-500">
+                                                                                                      Ghi chú: {item.notes}
+                                                                                                </div>
+                                                                                          )}
+                                                                                    </div>
+                                                                              </button>
+                                                                        ))}
+                                                                  </div>
+                                                            ))}
+                                                      </div>
+                                                </div>
+                                          </div>
+                                    ) : (
+                                          <div className="h-full rounded-2xl border border-slate-200 bg-white">
+                                                <div className="flex flex-col gap-1 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                                      <div className="font-bold text-slate-900">{monthTitle}</div>
+                                                      <div className="text-xs text-slate-500">
+                                                            Lịch tháng được sinh theo lịch học lặp hằng tuần.
+                                                      </div>
+                                                </div>
+
+                                                <div className="overflow-auto" style={{ maxHeight: expandedCalendarMaxHeight }}>
+                                                      <div className="min-w-[920px]">
+                                                            <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-xs font-bold uppercase text-slate-500">
+                                                                  {WEEK_DAYS.map((dayOfWeek) => (
+                                                                        <div key={dayOfWeek} className="px-2 py-2">
+                                                                              {DAY_LABELS[dayOfWeek].replace("Thứ ", "T")}
+                                                                        </div>
+                                                                  ))}
+                                                            </div>
+
+                                                            <div className="grid grid-cols-7">
+                                                                  {monthCells.map((cell, index) => {
+                                                                        const daySchedules = cell.dayOfWeek
+                                                                              ? schedulesByDay.get(cell.dayOfWeek) || []
+                                                                              : [];
+
+                                                                        return (
+                                                                              <div
+                                                                                    key={cell.date ? cell.date.toISOString() : `expanded-empty-${index}`}
+                                                                                    className={[
+                                                                                          "min-h-[170px] border-b border-r border-slate-100 p-2",
+                                                                                          cell.date ? "bg-white" : "bg-slate-50/80",
+                                                                                    ].join(" ")}
+                                                                              >
+                                                                                    {cell.date && (
+                                                                                          <>
+                                                                                                <div className="mb-2 text-xs font-bold text-slate-500">
+                                                                                                      {cell.date.getDate()}
+                                                                                                </div>
+
+                                                                                                <div className="space-y-1">
+                                                                                                      {daySchedules.map((item) => (
+                                                                                                            <button
+                                                                                                                  key={`${cell.date?.toISOString()}-${item.id}`}
+                                                                                                                  type="button"
+                                                                                                                  onClick={() => handleEdit(item)}
+                                                                                                                  title={`${DAY_LABELS[item.dayOfWeek]} ${formatTime(item.startTime)} - ${formatTime(item.endTime)} · ${item.subjectName || "Khung giờ học"}${item.location ? ` · ${item.location}` : ""}`}
+                                                                                                                  className="block w-full truncate rounded-lg bg-blue-50 px-2 py-1 text-left text-[11px] font-semibold text-blue-700 hover:bg-blue-100"
+                                                                                                            >
+                                                                                                                  {formatTime(item.startTime)} - {formatTime(item.endTime)} · {item.subjectName || "Khung giờ học"}
+                                                                                                            </button>
+                                                                                                      ))}
+                                                                                                </div>
+                                                                                          </>
+                                                                                    )}
+                                                                              </div>
+                                                                        );
+                                                                  })}
+                                                            </div>
+                                                      </div>
+                                                </div>
+                                          </div>
+                                    )}
+                              </div>
+                        </div>
+                  )}
 
                   {formError && isModalOpen && (
                         <div className="fixed left-1/2 top-6 z-[130] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 shadow-2xl">

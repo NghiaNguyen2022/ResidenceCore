@@ -1,7 +1,7 @@
-﻿'use client';
+'use client';
 
-import type { ReactNode } from 'react';
-import { Users } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp, Users } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -121,6 +121,8 @@ export function DutyAssignmentForm({
       onSave,
       onOpenDutyTemplateDialog,
 }: DutyAssignmentFormProps) {
+      const [showRepeatOptions, setShowRepeatOptions] = useState(form.repeatType !== 'once');
+
       const updateForm = (patch: Partial<AssignmentForm>) => {
             onChange({
                   ...form,
@@ -128,12 +130,10 @@ export function DutyAssignmentForm({
             });
       };
 
-      const isRepeatAssignment = form.repeatType !== 'once';
-
       const saveText = isSaving
             ? 'Đang lưu...'
             : preview?.canCreateCount
-                  ? `Lưu ${preview.canCreateCount} ngày`
+                  ? `Lưu ${preview.canCreateCount} phân công`
                   : 'Lưu phân công';
 
       return (
@@ -141,10 +141,10 @@ export function DutyAssignmentForm({
                   <div className="mb-5 flex items-start justify-between gap-3">
                         <div>
                               <h2 className="text-xl font-bold text-slate-950">
-                                    Tạo phân công
+                                    Phân công công tác
                               </h2>
                               <p className="mt-1 text-sm text-slate-500">
-                                    Giao công tác nhanh cho học viên, Tổ, phòng ngủ hoặc Ban.
+                                    Simple Mode: chọn ngày, giờ, công tác, nơi làm/ghi chú và đối tượng được phân công.
                               </p>
                         </div>
 
@@ -158,21 +158,6 @@ export function DutyAssignmentForm({
                   </div>
 
                   <div className="space-y-4">
-                        <label className="space-y-1.5">
-                              <Label>Ngày bắt đầu</Label>
-                              <DatePickerInput
-                                    value={form.assignedDate}
-                                    onChange={(event) =>
-                                          updateForm({
-                                                assignedDate: event.target.value,
-                                                repeatEndDate:
-                                                      form.repeatEndDate || event.target.value,
-                                          })
-                                    }
-                                    className="rounded-2xl"
-                              />
-                        </label>
-
                         <label className="space-y-1.5">
                               <Label>Công tác</Label>
                               <select
@@ -200,242 +185,28 @@ export function DutyAssignmentForm({
                               </select>
                         </label>
 
-                        <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
-                              <div>
-                                    <Label>Chu kỳ thực hiện</Label>
-                                    <p className="mt-1 text-xs text-slate-500">
-                                          Chọn một ngày, theo tuần hoặc theo tháng để hệ thống tự tạo các ngày công tác phù hợp.
-                                    </p>
+                        {selectedDutyConfig?.description && (
+                              <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-600 ring-1 ring-slate-100">
+                                    {selectedDutyConfig.description}
                               </div>
+                        )}
 
-                              <div className="mt-3 grid grid-cols-3 gap-2">
-                                    {[
-                                          { value: 'once', label: 'Một ngày' },
-                                          { value: 'weekly', label: 'Theo tuần' },
-                                          { value: 'monthly', label: 'Theo tháng' },
-                                    ].map((item) => (
-                                          <button
-                                                key={item.value}
-                                                type="button"
-                                                onClick={() =>
-                                                      updateForm({
-                                                            repeatType: item.value as RepeatType,
-                                                            assignWholeWeek: item.value !== 'once',
-                                                            repeatEndDate:
-                                                                  item.value === 'once'
-                                                                        ? form.assignedDate
-                                                                        : form.repeatEndDate || form.assignedDate,
-                                                            // ✅ Reset weeklyDays nếu chuyển sang weekly mode
-                                                            weeklyDays: item.value === 'weekly' && !form.weeklyDays?.length
-                                                                  ? ['monday']
-                                                                  : form.weeklyDays,
-                                                            // ✅ Reset monthDays nếu chuyển sang monthly mode
-                                                            monthDays: item.value === 'monthly' && !form.monthDays?.length
-                                                                  ? [1]
-                                                                  : form.monthDays,
-                                                      })
-                                                }
-                                                className={[
-                                                      'rounded-2xl border px-3 py-2 text-sm font-semibold transition',
-                                                      form.repeatType === item.value
-                                                            ? 'border-blue-200 bg-blue-600 text-white shadow-sm'
-                                                            : 'border-slate-200 bg-white text-slate-600 hover:bg-white hover:text-slate-900',
-                                                ].join(' ')}
-                                          >
-                                                {item.label}
-                                          </button>
-                                    ))}
-                              </div>
+                        <div className="grid gap-3 md:grid-cols-3">
+                              <label className="space-y-1.5 md:col-span-1">
+                                    <Label>Ngày</Label>
+                                    <DatePickerInput
+                                          value={form.assignedDate}
+                                          onChange={(event) =>
+                                                updateForm({
+                                                      assignedDate: event.target.value,
+                                                      repeatEndDate:
+                                                            form.repeatEndDate || event.target.value,
+                                                })
+                                          }
+                                          className="rounded-2xl"
+                                    />
+                              </label>
 
-                              {isRepeatAssignment && (
-                                    <label className="mt-4 block space-y-1.5">
-                                          <Label>Đến ngày</Label>
-                                          <DatePickerInput
-                                                value={form.repeatEndDate || form.assignedDate}
-                                                min={form.assignedDate || undefined}
-                                                onChange={(event) =>
-                                                      updateForm({ repeatEndDate: event.target.value })
-                                                }
-                                                className="rounded-2xl bg-white"
-                                          />
-                                    </label>
-                              )}
-
-                              {form.repeatType === 'weekly' && (
-                                    <div className="mt-4 space-y-2">
-                                          <Label>Ngày thực hiện trong tuần</Label>
-                                          <div className="flex flex-wrap gap-2">
-                                                {DAY_OPTIONS.map((day) => (
-                                                      <SelectionPill
-                                                            key={day.value}
-                                                            active={form.weeklyDays.includes(day.value)}
-                                                            onClick={() =>
-                                                                  updateForm({
-                                                                        weeklyDays: toggleValue(
-                                                                              form.weeklyDays,
-                                                                              day.value
-                                                                        ),
-                                                                  })
-                                                            }
-                                                      >
-                                                            {day.label}
-                                                      </SelectionPill>
-                                                ))}
-                                          </div>
-                                    </div>
-                              )}
-
-                              {form.repeatType === 'monthly' && (
-                                    <div className="mt-4 space-y-4">
-                                          <label className="space-y-1.5">
-                                                <Label>Kiểu lặp tháng</Label>
-                                                <select
-                                                      value={form.monthlyMode}
-                                                      onChange={(event) =>
-                                                            updateForm({
-                                                                  monthlyMode: event.target.value as MonthlyMode,
-                                                            })
-                                                      }
-                                                      className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
-                                                >
-                                                      <option value="month_boundary">
-                                                            Ngày đầu / cuối tháng
-                                                      </option>
-                                                      <option value="day_of_month">
-                                                            Ngày cố định trong tháng
-                                                      </option>
-                                                      <option value="week_day">
-                                                            Theo tuần / thứ trong tháng
-                                                      </option>
-                                                </select>
-                                          </label>
-
-                                          {form.monthlyMode === 'month_boundary' && (
-                                                <div className="space-y-2">
-                                                      <Label>Chọn ngày</Label>
-                                                      <div className="grid grid-cols-2 gap-2">
-                                                            <button
-                                                                  type="button"
-                                                                  onClick={() =>
-                                                                        updateForm({
-                                                                              monthBoundary: 'first_day',
-                                                                        })
-                                                                  }
-                                                                  className={[
-                                                                        'rounded-2xl border px-3 py-2 text-sm font-semibold',
-                                                                        form.monthBoundary === 'first_day'
-                                                                              ? 'border-blue-200 bg-blue-600 text-white'
-                                                                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
-                                                                  ].join(' ')}
-                                                            >
-                                                                  Ngày đầu tháng
-                                                            </button>
-                                                            <button
-                                                                  type="button"
-                                                                  onClick={() =>
-                                                                        updateForm({
-                                                                              monthBoundary: 'last_day',
-                                                                        })
-                                                                  }
-                                                                  className={[
-                                                                        'rounded-2xl border px-3 py-2 text-sm font-semibold',
-                                                                        form.monthBoundary === 'last_day'
-                                                                              ? 'border-blue-200 bg-blue-600 text-white'
-                                                                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
-                                                                  ].join(' ')}
-                                                            >
-                                                                  Ngày cuối tháng
-                                                            </button>
-                                                      </div>
-                                                      <p className="text-xs leading-5 text-slate-500">
-                                                            Ngày cuối tháng sẽ tự tính theo từng tháng: 28/29/30/31.
-                                                      </p>
-                                                </div>
-                                          )}
-
-                                          {form.monthlyMode === 'day_of_month' && (
-                                                <div className="space-y-2">
-                                                      <Label>Ngày cố định trong tháng</Label>
-                                                      <div className="grid grid-cols-7 gap-2">
-                                                            {MONTH_DAYS.map((day) => (
-                                                                  <SelectionPill
-                                                                        key={day}
-                                                                        active={form.monthDays.includes(day)}
-                                                                        onClick={() =>
-                                                                              updateForm({
-                                                                                    monthDays: toggleValue(
-                                                                                          form.monthDays,
-                                                                                          day
-                                                                                    ),
-                                                                              })
-                                                                        }
-                                                                  >
-                                                                        {day}
-                                                                  </SelectionPill>
-                                                            ))}
-                                                      </div>
-                                                      <p className="text-xs leading-5 text-slate-500">
-                                                            Nếu tháng không có ngày đã chọn, hệ thống sẽ bỏ qua tháng đó.
-                                                      </p>
-                                                </div>
-                                          )}
-
-                                          {form.monthlyMode === 'week_day' && (
-                                                <div className="space-y-4">
-                                                      <div className="space-y-2">
-                                                            <Label>Tuần trong tháng</Label>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                  {MONTH_WEEK_OPTIONS.map((week) => (
-                                                                        <SelectionPill
-                                                                              key={week.value}
-                                                                              active={form.monthWeeks.includes(
-                                                                                    week.value
-                                                                              )}
-                                                                              onClick={() =>
-                                                                                    updateForm({
-                                                                                          monthWeeks: toggleValue(
-                                                                                                form.monthWeeks,
-                                                                                                week.value
-                                                                                          ),
-                                                                                    })
-                                                                              }
-                                                                        >
-                                                                              {week.label}
-                                                                        </SelectionPill>
-                                                                  ))}
-                                                            </div>
-                                                      </div>
-
-                                                      <div className="space-y-2">
-                                                            <Label>Thứ thực hiện</Label>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                  {DAY_OPTIONS.map((day) => (
-                                                                        <SelectionPill
-                                                                              key={day.value}
-                                                                              active={form.monthWeekDays.includes(
-                                                                                    day.value
-                                                                              )}
-                                                                              onClick={() =>
-                                                                                    updateForm({
-                                                                                          monthWeekDays: toggleValue(
-                                                                                                form.monthWeekDays,
-                                                                                                day.value
-                                                                                          ),
-                                                                                    })
-                                                                              }
-                                                                        >
-                                                                              {day.label}
-                                                                        </SelectionPill>
-                                                                  ))}
-                                                            </div>
-                                                      </div>
-                                                </div>
-                                          )}
-                                    </div>
-                              )}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
                               <label className="space-y-1.5">
                                     <Label>Giờ bắt đầu</Label>
                                     <Input
@@ -461,54 +232,278 @@ export function DutyAssignmentForm({
                               </label>
                         </div>
 
-                        <label className="space-y-1.5">
-                              <Label>Giao cho</Label>
-                              <select
-                                    value={form.assignedToType}
-                                    onChange={(event) =>
-                                          updateForm({
-                                                assignedToType: event.target.value as AssignToType,
-                                                assignedToId: '',
-                                          })
-                                    }
-                                    className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
-                              >
-                                    <option value="resident">Học viên</option>
-                                    <option value="team">Tổ</option>
-                                    <option value="room">Phòng</option>
-                                    <option value="committee">Ban</option>
-                              </select>
-                        </label>
+                        <div className="grid gap-3 md:grid-cols-2">
+                              <label className="space-y-1.5">
+                                    <Label>Giao cho</Label>
+                                    <select
+                                          value={form.assignedToType}
+                                          onChange={(event) =>
+                                                updateForm({
+                                                      assignedToType: event.target.value as AssignToType,
+                                                      assignedToId: '',
+                                                })
+                                          }
+                                          className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                    >
+                                          <option value="resident">Học viên</option>
+                                          <option value="team">Tổ</option>
+                                          <option value="room">Phòng</option>
+                                          <option value="committee">Ban</option>
+                                    </select>
+                              </label>
+
+                              <label className="space-y-1.5">
+                                    <Label>Đối tượng</Label>
+                                    <select
+                                          value={form.assignedToId}
+                                          onChange={(event) =>
+                                                updateForm({ assignedToId: event.target.value })
+                                          }
+                                          className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                    >
+                                          <option value="">Chọn đối tượng</option>
+                                          {assigneeOptions.map((option) => (
+                                                <option key={option.id} value={option.id}>
+                                                      {option.label}
+                                                </option>
+                                          ))}
+                                    </select>
+                              </label>
+                        </div>
 
                         <label className="space-y-1.5">
-                              <Label>Đối tượng</Label>
-                              <select
-                                    value={form.assignedToId}
-                                    onChange={(event) =>
-                                          updateForm({ assignedToId: event.target.value })
-                                    }
-                                    className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
-                              >
-                                    <option value="">Chọn đối tượng</option>
-                                    {assigneeOptions.map((option) => (
-                                          <option key={option.id} value={option.id}>
-                                                {option.label}
-                                          </option>
-                                    ))}
-                              </select>
-                        </label>
-
-                        <label className="space-y-1.5">
-                              <Label>Ghi chú</Label>
+                              <Label>Nơi làm / ghi chú ngắn</Label>
                               <Textarea
                                     value={form.notes}
                                     onChange={(event) =>
                                           updateForm({ notes: event.target.value })
                                     }
-                                    placeholder="Ghi chú thêm nếu cần"
+                                    placeholder="Ví dụ: Sảnh chính, nhà ăn, khu sân; hoặc ghi chú thêm nếu cần"
                                     className="min-h-[80px] rounded-2xl"
                               />
                         </label>
+
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                              <button
+                                    type="button"
+                                    onClick={() => setShowRepeatOptions((current) => !current)}
+                                    className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold text-slate-700"
+                              >
+                                    <span>Tùy chọn lặp lại</span>
+                                    {showRepeatOptions ? (
+                                          <ChevronUp className="h-4 w-4" />
+                                    ) : (
+                                          <ChevronDown className="h-4 w-4" />
+                                    )}
+                              </button>
+
+                              {!showRepeatOptions && (
+                                    <p className="mt-1 text-xs text-slate-500">
+                                          Mặc định chỉ tạo công tác cho một ngày đã chọn.
+                                    </p>
+                              )}
+
+                              {showRepeatOptions && (
+                                    <div className="mt-3 space-y-4">
+                                          <div className="grid grid-cols-3 gap-2">
+                                                {[
+                                                      { value: 'once', label: 'Một ngày' },
+                                                      { value: 'weekly', label: 'Theo tuần' },
+                                                      { value: 'monthly', label: 'Theo tháng' },
+                                                ].map((item) => (
+                                                      <button
+                                                            key={item.value}
+                                                            type="button"
+                                                            onClick={() =>
+                                                                  updateForm({
+                                                                        repeatType: item.value as RepeatType,
+                                                                        assignWholeWeek: item.value !== 'once',
+                                                                        repeatEndDate:
+                                                                              item.value === 'once'
+                                                                                    ? form.assignedDate
+                                                                                    : form.repeatEndDate || form.assignedDate,
+                                                                        weeklyDays:
+                                                                              item.value === 'weekly' && !form.weeklyDays?.length
+                                                                                    ? ['monday']
+                                                                                    : form.weeklyDays,
+                                                                        monthDays:
+                                                                              item.value === 'monthly' && !form.monthDays?.length
+                                                                                    ? [1]
+                                                                                    : form.monthDays,
+                                                                  })
+                                                            }
+                                                            className={[
+                                                                  'rounded-2xl border px-3 py-2 text-sm font-semibold transition',
+                                                                  form.repeatType === item.value
+                                                                        ? 'border-blue-200 bg-blue-600 text-white shadow-sm'
+                                                                        : 'border-slate-200 bg-white text-slate-600 hover:bg-white hover:text-slate-900',
+                                                            ].join(' ')}
+                                                      >
+                                                            {item.label}
+                                                      </button>
+                                                ))}
+                                          </div>
+
+                                          {form.repeatType !== 'once' && (
+                                                <label className="block space-y-1.5">
+                                                      <Label>Đến ngày</Label>
+                                                      <DatePickerInput
+                                                            value={form.repeatEndDate || form.assignedDate}
+                                                            min={form.assignedDate || undefined}
+                                                            onChange={(event) =>
+                                                                  updateForm({ repeatEndDate: event.target.value })
+                                                            }
+                                                            className="rounded-2xl bg-white"
+                                                      />
+                                                </label>
+                                          )}
+
+                                          {form.repeatType === 'weekly' && (
+                                                <div className="space-y-2">
+                                                      <Label>Ngày thực hiện trong tuần</Label>
+                                                      <div className="flex flex-wrap gap-2">
+                                                            {DAY_OPTIONS.map((day) => (
+                                                                  <SelectionPill
+                                                                        key={day.value}
+                                                                        active={form.weeklyDays.includes(day.value)}
+                                                                        onClick={() =>
+                                                                              updateForm({
+                                                                                    weeklyDays: toggleValue(
+                                                                                          form.weeklyDays,
+                                                                                          day.value
+                                                                                    ),
+                                                                              })
+                                                                        }
+                                                                  >
+                                                                        {day.label}
+                                                                  </SelectionPill>
+                                                            ))}
+                                                      </div>
+                                                </div>
+                                          )}
+
+                                          {form.repeatType === 'monthly' && (
+                                                <div className="space-y-4">
+                                                      <label className="space-y-1.5">
+                                                            <Label>Kiểu lặp tháng</Label>
+                                                            <select
+                                                                  value={form.monthlyMode}
+                                                                  onChange={(event) =>
+                                                                        updateForm({
+                                                                              monthlyMode: event.target.value as MonthlyMode,
+                                                                        })
+                                                                  }
+                                                                  className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                                            >
+                                                                  <option value="month_boundary">
+                                                                        Ngày đầu / cuối tháng
+                                                                  </option>
+                                                                  <option value="day_of_month">
+                                                                        Ngày cố định trong tháng
+                                                                  </option>
+                                                                  <option value="week_day">
+                                                                        Theo tuần / thứ trong tháng
+                                                                  </option>
+                                                            </select>
+                                                      </label>
+
+                                                      {form.monthlyMode === 'month_boundary' && (
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                  <SelectionPill
+                                                                        active={form.monthBoundary === 'first_day'}
+                                                                        onClick={() => updateForm({ monthBoundary: 'first_day' })}
+                                                                  >
+                                                                        Ngày đầu tháng
+                                                                  </SelectionPill>
+                                                                  <SelectionPill
+                                                                        active={form.monthBoundary === 'last_day'}
+                                                                        onClick={() => updateForm({ monthBoundary: 'last_day' })}
+                                                                  >
+                                                                        Ngày cuối tháng
+                                                                  </SelectionPill>
+                                                            </div>
+                                                      )}
+
+                                                      {form.monthlyMode === 'day_of_month' && (
+                                                            <div className="space-y-2">
+                                                                  <Label>Ngày cố định trong tháng</Label>
+                                                                  <div className="grid grid-cols-7 gap-2">
+                                                                        {MONTH_DAYS.map((day) => (
+                                                                              <SelectionPill
+                                                                                    key={day}
+                                                                                    active={form.monthDays.includes(day)}
+                                                                                    onClick={() =>
+                                                                                          updateForm({
+                                                                                                monthDays: toggleValue(
+                                                                                                      form.monthDays,
+                                                                                                      day
+                                                                                                ),
+                                                                                          })
+                                                                                    }
+                                                                              >
+                                                                                    {day}
+                                                                              </SelectionPill>
+                                                                        ))}
+                                                                  </div>
+                                                            </div>
+                                                      )}
+
+                                                      {form.monthlyMode === 'week_day' && (
+                                                            <div className="space-y-4">
+                                                                  <div className="space-y-2">
+                                                                        <Label>Tuần trong tháng</Label>
+                                                                        <div className="flex flex-wrap gap-2">
+                                                                              {MONTH_WEEK_OPTIONS.map((week) => (
+                                                                                    <SelectionPill
+                                                                                          key={week.value}
+                                                                                          active={form.monthWeeks.includes(
+                                                                                                week.value
+                                                                                          )}
+                                                                                          onClick={() =>
+                                                                                                updateForm({
+                                                                                                      monthWeeks: toggleValue(
+                                                                                                            form.monthWeeks,
+                                                                                                            week.value
+                                                                                                      ),
+                                                                                                })
+                                                                                          }
+                                                                                    >
+                                                                                          {week.label}
+                                                                                    </SelectionPill>
+                                                                              ))}
+                                                                        </div>
+                                                                  </div>
+
+                                                                  <div className="space-y-2">
+                                                                        <Label>Thứ thực hiện</Label>
+                                                                        <div className="flex flex-wrap gap-2">
+                                                                              {DAY_OPTIONS.map((day) => (
+                                                                                    <SelectionPill
+                                                                                          key={day.value}
+                                                                                          active={form.monthWeekDays.includes(
+                                                                                                day.value
+                                                                                          )}
+                                                                                          onClick={() =>
+                                                                                                updateForm({
+                                                                                                      monthWeekDays: toggleValue(
+                                                                                                            form.monthWeekDays,
+                                                                                                            day.value
+                                                                                                      ),
+                                                                                                })
+                                                                                          }
+                                                                                    >
+                                                                                          {day.label}
+                                                                                    </SelectionPill>
+                                                                              ))}
+                                                                        </div>
+                                                                  </div>
+                                                            </div>
+                                                      )}
+                                                </div>
+                                          )}
+                                    </div>
+                              )}
+                        </div>
 
                         <DutyPreviewBox
                               isEnabled={previewEnabled}

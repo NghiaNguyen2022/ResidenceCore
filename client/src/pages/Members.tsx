@@ -600,7 +600,6 @@ export default function Members() {
       const isSimple = !isDetailed;
 
       const [searchTerm, setSearchTerm] = useState('');
-      const [statusFilter, setStatusFilter] = useState('all');
       const [quickFilter, setQuickFilter] = useState<MemberQuickFilterKey>('all');
       const [simpleViewMode, setSimpleViewMode] = useState<'cards' | 'list'>('cards');
       const [memberListSort, setMemberListSort] = useState<MemberListSortState>({
@@ -648,7 +647,6 @@ export default function Members() {
 
       const membersQuery = trpc.members.list.useQuery({
             search: searchTerm,
-            status: statusFilter !== 'all' ? (statusFilter as any) : undefined,
       });
 
       const statsQuery = trpc.members.getStats.useQuery();
@@ -976,7 +974,7 @@ export default function Members() {
 
       useEffect(() => {
             setSimplePage(1);
-      }, [searchTerm, statusFilter, quickFilter, simplePageSize]);
+      }, [searchTerm, quickFilter, simplePageSize]);
 
       const refetchMembers = async (focusResidentId?: number) => {
             const membersResult = await membersQuery.refetch();
@@ -1006,7 +1004,6 @@ export default function Members() {
 
       const clearFilters = () => {
             setSearchTerm('');
-            setStatusFilter('all');
             setQuickFilter('all');
       };
 
@@ -1946,44 +1943,7 @@ export default function Members() {
                               </div>
                         )}
 
-                        {isSimple ? (
-                              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                                    <SimpleStatCard
-                                          label="Tổng học viên"
-                                          value={stats.total}
-                                          description="Tất cả hồ sơ học viên"
-                                          icon={<Users className="h-5 w-5" />}
-                                    />
-
-                                    <SimpleStatCard
-                                          label="Đang lưu trú"
-                                          value={stats.active}
-                                          description="Học viên đang ở lưu xá"
-                                          icon={<UserCheck className="h-5 w-5" />}
-                                    />
-
-                                    <SimpleStatCard
-                                          label="Cần xử lý"
-                                          value={attentionStats.needAttentionCount}
-                                          description="Các hồ sơ còn thiếu thông tin cần bổ sung"
-                                          icon={<AlertCircle className="h-5 w-5" />}
-                                          details={[
-                                                {
-                                                      label: 'Chưa có phòng',
-                                                      value: attentionStats.missingRoom,
-                                                },
-                                                {
-                                                      label: 'Chưa có tài khoản',
-                                                      value: attentionStats.missingUser,
-                                                },
-                                                {
-                                                      label: 'Thiếu liên hệ',
-                                                      value: attentionStats.missingContact,
-                                                },
-                                          ]}
-                                    />
-                              </div>
-                        ) : (
+                        {!isSimple && (
                               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                                     <ConfigurableStatCard
                                           moduleKey="members"
@@ -2027,82 +1987,76 @@ export default function Members() {
                               </div>
                         )}
 
-                        <div className="rounded-[26px] border border-slate-200/80 bg-white/90 p-3 shadow-sm">
-                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                                    <div className="relative min-w-0 flex-1">
+                        <div className="rounded-[28px] border border-slate-200/80 bg-white/90 p-4 shadow-sm">
+                              <div className="flex flex-col gap-4">
+                                    <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                                          <div>
+                                                <h2 className="text-lg font-bold text-slate-950">
+                                                      Lọc nhanh học viên
+                                                </h2>
+                                                <p className="mt-1 text-sm text-slate-500">
+                                                      Chọn chip để lọc theo trạng thái/xử lý. Ô tìm kiếm chỉ dùng để tìm nội dung hồ sơ.
+                                                </p>
+                                          </div>
+
+                                          {(searchTerm || quickFilter !== 'all') && (
+                                                <button
+                                                      type="button"
+                                                      onClick={clearFilters}
+                                                      className="h-10 w-fit rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                                                >
+                                                      Xóa lọc
+                                                </button>
+                                          )}
+                                    </div>
+
+                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                                          {memberQuickFilters.map((filter) => {
+                                                const isActive = quickFilter === filter.key;
+                                                const count = quickFilterCounts.get(filter.key) || 0;
+
+                                                return (
+                                                      <button
+                                                            key={filter.key}
+                                                            type="button"
+                                                            onClick={() => setQuickFilter(filter.key)}
+                                                            title={filter.description}
+                                                            className={[
+                                                                  'group flex min-h-[76px] flex-col items-start justify-between rounded-2xl border px-4 py-3 text-left transition',
+                                                                  isActive
+                                                                        ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+                                                            ].join(' ')}
+                                                      >
+                                                            <span className="text-sm font-bold">
+                                                                  {filter.label}
+                                                            </span>
+                                                            <span
+                                                                  className={[
+                                                                        'mt-3 inline-flex min-w-8 items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold',
+                                                                        isActive
+                                                                              ? 'bg-white/15 text-white'
+                                                                              : 'bg-slate-100 text-slate-600 group-hover:bg-white',
+                                                                  ].join(' ')}
+                                                            >
+                                                                  {count}
+                                                            </span>
+                                                      </button>
+                                                );
+                                          })}
+                                    </div>
+
+                                    <div className="relative">
                                           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                           <Input
                                                 value={searchTerm}
                                                 onChange={(event) =>
                                                       setSearchTerm(event.target.value)
                                                 }
-                                                placeholder="Tìm theo tên, mã lưu trú, số điện thoại..."
+                                                placeholder="Tìm theo tên, mã lưu trú, số điện thoại, phòng, liên hệ..."
                                                 className="h-11 rounded-2xl border-slate-200 bg-slate-50/80 pl-10 text-sm shadow-none transition placeholder:text-slate-400 focus:bg-white"
                                           />
                                     </div>
-
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                          <div className="relative">
-                                                <select
-                                                      value={statusFilter}
-                                                      onChange={(event) =>
-                                                            setStatusFilter(event.target.value)
-                                                      }
-                                                      className="h-11 min-w-[190px] appearance-none rounded-2xl border border-slate-200 bg-slate-50/80 py-0 pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition hover:bg-white focus:border-slate-300 focus:bg-white focus:ring-2 focus:ring-slate-100"
-                                                >
-                                                      <option value="all">Tất cả trạng thái</option>
-                                                      <option value="active">Đang ở</option>
-                                                      <option value="inactive">Tạm rời</option>
-                                                      <option value="transferred_out">Đã rời</option>
-                                                </select>
-
-                                                <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">
-                                                      ▾
-                                                </span>
-                                          </div>
-
-                                          <button
-                                                type="button"
-                                                onClick={clearFilters}
-                                                className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
-                                          >
-                                                Xóa lọc
-                                          </button>
-                                    </div>
-                              </div>
-
-                              <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                                    {memberQuickFilters.map((filter) => {
-                                          const isActive = quickFilter === filter.key;
-                                          const count = quickFilterCounts.get(filter.key) || 0;
-
-                                          return (
-                                                <button
-                                                      key={filter.key}
-                                                      type="button"
-                                                      onClick={() => setQuickFilter(filter.key)}
-                                                      title={filter.description}
-                                                      className={[
-                                                            'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition',
-                                                            isActive
-                                                                  ? 'bg-slate-900 text-white ring-slate-900 shadow-sm'
-                                                                  : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50 hover:text-slate-900',
-                                                      ].join(' ')}
-                                                >
-                                                      <span>{filter.label}</span>
-                                                      <span
-                                                            className={[
-                                                                  'rounded-full px-2 py-0.5 text-[11px]',
-                                                                  isActive
-                                                                        ? 'bg-white/15 text-white'
-                                                                        : 'bg-slate-100 text-slate-500',
-                                                            ].join(' ')}
-                                                      >
-                                                            {count}
-                                                      </span>
-                                                </button>
-                                          );
-                                    })}
                               </div>
                         </div>
 

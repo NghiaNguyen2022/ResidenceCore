@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import {
@@ -582,16 +582,6 @@ export default function DailyRoutine() {
 
       const dutyConfigs = dutyConfigsQuery.data || [];
       const members = (membersQuery.data || []) as any[];
-
-      // DEBUG: Log members to browser console
-      useEffect(() => {
-            console.log('📊 DailyRoutine Debug:', {
-                  membersLoading: membersQuery.isLoading,
-                  membersError: membersQuery.error,
-                  membersCount: members.length,
-                  membersSample: members.slice(0, 2),
-            });
-      }, [members, membersQuery.isLoading, membersQuery.error]);
       const rooms = (roomsQuery.data || []) as any[];
       const units = (unitsQuery.data || []) as any[];
       const teams = units.filter((unit: any) => unit.unitType === 'team');

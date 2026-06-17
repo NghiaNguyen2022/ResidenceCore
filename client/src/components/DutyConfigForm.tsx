@@ -34,6 +34,7 @@ interface DutyConfigFormProps {
 export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFormProps) {
   const [activeTab, setActiveTab] = useState<"basic" | "checklist">("basic");
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [newChecklistItem, setNewChecklistItem] = useState<ChecklistItem>({
@@ -187,11 +188,12 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
   // Handle save
   const handleSave = async () => {
     if (!formData.dutyCode || !formData.dutyName) {
-      alert("Vui lòng nhập mã và tên công tác");
+      setFormError("Vui lòng nhập mã và tên công tác.");
       return;
     }
 
     try {
+      setFormError(null);
       setLoading(true);
 
       let dutyConfigId = duty?.id ? Number(duty.id) : 0;
@@ -300,6 +302,12 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
 
   return (
     <div className="space-y-6">
+      {formError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          {formError}
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex gap-4 border-b border-gray-200">
         <button
