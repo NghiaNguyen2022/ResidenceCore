@@ -1,6 +1,5 @@
 import * as db from "../db";
 import { organizationService } from "./organizationService";
-import { roomService } from "./roomService";
 
 export type ResidentFilters = {
       search?: string;
@@ -384,10 +383,9 @@ export class MemberService {
 
       async assignRoom(payload: {
             id: number;
-            roomId?: number;
+            roomId: number;
             eventType: "new_entry" | "transfer" | "temporary_leave" | "left";
             reason?: string;
-            assignedDate?: Date;
       }) {
             const resident = await db.getResidentById(payload.id);
 
@@ -395,20 +393,17 @@ export class MemberService {
                   throw new Error("Member not found");
             }
 
-            /**
-             * Giữ route cũ members.assignRoom để tương thích,
-             * nhưng toàn bộ nghiệp vụ phòng phải đi qua roomService.assignResident.
-             * Không insert thẳng roomAssignments vì sẽ bỏ qua sức chứa,
-             * chuyển/trả phòng và residents.currentRoomId.
-             */
-            return await roomService.assignResident({
+            await db.assignResidentToRoom({
                   residentId: payload.id,
                   roomId: payload.roomId,
-                  assignedDate: payload.assignedDate,
+                  assignedDate: new Date(),
                   eventType: payload.eventType,
                   reason: payload.reason,
             });
+
+            return { success: true } as const;
       }
+
 
       async getEducation(residentId: number) {
             const resident = await db.getResidentById(residentId);

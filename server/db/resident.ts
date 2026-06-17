@@ -636,6 +636,82 @@ function validateStudyScheduleTimeRange(startTime: string, endTime: string) {
       return { start, end };
 }
 
+function timeToMinutes(value: string) {
+      const normalized = normalizeTimeForDb(value);
+      const [hours, minutes] = normalized.split(":").map(Number);
+
+      if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+            return null;
+      }
+
+      return hours * 60 + minutes;
+}
+
+function isOverlappingTimeRange(
+      startTime: string,
+      endTime: string,
+      existingStartTime: string,
+      existingEndTime: string
+) {
+      const start = timeToMinutes(startTime);
+      const end = timeToMinutes(endTime);
+      const existingStart = timeToMinutes(existingStartTime);
+      const existingEnd = timeToMinutes(existingEndTime);
+
+      if (
+            start === null ||
+            end === null ||
+            existingStart === null ||
+            existingEnd === null
+      ) {
+            return false;
+      }
+
+      return start < existingEnd && existingStart < end;
+}
+
+async function assertNoOverlappingStudySchedule(input: {
+      residentId: number;
+      dayOfWeek: DayOfWeek;
+      startTime: string;
+      endTime: string;
+      excludeId?: number | null;
+}) {
+      const db = getDb();
+
+      const existingSchedules = await db
+            .select()
+            .from(residentStudySchedules)
+            .where(
+                  and(
+                        eq(residentStudySchedules.residentId, input.residentId),
+                        eq(residentStudySchedules.dayOfWeek, input.dayOfWeek),
+                        eq(residentStudySchedules.isActive, true)
+                  )
+            );
+
+      const conflicted = existingSchedules.find((schedule: any) => {
+            if (input.excludeId && Number(schedule.id) === Number(input.excludeId)) {
+                  return false;
+            }
+
+            return isOverlappingTimeRange(
+                  input.startTime,
+                  input.endTime,
+                  schedule.startTime,
+                  schedule.endTime
+            );
+      });
+
+      if (conflicted) {
+            throw new Error(
+                  `Lịch học bị trùng với khung giờ ${normalizeTimeForDb(
+                        conflicted.startTime
+                  )} - ${normalizeTimeForDb(conflicted.endTime)} trong cùng ngày.`
+            );
+      }
+}
+
 export async function getResidentStudySchedulesByResidentId(residentId: number) {
       const db = getDb();
 
@@ -657,6 +733,13 @@ export async function getResidentStudySchedulesByResidentId(residentId: number) 
 export async function createResidentStudySchedule(data: ResidentStudyScheduleInput) {
       const db = getDb();
       const timeRange = validateStudyScheduleTimeRange(data.startTime, data.endTime);
+
+      await assertNoOverlappingStudySchedule({
+            residentId: data.residentId,
+            dayOfWeek: data.dayOfWeek,
+            startTime: timeRange.start,
+            endTime: timeRange.end,
+      });
 
       await db.insert(residentStudySchedules).values({
             residentId: data.residentId,
@@ -693,6 +776,14 @@ export async function updateResidentStudySchedule(data: UpdateResidentStudySched
       if (!existing[0]) {
             throw new Error("Không tìm thấy lịch học.");
       }
+
+      await assertNoOverlappingStudySchedule({
+            residentId: data.residentId,
+            dayOfWeek: data.dayOfWeek,
+            startTime: timeRange.start,
+            endTime: timeRange.end,
+            excludeId: data.id,
+      });
 
       await db
             .update(residentStudySchedules)
