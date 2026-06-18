@@ -11,7 +11,7 @@ import {
 
 type AppCardVariant = "default" | "soft" | "bordered" | "warning" | "danger" | "success";
 
-interface AppCardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface AppCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
       title?: React.ReactNode;
       description?: React.ReactNode;
       action?: React.ReactNode;

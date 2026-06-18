@@ -12,7 +12,7 @@ import {
       Users,
       X,
 } from 'lucide-react';
-import { ParentsSection } from './ParentsSection';
+import { ParentsSection } from '@/components/members/ParentsSection';
 import { EducationInfoSection } from './EducationInfoSection';
 import { StudyScheduleSection } from './StudyScheduleSection';
 import { cx, residenceMediumStyle } from '@/components/shared/styleMedium';
@@ -25,13 +25,13 @@ import {
       hasCurrentRoom,
       getStatusClass,
       getStatusLabel,
-} from './memberUtils';
+} from '@/components/members/memberUtils';
 import {
       createEmptyOrganizationDisplay,
       type MemberOrganizationDisplay,
       type OrganizationRoleDisplay,
       type OrganizationUnitDisplay,
-} from './memberOrganizationDisplay';
+} from '@/components/members/memberOrganizationDisplay';
 
 type DetailTabKey =
       | 'overview'

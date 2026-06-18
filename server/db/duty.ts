@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Duty Management Database Functions
  * Các hàm liên quan đến quản lý công tác

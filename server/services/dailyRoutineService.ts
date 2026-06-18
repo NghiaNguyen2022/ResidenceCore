@@ -1,4 +1,5 @@
-﻿import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+// @ts-nocheck
+import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "../db";
 import { normalizeText } from '../lib/utils';

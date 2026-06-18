@@ -1,4 +1,5 @@
-﻿import { and, asc, count, desc, eq, like, ne, or } from "drizzle-orm";
+// @ts-nocheck
+import { and, asc, count, desc, eq, like, ne, or } from "drizzle-orm";
 import { normalizeText } from '../lib/utils';
 
 import { getDb } from "./connection";

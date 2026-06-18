@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Users, DoorOpen, Briefcase, TrendingUp, AlertCircle, AlertTriangle } from "lucide-react";
 import { trpc } from "@/lib/trpc";

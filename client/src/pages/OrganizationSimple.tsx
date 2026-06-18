@@ -312,6 +312,18 @@ function getAssignmentDisplayTitle(assignment: OrganizationAssignment) {
       return assignment.roleName || '-';
 }
 
+function getAssignmentPositionKey(assignment: OrganizationAssignment) {
+      return [
+            assignment.roleId,
+            assignment.unitId || 'house',
+            getAssignmentDisplayTitle(assignment),
+      ].join(':');
+}
+
+function getAssignmentPositionTitle(assignment: OrganizationAssignment) {
+      return getAssignmentDisplayTitle(assignment);
+}
+
 function buildAssignmentTitle(role?: OrganizationRole | null, unit?: OrganizationUnit | null) {
       if (!role) return '';
 
@@ -464,79 +476,304 @@ function AssignmentCard({
       );
 }
 
-function AssignmentsPanel({
-      filteredAssignments,
-      onCreateAssignment,
-      onEditAssignment,
-      onEndAssignment,
+function AppointmentHistoryPanel({
+      assignments,
+      terms,
+      roles,
 }: {
-      filteredAssignments: OrganizationAssignment[];
-      onCreateAssignment: () => void;
-      onEditAssignment: (assignment: OrganizationAssignment) => void;
-      onEndAssignment: (assignment: OrganizationAssignment) => void;
+      assignments: OrganizationAssignment[];
+      terms: OrganizationTerm[];
+      roles: OrganizationRole[];
 }) {
-      const activeCount = filteredAssignments.filter((item) => item.status === 'active').length;
-      const endedCount = filteredAssignments.length - activeCount;
+      const sortedTerms = [...terms].sort((a, b) => {
+            const aStatus = a.status === 'active' ? 0 : a.status === 'inactive' ? 1 : 2;
+            const bStatus = b.status === 'active' ? 0 : b.status === 'inactive' ? 1 : 2;
+            if (aStatus !== bStatus) return aStatus - bStatus;
+            return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+      });
+
+      const termList = sortedTerms.length > 0
+            ? sortedTerms
+            : Array.from(
+                    new Map(
+                          assignments.map((assignment) => [
+                                assignment.termId,
+                                {
+                                      id: assignment.termId,
+                                      code: '',
+                                      name: assignment.termName || `Nhiệm kỳ ${assignment.termId}`,
+                                      startDate: assignment.startDate,
+                                      endDate: assignment.endDate || assignment.startDate,
+                                      status: 'inactive' as TermStatus,
+                                      description: '',
+                                },
+                          ])
+                    ).values()
+              );
+
+      const roleOrder = new Map(roles.map((role, index) => [Number(role.id), index]));
+
+      const historyTree = termList.map((term) => {
+            const termAssignments = assignments
+                  .filter((assignment) => Number(assignment.termId) === Number(term.id))
+                  .sort((a, b) => {
+                        const roleCompare =
+                              (roleOrder.get(Number(a.roleId)) ?? 999) -
+                              (roleOrder.get(Number(b.roleId)) ?? 999);
+                        if (roleCompare !== 0) return roleCompare;
+                        return getAssignmentPositionTitle(a).localeCompare(getAssignmentPositionTitle(b));
+                  });
+
+            const positions = Array.from(
+                  termAssignments.reduce((map, assignment) => {
+                        const key = getAssignmentPositionKey(assignment);
+                        if (!map.has(key)) {
+                              map.set(key, {
+                                    title: getAssignmentPositionTitle(assignment),
+                                    roleName: assignment.roleName || '',
+                                    unitName: assignment.unitName || '',
+                                    assignments: [] as OrganizationAssignment[],
+                              });
+                        }
+
+                        map.get(key)?.assignments.push(assignment);
+                        return map;
+                  }, new Map<string, { title: string; roleName: string; unitName: string; assignments: OrganizationAssignment[] }>())
+            ).map(([key, value]) => ({ key, ...value }));
+
+            return {
+                  term,
+                  positions,
+                  totalAssignments: termAssignments.length,
+            };
+      });
+
+      const buildAllTermState = (expanded: boolean) =>
+            historyTree.reduce((acc, item) => {
+                  acc[String(item.term.id)] = expanded;
+                  return acc;
+            }, {} as Record<string, boolean>);
+
+      const buildAllPositionState = (expanded: boolean) =>
+            historyTree.reduce((acc, item) => {
+                  item.positions.forEach((position) => {
+                        acc[`${item.term.id}:${position.key}`] = expanded;
+                  });
+                  return acc;
+            }, {} as Record<string, boolean>);
+
+      const [expandedTerms, setExpandedTerms] = useState<Record<string, boolean>>(() =>
+            historyTree.reduce((acc, item, index) => {
+                  acc[String(item.term.id)] = item.term.status === 'active' || index === 0;
+                  return acc;
+            }, {} as Record<string, boolean>)
+      );
+
+      const [expandedPositions, setExpandedPositions] = useState<Record<string, boolean>>(() =>
+            historyTree.reduce((acc, item, termIndex) => {
+                  item.positions.forEach((position, positionIndex) => {
+                        acc[`${item.term.id}:${position.key}`] =
+                              item.term.status === 'active' || (termIndex === 0 && positionIndex < 4);
+                  });
+                  return acc;
+            }, {} as Record<string, boolean>)
+      );
+
+      const toggleTerm = (termId: number) => {
+            setExpandedTerms((current) => ({
+                  ...current,
+                  [String(termId)]: !current[String(termId)],
+            }));
+      };
+
+      const togglePosition = (termId: number, positionKey: string) => {
+            const key = `${termId}:${positionKey}`;
+            setExpandedPositions((current) => ({
+                  ...current,
+                  [key]: !current[key],
+            }));
+      };
+
+      const expandAll = () => {
+            setExpandedTerms(buildAllTermState(true));
+            setExpandedPositions(buildAllPositionState(true));
+      };
+
+      const collapseAll = () => {
+            setExpandedTerms(buildAllTermState(false));
+            setExpandedPositions(buildAllPositionState(false));
+      };
 
       return (
-            <div className="rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] p-5 shadow-[0_20px_54px_rgba(120,53,15,0.075)]">
-                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className={residenceMediumStyle.premiumSection}>
+                  <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <div>
-                              <p className={residenceMediumStyle.modalEyebrow}>Bổ nhiệm</p>
-                              <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-950">
-                                    Bổ nhiệm / phân công
-                              </h2>
-                              <p className="mt-1 text-sm leading-6 text-slate-500">
-                                    Quản lý nhanh các chức vụ đang đảm nhiệm và lịch sử phân công.
+                              <p className={residenceMediumStyle.modalEyebrow}>Lịch sử bổ nhiệm</p>
+                              <h3 className="mt-1 text-[22px] font-bold tracking-tight text-slate-950">
+                                    Lịch sử bổ nhiệm theo nhiệm kỳ
+                              </h3>
+                              <p className="mt-2 text-sm leading-6 text-slate-500">
+                                    Cấu trúc 3 cấp: nhiệm kỳ → vai trò/vị trí → danh sách người phụ trách. Có thể mở/thu từng cấp để xem gọn hơn.
                               </p>
                         </div>
 
-                        <button
-                              type="button"
-                              onClick={onCreateAssignment}
-                              className={`${residenceMediumStyle.primaryButton} inline-flex items-center gap-2`}
-                        >
-                              <Plus className="h-4 w-4" />
-                              Bổ nhiệm
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                    type="button"
+                                    onClick={expandAll}
+                                    className="rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-xs font-bold text-slate-700 shadow-sm shadow-amber-900/5 transition hover:bg-amber-50"
+                              >
+                                    Mở tất cả
+                              </button>
+                              <button
+                                    type="button"
+                                    onClick={collapseAll}
+                                    className="rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-xs font-bold text-slate-700 shadow-sm shadow-amber-900/5 transition hover:bg-amber-50"
+                              >
+                                    Thu gọn tất cả
+                              </button>
+                              <span className="rounded-full bg-white/85 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-amber-100">
+                                    {assignments.length} dòng lịch sử
+                              </span>
+                        </div>
                   </div>
 
-                  <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                        <StatCard
-                              label="Tổng phân công"
-                              value={filteredAssignments.length}
-                              helper="Theo bộ lọc hiện tại"
-                              icon={<UserPlus className="h-5 w-5" />}
-                        />
-                        <StatCard
-                              label="Đang hiệu lực"
-                              value={activeCount}
-                              helper="Chức vụ đang đảm nhiệm"
-                              icon={<ShieldCheck className="h-5 w-5" />}
-                        />
-                        <StatCard
-                              label="Đã kết thúc"
-                              value={endedCount}
-                              helper="Lưu lịch sử phân công"
-                              icon={<CheckCircle2 className="h-5 w-5" />}
-                        />
-                  </div>
-
-                  {filteredAssignments.length === 0 ? (
+                  {historyTree.length === 0 ? (
                         <SectionEmpty
-                              title="Chưa có phân công phù hợp"
-                              description="Bấm Bổ nhiệm để thêm chức vụ cho học viên trong nhiệm kỳ hiện tại."
+                              title="Chưa có nhiệm kỳ"
+                              description="Tạo nhiệm kỳ ở tab Nhiệm kỳ để bắt đầu lưu lịch sử bổ nhiệm."
                         />
                   ) : (
-                        <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-                              {filteredAssignments.map((assignment) => (
-                                    <AssignmentCard
-                                          key={assignment.id}
-                                          assignment={assignment}
-                                          onEdit={onEditAssignment}
-                                          onEnd={onEndAssignment}
-                                    />
-                              ))}
+                        <div className="space-y-3">
+                              {historyTree.map(({ term, positions, totalAssignments }) => {
+                                    const termKey = String(term.id);
+                                    const isTermExpanded = Boolean(expandedTerms[termKey]);
+
+                                    return (
+                                          <section
+                                                key={term.id}
+                                                className="overflow-hidden rounded-[28px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_70%,#fff6ee_100%)] shadow-[0_14px_36px_rgba(120,53,15,0.06)]"
+                                          >
+                                                <button
+                                                      type="button"
+                                                      onClick={() => toggleTerm(term.id)}
+                                                      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-amber-50/45"
+                                                >
+                                                      <div className="flex min-w-0 items-start gap-3">
+                                                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-base font-bold text-white shadow-sm shadow-slate-900/15">
+                                                                  {isTermExpanded ? '−' : '+'}
+                                                            </span>
+                                                            <div className="min-w-0">
+                                                                  <div className="flex flex-wrap items-center gap-2">
+                                                                        <p className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-800 ring-1 ring-amber-100">
+                                                                              Cấp 1 · Nhiệm kỳ
+                                                                        </p>
+                                                                        <Badge className={getTermStatusClass(term.status)}>
+                                                                              {getTermStatusLabel(term.status)}
+                                                                        </Badge>
+                                                                  </div>
+                                                                  <h4 className="mt-1 text-lg font-extrabold tracking-tight text-slate-950">
+                                                                        {term.status === 'active' ? 'Nhiệm kỳ hiện tại' : term.name}
+                                                                  </h4>
+                                                                  <p className="mt-1 text-sm font-medium text-slate-500">
+                                                                        {term.name} · {formatDate(term.startDate)} - {formatDate(term.endDate)}
+                                                                  </p>
+                                                            </div>
+                                                      </div>
+
+                                                      <div className="flex shrink-0 flex-wrap justify-end gap-2 text-xs font-semibold text-slate-500">
+                                                            <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-amber-100">
+                                                                  {positions.length} vị trí
+                                                            </span>
+                                                            <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-amber-100">
+                                                                  {totalAssignments} lượt
+                                                            </span>
+                                                      </div>
+                                                </button>
+
+                                                {isTermExpanded && (
+                                                      <div className="border-t border-amber-100/70 bg-[linear-gradient(180deg,rgba(255,253,248,0.78)_0%,rgba(255,255,255,0.92)_100%)] p-3">
+                                                            {positions.length === 0 ? (
+                                                                  <div className="rounded-2xl border border-dashed border-amber-100 bg-white/60 p-4 text-sm text-slate-500">
+                                                                        Chưa có lịch sử bổ nhiệm trong nhiệm kỳ này.
+                                                                  </div>
+                                                            ) : (
+                                                                  <div className="space-y-2">
+                                                                        {positions.map((position) => {
+                                                                              const positionKey = `${term.id}:${position.key}`;
+                                                                              const isPositionExpanded = Boolean(expandedPositions[positionKey]);
+
+                                                                              return (
+                                                                                    <div
+                                                                                          key={position.key}
+                                                                                          className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm shadow-slate-900/5"
+                                                                                    >
+                                                                                          <button
+                                                                                                type="button"
+                                                                                                onClick={() => togglePosition(term.id, position.key)}
+                                                                                                className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50"
+                                                                                          >
+                                                                                                <div className="flex min-w-0 items-center gap-3">
+                                                                                                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold text-slate-700">
+                                                                                                            {isPositionExpanded ? '−' : '+'}
+                                                                                                      </span>
+                                                                                                      <div className="min-w-0">
+                                                                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                                                                  <p className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                                                                                                                        Cấp 2 · Vai trò
+                                                                                                                  </p>
+                                                                                                                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 ring-1 ring-amber-100">
+                                                                                                                        {position.assignments.length} người
+                                                                                                                  </span>
+                                                                                                            </div>
+                                                                                                            <p className="mt-1 truncate text-[15px] font-extrabold text-slate-900">
+                                                                                                                  {position.title}
+                                                                                                            </p>
+                                                                                                            {(position.unitName || position.roleName) && (
+                                                                                                                  <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
+                                                                                                                        {[position.roleName, position.unitName].filter(Boolean).join(' · ')}
+                                                                                                                  </p>
+                                                                                                            )}
+                                                                                                      </div>
+                                                                                                </div>
+                                                                                          </button>
+
+                                                                                          {isPositionExpanded && (
+                                                                                                <div className="space-y-2 border-t border-slate-200/80 bg-slate-50/45 p-3">
+                                                                                                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                                                                                            Cấp 3 · Danh sách người phụ trách
+                                                                                                      </p>
+                                                                                                      {position.assignments.map((assignment) => (
+                                                                                                            <div
+                                                                                                                  key={assignment.id}
+                                                                                                                  className="rounded-2xl border border-amber-100 bg-white px-3 py-2 shadow-sm shadow-amber-900/5"
+                                                                                                            >
+                                                                                                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                                                                        <p className="font-semibold text-slate-900">
+                                                                                                                              {getDisplayResidentName(assignment)}
+                                                                                                                        </p>
+                                                                                                                        <AssignmentStatusPill status={assignment.status} />
+                                                                                                                  </div>
+                                                                                                                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                                                                                                                        {formatDate(assignment.startDate)}
+                                                                                                                        {' - '}
+                                                                                                                        {assignment.endDate ? formatDate(assignment.endDate) : 'Hiện tại'}
+                                                                                                                        {assignment.roomCode ? ` · ${assignment.roomCode}` : ''}
+                                                                                                                  </p>
+                                                                                                            </div>
+                                                                                                      ))}
+                                                                                                </div>
+                                                                                          )}
+                                                                                    </div>
+                                                                              );
+                                                                        })}
+                                                                  </div>
+                                                            )}
+                                                      </div>
+                                                )}
+                                          </section>
+                                    );
+                              })}
                         </div>
                   )}
             </div>
@@ -1195,7 +1432,7 @@ export default function OrganizationSimple() {
 
       const assignmentsQuery = trpc.organization.listAssignments.useQuery({
             search: searchTerm || undefined,
-            termId: currentTermId,
+            termId: activeTab === 'assignments' ? undefined : currentTermId,
             status: activeTab === 'structure' ? 'active' : undefined,
             limit: 500,
             offset: 0,
@@ -1968,9 +2205,21 @@ export default function OrganizationSimple() {
                   endDate: toInputDateValue(term.endDate),
                   status: term.status,
                   description: term.description || '',
+                  copyFromTermId: '',
+                  copyAssignments: false,
             });
             setActiveTab('terms');
       };
+
+      const selectedCopyTermAssignments = useMemo(() => {
+            if (!termForm?.copyAssignments || !termForm.copyFromTermId || termForm.id) return [];
+
+            return assignments.filter(
+                  (assignment) =>
+                        Number(assignment.termId) === Number(termForm.copyFromTermId) &&
+                        assignment.status === 'active'
+            );
+      }, [assignments, termForm?.copyAssignments, termForm?.copyFromTermId, termForm?.id]);
 
       const saveTerm = async () => {
             if (!termForm) return;
@@ -2009,6 +2258,11 @@ export default function OrganizationSimple() {
                   return;
             }
 
+            if (termForm.copyAssignments && !termForm.copyFromTermId) {
+                  setMessage({ type: 'error', text: 'Vui lòng chọn nhiệm kỳ nguồn để copy cơ cấu.' });
+                  return;
+            }
+
             const payload = {
                   code,
                   name,
@@ -2026,8 +2280,47 @@ export default function OrganizationSimple() {
                         });
                         setMessage({ type: 'success', text: 'Đã cập nhật nhiệm kỳ.' });
                   } else {
-                        await createTermMutation.mutateAsync(payload);
-                        setMessage({ type: 'success', text: 'Đã thêm nhiệm kỳ.' });
+                        const createdTerm = await createTermMutation.mutateAsync(payload);
+                        const newTermId = Number(
+                              (createdTerm as any)?.id ||
+                                    (createdTerm as any)?.term?.id ||
+                                    (createdTerm as any)?.data?.id ||
+                                    0
+                        );
+
+                        let copiedCount = 0;
+
+                        if (termForm.copyAssignments && selectedCopyTermAssignments.length > 0) {
+                              if (!newTermId) {
+                                    setMessage({
+                                          type: 'info',
+                                          text: 'Đã thêm nhiệm kỳ. Chưa thể copy cơ cấu vì API chưa trả về ID nhiệm kỳ mới.',
+                                    });
+                              } else {
+                                    for (const assignment of selectedCopyTermAssignments) {
+                                          await createAssignmentMutation.mutateAsync({
+                                                termId: newTermId,
+                                                roleId: Number(assignment.roleId),
+                                                unitId: assignment.unitId ? Number(assignment.unitId) : null,
+                                                assignmentTitle: getAssignmentDisplayTitle(assignment),
+                                                residentId: Number(assignment.residentId),
+                                                roomId: assignment.roomId ? Number(assignment.roomId) : null,
+                                                startDate: termForm.startDate,
+                                                endDate: null,
+                                                status: 'active',
+                                                notes: assignment.notes || null,
+                                          });
+                                          copiedCount += 1;
+                                    }
+
+                                    setMessage({
+                                          type: 'success',
+                                          text: `Đã thêm nhiệm kỳ và copy ${copiedCount} phân công từ nhiệm kỳ trước.`,
+                                    });
+                              }
+                        } else {
+                              setMessage({ type: 'success', text: 'Đã thêm nhiệm kỳ.' });
+                        }
                   }
 
                   setTermForm(null);
@@ -2148,7 +2441,7 @@ export default function OrganizationSimple() {
 
       const tabs: Array<{ key: SimpleTab; label: string; icon: React.ReactNode }> = [
             { key: 'structure', label: 'Cơ cấu hiện tại', icon: <LayoutGrid className="h-4 w-4" /> },
-            { key: 'assignments', label: 'Bổ nhiệm / Phân công', icon: <UserPlus className="h-4 w-4" /> },
+            { key: 'assignments', label: 'Lịch sử bổ nhiệm', icon: <UserPlus className="h-4 w-4" /> },
             { key: 'units', label: 'Tổ / Ban', icon: <Building2 className="h-4 w-4" /> },
             { key: 'terms', label: 'Nhiệm kỳ', icon: <CalendarDays className="h-4 w-4" /> },
       ];
@@ -2381,17 +2674,16 @@ export default function OrganizationSimple() {
                                           </div>
                                     )}
 
-                                    <AssignmentsPanel
-                                          filteredAssignments={filteredAssignments}
-                                          onCreateAssignment={openAssignmentCreate}
-                                          onEditAssignment={openAssignmentEdit}
-                                          onEndAssignment={endAssignment}
+                                    <AppointmentHistoryPanel
+                                          assignments={filteredAssignments}
+                                          terms={terms}
+                                          roles={roles}
                                     />
                               </div>
                         )}
 
                         {!isLoading && activeTab === 'units' && (
-                              <div className="rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] p-5 shadow-[0_20px_54px_rgba(120,53,15,0.075)]">
+                              <div className={residenceMediumStyle.premiumSection}>
                                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                           <div>
                                                 <h2 className="text-lg font-bold text-slate-950">Tổ / Ban</h2>
@@ -2478,7 +2770,7 @@ export default function OrganizationSimple() {
                         )}
 
                         {!isLoading && activeTab === 'terms' && (
-                              <div className="rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] p-5 shadow-[0_20px_54px_rgba(120,53,15,0.075)]">
+                              <div className={residenceMediumStyle.premiumSection}>
                                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                           <div>
                                                 <h2 className="text-lg font-bold text-slate-950">Nhiệm kỳ</h2>
@@ -2500,7 +2792,7 @@ export default function OrganizationSimple() {
                                           {terms.map((term) => (
                                                 <div
                                                       key={term.id}
-                                                      className="flex flex-col gap-3 rounded-3xl border border-amber-100 bg-white/85 p-4 shadow-sm shadow-amber-900/5 md:flex-row md:items-center md:justify-between"
+                                                                                                            className={cx(residenceMediumStyle.orgUnitCard, 'flex flex-col gap-3 md:flex-row md:items-center md:justify-between')}
                                                 >
                                                       <div>
                                                             <div className="flex flex-wrap items-center gap-2">
@@ -2676,7 +2968,7 @@ export default function OrganizationSimple() {
                                                                   )
                                                             }
                                                             placeholder="Ví dụ: Tổ trưởng Tổ 1"
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formInput}
                                                       />
                                                 </label>
 
@@ -2690,7 +2982,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, startDate: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formInput}
                                                       />
                                                 </label>
 
@@ -2704,9 +2996,67 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, endDate: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formInput}
                                                       />
                                                 </label>
+
+                                                {!termForm.id && (
+                                                      <div className="md:col-span-2 rounded-2xl border border-amber-100 bg-white/70 p-4">
+                                                            <label className="flex items-start gap-3">
+                                                                  <input
+                                                                        type="checkbox"
+                                                                        checked={termForm.copyAssignments}
+                                                                        onChange={(event) =>
+                                                                              setTermForm((current) =>
+                                                                                    current
+                                                                                          ? {
+                                                                                                  ...current,
+                                                                                                  copyAssignments: event.target.checked,
+                                                                                                  copyFromTermId: event.target.checked ? current.copyFromTermId : '',
+                                                                                            }
+                                                                                          : current
+                                                                              )
+                                                                        }
+                                                                        className="mt-1"
+                                                                  />
+                                                                  <span>
+                                                                        <span className="block text-sm font-bold text-slate-900">
+                                                                              Copy cơ cấu từ nhiệm kỳ trước
+                                                                        </span>
+                                                                        <span className="mt-1 block text-xs leading-5 text-slate-500">
+                                                                              Hệ thống sẽ copy các phân công đang hiệu lực của nhiệm kỳ nguồn sang nhiệm kỳ mới, giữ cùng chức vụ, Tổ/Ban và học viên.
+                                                                        </span>
+                                                                  </span>
+                                                            </label>
+
+                                                            {termForm.copyAssignments && (
+                                                                  <div className="mt-3">
+                                                                        <Label>Nhiệm kỳ nguồn</Label>
+                                                                        <select
+                                                                              value={termForm.copyFromTermId}
+                                                                              onChange={(event) =>
+                                                                                    setTermForm((current) =>
+                                                                                          current
+                                                                                                ? { ...current, copyFromTermId: event.target.value }
+                                                                                                : current
+                                                                                    )
+                                                                              }
+                                                                              className="mt-1 h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
+                                                                        >
+                                                                              <option value="">Chọn nhiệm kỳ cần copy</option>
+                                                                              {terms.map((term) => (
+                                                                                    <option key={term.id} value={term.id}>
+                                                                                          {term.name} · {formatDate(term.startDate)} - {formatDate(term.endDate)}
+                                                                                    </option>
+                                                                              ))}
+                                                                        </select>
+                                                                        <p className="mt-2 text-xs font-semibold text-amber-800">
+                                                                              Sẽ copy {selectedCopyTermAssignments.length} phân công đang hiệu lực.
+                                                                        </p>
+                                                                  </div>
+                                                            )}
+                                                      </div>
+                                                )}
 
                                                 <label className="space-y-1.5 md:col-span-2">
                                                       <Label>Ghi chú</Label>
@@ -2718,7 +3068,7 @@ export default function OrganizationSimple() {
                                                                   )
                                                             }
                                                             rows={3}
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formTextarea}
                                                       />
                                                 </label>
                                           </div>
@@ -2746,25 +3096,26 @@ export default function OrganizationSimple() {
                         )}
 
                         {unitForm && (
-                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-4 py-6 backdrop-blur-sm">
-                                    <div className="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
-                                          <div className="mb-5 flex items-start justify-between">
+                              <div className={residenceMediumStyle.modalOverlay}>
+                                    <div className={`${residenceMediumStyle.modalShell} max-w-xl`}>
+                                          <div className={residenceMediumStyle.modalHeader}>
                                                 <div>
-                                                      <h2 className="text-xl font-bold text-neutral-950">
+                                                      <p className={residenceMediumStyle.modalEyebrow}>Tổ / Ban</p>
+                                                      <h2 className={residenceMediumStyle.modalTitle}>
                                                             {unitForm.id ? 'Cập nhật Tổ/Ban' : 'Thêm Tổ/Ban'}
                                                       </h2>
-                                                      <p className="mt-1 text-sm text-neutral-500">Quản lý đơn vị phụ trách trong lưu xá.</p>
+                                                      <p className={residenceMediumStyle.modalSubtitle}>Quản lý đơn vị phụ trách trong lưu xá.</p>
                                                 </div>
                                                 <button
                                                       type="button"
                                                       onClick={() => setUnitForm(null)}
-                                                      className="rounded-xl border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50"
+                                                      className="rounded-xl border border-amber-100 bg-white/80 p-2 text-slate-500 hover:bg-amber-50"
                                                 >
                                                       <X className="h-4 w-4" />
                                                 </button>
                                           </div>
 
-                                          <div className="grid gap-4 md:grid-cols-2">
+                                          <div className="grid gap-4 px-5 py-4 md:grid-cols-2">
                                                 <label className="space-y-1.5">
                                                       <Label>Mã</Label>
                                                       <Input
@@ -2774,7 +3125,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, code: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formInput}
                                                       />
                                                 </label>
                                                 <label className="space-y-1.5">
@@ -2803,7 +3154,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, name: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formInput}
                                                       />
                                                 </label>
                                                 <label className="space-y-1.5">
@@ -2816,7 +3167,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, sortOrder: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formInput}
                                                       />
                                                 </label>
                                                 <label className="mt-7 flex items-center gap-2">
@@ -2841,23 +3192,23 @@ export default function OrganizationSimple() {
                                                                   )
                                                             }
                                                             rows={3}
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formTextarea}
                                                       />
                                                 </label>
                                           </div>
 
-                                          <div className="mt-5 flex justify-end gap-2">
+                                          <div className="flex justify-end gap-2 border-t border-amber-100 px-5 py-4">
                                                 <button
                                                       type="button"
                                                       onClick={() => setUnitForm(null)}
-                                                      className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700"
+                                                      className={residenceMediumStyle.secondaryButton}
                                                 >
                                                       Hủy
                                                 </button>
                                                 <button
                                                       type="button"
                                                       onClick={saveUnit}
-                                                      className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                                                      className={residenceMediumStyle.primaryButton}
                                                 >
                                                       Lưu
                                                 </button>
@@ -2867,25 +3218,26 @@ export default function OrganizationSimple() {
                         )}
 
                         {termForm && (
-                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-4 py-6 backdrop-blur-sm">
-                                    <div className="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
-                                          <div className="mb-5 flex items-start justify-between">
+                              <div className={residenceMediumStyle.modalOverlay}>
+                                    <div className={`${residenceMediumStyle.modalShell} max-w-xl`}>
+                                          <div className={residenceMediumStyle.modalHeader}>
                                                 <div>
-                                                      <h2 className="text-xl font-bold text-neutral-950">
+                                                      <p className={residenceMediumStyle.modalEyebrow}>Nhiệm kỳ</p>
+                                                      <h2 className={residenceMediumStyle.modalTitle}>
                                                             {termForm.id ? 'Cập nhật nhiệm kỳ' : 'Thêm nhiệm kỳ'}
                                                       </h2>
-                                                      <p className="mt-1 text-sm text-neutral-500">Quản lý thời gian áp dụng cơ cấu tổ chức.</p>
+                                                      <p className={residenceMediumStyle.modalSubtitle}>Quản lý thời gian áp dụng cơ cấu tổ chức.</p>
                                                 </div>
                                                 <button
                                                       type="button"
                                                       onClick={() => setTermForm(null)}
-                                                      className="rounded-xl border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50"
+                                                      className="rounded-xl border border-amber-100 bg-white/80 p-2 text-slate-500 hover:bg-amber-50"
                                                 >
                                                       <X className="h-4 w-4" />
                                                 </button>
                                           </div>
 
-                                          <div className="grid gap-4 md:grid-cols-2">
+                                          <div className="grid gap-4 px-5 py-4 md:grid-cols-2">
                                                 <label className="space-y-1.5">
                                                       <Label>Mã nhiệm kỳ</Label>
                                                       <Input
@@ -2895,7 +3247,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, code: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formInput}
                                                       />
                                                 </label>
                                                 <label className="space-y-1.5">
@@ -2923,7 +3275,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, name: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formInput}
                                                       />
                                                 </label>
                                                 <label className="space-y-1.5">
@@ -2936,7 +3288,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, startDate: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formInput}
                                                       />
                                                 </label>
                                                 <label className="space-y-1.5">
@@ -2949,7 +3301,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, endDate: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formInput}
                                                       />
                                                 </label>
                                                 <label className="space-y-1.5 md:col-span-2">
@@ -2962,23 +3314,24 @@ export default function OrganizationSimple() {
                                                                   )
                                                             }
                                                             rows={3}
-                                                            className="rounded-2xl"
+                                                            className={residenceMediumStyle.formTextarea}
                                                       />
                                                 </label>
                                           </div>
 
-                                          <div className="mt-5 flex justify-end gap-2">
+                                          <div className="flex justify-end gap-2 border-t border-amber-100 px-5 py-4">
                                                 <button
                                                       type="button"
                                                       onClick={() => setTermForm(null)}
-                                                      className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700"
+                                                      className={residenceMediumStyle.secondaryButton}
                                                 >
                                                       Hủy
                                                 </button>
                                                 <button
                                                       type="button"
                                                       onClick={saveTerm}
-                                                      className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                                                      disabled={createTermMutation.isPending || updateTermMutation.isPending || createAssignmentMutation.isPending}
+                                                      className={residenceMediumStyle.primaryButton}
                                                 >
                                                       Lưu
                                                 </button>
@@ -2988,17 +3341,17 @@ export default function OrganizationSimple() {
                         )}
 
                         {selectedUnitForMembers && (
-                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-4 py-6 backdrop-blur-sm">
-                                    <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
-                                          <div className="mb-5 flex items-start justify-between gap-3">
+                              <div className={residenceMediumStyle.modalOverlay}>
+                                    <div className={`${residenceMediumStyle.modalShell} max-w-4xl`}>
+                                          <div className={residenceMediumStyle.modalHeader}>
                                                 <div>
-                                                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+                                                      <p className={residenceMediumStyle.modalEyebrow}>
                                                             {getUnitTypeLabel(selectedUnitForMembers.unitType)}
                                                       </p>
-                                                      <h2 className="mt-1 text-xl font-bold text-neutral-950">
+                                                      <h2 className={residenceMediumStyle.modalTitle}>
                                                             Thành viên {selectedUnitForMembers.name}
                                                       </h2>
-                                                      <p className="mt-1 text-sm text-neutral-500">
+                                                      <p className={residenceMediumStyle.modalSubtitle}>
                                                             Quản lý danh sách học viên thuộc {selectedUnitForMembers.unitType === 'team' ? 'Tổ' : 'Ban'}.
                                                       </p>
                                                 </div>
@@ -3017,14 +3370,14 @@ export default function OrganizationSimple() {
                                                       <button
                                                             type="button"
                                                             onClick={closeUnitMembers}
-                                                            className="rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+                                                                                                                        className={residenceMediumStyle.secondaryButton}
                                                       >
                                                             Đóng
                                                       </button>
                                                 </div>
                                           </div>
 
-                                          <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+                                          <div className={cx(residenceMediumStyle.premiumNestedSection, 'mx-5 mt-5')}>
                                                 <div className="mb-3 grid gap-3 md:grid-cols-[220px_1fr]">
                                                       <div>
                                                             <Label>
@@ -3045,7 +3398,7 @@ export default function OrganizationSimple() {
                                                                               setTransferConfirm(null);
                                                                         }
                                                                   }}
-                                                                  className="mt-2 h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                                  className="mt-2 h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                                             >
                                                                   {activeUnits
                                                                         .filter((unit) => unit.unitType === selectedUnitForMembers.unitType)
@@ -3057,7 +3410,7 @@ export default function OrganizationSimple() {
                                                             </select>
                                                       </div>
 
-                                                      <div className="rounded-2xl bg-white px-4 py-3 text-sm text-neutral-600 ring-1 ring-neutral-200">
+                                                      <div className="rounded-2xl bg-white/85 px-4 py-3 text-sm text-slate-600 ring-1 ring-amber-100">
                                                             Đang thao tác với <span className="font-semibold text-neutral-900">{selectedUnitForMembers.name}</span>.
                                                             {returnToMembersPath && (
                                                                   <span> Sau khi thêm thành viên, hệ thống sẽ quay lại trang học viên.</span>
@@ -3070,7 +3423,7 @@ export default function OrganizationSimple() {
                                                       <select
                                                             value={selectedResidentToAdd}
                                                             onChange={(event) => setSelectedResidentToAdd(event.target.value)}
-                                                            className="h-10 flex-1 rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                            className="h-10 flex-1 rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                                       >
                                                             <option value="">Chọn học viên đang lưu trú</option>
                                                             {(availableUnitResidentsQuery.data || []).map((resident: any) => (
@@ -3097,7 +3450,7 @@ export default function OrganizationSimple() {
                                           </div>
 
                                           {selectedUnitForMembers.unitType === 'team' && (
-                                                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                                <div className={cx(residenceMediumStyle.premiumNestedSection, 'mt-4')}>
                                                       <div className="flex flex-col gap-3">
                                                             <div>
                                                                   <p className="text-sm font-bold text-amber-900">Đổi tổ cho học viên</p>

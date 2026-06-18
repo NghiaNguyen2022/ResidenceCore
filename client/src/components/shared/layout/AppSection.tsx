@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { AppCard } from "./AppCard";
 
-interface AppSectionProps extends React.HTMLAttributes<HTMLDivElement> {
+interface AppSectionProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
       title?: React.ReactNode;
       description?: React.ReactNode;
       action?: React.ReactNode;

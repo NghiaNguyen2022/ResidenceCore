@@ -18,6 +18,7 @@ type ConfigurableStatCardProps = {
       title?: string;
       value: number | string;
       description?: string;
+      tone?: string;
       icon?: ReactNode;
       className?: string;
       defaultSettings?: StatCardSettings;
