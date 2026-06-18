@@ -422,7 +422,7 @@ export function MemberDetailModal({
                                           </div>
                                     )}
 
-                                    <div className="mb-4 flex flex-col gap-4 rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_65%,#fff4e8_100%)] p-4 shadow-[0_14px_34px_rgba(120,53,15,0.06)] lg:flex-row lg:items-center lg:justify-between">
+                                    <div className={cx(residenceMediumStyle.premiumNestedSection, 'mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between')}>
                                           <div className="flex items-center gap-4">
                                                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-amber-700 text-xl font-bold text-white shadow-md shadow-amber-900/15">
                                                       {member.fullName?.charAt(0)?.toUpperCase() || 'H'}
@@ -617,7 +617,7 @@ export function MemberDetailModal({
 
                                     {activeTab === 'contacts' && (
                                           <div className="space-y-3">
-                                                <div className="rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] px-4 py-3 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
+                                                <div className={cx(residenceMediumStyle.premiumNestedSection, 'px-4 py-3')}>
                                                       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                                                             <div>
                                                                   <h3 className="text-base font-bold text-slate-950">
@@ -652,7 +652,7 @@ export function MemberDetailModal({
 
                                     {activeTab === 'room' && (
                                           <div className="space-y-3">
-                                                <div className="rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] px-4 py-3 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
+                                                <div className={cx(residenceMediumStyle.premiumNestedSection, 'px-4 py-3')}>
                                                       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                                                             <div>
                                                                   <h3 className="text-base font-bold text-slate-950">
@@ -720,7 +720,7 @@ export function MemberDetailModal({
 
                                     {activeTab === 'education' && (
                                           <div className="space-y-3">
-                                                <div className="rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] px-4 py-3 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
+                                                <div className={cx(residenceMediumStyle.premiumNestedSection, 'px-4 py-3')}>
                                                       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                                                             <div>
                                                                   <h3 className="text-base font-bold text-slate-950">
@@ -776,7 +776,7 @@ export function MemberDetailModal({
 
                                     {activeTab === 'organization' && (
                                           <div className="space-y-3">
-                                                <div className="rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] px-4 py-3 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
+                                                <div className={cx(residenceMediumStyle.premiumNestedSection, 'px-4 py-3')}>
                                                       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                                                             <div>
                                                                   <h3 className="text-base font-bold text-slate-950">
@@ -870,7 +870,7 @@ export function MemberDetailModal({
 
                                     {activeTab === 'account' && (
                                           <div className="space-y-3">
-                                                <div className="rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] px-4 py-3 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
+                                                <div className={cx(residenceMediumStyle.premiumNestedSection, 'px-4 py-3')}>
                                                       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                                                             <div>
                                                                   <h3 className="text-base font-bold text-slate-950">
@@ -1090,7 +1090,7 @@ function UnitManagementLine({
 
 function RoleItem({ role }: { role: OrganizationRoleDisplay }) {
       return (
-            <div className="rounded-2xl border border-amber-100 bg-[linear-gradient(135deg,#ffffff_0%,#fff8ef_100%)] px-3 py-2 text-sm font-semibold leading-5 text-slate-800 shadow-sm shadow-amber-900/5">
+            <div className={cx(residenceMediumStyle.cardSection, 'px-3 py-2 text-sm font-semibold leading-5 text-slate-800')}>
                   <div className="line-clamp-2">{role.title}</div>
             </div>
       );

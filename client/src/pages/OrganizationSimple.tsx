@@ -23,7 +23,7 @@ import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { residenceMediumAccents, residenceMediumStyle } from '@/components/shared/styleMedium';
+import { cx, residenceMediumAccents, residenceMediumStyle } from '@/components/shared/styleMedium';
 
 type SimpleTab = 'structure' | 'assignments' | 'units' | 'terms';
 type OrganizationFocusAction = 'add_team_member' | 'transfer_team_member' | 'add_committee_member' | 'create_assignment';
@@ -639,32 +639,30 @@ function PremiumOrgPersonCard({
 
       return (
             <div
-                  className={[
-                        'relative overflow-hidden rounded-3xl border p-4 transition hover:-translate-y-0.5',
+                  className={
                         hasAssignment
                               ? variant === 'head'
-                                    ? 'border-amber-100/90 bg-[linear-gradient(135deg,#ffffff_0%,#fffdfa_58%,#fff4e8_100%)] shadow-[0_18px_42px_rgba(120,53,15,0.085)]'
-                                    : 'border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf9_62%,#fff7ed_100%)] shadow-[0_14px_34px_rgba(120,53,15,0.06)]'
-                              : 'border-dashed border-amber-100 bg-amber-50/35',
-                  ].join(' ')}
+                                    ? residenceMediumStyle.orgPersonCardHead
+                                    : residenceMediumStyle.orgPersonCard
+                              : residenceMediumStyle.orgPersonCardEmpty
+                  }
             >
                   <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                              <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
+                              <p className={residenceMediumStyle.orgPersonTitle}>
                                     {title}
                               </p>
-                              <p className="mt-1.5 truncate text-[20px] font-extrabold leading-7 text-slate-800">
+                              <p className={residenceMediumStyle.orgPersonName}>
                                     {hasAssignment ? displayName : 'Đang trống'}
                               </p>
                         </div>
 
                         <div
-                              className={[
-                                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-bold shadow-sm',
+                              className={
                                     hasAssignment
-                                          ? 'bg-slate-900 text-white shadow-slate-900/20'
-                                          : 'bg-white text-slate-400 ring-1 ring-amber-100',
-                              ].join(' ')}
+                                          ? residenceMediumStyle.orgAvatarActive
+                                          : residenceMediumStyle.orgAvatarEmpty
+                              }
                         >
                               {hasAssignment ? displayName.charAt(0).toUpperCase() : '—'}
                         </div>
@@ -737,7 +735,7 @@ function PremiumUnitColumn({
                   : 'from-violet-50 via-indigo-50 to-white';
 
       return (
-            <section className="overflow-hidden rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffefa_72%,#fff8f1_100%)] shadow-[0_18px_44px_rgba(120,53,15,0.06)]">
+            <section className={residenceMediumStyle.orgUnitColumn}>
                   <div className={`bg-gradient-to-r ${headerAccent} px-5 py-4`}>
                         <div className="flex items-end justify-between gap-3">
                               <div>
@@ -781,7 +779,7 @@ function PremiumUnitColumn({
                                     return (
                                           <div
                                                 key={unit.id}
-                                                className="rounded-3xl border border-amber-100/70 bg-[linear-gradient(135deg,#ffffff_0%,#fffefb_72%,#fff8f2_100%)] p-3 shadow-[0_10px_26px_rgba(120,53,15,0.045)]"
+                                                className={residenceMediumStyle.orgUnitCard}
                                           >
                                                 <div>
                                                       <div className="mb-3 flex items-start justify-between gap-3">
@@ -911,7 +909,7 @@ function PremiumOrganizationChart({
 
       return (
             <div className="space-y-5">
-                  <div className="rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf9_72%,#fff6ee_100%)] p-5 shadow-[0_24px_70px_rgba(120,53,15,0.09)]">
+                  <div className={residenceMediumStyle.orgChartPanel}>
                         <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                               <div>
                                     <p className={residenceMediumStyle.modalEyebrow}>Cơ cấu hiện tại</p>
@@ -927,7 +925,7 @@ function PremiumOrganizationChart({
                               </span>
                         </div>
 
-                        <div className="rounded-[28px] border border-amber-100/70 bg-[linear-gradient(135deg,#ffffff_0%,#fffdfa_58%,#fff7f0_100%)] p-4 shadow-[0_14px_38px_rgba(120,53,15,0.055)]">
+                        <div className={residenceMediumStyle.orgExecutivePanel}>
                               <div className="mb-4 flex items-end justify-between gap-3">
                                     <div>
                                           <p className={residenceMediumStyle.modalEyebrow}>Ban điều hành</p>
@@ -964,7 +962,7 @@ function PremiumOrganizationChart({
                         </div>
                   </div>
 
-                  <div className="rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf9_72%,#fff7f1_100%)] p-5 shadow-[0_22px_58px_rgba(120,53,15,0.075)]">
+                  <div className={residenceMediumStyle.orgUnitsPanel}>
                         <div className="mb-5">
                               <p className={residenceMediumStyle.modalEyebrow}>Tổ / Ban</p>
                               <h3 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
@@ -2167,7 +2165,7 @@ export default function OrganizationSimple() {
                   <div className={residenceMediumStyle.page}>
                         <div className={residenceMediumStyle.pageShell}>
                         <div className={residenceMediumStyle.topArea}>
-                              <div className="flex flex-wrap justify-end gap-2 px-1">
+                              <div className={residenceMediumStyle.actionBar}>
                                     {returnToMembersPath && (
                                           <button
                                                 type="button"
@@ -2182,7 +2180,7 @@ export default function OrganizationSimple() {
                                           type="button"
                                           disabled
                                           title="Bộ chức vụ mặc định hiện đã đủ dùng. Khi cần mở rộng sẽ bật cấu hình sau."
-                                          className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-amber-100 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-400 opacity-70"
+                                          className={residenceMediumStyle.disabledActionButton}
                                     >
                                           <Settings className="h-4 w-4" />
                                           Cấu hình chức vụ

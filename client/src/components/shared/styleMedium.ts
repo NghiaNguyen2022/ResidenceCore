@@ -141,6 +141,99 @@ export const residenceMediumStyle = {
             tone.accentText,
             tone.shadowSoft
       ),
+
+      premiumPanel: cx(
+            radius.panel,
+            'border p-5',
+            tone.border,
+            tone.panelGradient,
+            tone.shadowDeep
+      ),
+      premiumSection: cx(
+            'rounded-[30px] border p-5',
+            tone.border,
+            tone.panelGradient,
+            tone.shadowDeep
+      ),
+      premiumNestedSection: cx(
+            'rounded-[28px] border p-4',
+            tone.border,
+            tone.cardGradient,
+            tone.shadowMedium
+      ),
+      premiumSubtleSection: cx(
+            'rounded-[30px] border p-5',
+            tone.border,
+            tone.sectionGradient,
+            tone.shadowMedium
+      ),
+      statCard: cx(
+            'rounded-[24px] border p-4',
+            tone.border,
+            tone.panelGradient,
+            tone.shadowMedium
+      ),
+      statIcon: tone.iconBubble,
+      actionBar: 'flex flex-wrap justify-end gap-2 px-1',
+      disabledActionButton: cx(
+            radius.button,
+            'inline-flex cursor-not-allowed items-center gap-2 border bg-white/70 px-4 py-2 text-sm font-semibold text-slate-400 opacity-70',
+            tone.softBorder
+      ),
+      orgChartPanel: cx(
+            'rounded-[30px] border p-5',
+            tone.border,
+            tone.panelGradient,
+            tone.shadowDeep
+      ),
+      orgExecutivePanel: cx(
+            'rounded-[28px] border p-4',
+            tone.border,
+            tone.cardGradient,
+            tone.shadowMedium
+      ),
+      orgUnitsPanel: cx(
+            'rounded-[30px] border p-5',
+            tone.border,
+            tone.panelGradient,
+            tone.shadowMedium
+      ),
+      orgUnitColumn: cx(
+            'overflow-hidden rounded-[30px] border',
+            tone.border,
+            tone.cardGradient,
+            tone.shadowMedium
+      ),
+      orgUnitCard: cx(
+            'rounded-3xl border p-3',
+            tone.border,
+            tone.cardSoftGradient,
+            tone.shadowSoft
+      ),
+      orgPersonCard: cx(
+            'relative overflow-hidden rounded-3xl border p-4 transition hover:-translate-y-0.5',
+            tone.border,
+            tone.cardGradient,
+            tone.shadowMedium
+      ),
+      orgPersonCardHead: cx(
+            'relative overflow-hidden rounded-3xl border p-4 transition hover:-translate-y-0.5',
+            tone.border,
+            tone.cardGradient,
+            tone.shadowDeep
+      ),
+      orgPersonCardEmpty: cx(
+            'relative overflow-hidden rounded-3xl border border-dashed p-4 transition hover:-translate-y-0.5',
+            tone.softBorder,
+            'bg-white/55'
+      ),
+      orgPersonTitle: 'text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-500',
+      orgPersonName: 'mt-1.5 truncate text-[20px] font-extrabold leading-7 text-slate-800',
+      orgAvatarActive:
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white shadow-sm shadow-slate-900/20',
+      orgAvatarEmpty:
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-sm font-bold text-slate-400 ring-1 ring-amber-100',
+
 };
 
 export const residenceMediumAccents = [
