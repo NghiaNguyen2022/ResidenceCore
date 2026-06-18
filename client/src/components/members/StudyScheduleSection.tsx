@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CalendarClock, Pencil, Plus, Trash2, X } from "lucide-react";
 import { formatTime } from '@/lib/format';
+import { residenceMediumStyle } from "@/components/shared/styleMedium";
 
 import {
       AppSection,
@@ -526,18 +527,18 @@ export function StudyScheduleSection({
                               )
                         }
                   >
-                        <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="mb-3 flex flex-col gap-3 border-b border-amber-100/80 pb-3 sm:flex-row sm:items-center sm:justify-between">
                               <div>
                                     <p className="text-sm font-semibold text-slate-900">
-                                          Xem lịch học
+                                          Lịch học theo tuần/tháng
                                     </p>
                                     <p className="text-xs text-slate-500">
-                                          Dạng tuần giúp nhìn giờ bận/rảnh trực quan như calendar.
+                                          Dùng để cảnh báo khi phân công công tác trùng giờ.
                                     </p>
                               </div>
 
                               <div className="flex flex-wrap items-center justify-end gap-2">
-                                    <div className="inline-flex w-fit rounded-2xl bg-slate-100 p-1">
+                                    <div className="inline-flex w-fit rounded-2xl bg-amber-50/80 p-1 ring-1 ring-amber-100">
                                           {([
                                                 ["list", "Danh sách"],
                                                 ["week", "Lịch tuần"],
@@ -566,8 +567,8 @@ export function StudyScheduleSection({
                                                 className={[
                                                       "rounded-2xl border px-3 py-2 text-xs font-semibold transition shadow-sm",
                                                       isCalendarExpanded
-                                                            ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                                                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                                                            ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                                                            : "border-amber-100 bg-white text-slate-600 hover:bg-amber-50",
                                                 ].join(" ")}
                                                 title={
                                                       isCalendarExpanded
@@ -854,10 +855,10 @@ export function StudyScheduleSection({
 
 
                   {isCalendarExpanded && (scheduleViewMode === "week" || scheduleViewMode === "month") && (
-                        <div className="fixed bottom-6 right-6 top-20 z-[90] w-[calc(100vw-3rem)] rounded-3xl border border-slate-200 bg-white shadow-2xl lg:left-72 lg:w-auto">
-                              <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="fixed bottom-6 right-6 top-20 z-[95] w-[calc(100vw-3rem)] rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_62%,#fff4e8_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.22)] lg:left-72 lg:w-auto">
+                              <div className="flex flex-col gap-3 border-b border-amber-100/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
-                                          <p className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                                          <p className={residenceMediumStyle.modalEyebrow}>
                                                 Lịch học mở rộng
                                           </p>
                                           <h3 className="text-lg font-bold text-slate-950">
@@ -869,7 +870,7 @@ export function StudyScheduleSection({
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2">
-                                          <div className="inline-flex rounded-2xl bg-slate-100 p-1">
+                                          <div className="inline-flex rounded-2xl bg-amber-50/80 p-1 ring-1 ring-amber-100">
                                                 {([
                                                       ["week", "Lịch tuần"],
                                                       ["month", "Lịch tháng"],

@@ -15,6 +15,7 @@ import {
 import { ParentsSection } from './ParentsSection';
 import { EducationInfoSection } from './EducationInfoSection';
 import { StudyScheduleSection } from './StudyScheduleSection';
+import { cx, residenceMediumStyle } from '@/components/shared/styleMedium';
 import {
       formatDate,
       getGenderLabel,
@@ -384,33 +385,34 @@ export function MemberDetailModal({
       };
 
       return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-                  <div className="max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-3xl bg-white shadow-2xl">
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-6 py-4">
-                              <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                          <p className="text-sm font-semibold text-blue-600">
-                                                Hồ sơ học viên
-                                          </p>
-                                          <h2 className="text-2xl font-bold text-slate-950">
-                                                {displayName}
-                                          </h2>
-                                    </div>
-
-                                    <button
-                                          type="button"
-                                          onClick={onClose}
-                                          className="rounded-xl p-2 transition hover:bg-slate-100"
-                                    >
-                                          <X className="h-5 w-5" />
-                                    </button>
+            <div className={residenceMediumStyle.modalOverlay}>
+                  <div className={`${residenceMediumStyle.modalShell} max-w-6xl`}>
+                        <div className={residenceMediumStyle.modalHeader}>
+                              <div>
+                                    <p className={residenceMediumStyle.modalEyebrow}>
+                                          Hồ sơ học viên
+                                    </p>
+                                    <h2 className={residenceMediumStyle.modalTitle}>
+                                          {displayName}
+                                    </h2>
+                                    <p className={residenceMediumStyle.modalSubtitle}>
+                                          Tổng hợp thông tin lưu trú, liên hệ, học tập, tổ chức và tài khoản.
+                                    </p>
                               </div>
+
+                              <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="rounded-xl p-2 text-slate-500 transition hover:bg-white/70 hover:text-slate-700"
+                              >
+                                    <X className="h-5 w-5" />
+                              </button>
                         </div>
 
-                        <div className="max-h-[calc(92vh-88px)] overflow-y-auto">
-                              <div className="p-6">
+                        <div className="max-h-[calc(92vh-96px)] overflow-y-auto">
+                              <div className="p-4">
                                     {isLeft && (
-                                          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                                          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                                                 <p className="font-semibold">Học viên đã rời lưu xá / ngừng lưu trú</p>
                                                 <p className="mt-1">
                                                       Hồ sơ này đang được giữ để tra cứu lịch sử. Các thao tác cập nhật hồ sơ,
@@ -420,14 +422,14 @@ export function MemberDetailModal({
                                           </div>
                                     )}
 
-                                    <div className="mb-5 flex flex-col gap-4 rounded-3xl bg-slate-50 p-5 lg:flex-row lg:items-center lg:justify-between">
+                                    <div className="mb-4 flex flex-col gap-4 rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_65%,#fff4e8_100%)] p-4 shadow-[0_14px_34px_rgba(120,53,15,0.06)] lg:flex-row lg:items-center lg:justify-between">
                                           <div className="flex items-center gap-4">
-                                                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-2xl font-bold text-blue-700">
+                                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-amber-700 text-xl font-bold text-white shadow-md shadow-amber-900/15">
                                                       {member.fullName?.charAt(0)?.toUpperCase() || 'H'}
                                                 </div>
 
                                                 <div>
-                                                      <p className="text-xl font-bold text-slate-950">
+                                                      <p className="text-lg font-bold text-slate-950">
                                                             {displayName}
                                                       </p>
                                                       <p className="text-sm text-slate-500">
@@ -455,7 +457,7 @@ export function MemberDetailModal({
                                                                   type="button"
                                                                   onClick={() => onReactivate(member)}
                                                                   disabled={isReactivating}
-                                                                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                  className={`${residenceMediumStyle.primaryButton} inline-flex items-center gap-2`}
                                                             >
                                                                   <Edit2 className="h-4 w-4" />
                                                                   {isReactivating ? 'Đang đăng ký lại...' : 'Đăng ký lại'}
@@ -466,7 +468,7 @@ export function MemberDetailModal({
                                                             <button
                                                                   type="button"
                                                                   onClick={onAssignRoom}
-                                                                  className="inline-flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-100"
+                                                                  className={`${residenceMediumStyle.secondaryButton} inline-flex items-center gap-2`}
                                                             >
                                                                   <DoorOpen className="h-4 w-4" />
                                                                   {getRoomActionLabel(member)}
@@ -475,7 +477,7 @@ export function MemberDetailModal({
                                                             <button
                                                                   type="button"
                                                                   onClick={onEdit}
-                                                                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                                                  className={`${residenceMediumStyle.primaryButton} inline-flex items-center gap-2`}
                                                             >
                                                                   <Edit2 className="h-4 w-4" />
                                                                   Sửa hồ sơ
@@ -485,36 +487,29 @@ export function MemberDetailModal({
                                           </div>
                                     </div>
 
-                                    <div className="mb-5 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
-                                          {detailTabs.map((tab) => (
-                                                <button
-                                                      key={tab.key}
-                                                      type="button"
-                                                      onClick={() => setActiveTab(tab.key)}
-                                                      className={[
-                                                            'rounded-2xl border px-3 py-3 text-left transition',
-                                                            activeTab === tab.key
-                                                                  ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                                                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-                                                      ].join(' ')}
-                                                >
-                                                      <div className="text-sm font-bold">{tab.label}</div>
-                                                      <div
+                                    <div className="mb-4 overflow-x-auto rounded-2xl border border-amber-100/80 bg-white/80 p-1.5 shadow-sm shadow-amber-900/5">
+                                          <div className="flex min-w-max gap-1.5">
+                                                {detailTabs.map((tab) => (
+                                                      <button
+                                                            key={tab.key}
+                                                            type="button"
+                                                            title={tab.description}
+                                                            onClick={() => setActiveTab(tab.key)}
                                                             className={[
-                                                                  'mt-1 text-xs',
+                                                                  'rounded-xl px-3 py-2 text-sm font-semibold transition',
                                                                   activeTab === tab.key
-                                                                        ? 'text-slate-300'
-                                                                        : 'text-slate-400',
+                                                                        ? 'bg-slate-900 text-white shadow-[0_10px_24px_rgba(15,23,42,0.14)]'
+                                                                        : 'text-slate-600 hover:bg-amber-50/70 hover:text-slate-900',
                                                             ].join(' ')}
                                                       >
-                                                            {tab.description}
-                                                      </div>
-                                                </button>
-                                          ))}
+                                                            {tab.label}
+                                                      </button>
+                                                ))}
+                                          </div>
                                     </div>
 
                                     {activeTab === 'overview' && (
-                                          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                                          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                                                 <DetailCard title="Thông tin cá nhân">
                                                       <DetailItem
                                                             icon={<IdCard className="h-4 w-4" />}
@@ -616,7 +611,7 @@ export function MemberDetailModal({
                                     )}
 
                                     {activeTab === 'room' && (
-                                          <div className="grid gap-4 xl:grid-cols-2">
+                                          <div className="grid gap-3 xl:grid-cols-2">
                                                 <DetailCard
                                                       title="Thông tin lưu trú"
                                                       action={
@@ -668,8 +663,25 @@ export function MemberDetailModal({
                                     )}
 
                                     {activeTab === 'education' && (
-                                          <div className="grid gap-4 xl:grid-cols-2">
-                                                <DetailCard title="Thông tin học hành">
+                                          <div className="space-y-3">
+                                                <div className="rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] px-4 py-3 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
+                                                      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                                                            <div>
+                                                                  <h3 className="text-base font-bold text-slate-950">
+                                                                        Học tập & lịch học
+                                                                  </h3>
+                                                                  <p className="mt-1 text-sm text-slate-500">
+                                                                        Theo dõi trường/lớp và các khung giờ học để tránh phân công trùng lịch.
+                                                                  </p>
+                                                            </div>
+
+                                                            <span className="text-xs font-medium text-slate-400">
+                                                                  {member.studySchedules?.length || 0} lịch học
+                                                            </span>
+                                                      </div>
+                                                </div>
+
+                                                <div className="grid gap-3 xl:grid-cols-[0.9fr_1.45fr]">
                                                       <EducationInfoSection
                                                             residentId={member.id}
                                                             education={member.education}
@@ -682,9 +694,7 @@ export function MemberDetailModal({
                                                                   })
                                                             }
                                                       />
-                                                </DetailCard>
 
-                                                <DetailCard title="Lịch học">
                                                       <StudyScheduleSection
                                                             residentId={member.id}
                                                             schedules={member.studySchedules || []}
@@ -704,7 +714,7 @@ export function MemberDetailModal({
                                                                   })
                                                             }
                                                       />
-                                                </DetailCard>
+                                                </div>
                                           </div>
                                     )}
 
@@ -716,14 +726,14 @@ export function MemberDetailModal({
                                                             <button
                                                                   type="button"
                                                                   onClick={() => openOrganization('appointment')}
-                                                                  className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
+                                                                  className={residenceMediumStyle.secondaryButton}
                                                             >
                                                                   Bổ nhiệm
                                                             </button>
                                                       ) : undefined
                                                 }
                                           >
-                                                <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+                                                <div className="grid gap-3 lg:grid-cols-[1fr_1.2fr]">
                                                       <div className="space-y-3">
                                                             <UnitManagementLine
                                                                   label="Tổ"
@@ -817,7 +827,7 @@ export function MemberDetailModal({
                                                                   )}
                                                             </>
                                                       ) : isLeft ? (
-                                                            <div className="rounded-xl bg-slate-50 px-4 py-3">
+                                                            <div className="rounded-xl border border-amber-100 bg-amber-50/50 px-4 py-3">
                                                                   <p className="text-sm font-semibold text-slate-800">
                                                                         Chưa có tài khoản đăng nhập
                                                                   </p>
@@ -827,7 +837,7 @@ export function MemberDetailModal({
                                                             </div>
                                                       ) : (
                                                             <>
-                                                                  <div className="rounded-xl bg-slate-50 px-4 py-3">
+                                                                  <div className="rounded-xl border border-amber-100 bg-amber-50/50 px-4 py-3">
                                                                         <p className="text-sm font-semibold text-slate-800">
                                                                               Chưa có tài khoản đăng nhập
                                                                         </p>
@@ -840,7 +850,7 @@ export function MemberDetailModal({
                                                                         type="button"
                                                                         onClick={() => onCreateUser?.(member)}
                                                                         disabled={isCreatingUser || !onCreateUser}
-                                                                        className="inline-flex w-fit items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                        className={`${residenceMediumStyle.primaryButton} inline-flex w-fit items-center justify-center`}
                                                                   >
                                                                         {isCreatingUser ? 'Đang tạo...' : 'Tạo tài khoản'}
                                                                   </button>
@@ -870,8 +880,8 @@ function DetailCard({
       action?: ReactNode;
 }) {
       return (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between gap-3">
+            <div className={residenceMediumStyle.cardSection}>
+                  <div className="mb-3 flex items-center justify-between gap-3">
                         <h3 className="text-base font-bold text-slate-950">{title}</h3>
                         {action}
                   </div>
@@ -893,7 +903,7 @@ function DetailItem({
             <div className="flex gap-3">
                   <div className="mt-0.5 text-slate-400">{icon}</div>
                   <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                        <p className="text-xs font-medium text-slate-400">
                               {label}
                         </p>
                         <p className="text-sm font-medium text-slate-800">{value}</p>
@@ -935,9 +945,9 @@ function UnitManagementLine({
       onAction?: () => void;
 }) {
       return (
-            <div className="rounded-2xl bg-slate-50/80 p-3 ring-1 ring-slate-100">
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/45 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                        <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                        <div className="text-xs font-semibold text-slate-500">
                               {label}
                         </div>
 
@@ -945,7 +955,7 @@ function UnitManagementLine({
                               <button
                                     type="button"
                                     onClick={onAction}
-                                    className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                                    className="rounded-full border border-amber-100 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-amber-50"
                               >
                                     {actionText}
                               </button>
@@ -972,7 +982,7 @@ function UnitManagementLine({
 
 function RoleItem({ role }: { role: OrganizationRoleDisplay }) {
       return (
-            <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold leading-5 text-slate-800 ring-1 ring-slate-100">
+            <div className="rounded-xl border border-amber-100 bg-amber-50/50 px-3 py-2 text-sm font-semibold leading-5 text-slate-800 ring-1 ring-slate-100">
                   {role.title}
             </div>
       );
@@ -1063,7 +1073,7 @@ function PrimaryContactBlock({
       onOpenContacts?: () => void;
 }) {
       return (
-            <div className="rounded-xl bg-slate-50 px-4 py-3">
+            <div className="rounded-xl border border-amber-100 bg-amber-50/50 px-4 py-3">
                   <div className="flex items-start justify-between gap-3">
                         <div
                               className={[

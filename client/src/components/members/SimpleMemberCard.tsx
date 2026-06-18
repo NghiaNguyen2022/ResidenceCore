@@ -492,7 +492,6 @@ export function SimpleMemberCard({
       const accent = getAccentClasses(memberIndex);
 
       const displayName = getDisplayName(member);
-      const holyName = member?.holyName || member?.saintName || member?.christianName || '';
       const statusLabel = getStatusLabel(member?.status || member?.residenceStatus || 'active');
       const roomText = getRoomTextForCard(member);
       const roomBadgeText = getRoomBadgeText(roomText, memberHasRoom);
@@ -591,13 +590,13 @@ export function SimpleMemberCard({
                                     <div className="min-w-0 flex-1">
                                           <div className="flex flex-wrap items-center gap-2">
 
-                                                <b className="min-w-0 text-xl font-bold leading-7 text-slate-950">
+                                                <h3 className={residenceMediumStyle.cardTitle}>
                                                       {displayName}
-                                                </b>
+                                                </h3>
                                           </div>
 
                                           {isExpanded && (
-                                                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-500">
+                                                <div className={residenceMediumStyle.cardMeta}>
                                                       <span>{residentCode}</span>
                                                       <span className="text-slate-300">•</span>
                                                       <span>{phoneNumber}</span>

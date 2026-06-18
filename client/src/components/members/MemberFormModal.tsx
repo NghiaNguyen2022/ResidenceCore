@@ -1,8 +1,9 @@
-import type { Dispatch, SetStateAction } from 'react';
+import { useEffect, type Dispatch, type SetStateAction } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { residenceMediumStyle } from '@/components/shared/styleMedium';
+import { AddressSuggestionInput } from '@/components/shared/AddressSuggestionInput';
 import { FormDateInput } from '@/components/shared/form/FormDateInput';
 import type {
       CreateResidentUserFormData,
@@ -39,23 +40,39 @@ export function MemberFormModal({
       isSuggestingUsername: boolean;
       isEditing?: boolean;
 }) {
+      useEffect(() => {
+            if (!isEditing && !createUserData.createUserAccount) {
+                  setCreateUserData((current) => ({
+                        ...current,
+                        createUserAccount: true,
+                        mustChangePassword:
+                              current.mustChangePassword === undefined
+                                    ? true
+                                    : current.mustChangePassword,
+                  }));
+            }
+      }, []);
+
       return (
-            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4">
-                  <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
+            <div className={residenceMediumStyle.modalOverlay}>
+                  <div className={`${residenceMediumStyle.modalShell} max-w-3xl`}>
+                        <div className={residenceMediumStyle.modalHeader}>
                               <div>
-                                    <h2 className="text-2xl font-bold text-neutral-900">
+                                    <p className={residenceMediumStyle.modalEyebrow}>
+                                          Học viên
+                                    </p>
+                                    <h2 className={residenceMediumStyle.modalTitle}>
                                           {title}
                                     </h2>
-                                    <p className="mt-1 text-sm text-neutral-500">
-                                          Cập nhật thông tin cơ bản của học viên lưu trú.
+                                    <p className={residenceMediumStyle.modalSubtitle}>
+                                          Nhập thông tin cần thiết cho quản lý lưu trú hằng ngày.
                                     </p>
                               </div>
 
                               <button
                                     type="button"
                                     onClick={onClose}
-                                    className="rounded-lg p-2 transition hover:bg-neutral-100"
+                                    className="rounded-xl p-2 text-slate-500 transition hover:bg-white/70 hover:text-slate-700"
                               >
                                     <X className="h-5 w-5" />
                               </button>
@@ -66,283 +83,298 @@ export function MemberFormModal({
                                     event.preventDefault();
                                     onSubmit();
                               }}
-                              className="space-y-5 p-6"
+                              className="min-h-0 overflow-y-auto px-5 py-4"
                         >
-                              {error && (
-                                    <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                                          {error}
-                                    </div>
-                              )}
+                              <div className="space-y-4">
+                                    {error && (
+                                          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                                {error}
+                                          </div>
+                                    )}
 
-                              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                    <div className="mb-4">
-                                          <h3 className="text-base font-semibold text-slate-900">
-                                                Thông tin học viên
-                                          </h3>
-                                          <p className="mt-1 text-sm text-slate-500">
-                                                Nhập các thông tin cơ bản, đủ dùng cho quản lý hằng ngày.
-                                          </p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                          <div>
-                                                <Label htmlFor="holyName">Tên thánh</Label>
-                                                <Input
-                                                      id="holyName"
-                                                      value={formData.holyName}
-                                                      onChange={(event) =>
-                                                            setFormData({
-                                                                  ...formData,
-                                                                  holyName: event.target.value,
-                                                            })
-                                                      }
-                                                      placeholder="Ví dụ: Maria, Giuse..."
-                                                />
+                                    <div className={residenceMediumStyle.cardSection}>
+                                          <div className="mb-3">
+                                                <h3 className="text-base font-semibold text-slate-900">
+                                                      Thông tin học viên
+                                                </h3>
+                                                <p className="mt-1 text-sm text-slate-500">
+                                                      Các trường chính để nhận diện và quản lý hồ sơ.
+                                                </p>
                                           </div>
 
-                                          <div>
-                                                <Label htmlFor="fullName">Họ tên học viên *</Label>
-                                                <Input
-                                                      id="fullName"
-                                                      value={formData.fullName}
-                                                      onChange={(event) =>
-                                                            setFormData({
-                                                                  ...formData,
-                                                                  fullName: event.target.value,
-                                                            })
-                                                      }
-                                                      placeholder="Nhập họ tên"
-                                                      required
-                                                />
-                                          </div>
-
-                                          <div>
-                                                <Label htmlFor="dateOfBirth">Ngày sinh</Label>
-                                                <FormDateInput
-                                                      id="dateOfBirth"
-                                                      value={formData.dateOfBirth}
-                                                      onChange={(event) =>
-                                                            setFormData({
-                                                                  ...formData,
-                                                                  dateOfBirth: event.target.value,
-                                                            })
-                                                      }
-                                                />
-                                          </div>
-
-                                          <div>
-                                                <Label htmlFor="gender">Giới tính</Label>
-                                                <select
-                                                      id="gender"
-                                                      value={formData.gender}
-                                                      onChange={(event) =>
-                                                            setFormData({
-                                                                  ...formData,
-                                                                  gender: event.target.value as Gender,
-                                                            })
-                                                      }
-                                                      className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                                >
-                                                      <option value="male">Nam</option>
-                                                      <option value="female">Nữ</option>
-                                                      <option value="other">Khác</option>
-                                                </select>
-                                          </div>
-
-                                          <div>
-                                                <Label htmlFor="idNumber">Số CCCD</Label>
-                                                <Input
-                                                      id="idNumber"
-                                                      value={formData.idNumber}
-                                                      onChange={(event) =>
-                                                            setFormData({
-                                                                  ...formData,
-                                                                  idNumber: event.target.value,
-                                                            })
-                                                      }
-                                                      placeholder="Nhập số CCCD"
-                                                />
-                                          </div>
-
-                                          <div>
-                                                <Label htmlFor="phoneNumber">Điện thoại</Label>
-                                                <Input
-                                                      id="phoneNumber"
-                                                      value={formData.phoneNumber}
-                                                      onChange={(event) =>
-                                                            setFormData({
-                                                                  ...formData,
-                                                                  phoneNumber: event.target.value,
-                                                            })
-                                                      }
-                                                      placeholder="Nhập số điện thoại"
-                                                />
-                                          </div>
-
-                                          <div>
-                                                <Label htmlFor="admissionDate">Ngày vào lưu trú *</Label>
-                                                <FormDateInput
-                                                      id="admissionDate"
-                                                      value={formData.admissionDate}
-                                                      onChange={(event) =>
-                                                            setFormData({
-                                                                  ...formData,
-                                                                  admissionDate: event.target.value,
-                                                            })
-                                                      }
-                                                      required
-                                                />
-                                          </div>
-                                    </div>
-                              </div>
-
-                              {!isEditing && (
-                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                                                <input
-                                                      type="checkbox"
-                                                      checked={createUserData.createUserAccount}
-                                                      onChange={(event) =>
-                                                            setCreateUserData((current) => ({
-                                                                  ...current,
-                                                                  createUserAccount: event.target.checked,
-                                                            }))
-                                                      }
-                                                />
-                                                <span>Tạo tài khoản đăng nhập cho học viên</span>
-                                          </label>
-
-                                          {createUserData.createUserAccount && (
-                                                <div className="mt-4 space-y-4">
-                                                      <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                                                            <div className="flex-1">
-                                                                  <Label htmlFor="residentUsername">
-                                                                        Tên đăng nhập
-                                                                  </Label>
-                                                                  <Input
-                                                                        id="residentUsername"
-                                                                        value={createUserData.username}
-                                                                        onChange={(event) =>
-                                                                              setCreateUserData((current) => ({
-                                                                                    ...current,
-                                                                                    username: event.target.value,
-                                                                              }))
-                                                                        }
-                                                                        placeholder="ten.ho"
-                                                                  />
-                                                            </div>
-
-                                                            <button
-                                                                  type="button"
-                                                                  onClick={onSuggestUsername}
-                                                                  disabled={
-                                                                        isSuggestingUsername ||
-                                                                        !formData.fullName.trim()
-                                                                  }
-                                                                  className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                                                            >
-                                                                  {isSuggestingUsername
-                                                                        ? 'Đang gợi ý...'
-                                                                        : 'Gợi ý tên đăng nhập'}
-                                                            </button>
-                                                      </div>
-
-                                                      <div className="grid gap-4 md:grid-cols-2">
-                                                            <div>
-                                                                  <Label htmlFor="residentTemporaryPassword">
-                                                                        Mật khẩu tạm
-                                                                  </Label>
-                                                                  <Input
-                                                                        id="residentTemporaryPassword"
-                                                                        value={createUserData.temporaryPassword}
-                                                                        onChange={(event) =>
-                                                                              setCreateUserData((current) => ({
-                                                                                    ...current,
-                                                                                    temporaryPassword:
-                                                                                          event.target.value,
-                                                                              }))
-                                                                        }
-                                                                        placeholder="123456"
-                                                                        type="text"
-                                                                  />
-                                                            </div>
-
-                                                            <label className="flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm text-slate-700">
-                                                                  <input
-                                                                        type="checkbox"
-                                                                        checked={
-                                                                              createUserData.mustChangePassword
-                                                                        }
-                                                                        onChange={(event) =>
-                                                                              setCreateUserData((current) => ({
-                                                                                    ...current,
-                                                                                    mustChangePassword:
-                                                                                          event.target.checked,
-                                                                              }))
-                                                                        }
-                                                                  />
-                                                                  <span>
-                                                                        Yêu cầu đổi mật khẩu khi đăng nhập lần đầu
-                                                                  </span>
-                                                            </label>
-                                                      </div>
-
-                                                      <div className="rounded-xl bg-white px-4 py-3 text-xs text-slate-500">
-                                                            Tài khoản học viên sẽ được gắn vai trò{' '}
-                                                            <span className="font-medium text-slate-700">
-                                                                  Học viên
-                                                            </span>
-                                                            . Các chức danh như Tổ trưởng, Trưởng ban, Thủ quỹ
-                                                            sẽ được gán sau từ quy trình bổ nhiệm.
-                                                      </div>
+                                          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                <div>
+                                                      <label htmlFor="holyName" className={residenceMediumStyle.fieldLabel}>
+                                                            Tên thánh
+                                                      </label>
+                                                      <Input
+                                                            id="holyName"
+                                                            value={formData.holyName}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        holyName: event.target.value,
+                                                                  })
+                                                            }
+                                                            placeholder="Maria, Giuse..."
+                                                            className={residenceMediumStyle.formInput}
+                                                      />
                                                 </div>
-                                          )}
-                                    </div>
-                              )}
 
-                              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                    <div className="grid gap-4">
-                                          <div>
-                                                <Label htmlFor="permanentAddress">
-                                                      Địa chỉ thường trú
-                                                </Label>
-                                                <Textarea
-                                                      id="permanentAddress"
-                                                      value={formData.permanentAddress}
-                                                      onChange={(event) =>
-                                                            setFormData({
-                                                                  ...formData,
-                                                                  permanentAddress: event.target.value,
-                                                            })
-                                                      }
-                                                      placeholder="Nhập địa chỉ"
-                                                      className="min-h-24"
-                                                />
+                                                <div>
+                                                      <label htmlFor="fullName" className={residenceMediumStyle.fieldLabel}>
+                                                            Họ tên học viên *
+                                                      </label>
+                                                      <Input
+                                                            id="fullName"
+                                                            value={formData.fullName}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        fullName: event.target.value,
+                                                                  })
+                                                            }
+                                                            placeholder="Nhập họ tên"
+                                                            required
+                                                            className={residenceMediumStyle.formInput}
+                                                      />
+                                                </div>
+
+                                                <div>
+                                                      <label htmlFor="dateOfBirth" className={residenceMediumStyle.fieldLabel}>
+                                                            Ngày sinh
+                                                      </label>
+                                                      <FormDateInput
+                                                            id="dateOfBirth"
+                                                            value={formData.dateOfBirth}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        dateOfBirth: event.target.value,
+                                                                  })
+                                                            }
+                                                      />
+                                                </div>
+
+                                                <div>
+                                                      <label htmlFor="gender" className={residenceMediumStyle.fieldLabel}>
+                                                            Giới tính
+                                                      </label>
+                                                      <select
+                                                            id="gender"
+                                                            value={formData.gender}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        gender: event.target.value as Gender,
+                                                                  })
+                                                            }
+                                                            className="mt-1 h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
+                                                      >
+                                                            <option value="male">Nam</option>
+                                                            <option value="female">Nữ</option>
+                                                            <option value="other">Khác</option>
+                                                      </select>
+                                                </div>
+
+                                                <div>
+                                                      <label htmlFor="phoneNumber" className={residenceMediumStyle.fieldLabel}>
+                                                            Điện thoại
+                                                      </label>
+                                                      <Input
+                                                            id="phoneNumber"
+                                                            value={formData.phoneNumber}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        phoneNumber: event.target.value,
+                                                                  })
+                                                            }
+                                                            placeholder="Nhập số điện thoại"
+                                                            className={residenceMediumStyle.formInput}
+                                                      />
+                                                </div>
+
+                                                <div>
+                                                      <label htmlFor="admissionDate" className={residenceMediumStyle.fieldLabel}>
+                                                            Ngày vào lưu trú *
+                                                      </label>
+                                                      <FormDateInput
+                                                            id="admissionDate"
+                                                            value={formData.admissionDate}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        admissionDate: event.target.value,
+                                                                  })
+                                                            }
+                                                            required
+                                                      />
+                                                </div>
+
+                                                <div className="md:col-span-2">
+                                                      <label htmlFor="idNumber" className={residenceMediumStyle.fieldLabel}>
+                                                            Số CCCD
+                                                      </label>
+                                                      <Input
+                                                            id="idNumber"
+                                                            value={formData.idNumber}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        idNumber: event.target.value,
+                                                                  })
+                                                            }
+                                                            placeholder="Nhập số CCCD"
+                                                            className={residenceMediumStyle.formInput}
+                                                      />
+                                                </div>
                                           </div>
+                                    </div>
 
-                                          <div>
-                                                <Label htmlFor="notes">Ghi chú</Label>
-                                                <Textarea
-                                                      id="notes"
-                                                      value={formData.notes}
-                                                      onChange={(event) =>
+                                    {!isEditing && (
+                                          <div className={residenceMediumStyle.cardSection}>
+                                                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                                      <input
+                                                            type="checkbox"
+                                                            checked={createUserData.createUserAccount}
+                                                            onChange={(event) =>
+                                                                  setCreateUserData((current) => ({
+                                                                        ...current,
+                                                                        createUserAccount: event.target.checked,
+                                                                  }))
+                                                            }
+                                                      />
+                                                      <span>Tạo tài khoản đăng nhập cho học viên</span>
+                                                </label>
+
+                                                {createUserData.createUserAccount && (
+                                                      <div className="mt-3 space-y-3">
+                                                            <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                                                                  <div>
+                                                                        <label htmlFor="residentUsername" className={residenceMediumStyle.fieldLabel}>
+                                                                              Tên đăng nhập
+                                                                        </label>
+                                                                        <Input
+                                                                              id="residentUsername"
+                                                                              value={createUserData.username}
+                                                                              onChange={(event) =>
+                                                                                    setCreateUserData((current) => ({
+                                                                                          ...current,
+                                                                                          username: event.target.value,
+                                                                                    }))
+                                                                              }
+                                                                              placeholder="ten.ho"
+                                                                              className={residenceMediumStyle.formInput}
+                                                                        />
+                                                                  </div>
+
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={onSuggestUsername}
+                                                                        disabled={
+                                                                              isSuggestingUsername ||
+                                                                              !formData.fullName.trim()
+                                                                        }
+                                                                        className={residenceMediumStyle.secondaryButton}
+                                                                  >
+                                                                        {isSuggestingUsername
+                                                                              ? 'Đang gợi ý...'
+                                                                              : 'Gợi ý'}
+                                                                  </button>
+                                                            </div>
+
+                                                            <div className="grid gap-3 md:grid-cols-2">
+                                                                  <div>
+                                                                        <label htmlFor="residentTemporaryPassword" className={residenceMediumStyle.fieldLabel}>
+                                                                              Mật khẩu tạm
+                                                                        </label>
+                                                                        <Input
+                                                                              id="residentTemporaryPassword"
+                                                                              value={createUserData.temporaryPassword}
+                                                                              onChange={(event) =>
+                                                                                    setCreateUserData((current) => ({
+                                                                                          ...current,
+                                                                                          temporaryPassword:
+                                                                                                event.target.value,
+                                                                                    }))
+                                                                              }
+                                                                              placeholder="123456"
+                                                                              type="text"
+                                                                              className={residenceMediumStyle.formInput}
+                                                                        />
+                                                                  </div>
+
+                                                                  <label className="mt-6 flex items-center gap-2 rounded-xl border border-amber-100 bg-white/80 px-3 py-2 text-sm text-slate-700">
+                                                                        <input
+                                                                              type="checkbox"
+                                                                              checked={
+                                                                                    createUserData.mustChangePassword
+                                                                              }
+                                                                              onChange={(event) =>
+                                                                                    setCreateUserData((current) => ({
+                                                                                          ...current,
+                                                                                          mustChangePassword:
+                                                                                                event.target.checked,
+                                                                                    }))
+                                                                              }
+                                                                        />
+                                                                        <span>Đổi mật khẩu lần đầu</span>
+                                                                  </label>
+                                                            </div>
+
+                                                            <div className="rounded-xl bg-amber-50/70 px-4 py-3 text-xs leading-5 text-slate-500">
+                                                                  Tài khoản học viên dùng vai trò{' '}
+                                                                  <span className="font-medium text-slate-700">
+                                                                        Học viên
+                                                                  </span>
+                                                                  . Các chức danh tổ chức sẽ được gán sau từ quy trình bổ nhiệm.
+                                                            </div>
+                                                      </div>
+                                                )}
+                                          </div>
+                                    )}
+
+                                    <div className={residenceMediumStyle.cardSection}>
+                                          <div className="grid gap-4">
+                                                <AddressSuggestionInput
+                                                      id="permanentAddress"
+                                                      label="Địa chỉ thường trú"
+                                                      value={formData.permanentAddress}
+                                                      onChange={(value) =>
                                                             setFormData({
                                                                   ...formData,
-                                                                  notes: event.target.value,
+                                                                  permanentAddress: value,
                                                             })
                                                       }
-                                                      placeholder="Ghi chú thêm về học viên nếu có"
-                                                      className="min-h-20"
                                                 />
+
+                                                <div>
+                                                      <label htmlFor="notes" className={residenceMediumStyle.fieldLabel}>
+                                                            Ghi chú
+                                                      </label>
+                                                      <Textarea
+                                                            id="notes"
+                                                            value={formData.notes}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        notes: event.target.value,
+                                                                  })
+                                                            }
+                                                            placeholder="Ghi chú thêm về học viên nếu có"
+                                                            className={residenceMediumStyle.formTextarea}
+                                                      />
+                                                </div>
                                           </div>
                                     </div>
                               </div>
 
-                              <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
+                              <div className="sticky bottom-0 mt-4 flex flex-col-reverse gap-2 border-t border-amber-100/80 bg-white/90 px-0 py-4 backdrop-blur sm:flex-row sm:justify-end">
                                     <button
                                           type="button"
                                           onClick={onClose}
-                                          className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                          className={residenceMediumStyle.secondaryButton}
                                     >
                                           Hủy
                                     </button>
@@ -350,7 +382,7 @@ export function MemberFormModal({
                                     <button
                                           type="submit"
                                           disabled={isSubmitting}
-                                          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                          className={residenceMediumStyle.primaryButton}
                                     >
                                           {submitText}
                                     </button>

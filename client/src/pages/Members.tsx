@@ -207,7 +207,7 @@ function SimpleStatCard({
                               <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
                                     {value}
                               </div>
-                              <div className={residenceMediumStyle.filterHint}>
+                              <div className={residenceMediumStyle.compactSectionHint}>
                                     {description}
                               </div>
                         </div>
@@ -1843,8 +1843,8 @@ export default function Members() {
                                                                   </button>
 
                                                                   {isQuickActionOpen && (
-                                                                        <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 py-2 text-slate-800 shadow-[0_28px_60px_rgba(15,23,42,0.14)]">
-                                                                              <div className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                                                        <div className={residenceMediumStyle.dropdownPanel}>
+                                                                              <div className={residenceMediumStyle.dropdownLabel}>
                                                                                     Quản lý phòng
                                                                               </div>
 
@@ -1854,7 +1854,7 @@ export default function Members() {
                                                                                           setIsQuickActionOpen(false);
                                                                                           setIsRoomsQuickDialogOpen(true);
                                                                                     }}
-                                                                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                                                                    className={residenceMediumStyle.dropdownItem}
                                                                               >
                                                                                     Danh sách phòng & sức chứa
                                                                                     <div className="mt-0.5 text-xs text-slate-400">
@@ -1862,7 +1862,7 @@ export default function Members() {
                                                                                     </div>
                                                                               </button>
 
-                                                                              <div className="my-1 border-t" />
+                                                                              <div className={residenceMediumStyle.divider} />
 
                                                                               <div className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                                                                                     Tài khoản & liên hệ
@@ -1878,7 +1878,7 @@ export default function Members() {
                                                                                           bulkCreateResidentUsersMutation.isPending ||
                                                                                           (residentsWithoutUserQuery.data?.length ?? 0) === 0
                                                                                     }
-                                                                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                                    className={`${residenceMediumStyle.dropdownItem} disabled:cursor-not-allowed disabled:opacity-60`}
                                                                               >
                                                                                     Tạo tài khoản học viên chưa có user
                                                                                     <div className="mt-0.5 text-xs text-slate-400">
@@ -1894,7 +1894,7 @@ export default function Members() {
                                                                                           setSelectedMemberForContacts(null);
                                                                                           setIsContactsDialogOpen(true);
                                                                                     }}
-                                                                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                                                                    className={residenceMediumStyle.dropdownItem}
                                                                               >
                                                                                     Danh sách liên hệ
                                                                                     <div className="mt-0.5 text-xs text-slate-400">
@@ -1990,10 +1990,10 @@ export default function Members() {
                                           <div>
                                                 <div className="mb-2 flex items-center justify-between gap-3">
                                                       <div>
-                                                            <h3 className={residenceMediumStyle.filterTitle}>
+                                                            <h3 className={residenceMediumStyle.compactSectionLabel}>
                                                                   Tra cứu học viên
                                                             </h3>
-                                                            <p className={residenceMediumStyle.filterHint}>
+                                                            <p className={residenceMediumStyle.compactSectionHint}>
                                                                   Tìm theo tên, mã lưu trú, số điện thoại, phòng hoặc liên hệ.
                                                             </p>
                                                       </div>
@@ -2015,10 +2015,10 @@ export default function Members() {
                                           <div>
                                                 <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                                       <div>
-                                                            <h3 className={residenceMediumStyle.filterTitle}>
+                                                            <h3 className={residenceMediumStyle.compactSectionLabel}>
                                                                   Trạng thái hồ sơ
                                                             </h3>
-                                                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                                                            <p className={residenceMediumStyle.compactSectionHint}>
                                                                   Chọn nhóm hồ sơ cần xem hoặc xử lý.
                                                             </p>
                                                       </div>

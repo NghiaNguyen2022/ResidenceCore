@@ -44,6 +44,13 @@ export const residenceMediumStyle = {
       segmentedActive: 'bg-white text-slate-900 shadow-[0_8px_18px_rgba(120,53,15,0.10)]',
       segmentedIdle: 'text-slate-500 hover:text-slate-800',
 
+      cardTitle: 'min-w-0 text-xl font-semibold leading-7 text-slate-950',
+      cardHolyName: 'text-xs font-medium leading-5 text-slate-500',
+      cardMeta: 'mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-500',
+
+      compactSectionLabel: 'text-base font-medium tracking-tight text-slate-900',
+      compactSectionHint: 'mt-1 text-xs leading-5 text-slate-500',
+
       card:
             'relative overflow-visible rounded-3xl border p-4 shadow-[0_18px_42px_rgba(120,53,15,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_56px_rgba(120,53,15,0.12)]',
       cardActive:
@@ -52,6 +59,51 @@ export const residenceMediumStyle = {
       cardInactive: 'border-amber-200 bg-amber-50/80',
       cardSection:
             'rounded-2xl border border-amber-100/80 bg-[linear-gradient(180deg,#ffffff_0%,#fffaf2_100%)] px-4 py-3 shadow-sm shadow-amber-900/5',
+
+      listPanel:
+            'overflow-hidden rounded-2xl border border-amber-100/80 bg-[linear-gradient(180deg,#ffffff_0%,#fffdfa_100%)] shadow-[0_14px_34px_rgba(120,53,15,0.055)]',
+      listPanelHeader:
+            'border-b border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf7_72%,#fff3e3_100%)] px-4 py-2.5',
+      listTableWrap: 'max-h-[560px] overflow-auto',
+      listTable: 'min-w-[1180px] divide-y divide-amber-100/70 text-sm',
+      listHead: 'sticky top-0 z-10 bg-amber-50/75 backdrop-blur',
+      listHeadCell: 'px-4 py-2.5 text-left text-xs font-semibold text-slate-500',
+      listRow: 'transition hover:bg-amber-50/45',
+      listCell: 'px-4 py-2.5 text-slate-700',
+      listPrimaryText: 'font-semibold text-slate-900',
+      listSecondaryText: 'text-xs text-slate-400',
+      listEmptyText: 'text-slate-400',
+
+      dropdownPanel:
+            'absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-amber-100/80 bg-white/95 py-2 text-slate-800 shadow-[0_28px_60px_rgba(120,53,15,0.16)] backdrop-blur',
+      dropdownLabel: 'px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400',
+      dropdownItem: 'w-full px-4 py-2 text-left text-sm text-slate-700 transition hover:bg-amber-50/60',
+      dropdownItemHint: 'mt-0.5 text-xs text-slate-400',
+      divider: 'my-1 border-t border-amber-100/80',
+
+      modalOverlay: 'fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm',
+      modalShell:
+            'flex max-h-[92vh] w-full flex-col overflow-hidden rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf9_58%,#fff4e7_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.20)]',
+      modalHeader:
+            'flex items-start justify-between gap-4 border-b border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff3e3_100%)] px-5 py-4',
+      modalEyebrow: 'text-xs font-semibold uppercase tracking-[0.16em] text-amber-700',
+      modalTitle: 'text-xl font-bold tracking-tight text-slate-950',
+      modalSubtitle: 'mt-1 text-sm leading-6 text-slate-500',
+
+      metricCard:
+            'rounded-2xl border border-amber-100/80 bg-white/85 px-4 py-3 shadow-[0_10px_24px_rgba(120,53,15,0.055)]',
+      metricLabel: 'text-xs font-medium text-slate-400',
+      metricValue: 'mt-1 text-xl font-bold text-slate-900',
+
+      fieldLabel: 'text-sm font-semibold text-slate-700',
+      formInput:
+            'mt-1 h-10 rounded-xl border-amber-100 bg-white/90 text-sm shadow-[0_8px_18px_rgba(120,53,15,0.055)]',
+      formTextarea:
+            'mt-1 min-h-20 rounded-xl border-amber-100 bg-white/90 text-sm shadow-[0_8px_18px_rgba(120,53,15,0.055)]',
+      secondaryButton:
+            'rounded-xl border border-amber-100 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-amber-50/60 disabled:cursor-not-allowed disabled:opacity-60',
+      primaryButton:
+            'rounded-xl border border-amber-200/70 bg-[linear-gradient(180deg,#fff8ea_0%,#ffe9c8_100%)] px-4 py-2 text-sm font-bold text-amber-950 shadow-[0_10px_22px_rgba(180,83,9,0.14)] transition hover:shadow-[0_14px_28px_rgba(180,83,9,0.18)] disabled:cursor-not-allowed disabled:opacity-60',
 };
 
 export const residenceMediumAccents = [
