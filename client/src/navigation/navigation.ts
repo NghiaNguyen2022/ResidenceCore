@@ -1,5 +1,8 @@
 import type { AppRole, NavigationItem } from "./types";
-import { simpleManagerNavigation } from "./managerNavigation";
+import {
+      detailedManagerNavigation,
+      simpleManagerNavigation,
+} from "./managerNavigation";
 import { residentNavigation } from "./residentNavigation";
 import {
       appointedResidentNavigation,
@@ -19,7 +22,9 @@ export function getNavigationByRoles(
       const hasAppointmentRole = hasAnyAppointmentRole(roles);
 
       if (hasManager) {
-            return simpleManagerNavigation;
+            return mode === "detailed"
+                  ? detailedManagerNavigation
+                  : simpleManagerNavigation;
       }
 
       if (hasResident) {

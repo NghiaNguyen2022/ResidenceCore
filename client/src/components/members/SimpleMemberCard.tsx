@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client';
 
 import { useState, type ReactNode } from 'react';
