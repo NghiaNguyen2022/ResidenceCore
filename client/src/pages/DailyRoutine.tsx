@@ -21,6 +21,7 @@ import {
       AppMessageBox,
       type AppMessageBoxState,
 } from '@/components/common/AppMessageBox';
+import { cx, residenceMediumStyle } from '@/components/shared/styleMedium';
 import { formatTime } from '@/lib/format';
 import { DEFAULT_TIME } from '@/lib/formDefaults';
 
@@ -1278,26 +1279,14 @@ export default function DailyRoutine() {
 
       return (
             <ResidenceCareLayout>
-                  <div className="space-y-6 p-6">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                              <div>
-                                    <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-                                          Sinh hoạt
-                                    </p>
-                                    <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
-                                          Sinh hoạt hằng ngày
-                                    </h1>
-                                    <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                                          Theo dõi lịch sinh hoạt và công tác trong ngày trên một màn hình gọn,
-                                          dễ nhìn và dễ thực hiện.
-                                    </p>
-                              </div>
-
-                              <div className="flex flex-wrap gap-2">
+                  <div className={residenceMediumStyle.page}>
+                        <div className={residenceMediumStyle.pageShell}>
+                        <div className={residenceMediumStyle.topArea}>
+                              <div className={residenceMediumStyle.actionBar}>
                                     <button
                                           type="button"
                                           onClick={openCreateTemplate}
-                                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                          className={cx(residenceMediumStyle.secondaryButton, 'inline-flex items-center gap-2')}
                                     >
                                           <Plus className="h-4 w-4" />
                                           Thêm mẫu lịch
@@ -1305,11 +1294,23 @@ export default function DailyRoutine() {
                                     <button
                                           type="button"
                                           onClick={openCreateItem}
-                                          className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                          className="inline-flex items-center gap-2 rounded-xl bg-[#17335f] px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(23,51,95,0.16)] transition hover:bg-[#244878]"
                                     >
                                           <Clock className="h-4 w-4" />
                                           Thêm khung giờ
                                     </button>
+                              </div>
+                              <div className={residenceMediumStyle.topInner}>
+                                    <p className={residenceMediumStyle.modalEyebrow}>
+                                          Sinh hoạt
+                                    </p>
+                                    <h1 className={residenceMediumStyle.topTitle}>
+                                          Sinh hoạt hằng ngày
+                                    </h1>
+                                    <p className={residenceMediumStyle.topSubtitle}>
+                                          Theo dõi lịch sinh hoạt và công tác trong ngày trên một màn hình gọn,
+                                          dễ nhìn và dễ thực hiện.
+                                    </p>
                               </div>
                         </div>
 
@@ -1328,7 +1329,7 @@ export default function DailyRoutine() {
                               </div>
                         )}
 
-                        <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
+                        <div className="flex flex-wrap gap-2 rounded-[26px] border border-amber-100/80 bg-white/90 p-2 shadow-[0_12px_30px_rgba(120,53,15,0.045)]">
                               {[
                                     { key: 'today', label: 'Hôm nay' },
                                     { key: 'routine', label: 'Thiết lập lịch' },
@@ -1339,10 +1340,10 @@ export default function DailyRoutine() {
                                           type="button"
                                           onClick={() => setActiveView(view.key as DailyRoutineView)}
                                           className={[
-                                                'rounded-2xl px-4 py-2 text-sm font-semibold transition',
+                                                'rounded-xl px-4 py-2 text-sm font-semibold transition',
                                                 activeView === view.key
-                                                      ? 'bg-blue-600 text-white shadow-sm'
-                                                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                                                      ? 'bg-[#17335f] text-white shadow-sm'
+                                                      : 'text-slate-600 hover:bg-amber-50/70 hover:text-slate-900',
                                           ].join(' ')}
                                     >
                                           {view.label}
@@ -1449,16 +1450,17 @@ export default function DailyRoutine() {
                         )}
 
                         {isDutyConfigFormOpen && (
-                              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
-                                    <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
-                                          <div className="mb-5 flex items-start justify-between">
+                              <div className={residenceMediumStyle.modalOverlay}>
+                                    <div className={`${residenceMediumStyle.modalShell} max-w-3xl`}>
+                                          <div className={residenceMediumStyle.modalHeader}>
                                                 <div>
-                                                      <h2 className="text-xl font-bold text-slate-950">
+                                                      <p className={residenceMediumStyle.modalEyebrow}>Mẫu công tác</p>
+                                                      <h2 className={residenceMediumStyle.modalTitle}>
                                                             {selectedDutyConfigForEdit
                                                                   ? 'Cập nhật mẫu công tác'
                                                                   : 'Thêm mẫu công tác'}
                                                       </h2>
-                                                      <p className="mt-1 text-sm text-slate-500">
+                                                      <p className={residenceMediumStyle.modalSubtitle}>
                                                             Thiết lập thông tin công tác và danh sách việc cần hoàn thành.
                                                       </p>
                                                 </div>
@@ -1466,24 +1468,26 @@ export default function DailyRoutine() {
                                                 <button
                                                       type="button"
                                                       onClick={() => setIsDutyConfigFormOpen(false)}
-                                                      className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+                                                      className="rounded-xl border border-amber-100 bg-white/90 p-2 text-slate-500 transition hover:bg-amber-50/70"
                                                 >
                                                       <X className="h-4 w-4" />
                                                 </button>
                                           </div>
 
-                                          <DutyConfigForm
-                                                duty={selectedDutyConfigForEdit}
-                                                onSave={async () => {
-                                                      setIsDutyConfigFormOpen(false);
-                                                      setSelectedDutyConfigForEdit(null);
-                                                      showMessage('success', selectedDutyConfigForEdit
-                                                                  ? 'Đã cập nhật mẫu công tác.'
-                                                                  : 'Đã thêm mẫu công tác.');
-                                                      await dutyConfigsQuery.refetch();
-                                                }}
-                                                onCancel={() => setIsDutyConfigFormOpen(false)}
-                                          />
+                                          <div className="overflow-y-auto px-5 pb-5">
+                                                <DutyConfigForm
+                                                      duty={selectedDutyConfigForEdit}
+                                                      onSave={async () => {
+                                                            setIsDutyConfigFormOpen(false);
+                                                            setSelectedDutyConfigForEdit(null);
+                                                            showMessage('success', selectedDutyConfigForEdit
+                                                                        ? 'Đã cập nhật mẫu công tác.'
+                                                                        : 'Đã thêm mẫu công tác.');
+                                                            await dutyConfigsQuery.refetch();
+                                                      }}
+                                                      onCancel={() => setIsDutyConfigFormOpen(false)}
+                                                />
+                                          </div>
                                     </div>
                               </div>
                         )}
@@ -1494,6 +1498,7 @@ export default function DailyRoutine() {
                               onConfirm={handleMessageBoxConfirm}
                               isProcessing={deleteDutyConfigMutation.isPending || cancelAssignmentMutation.isPending}
                         />
+                        </div>
                   </div>
             </ResidenceCareLayout>
       );

@@ -137,11 +137,11 @@ export function DutiesTab({
                   />
 
                   <div className="space-y-4">
-                        <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col gap-3 rounded-[26px] border border-amber-100/80 bg-white/90 p-4 shadow-[0_16px_36px_rgba(120,53,15,0.06)] md:flex-row md:items-center md:justify-between">
                               <div>
-                                    <h2 className="text-xl font-bold text-slate-950">
+                                    <h3 className="text-lg font-semibold tracking-tight text-slate-900">
                                           Lịch công tác
-                                    </h2>
+                                    </h3>
                                     <p className="mt-1 text-sm text-slate-500">
                                           Xem công tác theo ngày, tuần hoặc tháng.
                                     </p>

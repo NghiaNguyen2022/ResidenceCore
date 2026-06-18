@@ -11,7 +11,7 @@ export function EmptyState({ title, description, action, className = '' }: Empty
       return (
             <div
                   className={[
-                        'rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center',
+                        'rounded-[26px] border border-dashed border-amber-100 bg-white/70 p-8 text-center shadow-sm',
                         className,
                   ].join(' ')}
             >

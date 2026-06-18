@@ -18,7 +18,7 @@ export function SectionCard({
       return (
             <section
                   className={[
-                        'rounded-3xl border border-slate-200 bg-white p-5 shadow-sm',
+                        'rounded-[26px] border border-amber-100/80 bg-white/90 p-5 shadow-[0_16px_36px_rgba(120,53,15,0.06)]',
                         className,
                   ].join(' ')}
             >
@@ -26,9 +26,9 @@ export function SectionCard({
                         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                               <div>
                                     {title && (
-                                          <h2 className="text-xl font-bold text-slate-950">
+                                          <h3 className="text-lg font-semibold tracking-tight text-slate-900">
                                                 {title}
-                                          </h2>
+                                          </h3>
                                     )}
                                     {description && (
                                           <p className="mt-1 text-sm leading-6 text-slate-500">

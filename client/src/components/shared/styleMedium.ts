@@ -20,9 +20,9 @@ export const residenceMediumStyle = {
       pageShell: density.pageShell,
 
       topArea: 'relative overflow-visible px-1 pt-1',
-      topInner: 'relative overflow-visible px-1 py-1 text-slate-900 sm:px-2',
-      topTitle: 'text-[32px] font-bold tracking-tight text-slate-950 sm:text-[38px]',
-      topSubtitle: 'mt-2 max-w-3xl text-sm leading-7 text-slate-600 sm:text-[15px]',
+      topInner: 'relative mx-auto flex max-w-4xl flex-col items-center overflow-visible px-1 py-1 text-center text-slate-900 sm:px-2',
+      topTitle: 'text-center text-[32px] font-bold tracking-tight text-slate-950 sm:text-[38px]',
+      topSubtitle: 'mx-auto mt-2 max-w-3xl text-center text-sm leading-7 text-slate-600 sm:text-[15px]',
 
       warmButton:
             'rounded-md border border-amber-200/80 bg-[linear-gradient(180deg,#fffaf0_0%,#fff3dc_100%)] px-4 py-2 text-sm font-semibold text-amber-900 shadow-[0_10px_24px_rgba(180,83,9,0.12)] transition hover:shadow-[0_14px_28px_rgba(180,83,9,0.16)]',
@@ -67,6 +67,7 @@ export const residenceMediumStyle = {
       sectionHeader:
             'border-b border-amber-100/70 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_70%,#fff4e8_100%)] px-5 py-2.5',
       sectionTitle: 'text-[20px] font-bold tracking-tight text-slate-900 sm:text-[21px]',
+      subsectionTitle: 'text-lg font-semibold tracking-tight text-slate-900',
       sectionBody: cx('bg-[linear-gradient(180deg,rgba(255,250,240,0.45)_0%,rgba(248,250,252,0.35)_100%)]', density.sectionBody),
 
       segmentedControl: 'flex rounded-2xl bg-slate-100 p-1 text-sm font-semibold',

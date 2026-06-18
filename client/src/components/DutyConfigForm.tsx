@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import TemplateSelector from "./TemplateSelector";
 import { DEFAULT_TIME } from "@/lib/formDefaults";
@@ -26,10 +26,20 @@ interface DutyTemplate {
 }
 
 interface DutyConfigFormProps {
-  duty?: any; // null for create, DutyConfig for edit
+  duty?: any;
   onSave: () => void;
   onCancel: () => void;
 }
+
+const formLabelClass = "text-sm font-semibold text-slate-700";
+const formInputClass =
+  "h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.045)] outline-none transition placeholder:text-slate-400 focus:border-amber-200 focus:ring-2 focus:ring-amber-100 disabled:bg-slate-50 disabled:text-slate-400";
+const formTextareaClass =
+  "min-h-24 w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.045)] outline-none transition placeholder:text-slate-400 focus:border-amber-200 focus:ring-2 focus:ring-amber-100";
+const secondaryButtonClass =
+  "rounded-xl border border-amber-100 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-amber-50/70 disabled:cursor-not-allowed disabled:opacity-60";
+const primaryButtonClass =
+  "rounded-xl bg-[#17335f] px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(23,51,95,0.16)] transition hover:bg-[#244878] disabled:cursor-not-allowed disabled:opacity-60";
 
 export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFormProps) {
   const [activeTab, setActiveTab] = useState<"basic" | "checklist">("basic");
@@ -57,8 +67,6 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
     requiresStudyScheduleCheck: true,
   });
 
-  // tRPC queries & mutations
-  const listTemplatesQuery = trpc.duties.listTemplates.useQuery();
   const getChecklistQuery = trpc.duties.getChecklist.useQuery(
     { dutyConfigId: duty?.id || 0 },
     { enabled: !!duty?.id }
@@ -69,7 +77,6 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
   const updateChecklistItemMutation = trpc.duties.updateChecklistItem.useMutation();
   const deleteChecklistItemMutation = trpc.duties.deleteChecklistItem.useMutation();
 
-  // Load data
   useEffect(() => {
     if (duty) {
       setFormData({
@@ -109,7 +116,6 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
     }
   }, [getChecklistQuery.data]);
 
-  // Handle select template
   const handleSelectTemplate = (template: DutyTemplate) => {
     setFormData({
       ...formData,
@@ -186,7 +192,6 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
     return Number.isFinite(parsedId) && parsedId > 0 ? parsedId : 0;
   };
 
-  // Handle save
   const handleSave = async () => {
     if (!formData.dutyCode || !formData.dutyName) {
       setFormError("Vui lòng nhập mã và tên công tác.");
@@ -254,17 +259,12 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
       onSave();
     } catch (error) {
       console.error("Error saving duty config:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Lỗi khi lưu công tác"
-      );
+      alert(error instanceof Error ? error.message : "Lỗi khi lưu công tác");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle add checklist item
   const handleAddChecklistItem = () => {
     const checklistItem = newChecklistItem.checklistItem.trim();
 
@@ -287,7 +287,6 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
     });
   };
 
-  // Handle delete checklist item
   const handleDeleteChecklistItem = (index: number) => {
     setChecklistItems(
       checklistItems
@@ -300,217 +299,192 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {formError && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+        <div className="rounded-2xl border border-rose-100 bg-rose-50/80 px-4 py-3 text-sm font-semibold text-rose-700">
           {formError}
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-4 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab("basic")}
-          className={`px-4 py-2 font-medium border-b-2 ${
-            activeTab === "basic"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-600 hover:text-gray-900"
-          }`}
-        >
-          Thông Tin Cơ Bản
-        </button>
-        <button
-          onClick={() => setActiveTab("checklist")}
-          className={`px-4 py-2 font-medium border-b-2 ${
-            activeTab === "checklist"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-600 hover:text-gray-900"
-          }`}
-        >
-          Danh Sách Công Việc
-        </button>
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-amber-100/80 bg-white/85 p-1.5 shadow-[0_8px_20px_rgba(120,53,15,0.045)]">
+        {[
+          { key: "basic", label: "Thông tin cơ bản" },
+          { key: "checklist", label: "Danh sách công việc" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key as "basic" | "checklist")}
+            className={[
+              "rounded-xl px-4 py-2 text-sm font-semibold transition",
+              activeTab === tab.key
+                ? "bg-[#17335f] text-white shadow-sm"
+                : "text-slate-600 hover:bg-amber-50/70 hover:text-slate-900",
+            ].join(" ")}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Basic Tab */}
       {activeTab === "basic" && (
         <div className="space-y-4">
-          {/* Template Selector Button */}
           {!duty && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
               <button
                 type="button"
                 onClick={() => setShowTemplateSelector(true)}
-                className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition flex items-center justify-center gap-2"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-white/90 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-50"
               >
-                📋 Chọn Công Tác Mẫu
+                Chọn công tác mẫu
               </button>
-              <p className="text-sm text-green-700 mt-2">
-                💡 Chọn mẫu để tự động điền thông tin cơ bản
+              <p className="mt-2 text-sm leading-6 text-emerald-700">
+                Chọn mẫu để tự động điền các thông tin cơ bản.
               </p>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mã Công Tác *
-              </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-1.5">
+              <span className={formLabelClass}>Mã công tác *</span>
               <input
                 type="text"
                 value={formData.dutyCode}
                 onChange={(e) => setFormData({ ...formData, dutyCode: e.target.value })}
                 disabled={!!duty}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className={formInputClass}
                 placeholder="VD: DI_CHO_1234567890"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tên Công Tác *
-              </label>
+            </label>
+            <label className="space-y-1.5">
+              <span className={formLabelClass}>Tên công tác *</span>
               <input
                 type="text"
                 value={formData.dutyName}
                 onChange={(e) => setFormData({ ...formData, dutyName: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="VD: Đi Chợ"
+                className={formInputClass}
+                placeholder="VD: Đi chợ"
               />
-            </div>
+            </label>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mô Tả
-            </label>
+          <label className="block space-y-1.5">
+            <span className={formLabelClass}>Mô tả</span>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={formTextareaClass}
               placeholder="Mô tả chi tiết về công tác"
               rows={3}
             />
-          </div>
+          </label>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Loại Công Tác *
-              </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-1.5">
+              <span className={formLabelClass}>Loại công tác *</span>
               <select
                 value={formData.dutyType}
                 onChange={(e) => setFormData({ ...formData, dutyType: e.target.value as any })}
                 disabled={!!duty}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className={formInputClass}
               >
-                <option value="daily">Hàng Ngày</option>
-                <option value="weekly">Hàng Tuần</option>
-                <option value="monthly">Hàng Tháng</option>
+                <option value="daily">Hằng ngày</option>
+                <option value="weekly">Hằng tuần</option>
+                <option value="monthly">Hằng tháng</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tần Suất *
-              </label>
+            </label>
+            <label className="space-y-1.5">
+              <span className={formLabelClass}>Tần suất *</span>
               <select
                 value={formData.frequency}
                 onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={formInputClass}
               >
-                <option value="daily">Hàng Ngày</option>
-                <option value="weekly">Hàng Tuần</option>
-                <option value="monthly">Hàng Tháng</option>
+                <option value="daily">Hằng ngày</option>
+                <option value="weekly">Hằng tuần</option>
+                <option value="monthly">Hằng tháng</option>
               </select>
-            </div>
+            </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Giờ Bắt Đầu
-              </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-1.5">
+              <span className={formLabelClass}>Giờ bắt đầu</span>
               <input
                 type="time"
                 value={formData.startTime}
                 onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={formInputClass}
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Giờ Kết Thúc
-              </label>
+            </label>
+            <label className="space-y-1.5">
+              <span className={formLabelClass}>Giờ kết thúc</span>
               <input
                 type="time"
                 value={formData.endTime}
                 onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={formInputClass}
               />
-            </div>
+            </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Số Người Tối Thiểu
-              </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-1.5">
+              <span className={formLabelClass}>Số người tối thiểu</span>
               <input
                 type="number"
                 min="1"
                 value={formData.minPersons}
                 onChange={(e) => setFormData({ ...formData, minPersons: parseInt(e.target.value) })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={formInputClass}
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Số Người Tối Đa
-              </label>
+            </label>
+            <label className="space-y-1.5">
+              <span className={formLabelClass}>Số người tối đa</span>
               <input
                 type="number"
                 min="1"
                 value={formData.maxPersons}
                 onChange={(e) => setFormData({ ...formData, maxPersons: parseInt(e.target.value) })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={formInputClass}
               />
-            </div>
-          </div>
-
-          <div>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={formData.requiresStudyScheduleCheck}
-                onChange={(e) =>
-                  setFormData({ ...formData, requiresStudyScheduleCheck: e.target.checked })
-                }
-                className="w-4 h-4 rounded border-gray-300"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Kiểm tra xung đột với lịch học
-              </span>
             </label>
           </div>
+
+          <label className="flex items-center gap-3 rounded-2xl border border-amber-100 bg-white/80 px-4 py-3">
+            <input
+              type="checkbox"
+              checked={formData.requiresStudyScheduleCheck}
+              onChange={(e) =>
+                setFormData({ ...formData, requiresStudyScheduleCheck: e.target.checked })
+              }
+              className="h-4 w-4 rounded border-amber-200 text-[#17335f]"
+            />
+            <span className="text-sm font-semibold text-slate-700">
+              Kiểm tra xung đột với lịch học
+            </span>
+          </label>
         </div>
       )}
 
-      {/* Checklist Tab */}
       {activeTab === "checklist" && (
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              💡 Thêm danh sách công việc cần hoàn thành cho công tác này
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3">
+            <p className="text-sm leading-6 text-blue-800">
+              Thêm danh sách công việc cần hoàn thành cho công tác này.
             </p>
           </div>
 
-          {/* Existing Checklist Items */}
           {checklistItems.length > 0 && (
             <div className="space-y-2">
-              <h3 className="font-medium text-gray-900">Danh Sách Công Việc Hiện Tại</h3>
+              <div className="text-sm font-semibold text-slate-900">
+                Danh sách công việc hiện tại
+              </div>
               <div className="space-y-2">
                 {checklistItems.map((item, index) => (
                   <div
                     key={item.id || index}
-                    className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/85 p-3 shadow-[0_8px_18px_rgba(15,23,42,0.035)]"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -518,22 +492,23 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
                           type="checkbox"
                           checked={item.isRequired}
                           disabled
-                          className="w-4 h-4 rounded border-gray-300"
+                          className="h-4 w-4 rounded border-slate-300"
                         />
-                        <span className="font-medium text-gray-900">{item.checklistItem}</span>
+                        <span className="font-semibold text-slate-900">{item.checklistItem}</span>
                         {item.estimatedTimeMinutes && (
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-slate-400">
                             ({item.estimatedTimeMinutes} phút)
                           </span>
                         )}
                       </div>
                       {item.description && (
-                        <p className="text-sm text-gray-600 mt-1 ml-6">{item.description}</p>
+                        <p className="ml-6 mt-1 text-sm leading-6 text-slate-600">{item.description}</p>
                       )}
                     </div>
                     <button
+                      type="button"
                       onClick={() => handleDeleteChecklistItem(index)}
-                      className="text-red-600 hover:text-red-900 font-medium text-sm"
+                      className="rounded-xl px-3 py-1.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
                     >
                       Xóa
                     </button>
@@ -543,45 +518,38 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
             </div>
           )}
 
-          {/* Add New Checklist Item */}
-          <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 className="font-medium text-gray-900">Thêm Công Việc Mới</h3>
+          <div className="space-y-3 rounded-2xl border border-amber-100/80 bg-white/80 p-4 shadow-[0_10px_24px_rgba(120,53,15,0.045)]">
+            <div className="text-sm font-semibold text-slate-900">Thêm công việc mới</div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nội Dung Công Việc *
-              </label>
+            <label className="block space-y-1.5">
+              <span className={formLabelClass}>Nội dung công việc *</span>
               <input
                 type="text"
                 value={newChecklistItem.checklistItem}
                 onChange={(e) =>
                   setNewChecklistItem({ ...newChecklistItem, checklistItem: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="VD: Mua rau, Mua thịt, Mua gia vị"
+                className={formInputClass}
+                placeholder="VD: Mua rau, mua thịt, mua gia vị"
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mô Tả Chi Tiết
-              </label>
+            <label className="block space-y-1.5">
+              <span className={formLabelClass}>Mô tả chi tiết</span>
               <input
                 type="text"
                 value={newChecklistItem.description || ""}
                 onChange={(e) =>
                   setNewChecklistItem({ ...newChecklistItem, description: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Mô tả chi tiết (tùy chọn)"
+                className={formInputClass}
+                placeholder="Mô tả chi tiết nếu cần"
               />
-            </div>
+            </label>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Thời Gian Ước Tính (phút)
-                </label>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className={formLabelClass}>Thời gian ước tính (phút)</span>
                 <input
                   type="number"
                   min="0"
@@ -592,53 +560,48 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
                       estimatedTimeMinutes: e.target.value ? parseInt(e.target.value) : undefined,
                     })
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={formInputClass}
                   placeholder="30"
                 />
-              </div>
-              <div>
-                <label className="flex items-center gap-2 mt-6">
-                  <input
-                    type="checkbox"
-                    checked={newChecklistItem.isRequired}
-                    onChange={(e) =>
-                      setNewChecklistItem({ ...newChecklistItem, isRequired: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded border-gray-300"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Bắt buộc</span>
-                </label>
-              </div>
+              </label>
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 md:mt-7">
+                <input
+                  type="checkbox"
+                  checked={newChecklistItem.isRequired}
+                  onChange={(e) =>
+                    setNewChecklistItem({ ...newChecklistItem, isRequired: e.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                <span className="text-sm font-semibold text-slate-700">Bắt buộc</span>
+              </label>
             </div>
 
             <button
+              type="button"
               onClick={handleAddChecklistItem}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+              className="w-full rounded-xl border border-emerald-100 bg-emerald-50/90 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
             >
-              + Thêm Công Việc
+              + Thêm công việc
             </button>
           </div>
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex gap-3 pt-4 border-t border-gray-200">
-        <button
-          onClick={onCancel}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
-        >
+      <div className="flex gap-3 border-t border-amber-100/80 pt-4">
+        <button type="button" onClick={onCancel} className={`${secondaryButtonClass} flex-1`}>
           Hủy
         </button>
         <button
+          type="button"
           onClick={handleSave}
           disabled={loading}
-          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-medium"
+          className={`${primaryButtonClass} flex-1`}
         >
-          {loading ? "Đang Lưu..." : duty ? "Cập Nhật" : "Tạo Mới"}
+          {loading ? "Đang lưu..." : duty ? "Cập nhật" : "Tạo mới"}
         </button>
       </div>
 
-      {/* Template Selector Modal */}
       {showTemplateSelector && (
         <TemplateSelector
           onSelect={handleSelectTemplate}

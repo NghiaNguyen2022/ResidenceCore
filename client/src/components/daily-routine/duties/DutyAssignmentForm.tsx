@@ -76,6 +76,12 @@ const MONTH_WEEK_OPTIONS: Array<{ value: MonthWeek; label: string }> = [
 ];
 
 const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
+const formInputClass =
+      'h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.045)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100';
+const primaryButtonClass =
+      'inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#17335f] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(23,51,95,0.16)] transition hover:bg-[#244878] disabled:cursor-not-allowed disabled:opacity-60';
+const secondaryButtonClass =
+      'rounded-xl border border-amber-100 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-amber-50/70';
 
 function toggleValue<T extends string | number>(list: T[], value: T) {
       return list.includes(value)
@@ -97,10 +103,10 @@ function SelectionPill({
                   type="button"
                   onClick={onClick}
                   className={[
-                        'rounded-2xl border px-3 py-2 text-xs font-semibold transition',
+                        'rounded-xl border px-3 py-2 text-xs font-semibold transition',
                         active
-                              ? 'border-blue-200 bg-blue-600 text-white shadow-sm'
-                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+                              ? 'border-[#17335f] bg-[#17335f] text-white shadow-sm'
+                              : 'border-amber-100 bg-white text-slate-600 hover:bg-amber-50/70 hover:text-slate-900',
                   ].join(' ')}
             >
                   {children}
@@ -137,12 +143,12 @@ export function DutyAssignmentForm({
                   : 'Lưu phân công';
 
       return (
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-[26px] border border-amber-100/80 bg-white/90 p-5 shadow-[0_16px_36px_rgba(120,53,15,0.06)]">
                   <div className="mb-5 flex items-start justify-between gap-3">
                         <div>
-                              <h2 className="text-xl font-bold text-slate-950">
+                              <h3 className="text-lg font-semibold tracking-tight text-slate-900">
                                     Phân công công tác
-                              </h2>
+                              </h3>
                               <p className="mt-1 text-sm text-slate-500">
                                     Simple Mode: chọn ngày, giờ, công tác, nơi làm/ghi chú và đối tượng được phân công.
                               </p>
@@ -151,7 +157,7 @@ export function DutyAssignmentForm({
                         <button
                               type="button"
                               onClick={onOpenDutyTemplateDialog}
-                              className="shrink-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                              className={`shrink-0 ${secondaryButtonClass}`}
                         >
                               Mẫu công tác
                         </button>
@@ -174,7 +180,7 @@ export function DutyAssignmentForm({
                                                 endTime: formatTime(duty?.endTime),
                                           });
                                     }}
-                                    className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                    className={formInputClass}
                               >
                                     <option value="">Chọn công tác</option>
                                     {dutyConfigs.map((duty: any) => (
@@ -203,7 +209,7 @@ export function DutyAssignmentForm({
                                                             form.repeatEndDate || event.target.value,
                                                 })
                                           }
-                                          className="rounded-2xl"
+                                          className={formInputClass}
                                     />
                               </label>
 
@@ -215,7 +221,7 @@ export function DutyAssignmentForm({
                                           onChange={(event) =>
                                                 updateForm({ startTime: event.target.value })
                                           }
-                                          className="rounded-2xl"
+                                          className={formInputClass}
                                     />
                               </label>
 
@@ -227,7 +233,7 @@ export function DutyAssignmentForm({
                                           onChange={(event) =>
                                                 updateForm({ endTime: event.target.value })
                                           }
-                                          className="rounded-2xl"
+                                          className={formInputClass}
                                     />
                               </label>
                         </div>
@@ -243,7 +249,7 @@ export function DutyAssignmentForm({
                                                       assignedToId: '',
                                                 })
                                           }
-                                          className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                          className={formInputClass}
                                     >
                                           <option value="resident">Học viên</option>
                                           <option value="team">Tổ</option>
@@ -259,7 +265,7 @@ export function DutyAssignmentForm({
                                           onChange={(event) =>
                                                 updateForm({ assignedToId: event.target.value })
                                           }
-                                          className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                          className={formInputClass}
                                     >
                                           <option value="">Chọn đối tượng</option>
                                           {assigneeOptions.map((option) => (
@@ -279,11 +285,11 @@ export function DutyAssignmentForm({
                                           updateForm({ notes: event.target.value })
                                     }
                                     placeholder="Ví dụ: Sảnh chính, nhà ăn, khu sân; hoặc ghi chú thêm nếu cần"
-                                    className="min-h-[80px] rounded-2xl"
+                                    className="min-h-[80px] rounded-xl border-amber-100 bg-white/90 text-sm shadow-[0_8px_18px_rgba(120,53,15,0.045)] focus-visible:ring-amber-100"
                               />
                         </label>
 
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                        <div className="rounded-2xl border border-amber-100/80 bg-white/75 p-3 shadow-[0_8px_20px_rgba(120,53,15,0.035)]">
                               <button
                                     type="button"
                                     onClick={() => setShowRepeatOptions((current) => !current)}
@@ -333,10 +339,10 @@ export function DutyAssignmentForm({
                                                                   })
                                                             }
                                                             className={[
-                                                                  'rounded-2xl border px-3 py-2 text-sm font-semibold transition',
-                                                                  form.repeatType === item.value
-                                                                        ? 'border-blue-200 bg-blue-600 text-white shadow-sm'
-                                                                        : 'border-slate-200 bg-white text-slate-600 hover:bg-white hover:text-slate-900',
+                                                                   'rounded-xl border px-3 py-2 text-sm font-semibold transition',
+                                                                   form.repeatType === item.value
+                                                                         ? 'border-[#17335f] bg-[#17335f] text-white shadow-sm'
+                                                                         : 'border-amber-100 bg-white text-slate-600 hover:bg-amber-50/70 hover:text-slate-900',
                                                             ].join(' ')}
                                                       >
                                                             {item.label}
@@ -353,7 +359,7 @@ export function DutyAssignmentForm({
                                                             onChange={(event) =>
                                                                   updateForm({ repeatEndDate: event.target.value })
                                                             }
-                                                            className="rounded-2xl bg-white"
+                                                            className={formInputClass}
                                                       />
                                                 </label>
                                           )}
@@ -393,7 +399,7 @@ export function DutyAssignmentForm({
                                                                               monthlyMode: event.target.value as MonthlyMode,
                                                                         })
                                                                   }
-                                                                  className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                                                  className={formInputClass}
                                                             >
                                                                   <option value="month_boundary">
                                                                         Ngày đầu / cuối tháng
@@ -519,7 +525,7 @@ export function DutyAssignmentForm({
                                     previewLoading ||
                                     (previewEnabled && preview?.canCreateCount === 0)
                               }
-                              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              className={primaryButtonClass}
                         >
                               <Users className="h-4 w-4" />
                               {saveText}

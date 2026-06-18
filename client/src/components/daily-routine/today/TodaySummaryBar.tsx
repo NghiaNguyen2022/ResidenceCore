@@ -32,12 +32,12 @@ export function TodaySummaryBar({
       ).length;
 
       return (
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-[26px] border border-amber-100/80 bg-white/90 p-5 shadow-[0_16px_36px_rgba(120,53,15,0.06)]">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
-                              <h2 className="text-xl font-bold text-slate-950">
+                              <h3 className="text-lg font-semibold tracking-tight text-slate-900">
                                     Hôm nay
-                              </h2>
+                              </h3>
                               <p className="mt-1 text-sm text-slate-500">
                                     Xem riêng lịch sinh hoạt và lịch công tác trong ngày.
                               </p>
@@ -52,7 +52,7 @@ export function TodaySummaryBar({
                               <button
                                     type="button"
                                     onClick={onCreateDuty}
-                                    className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                    className="inline-flex items-center gap-2 rounded-xl bg-[#17335f] px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(23,51,95,0.16)] transition hover:bg-[#244878]"
                               >
                                     <Plus className="h-4 w-4" />
                                     Thêm phân công

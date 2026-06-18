@@ -27,6 +27,7 @@ import {
 import { formatTime, formatTimeRange } from '@/lib/format';
 import { DEFAULT_TIME } from '@/lib/formDefaults';
 import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
+import { cx, residenceMediumStyle } from '@/components/shared/styleMedium';
 
 type DutyStatus =
       | 'pending'
@@ -145,7 +146,7 @@ function Badge({
 }) {
       return (
             <span
-                  className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}
+                  className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${className}`}
             >
                   {children}
             </span>
@@ -160,12 +161,21 @@ function SectionEmpty({
       description: string;
 }) {
       return (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+            <div className="rounded-[26px] border border-dashed border-amber-100 bg-white/70 p-8 text-center shadow-sm">
                   <p className="font-semibold text-slate-800">{title}</p>
                   <p className="mt-1 text-sm text-slate-500">{description}</p>
             </div>
       );
 }
+
+const dutiesPanelClass =
+      'rounded-[26px] border border-amber-100/80 bg-white/90 p-5 shadow-[0_16px_36px_rgba(120,53,15,0.06)]';
+
+const dutiesItemClass =
+      'rounded-[24px] border border-slate-200 bg-white/85 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.045)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.07)]';
+
+const dutiesInputClass =
+      'h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.045)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100';
 
 export default function Duties() {
       const [activeTab, setActiveTab] = useState<SimpleTab>('today');
@@ -573,26 +583,14 @@ export default function Duties() {
 
       return (
             <ResidenceCareLayout>
-                  <div className="space-y-6 p-6">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                              <div>
-                                    <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-                                          Sinh hoạt
-                                    </p>
-                                    <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
-                                          Công tác & Phân công
-                                    </h1>
-                                    <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                                          Theo dõi công tác hằng ngày, trực cửa hàng sáng/chiều,
-                                          phân công theo học viên, Tổ, phòng ngủ hoặc Ban.
-                                    </p>
-                              </div>
-
-                              <div className="flex flex-wrap gap-2">
+                  <div className={residenceMediumStyle.page}>
+                        <div className={residenceMediumStyle.pageShell}>
+                        <div className={residenceMediumStyle.topArea}>
+                              <div className={residenceMediumStyle.actionBar}>
                                     <button
                                           type="button"
                                           onClick={openCreateDuty}
-                                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                          className={cx(residenceMediumStyle.secondaryButton, 'inline-flex items-center gap-2')}
                                     >
                                           <Plus className="h-4 w-4" />
                                           Thêm mẫu công tác
@@ -600,11 +598,23 @@ export default function Duties() {
                                     <button
                                           type="button"
                                           onClick={() => setActiveTab('create')}
-                                          className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                          className="inline-flex items-center gap-2 rounded-xl bg-[#17335f] px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(23,51,95,0.16)] transition hover:bg-[#244878]"
                                     >
                                           <Users className="h-4 w-4" />
                                           Tạo phân công
                                     </button>
+                              </div>
+                              <div className={residenceMediumStyle.topInner}>
+                                    <p className={residenceMediumStyle.modalEyebrow}>
+                                          Sinh hoạt
+                                    </p>
+                                    <h1 className={residenceMediumStyle.topTitle}>
+                                          Công tác & Phân công
+                                    </h1>
+                                    <p className={residenceMediumStyle.topSubtitle}>
+                                          Theo dõi công tác hằng ngày, trực cửa hàng sáng/chiều,
+                                          phân công theo học viên, Tổ, phòng ngủ hoặc Ban.
+                                    </p>
                               </div>
                         </div>
 
@@ -623,7 +633,7 @@ export default function Duties() {
                               </div>
                         )}
 
-                        <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
+                        <div className="flex flex-wrap gap-2 rounded-[26px] border border-amber-100/80 bg-white/90 p-2 shadow-[0_12px_30px_rgba(120,53,15,0.045)]">
                               {[
                                     { key: 'today', label: 'Công tác hôm nay' },
                                     { key: 'create', label: 'Tạo phân công' },
@@ -634,10 +644,10 @@ export default function Duties() {
                                           type="button"
                                           onClick={() => setActiveTab(tab.key as SimpleTab)}
                                           className={[
-                                                'rounded-2xl px-4 py-2 text-sm font-semibold transition',
+                                                'rounded-xl px-4 py-2 text-sm font-semibold transition',
                                                 activeTab === tab.key
-                                                      ? 'bg-blue-600 text-white shadow-sm'
-                                                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                                                      ? 'bg-[#17335f] text-white shadow-sm'
+                                                      : 'text-slate-600 hover:bg-amber-50/70 hover:text-slate-900',
                                           ].join(' ')}
                                     >
                                           {tab.label}
@@ -646,18 +656,18 @@ export default function Duties() {
                         </div>
 
                         {activeTab === 'today' && (
-                              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                              <div className={dutiesPanelClass}>
                                     <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                           <div>
-                                                <h2 className="text-xl font-bold text-slate-950">
+                                                <h3 className={residenceMediumStyle.subsectionTitle}>
                                                       Công tác trong ngày
-                                                </h2>
+                                                </h3>
                                                 <p className="mt-1 text-sm text-slate-500">
                                                       Xem nhanh ai làm gì, ở đâu và tình trạng hoàn thành.
                                                 </p>
                                           </div>
 
-                                          <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                                          <label className="flex items-center gap-2 rounded-xl border border-amber-100 bg-white/90 px-3 py-2 shadow-[0_8px_18px_rgba(120,53,15,0.045)]">
                                                 <CalendarDays className="h-4 w-4 text-slate-400" />
                                                 <DatePickerInput
                                                       value={selectedDate}
@@ -697,27 +707,27 @@ export default function Duties() {
                                                       return (
                                                             <div
                                                                   key={assignment.id}
-                                                                  className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
+                                                                  className={dutiesItemClass}
                                                             >
                                                                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                                                         <div className="flex gap-4">
-                                                                              <div className="min-w-[98px] rounded-2xl bg-white px-3 py-2 text-center ring-1 ring-slate-200">
-                                                                                    <p className="text-sm font-bold text-slate-950">
+                                                                              <div className="min-w-[98px] rounded-2xl bg-slate-50/80 px-3 py-2 text-center ring-1 ring-slate-100">
+                                                                                    <p className="text-sm font-semibold text-[#17335f]">
                                                                                           {formatTime(start)}
                                                                                     </p>
                                                                                     <p className="text-xs text-slate-400">
                                                                                           đến
                                                                                     </p>
-                                                                                    <p className="text-sm font-bold text-slate-950">
+                                                                                    <p className="text-sm font-semibold text-[#17335f]">
                                                                                           {formatTime(end)}
                                                                                     </p>
                                                                               </div>
 
                                                                               <div>
                                                                                     <div className="flex flex-wrap items-center gap-2">
-                                                                                          <h3 className="font-bold text-slate-950">
+                                                                                          <div className="font-semibold text-[#17335f]">
                                                                                                 {title}
-                                                                                          </h3>
+                                                                                          </div>
                                                                                           <Badge
                                                                                                 className={getStatusClass(
                                                                                                       assignment.status
@@ -762,7 +772,7 @@ export default function Duties() {
                                                                                                             assignment
                                                                                                       )
                                                                                                 }
-                                                                                                className="inline-flex items-center gap-1.5 rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100"
+                                                                                                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-100 bg-emerald-50/80 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
                                                                                           >
                                                                                                 <CheckCircle2 className="h-3.5 w-3.5" />
                                                                                                 Hoàn thành
@@ -810,11 +820,11 @@ export default function Duties() {
                         )}
 
                         {activeTab === 'create' && (
-                              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                              <div className={dutiesPanelClass}>
                                     <div className="mb-5">
-                                          <h2 className="text-xl font-bold text-slate-950">
+                                          <h3 className={residenceMediumStyle.subsectionTitle}>
                                                 Tạo phân công
-                                          </h2>
+                                          </h3>
                                           <p className="mt-1 text-sm text-slate-500">
                                                 Tạo công tác theo ngày, giao cho học viên, Tổ, phòng ngủ hoặc Ban.
                                           </p>
@@ -831,7 +841,7 @@ export default function Duties() {
                                                                   assignedDate: event.target.value,
                                                             }))
                                                       }
-                                                      className="rounded-2xl"
+                                                      className={dutiesInputClass}
                                                 />
                                           </label>
 
@@ -857,7 +867,7 @@ export default function Duties() {
                                                                   endTime: formatTime(duty?.endTime),
                                                             }));
                                                       }}
-                                                      className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                                      className={dutiesInputClass}
                                                 >
                                                       <option value="">Chọn công tác</option>
                                                       {duties.map((duty) => (
@@ -879,7 +889,7 @@ export default function Duties() {
                                                                   startTime: event.target.value,
                                                             }))
                                                       }
-                                                      className="rounded-2xl"
+                                                      className={dutiesInputClass}
                                                 />
                                           </label>
 
@@ -894,7 +904,7 @@ export default function Duties() {
                                                                   endTime: event.target.value,
                                                             }))
                                                       }
-                                                      className="rounded-2xl"
+                                                      className={dutiesInputClass}
                                                 />
                                           </label>
 
@@ -911,7 +921,7 @@ export default function Duties() {
                                                                   assignedToId: '',
                                                             }))
                                                       }
-                                                      className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                                      className={dutiesInputClass}
                                                 >
                                                       <option value="resident">Học viên</option>
                                                       <option value="team">Tổ</option>
@@ -930,7 +940,7 @@ export default function Duties() {
                                                                   assignedToId: event.target.value,
                                                             }))
                                                       }
-                                                      className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                                      className={dutiesInputClass}
                                                 >
                                                       <option value="">
                                                             Chọn {getAssigneeTypeLabel(assignmentForm.assignedToType).toLowerCase()}
@@ -961,7 +971,7 @@ export default function Duties() {
                                                             }))
                                                       }
                                                       rows={3}
-                                                      className="rounded-2xl"
+                                                      className="min-h-24 rounded-xl border-amber-100 bg-white/90 text-sm shadow-[0_8px_18px_rgba(120,53,15,0.045)] focus-visible:ring-amber-100"
                                                 />
                                           </label>
                                     </div>
@@ -970,7 +980,7 @@ export default function Duties() {
                                           <button
                                                 type="button"
                                                 onClick={() => setActiveTab('today')}
-                                                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                                className={residenceMediumStyle.secondaryButton}
                                           >
                                                 Hủy
                                           </button>
@@ -978,7 +988,7 @@ export default function Duties() {
                                                 type="button"
                                                 onClick={saveAssignment}
                                                 disabled={assignDutyMutation.isPending}
-                                                className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                                                className="rounded-xl bg-[#17335f] px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(23,51,95,0.16)] transition hover:bg-[#244878] disabled:opacity-60"
                                           >
                                                 {assignDutyMutation.isPending
                                                       ? 'Đang lưu...'
@@ -989,12 +999,12 @@ export default function Duties() {
                         )}
 
                         {activeTab === 'templates' && (
-                              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                              <div className={dutiesPanelClass}>
                                     <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                           <div>
-                                                <h2 className="text-xl font-bold text-slate-950">
+                                                <h3 className={residenceMediumStyle.subsectionTitle}>
                                                       Mẫu công tác
-                                                </h2>
+                                                </h3>
                                                 <p className="mt-1 text-sm text-slate-500">
                                                       Quản lý các công tác lặp lại như trực cửa hàng sáng/chiều,
                                                       dọn vệ sinh, trực bếp, công tác tuần.
@@ -1009,7 +1019,7 @@ export default function Duties() {
                                                             setSearchTerm(event.target.value)
                                                       }
                                                       placeholder="Tìm mẫu công tác..."
-                                                      className="rounded-2xl pl-9"
+                                                      className="h-10 rounded-xl border-amber-100 bg-white/90 pl-9 text-sm shadow-[0_8px_18px_rgba(120,53,15,0.045)]"
                                                 />
                                           </div>
                                     </div>
@@ -1029,11 +1039,11 @@ export default function Duties() {
                                                 {duties.map((duty) => (
                                                       <div
                                                             key={duty.id}
-                                                            className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
+                                                            className={dutiesItemClass}
                                                       >
                                                             <div className="flex items-start justify-between gap-3">
                                                                   <div>
-                                                                        <p className="font-bold text-slate-950">
+                                                                        <p className="font-semibold text-[#17335f]">
                                                                               {duty.dutyName}
                                                                         </p>
                                                                         <p className="mt-1 text-xs text-slate-500">
@@ -1069,7 +1079,7 @@ export default function Duties() {
                                                                                     duty
                                                                               )
                                                                         }
-                                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-blue-100 bg-blue-50/80 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
                                                                   >
                                                                         <Plus className="h-3.5 w-3.5" />
                                                                         Phân công
@@ -1102,43 +1112,46 @@ export default function Duties() {
                         )}
 
                         {isDutyDialogOpen && (
-                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm">
-                                    <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
+                              <div className={residenceMediumStyle.modalOverlay}>
+                                    <div className={`${residenceMediumStyle.modalShell} max-w-3xl`}>
                                           <div className="mb-5 flex items-start justify-between">
                                                 <div>
-                                                      <h2 className="text-xl font-bold text-slate-950">
+                                                      <p className={residenceMediumStyle.modalEyebrow}>Mẫu công tác</p>
+                                                      <h2 className={residenceMediumStyle.modalTitle}>
                                                             {selectedDuty
                                                                   ? 'Cập nhật mẫu công tác'
                                                                   : 'Thêm mẫu công tác'}
                                                       </h2>
-                                                      <p className="mt-1 text-sm text-slate-500">
+                                                      <p className={residenceMediumStyle.modalSubtitle}>
                                                             Thiết lập mẫu công tác để dùng lại khi phân công.
                                                       </p>
                                                 </div>
                                                 <button
                                                       type="button"
                                                       onClick={() => setIsDutyDialogOpen(false)}
-                                                      className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+                                                      className="rounded-xl border border-amber-100 bg-white/90 p-2 text-slate-500 transition hover:bg-amber-50/70"
                                                 >
                                                       <X className="h-4 w-4" />
                                                 </button>
                                           </div>
 
-                                          <DutyConfigForm
-                                                duty={selectedDuty as any}
-                                                onSave={async () => {
-                                                      setIsDutyDialogOpen(false);
-                                                      setSelectedDuty(null);
-                                                      setMessage({
-                                                            type: 'success',
-                                                            text: selectedDuty
-                                                                  ? 'Đã cập nhật mẫu công tác.'
-                                                                  : 'Đã thêm mẫu công tác.',
-                                                      });
-                                                      await listDutiesQuery.refetch();
-                                                }}
-                                                onCancel={() => setIsDutyDialogOpen(false)}
-                                          />
+                                          <div className="overflow-y-auto px-5 pb-5">
+                                                <DutyConfigForm
+                                                      duty={selectedDuty as any}
+                                                      onSave={async () => {
+                                                            setIsDutyDialogOpen(false);
+                                                            setSelectedDuty(null);
+                                                            setMessage({
+                                                                  type: 'success',
+                                                                  text: selectedDuty
+                                                                        ? 'Đã cập nhật mẫu công tác.'
+                                                                        : 'Đã thêm mẫu công tác.',
+                                                            });
+                                                            await listDutiesQuery.refetch();
+                                                      }}
+                                                      onCancel={() => setIsDutyDialogOpen(false)}
+                                                />
+                                          </div>
                                     </div>
                               </div>
                         )}
@@ -1152,6 +1165,7 @@ export default function Duties() {
                                     cancelAssignmentMutation.isPending
                               }
                         />
+                        </div>
                   </div>
             </ResidenceCareLayout>
       );

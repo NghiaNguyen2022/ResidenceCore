@@ -12,15 +12,15 @@ export function TimeBox({ startTime, endTime, className = '' }: TimeBoxProps) {
       return (
             <div
                   className={[
-                        'min-w-[98px] rounded-2xl bg-white px-3 py-2 text-center ring-1 ring-slate-200',
+                        'min-w-[98px] rounded-2xl bg-slate-50/80 px-3 py-2 text-center ring-1 ring-slate-100',
                         className,
                   ].join(' ')}
             >
-                  <p className="text-sm font-bold text-slate-950">
+                  <p className="text-sm font-semibold text-[#17335f]">
                         {formatTime(startTime)}
                   </p>
                   <p className="text-xs text-slate-400">đến</p>
-                  <p className="text-sm font-bold text-slate-950">
+                  <p className="text-sm font-semibold text-[#17335f]">
                         {formatTime(endTime)}
                   </p>
             </div>
