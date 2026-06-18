@@ -613,7 +613,7 @@ function AppointmentHistoryPanel({
                                     Lịch sử bổ nhiệm theo nhiệm kỳ
                               </h3>
                               <p className="mt-2 text-sm leading-6 text-slate-500">
-                                    Cấu trúc 3 cấp: nhiệm kỳ → vai trò/vị trí → danh sách người phụ trách. Có thể mở/thu từng cấp để xem gọn hơn.
+                                    Dạng cây: nhiệm kỳ → vị trí → người phụ trách. Người đang giữ vị trí trong nhiệm kỳ hiện tại được tô xanh nhẹ.
                               </p>
                         </div>
 
@@ -648,32 +648,50 @@ function AppointmentHistoryPanel({
                               {historyTree.map(({ term, positions, totalAssignments }) => {
                                     const termKey = String(term.id);
                                     const isTermExpanded = Boolean(expandedTerms[termKey]);
+                                    const isActiveTerm = term.status === 'active';
 
                                     return (
                                           <section
                                                 key={term.id}
-                                                className="overflow-hidden rounded-[28px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_70%,#fff7ef_100%)] shadow-[0_14px_36px_rgba(120,53,15,0.055)]"
+                                                className={[
+                                                      'overflow-hidden rounded-[28px] border shadow-[0_14px_36px_rgba(120,53,15,0.055)]',
+                                                      isActiveTerm
+                                                            ? 'border-emerald-100 bg-[linear-gradient(135deg,#ffffff_0%,#f7fdf9_68%,#effaf3_100%)]'
+                                                            : 'border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_70%,#fff7ef_100%)]',
+                                                ].join(' ')}
                                           >
                                                 <button
                                                       type="button"
                                                       onClick={() => toggleTerm(term.id)}
-                                                      className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition hover:bg-amber-50/45"
+                                                      className={[
+                                                            'flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition',
+                                                            isActiveTerm ? 'hover:bg-emerald-50/45' : 'hover:bg-amber-50/45',
+                                                      ].join(' ')}
                                                 >
                                                       <div className="flex min-w-0 items-start gap-3">
-                                                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-base font-bold text-white shadow-sm shadow-slate-900/15">
+                                                            <span
+                                                                  className={[
+                                                                        'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl text-base font-bold text-white shadow-sm',
+                                                                        isActiveTerm
+                                                                              ? 'bg-emerald-700 shadow-emerald-900/15'
+                                                                              : 'bg-slate-900 shadow-slate-900/15',
+                                                                  ].join(' ')}
+                                                            >
                                                                   {isTermExpanded ? '−' : '+'}
                                                             </span>
                                                             <div className="min-w-0">
                                                                   <div className="flex flex-wrap items-center gap-2">
-                                                                        <p className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-800 ring-1 ring-amber-100">
-                                                                              Cấp 1 · Nhiệm kỳ
-                                                                        </p>
                                                                         <Badge className={getTermStatusClass(term.status)}>
                                                                               {getTermStatusLabel(term.status)}
                                                                         </Badge>
+                                                                        {isActiveTerm && (
+                                                                              <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                                                                                    Đang áp dụng
+                                                                              </span>
+                                                                        )}
                                                                   </div>
                                                                   <h4 className="mt-1 text-lg font-extrabold tracking-tight text-slate-950">
-                                                                        {term.status === 'active' ? 'Nhiệm kỳ hiện tại' : term.name}
+                                                                        {isActiveTerm ? 'Nhiệm kỳ hiện tại' : term.name}
                                                                   </h4>
                                                                   <p className="mt-1 text-sm font-medium text-slate-500">
                                                                         {term.name} · {formatDate(term.startDate)} - {formatDate(term.endDate)}
@@ -692,78 +710,99 @@ function AppointmentHistoryPanel({
                                                 </button>
 
                                                 {isTermExpanded && (
-                                                      <div className="border-t border-amber-100/70 bg-[linear-gradient(180deg,rgba(255,253,248,0.72)_0%,rgba(255,255,255,0.94)_100%)] py-3 pl-7 pr-3 md:pl-10">
+                                                      <div className="border-t border-amber-100/70 bg-white/45 py-3 pl-7 pr-3 md:pl-10">
                                                             {positions.length === 0 ? (
                                                                   <div className="rounded-2xl border border-dashed border-amber-100 bg-white/60 p-4 text-sm text-slate-500">
                                                                         Chưa có lịch sử bổ nhiệm trong nhiệm kỳ này.
                                                                   </div>
                                                             ) : (
-                                                                  <div className="space-y-2 border-l border-dashed border-amber-100/80 pl-3">
+                                                                  <div className="space-y-2 border-l border-dashed border-slate-200 pl-3">
                                                                         {positions.map((position) => {
                                                                               const positionKey = `${term.id}:${position.key}`;
                                                                               const isPositionExpanded = Boolean(expandedPositions[positionKey]);
 
                                                                               return (
-                                                                                    <div
-                                                                                          key={position.key}
-                                                                                          className="overflow-hidden rounded-2xl border border-slate-200/75 bg-white/82 shadow-sm shadow-slate-900/5"
-                                                                                    >
-                                                                                          <button
-                                                                                                type="button"
-                                                                                                onClick={() => togglePosition(term.id, position.key)}
-                                                                                                className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50/80"
-                                                                                          >
-                                                                                                <div className="flex min-w-0 items-center gap-3">
-                                                                                                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
-                                                                                                            {isPositionExpanded ? '−' : '+'}
-                                                                                                      </span>
-                                                                                                      <div className="min-w-0">
-                                                                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                                                                  <p className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                                                                                                                        Cấp 2 · Vai trò
-                                                                                                                  </p>
-                                                                                                                  <span className="rounded-full bg-amber-50/70 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-100">
-                                                                                                                        {position.assignments.length} người
-                                                                                                                  </span>
-                                                                                                            </div>
-                                                                                                            <p className="mt-1 truncate text-[14px] font-bold text-slate-700">
-                                                                                                                  {position.title}
-                                                                                                            </p>
-                                                                                                            {(position.unitName || position.roleName) && (
-                                                                                                                  <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">
-                                                                                                                        {[position.roleName, position.unitName].filter(Boolean).join(' · ')}
-                                                                                                                  </p>
-                                                                                                            )}
-                                                                                                      </div>
-                                                                                                </div>
-                                                                                          </button>
-
-                                                                                          {isPositionExpanded && (
-                                                                                                <div className="space-y-2 border-t border-slate-200/70 bg-slate-50/35 py-3 pl-7 pr-3 md:pl-9">
-                                                                                                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-300">
-                                                                                                            Cấp 3 · Danh sách người phụ trách
-                                                                                                      </p>
-                                                                                                      {position.assignments.map((assignment) => (
-                                                                                                            <div
-                                                                                                                  key={assignment.id}
-                                                                                                                  className="rounded-2xl border border-slate-200/70 bg-white/82 px-3 py-2 shadow-sm shadow-slate-900/5"
-                                                                                                            >
-                                                                                                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                                                                                                        <p className="text-sm font-semibold text-slate-700">
-                                                                                                                              {getDisplayResidentName(assignment)}
-                                                                                                                        </p>
-                                                                                                                        <AssignmentStatusPill status={assignment.status} />
+                                                                                    <div key={position.key} className="relative">
+                                                                                          <span className="absolute -left-3 top-5 h-px w-3 bg-slate-200" />
+                                                                                          <div className="overflow-hidden rounded-2xl border border-slate-200/75 bg-white/80">
+                                                                                                <button
+                                                                                                      type="button"
+                                                                                                      onClick={() => togglePosition(term.id, position.key)}
+                                                                                                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50/80"
+                                                                                                >
+                                                                                                      <div className="flex min-w-0 items-center gap-3">
+                                                                                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+                                                                                                                  {isPositionExpanded ? '−' : '+'}
+                                                                                                            </span>
+                                                                                                            <div className="min-w-0">
+                                                                                                                  <div className="flex flex-wrap items-center gap-2">
+                                                                                                                        <span className="rounded-full bg-amber-50/70 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-100">
+                                                                                                                              {position.assignments.length} người
+                                                                                                                        </span>
                                                                                                                   </div>
-                                                                                                                  <p className="mt-1 text-[11px] leading-5 text-slate-400">
-                                                                                                                        {formatDate(assignment.startDate)}
-                                                                                                                        {' - '}
-                                                                                                                        {assignment.endDate ? formatDate(assignment.endDate) : 'Hiện tại'}
-                                                                                                                        {assignment.roomCode ? ` · ${assignment.roomCode}` : ''}
+                                                                                                                  <p className="mt-1 truncate text-[14px] font-bold text-slate-700">
+                                                                                                                        {position.title}
                                                                                                                   </p>
+                                                                                                                  {(position.unitName || position.roleName) && (
+                                                                                                                        <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">
+                                                                                                                              {[position.roleName, position.unitName].filter(Boolean).join(' · ')}
+                                                                                                                        </p>
+                                                                                                                  )}
                                                                                                             </div>
-                                                                                                      ))}
-                                                                                                </div>
-                                                                                          )}
+                                                                                                      </div>
+                                                                                                </button>
+
+                                                                                                {isPositionExpanded && (
+                                                                                                      <div className="space-y-2 border-t border-slate-200/70 bg-slate-50/30 py-3 pl-7 pr-3 md:pl-9">
+                                                                                                            <div className="space-y-2 border-l border-dashed border-slate-200 pl-3">
+                                                                                                                  {position.assignments.map((assignment) => {
+                                                                                                                        const isCurrentHolder =
+                                                                                                                              isActiveTerm &&
+                                                                                                                              assignment.status === 'active' &&
+                                                                                                                              !assignment.endDate;
+
+                                                                                                                        return (
+                                                                                                                              <div key={assignment.id} className="relative">
+                                                                                                                                    <span className="absolute -left-3 top-5 h-px w-3 bg-slate-200" />
+                                                                                                                                    <div
+                                                                                                                                          className={[
+                                                                                                                                                'rounded-2xl border px-3 py-2 shadow-sm',
+                                                                                                                                                isCurrentHolder
+                                                                                                                                                      ? 'border-emerald-100 bg-emerald-50/80 shadow-emerald-900/5'
+                                                                                                                                                      : 'border-slate-200/70 bg-white/82 shadow-slate-900/5',
+                                                                                                                                          ].join(' ')}
+                                                                                                                                    >
+                                                                                                                                          <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                                                                                                <p
+                                                                                                                                                      className={[
+                                                                                                                                                            'text-sm font-semibold',
+                                                                                                                                                            isCurrentHolder ? 'text-emerald-900' : 'text-slate-700',
+                                                                                                                                                      ].join(' ')}
+                                                                                                                                                >
+                                                                                                                                                      {getDisplayResidentName(assignment)}
+                                                                                                                                                </p>
+                                                                                                                                                {isCurrentHolder ? (
+                                                                                                                                                      <span className="rounded-full border border-emerald-100 bg-white/80 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                                                                                                                                                            Đang giữ vị trí
+                                                                                                                                                      </span>
+                                                                                                                                                ) : (
+                                                                                                                                                      <AssignmentStatusPill status={assignment.status} />
+                                                                                                                                                )}
+                                                                                                                                          </div>
+                                                                                                                                          <p className="mt-1 text-[11px] leading-5 text-slate-400">
+                                                                                                                                                {formatDate(assignment.startDate)}
+                                                                                                                                                {' - '}
+                                                                                                                                                {assignment.endDate ? formatDate(assignment.endDate) : 'Hiện tại'}
+                                                                                                                                                {assignment.roomCode ? ` · ${assignment.roomCode}` : ''}
+                                                                                                                                          </p>
+                                                                                                                                    </div>
+                                                                                                                              </div>
+                                                                                                                        );
+                                                                                                                  })}
+                                                                                                            </div>
+                                                                                                      </div>
+                                                                                                )}
+                                                                                          </div>
                                                                                     </div>
                                                                               );
                                                                         })}
