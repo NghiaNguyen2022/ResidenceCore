@@ -1,11 +1,23 @@
+import {
+      defaultResidenceAppearanceConfig,
+      getDensityTokens,
+      getRadiusTokens,
+      getResidenceToneTokens,
+} from '@/config/residenceAppearance';
+
 export function cx(...classes: Array<string | false | null | undefined>) {
       return classes.filter(Boolean).join(' ');
 }
 
-export const residenceMediumStyle = {
-      page: 'min-h-full bg-[linear-gradient(180deg,#fffdf9_0%,#fffaf4_35%,#f8fafc_100%)]',
+const activeAppearanceConfig = defaultResidenceAppearanceConfig;
+const tone = getResidenceToneTokens(activeAppearanceConfig);
+const density = getDensityTokens(activeAppearanceConfig);
+const radius = getRadiusTokens(activeAppearanceConfig);
 
-      pageShell: 'mx-auto max-w-[1420px] space-y-5 px-2 pb-8',
+export const residenceMediumStyle = {
+      page: cx('min-h-full', tone.pageGradient),
+
+      pageShell: density.pageShell,
 
       topArea: 'relative overflow-visible px-1 pt-1',
       topInner: 'relative overflow-visible px-1 py-1 text-slate-900 sm:px-2',
@@ -15,11 +27,23 @@ export const residenceMediumStyle = {
       warmButton:
             'rounded-md border border-amber-200/80 bg-[linear-gradient(180deg,#fffaf0_0%,#fff3dc_100%)] px-4 py-2 text-sm font-semibold text-amber-900 shadow-[0_10px_24px_rgba(180,83,9,0.12)] transition hover:shadow-[0_14px_28px_rgba(180,83,9,0.16)]',
 
-      warmPrimaryButton:
-            'inline-flex items-center gap-2 rounded-md border border-amber-200/70 bg-[linear-gradient(180deg,#fff8ea_0%,#ffe9c8_100%)] px-4 py-2 text-sm font-bold text-amber-950 shadow-[0_12px_26px_rgba(180,83,9,0.16)] transition hover:shadow-[0_16px_32px_rgba(180,83,9,0.20)]',
+      warmPrimaryButton: cx(
+            'inline-flex items-center gap-2 px-4 py-2 text-sm font-bold transition hover:shadow-[0_16px_32px_rgba(180,83,9,0.20)]',
+            radius.button,
+            'border',
+            tone.softBorder,
+            tone.primaryButtonGradient,
+            tone.accentText,
+            tone.shadowMedium
+      ),
 
-      filterPanel:
-            'rounded-[26px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_62%,#fff5e8_100%)] p-3 shadow-[0_16px_36px_rgba(120,53,15,0.06)]',
+      filterPanel: cx(
+            radius.panel,
+            'border p-3',
+            tone.border,
+            tone.panelGradient,
+            tone.shadowMedium
+      ),
       filterGrid: 'grid gap-3 lg:grid-cols-[minmax(320px,0.82fr)_1fr] lg:items-center',
       filterTitle: 'text-base font-semibold tracking-tight text-slate-900',
       filterHint: 'mt-0.5 text-xs leading-5 text-slate-500',
@@ -29,16 +53,21 @@ export const residenceMediumStyle = {
       chipBase:
             'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition shadow-sm shadow-slate-900/5',
       chipActive: 'bg-slate-900 text-white ring-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.14)]',
-      chipIdle: 'bg-white/90 text-slate-600 ring-amber-100 hover:bg-white hover:text-slate-900',
+      chipIdle: tone.chipIdle,
       chipCountActive: 'bg-white/15 text-white',
-      chipCountIdle: 'bg-amber-50 text-amber-700',
+      chipCountIdle: tone.chipCount,
 
-      section:
-            'overflow-visible rounded-[26px] border border-amber-100/80 bg-[linear-gradient(180deg,#ffffff_0%,#fffdfa_100%)] shadow-[0_16px_36px_rgba(120,53,15,0.055)]',
+      section: cx(
+            'overflow-visible border',
+            radius.panel,
+            tone.border,
+            tone.sectionGradient,
+            tone.shadowMedium
+      ),
       sectionHeader:
             'border-b border-amber-100/70 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_70%,#fff4e8_100%)] px-5 py-2.5',
       sectionTitle: 'text-[20px] font-bold tracking-tight text-slate-900 sm:text-[21px]',
-      sectionBody: 'bg-[linear-gradient(180deg,rgba(255,250,240,0.45)_0%,rgba(248,250,252,0.35)_100%)] p-3 sm:p-4',
+      sectionBody: cx('bg-[linear-gradient(180deg,rgba(255,250,240,0.45)_0%,rgba(248,250,252,0.35)_100%)]', density.sectionBody),
 
       segmentedControl: 'flex rounded-2xl bg-slate-100 p-1 text-sm font-semibold',
       segmentedActive: 'bg-white text-slate-900 shadow-[0_8px_18px_rgba(120,53,15,0.10)]',
@@ -53,12 +82,14 @@ export const residenceMediumStyle = {
 
       card:
             'relative overflow-visible rounded-3xl border p-4 shadow-[0_18px_42px_rgba(120,53,15,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_56px_rgba(120,53,15,0.12)]',
-      cardActive:
-            'border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdfa_58%,#fff5ea_100%)] hover:border-amber-200',
+      cardActive: cx(tone.border, tone.cardGradient, 'hover:border-amber-200'),
       cardLeft: 'border-rose-200 bg-rose-50/80',
       cardInactive: 'border-amber-200 bg-amber-50/80',
-      cardSection:
-            'rounded-2xl border border-amber-100/80 bg-[linear-gradient(180deg,#ffffff_0%,#fffaf2_100%)] px-4 py-3 shadow-sm shadow-amber-900/5',
+      cardSection: cx(
+            'rounded-2xl border px-4 py-3 shadow-sm shadow-amber-900/5',
+            tone.border,
+            tone.cardSoftGradient
+      ),
 
       listPanel:
             'overflow-hidden rounded-2xl border border-amber-100/80 bg-[linear-gradient(180deg,#ffffff_0%,#fffdfa_100%)] shadow-[0_14px_34px_rgba(120,53,15,0.055)]',
@@ -102,8 +133,14 @@ export const residenceMediumStyle = {
             'mt-1 min-h-20 rounded-xl border-amber-100 bg-white/90 text-sm shadow-[0_8px_18px_rgba(120,53,15,0.055)]',
       secondaryButton:
             'rounded-xl border border-amber-100 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-amber-50/60 disabled:cursor-not-allowed disabled:opacity-60',
-      primaryButton:
-            'rounded-xl border border-amber-200/70 bg-[linear-gradient(180deg,#fff8ea_0%,#ffe9c8_100%)] px-4 py-2 text-sm font-bold text-amber-950 shadow-[0_10px_22px_rgba(180,83,9,0.14)] transition hover:shadow-[0_14px_28px_rgba(180,83,9,0.18)] disabled:cursor-not-allowed disabled:opacity-60',
+      primaryButton: cx(
+            radius.button,
+            'border px-4 py-2 text-sm font-bold transition hover:shadow-[0_14px_28px_rgba(180,83,9,0.18)] disabled:cursor-not-allowed disabled:opacity-60',
+            tone.softBorder,
+            tone.primaryButtonGradient,
+            tone.accentText,
+            tone.shadowSoft
+      ),
 };
 
 export const residenceMediumAccents = [

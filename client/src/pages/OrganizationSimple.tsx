@@ -23,8 +23,7 @@ import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { AssignmentsTab } from '@/components/organization-simple/AssignmentsTab';
-import { OrganizationHierarchyChart } from '@/components/organization-simple/OrganizationHierarchyChart';
+import { residenceMediumAccents, residenceMediumStyle } from '@/components/shared/styleMedium';
 
 type SimpleTab = 'structure' | 'assignments' | 'units' | 'terms';
 type OrganizationFocusAction = 'add_team_member' | 'transfer_team_member' | 'add_committee_member' | 'create_assignment';
@@ -87,6 +86,8 @@ type OrganizationAssignment = {
       roleName?: string;
       residentName?: string;
       residentCode?: string;
+      holyName?: string | null;
+      residentHolyName?: string | null;
       roomCode?: string | null;
       roomName?: string | null;
       unitCode?: string | null;
@@ -365,14 +366,14 @@ function StatCard({
       icon: React.ReactNode;
 }) {
       return (
-            <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <div className="rounded-[24px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_64%,#fff6ee_100%)] p-4 shadow-[0_18px_42px_rgba(120,53,15,0.075)]">
                   <div className="flex items-start justify-between gap-3">
-                        <div>
-                              <p className="text-sm font-medium text-neutral-500">{label}</p>
-                              <p className="mt-2 text-2xl font-bold text-neutral-950">{value}</p>
-                              {helper && <p className="mt-1 text-xs text-neutral-500">{helper}</p>}
+                        <div className="min-w-0">
+                              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">{label}</p>
+                              <p className="mt-2 truncate text-2xl font-extrabold tracking-tight text-slate-900">{value}</p>
+                              {helper && <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{helper}</p>}
                         </div>
-                        <div className="rounded-2xl bg-neutral-100 p-2 text-neutral-700">{icon}</div>
+                        <div className="rounded-2xl border border-amber-100 bg-white/85 p-2.5 text-amber-800 shadow-sm shadow-amber-900/5">{icon}</div>
                   </div>
             </div>
       );
@@ -386,11 +387,628 @@ function Badge({ children, className = '' }: { children: React.ReactNode; classN
       );
 }
 
+
+function AssignmentStatusPill({ status }: { status: AssignmentStatus }) {
+      return (
+            <span
+                  className={[
+                        'rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
+                        status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                              : 'bg-slate-50 text-slate-500 ring-slate-100',
+                  ].join(' ')}
+            >
+                  {status === 'active' ? 'Đang hiệu lực' : 'Đã kết thúc'}
+            </span>
+      );
+}
+
+function AssignmentCard({
+      assignment,
+      onEdit,
+      onEnd,
+}: {
+      assignment: OrganizationAssignment;
+      onEdit: (assignment: OrganizationAssignment) => void;
+      onEnd: (assignment: OrganizationAssignment) => void;
+}) {
+      const isActive = assignment.status === 'active';
+
+      return (
+            <div className="rounded-3xl border border-amber-100 bg-white/85 p-4 shadow-sm shadow-amber-900/5 transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(120,53,15,0.09)]">
+                  <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                              <p className="truncate text-base font-bold text-slate-950">
+                                    {assignment.residentName || 'Chưa rõ học viên'}
+                              </p>
+                              <p className="mt-1 line-clamp-2 text-sm font-semibold text-amber-800">
+                                    {getAssignmentDisplayTitle(assignment)}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-slate-500">
+                                    {assignment.unitName && (
+                                          <span className="rounded-full bg-amber-50 px-2.5 py-1 ring-1 ring-amber-100">
+                                                {assignment.unitName}
+                                          </span>
+                                    )}
+                                    <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-amber-100">
+                                          {formatDate(assignment.startDate)}
+                                    </span>
+                                    <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-amber-100">
+                                          {getRoomLabelFromAssignment(assignment)}
+                                    </span>
+                              </div>
+                        </div>
+
+                        <AssignmentStatusPill status={assignment.status} />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                              type="button"
+                              onClick={() => onEdit(assignment)}
+                              className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50"
+                        >
+                              Sửa
+                        </button>
+                        {isActive && (
+                              <button
+                                    type="button"
+                                    onClick={() => onEnd(assignment)}
+                                    className="rounded-xl border border-rose-100 bg-white px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                              >
+                                    Kết thúc
+                              </button>
+                        )}
+                  </div>
+            </div>
+      );
+}
+
+function AssignmentsPanel({
+      filteredAssignments,
+      onCreateAssignment,
+      onEditAssignment,
+      onEndAssignment,
+}: {
+      filteredAssignments: OrganizationAssignment[];
+      onCreateAssignment: () => void;
+      onEditAssignment: (assignment: OrganizationAssignment) => void;
+      onEndAssignment: (assignment: OrganizationAssignment) => void;
+}) {
+      const activeCount = filteredAssignments.filter((item) => item.status === 'active').length;
+      const endedCount = filteredAssignments.length - activeCount;
+
+      return (
+            <div className="rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] p-5 shadow-[0_20px_54px_rgba(120,53,15,0.075)]">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                              <p className={residenceMediumStyle.modalEyebrow}>Bổ nhiệm</p>
+                              <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-950">
+                                    Bổ nhiệm / phân công
+                              </h2>
+                              <p className="mt-1 text-sm leading-6 text-slate-500">
+                                    Quản lý nhanh các chức vụ đang đảm nhiệm và lịch sử phân công.
+                              </p>
+                        </div>
+
+                        <button
+                              type="button"
+                              onClick={onCreateAssignment}
+                              className={`${residenceMediumStyle.primaryButton} inline-flex items-center gap-2`}
+                        >
+                              <Plus className="h-4 w-4" />
+                              Bổ nhiệm
+                        </button>
+                  </div>
+
+                  <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                        <StatCard
+                              label="Tổng phân công"
+                              value={filteredAssignments.length}
+                              helper="Theo bộ lọc hiện tại"
+                              icon={<UserPlus className="h-5 w-5" />}
+                        />
+                        <StatCard
+                              label="Đang hiệu lực"
+                              value={activeCount}
+                              helper="Chức vụ đang đảm nhiệm"
+                              icon={<ShieldCheck className="h-5 w-5" />}
+                        />
+                        <StatCard
+                              label="Đã kết thúc"
+                              value={endedCount}
+                              helper="Lưu lịch sử phân công"
+                              icon={<CheckCircle2 className="h-5 w-5" />}
+                        />
+                  </div>
+
+                  {filteredAssignments.length === 0 ? (
+                        <SectionEmpty
+                              title="Chưa có phân công phù hợp"
+                              description="Bấm Bổ nhiệm để thêm chức vụ cho học viên trong nhiệm kỳ hiện tại."
+                        />
+                  ) : (
+                        <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                              {filteredAssignments.map((assignment) => (
+                                    <AssignmentCard
+                                          key={assignment.id}
+                                          assignment={assignment}
+                                          onEdit={onEditAssignment}
+                                          onEnd={onEndAssignment}
+                                    />
+                              ))}
+                        </div>
+                  )}
+            </div>
+      );
+}
+
+
+
+function isHouseRole(assignment: OrganizationAssignment, roleType?: string | null) {
+      const roleName = String(assignment.roleName || assignment.assignmentTitle || '').toLowerCase();
+
+      return (
+            roleType === 'house_leader' ||
+            roleType === 'deputy' ||
+            roleType === 'secretary' ||
+            roleType === 'treasurer' ||
+            roleName.includes('trưởng') ||
+            roleName.includes('phó') ||
+            roleName.includes('thư ký') ||
+            roleName.includes('thủ quỹ')
+      );
+}
+
+function getAssignmentRoleKey(assignment: OrganizationAssignment) {
+      const title = getAssignmentDisplayTitle(assignment).toLowerCase();
+      const roleType = assignment.roleType || '';
+
+      if (roleType === 'house_leader' || title.includes('trưởng lưu xá') || title === 'trưởng') return 'leader';
+      if (roleType === 'deputy' || title.includes('phó')) return 'deputy';
+      if (roleType === 'secretary' || title.includes('thư ký')) return 'secretary';
+      if (roleType === 'treasurer' || title.includes('thủ quỹ')) return 'treasurer';
+      if (roleType === 'team_leader') return 'team_leader';
+      if (roleType === 'committee_head') return 'committee_head';
+
+      return 'other';
+}
+
+function getRoleStructureKey(role?: OrganizationRole | null) {
+      if (!role) return 'other';
+
+      const roleType = String(role.roleType || '');
+      const roleName = normalizeText(role.name || '');
+
+      if (roleType === 'team_leader' || roleName.includes('to truong')) return 'team_leader';
+      if (roleType === 'committee_head' || roleName.includes('truong ban')) return 'committee_head';
+      if (roleType === 'house_leader' || roleType === 'head' || roleName === 'truong' || roleName.includes('truong luu xa')) return 'leader';
+      if (roleType === 'deputy' || roleName.includes('pho')) return 'deputy';
+      if (roleType === 'secretary' || roleName.includes('thu ky')) return 'secretary';
+      if (roleType === 'treasurer' || roleName.includes('thu quy')) return 'treasurer';
+
+      return 'other';
+}
+
+function findRoleForStructureKey(roles: OrganizationRole[], roleKey?: string | null) {
+      if (!roleKey) return null;
+
+      return (
+            roles.find((role) => getRoleStructureKey(role) === roleKey && role.isActive) ||
+            roles.find((role) => getRoleStructureKey(role) === roleKey) ||
+            null
+      );
+}
+
+
+
+function getDisplayRoleTitle(assignment: OrganizationAssignment) {
+      return assignment.assignmentTitle || getAssignmentDisplayTitle(assignment);
+}
+
+function getDisplayResidentName(assignment?: OrganizationAssignment | null) {
+      if (!assignment) return '';
+
+      const holyName = (assignment.holyName || assignment.residentHolyName || '').trim();
+      const residentName = (assignment.residentName || 'Chưa rõ học viên').trim();
+
+      if (!holyName || residentName.toLowerCase().startsWith(holyName.toLowerCase())) {
+            return residentName;
+      }
+
+      return `${holyName} ${residentName}`.trim();
+}
+
+function PremiumOrgPersonCard({
+      title,
+      assignment,
+      variant = 'normal',
+      onEdit,
+      onEnd,
+      onCreateAssignment,
+}: {
+      title: string;
+      assignment?: OrganizationAssignment | null;
+      variant?: 'head' | 'normal' | 'unit';
+      onEdit?: (assignment: OrganizationAssignment) => void;
+      onEnd?: (assignment: OrganizationAssignment) => void;
+      onCreateAssignment?: () => void;
+}) {
+      const hasAssignment = Boolean(assignment);
+      const displayName = getDisplayResidentName(assignment);
+
+      return (
+            <div
+                  className={[
+                        'relative overflow-hidden rounded-3xl border p-4 transition hover:-translate-y-0.5',
+                        hasAssignment
+                              ? variant === 'head'
+                                    ? 'border-amber-100/90 bg-[linear-gradient(135deg,#ffffff_0%,#fffdfa_58%,#fff4e8_100%)] shadow-[0_18px_42px_rgba(120,53,15,0.085)]'
+                                    : 'border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf9_62%,#fff7ed_100%)] shadow-[0_14px_34px_rgba(120,53,15,0.06)]'
+                              : 'border-dashed border-amber-100 bg-amber-50/35',
+                  ].join(' ')}
+            >
+                  <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                              <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
+                                    {title}
+                              </p>
+                              <p className="mt-1.5 truncate text-[20px] font-extrabold leading-7 text-slate-800">
+                                    {hasAssignment ? displayName : 'Đang trống'}
+                              </p>
+                        </div>
+
+                        <div
+                              className={[
+                                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-bold shadow-sm',
+                                    hasAssignment
+                                          ? 'bg-slate-900 text-white shadow-slate-900/20'
+                                          : 'bg-white text-slate-400 ring-1 ring-amber-100',
+                              ].join(' ')}
+                        >
+                              {hasAssignment ? displayName.charAt(0).toUpperCase() : '—'}
+                        </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                        {assignment ? (
+                              <>
+                                    {onEdit && (
+                                          <button
+                                                type="button"
+                                                onClick={() => onEdit(assignment)}
+                                                className="rounded-full border border-slate-200 bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                          >
+                                                Sửa
+                                          </button>
+                                    )}
+                                    {onEnd && (
+                                          <button
+                                                type="button"
+                                                onClick={() => onEnd(assignment)}
+                                                className="rounded-full border border-rose-100 bg-white/80 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                                          >
+                                                Kết thúc
+                                          </button>
+                                    )}
+                              </>
+                        ) : (
+                              onCreateAssignment && (
+                                    <button
+                                          type="button"
+                                          onClick={onCreateAssignment}
+                                          className="rounded-full border border-amber-100 bg-white/80 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-50"
+                                    >
+                                          Phân công
+                                    </button>
+                              )
+                        )}
+                  </div>
+            </div>
+      );
+}
+
+function PremiumUnitColumn({
+      title,
+      units,
+      assignments,
+      unitType,
+      onEdit,
+      onEnd,
+      onCreateAssignment,
+      onOpenUnitMembers,
+      onOpenTeamTransfer,
+}: {
+      title: string;
+      units: OrganizationUnit[];
+      assignments: OrganizationAssignment[];
+      unitType: UnitType;
+      onEdit: (assignment: OrganizationAssignment) => void;
+      onEnd: (assignment: OrganizationAssignment) => void;
+      onCreateAssignment: (unitId?: number, roleKey?: string) => void;
+      onOpenUnitMembers: (unit: OrganizationUnit) => void;
+      onOpenTeamTransfer: (unit: OrganizationUnit) => void;
+}) {
+      const activeUnits = units.filter((unit) => unit.unitType === unitType);
+      const isTeam = unitType === 'team';
+      const headerAccent =
+            unitType === 'team'
+                  ? 'from-emerald-50 via-teal-50 to-white'
+                  : 'from-violet-50 via-indigo-50 to-white';
+
+      return (
+            <section className="overflow-hidden rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffefa_72%,#fff8f1_100%)] shadow-[0_18px_44px_rgba(120,53,15,0.06)]">
+                  <div className={`bg-gradient-to-r ${headerAccent} px-5 py-4`}>
+                        <div className="flex items-end justify-between gap-3">
+                              <div>
+                                    <h3 className="text-xl font-extrabold tracking-tight text-slate-900">
+                                          {title}
+                                    </h3>
+                                    <p className="mt-1 text-xs font-medium text-slate-500">
+                                          {activeUnits.length} đơn vị đang hoạt động
+                                    </p>
+                              </div>
+                              <span className={['rounded-full bg-white/80 px-3 py-1 text-sm font-bold ring-1', isTeam ? 'text-emerald-700 ring-amber-100 bg-white/80' : 'text-violet-700 ring-amber-100 bg-white/80'].join(' ')}>
+                                    {activeUnits.length}
+                              </span>
+                        </div>
+                  </div>
+
+                  <div className="space-y-3 p-3 sm:p-4">
+                        {activeUnits.length === 0 ? (
+                              <SectionEmpty
+                                    title={`Chưa có ${title.toLowerCase()}`}
+                                    description="Có thể tạo thêm trong tab Tổ / Ban."
+                              />
+                        ) : (
+                              activeUnits.map((unit, index) => {
+                                    const accent = residenceMediumAccents[index % residenceMediumAccents.length];
+                                    const leaders = assignments.filter(
+                                          (assignment) =>
+                                                Number(assignment.unitId || 0) === Number(unit.id) &&
+                                                assignment.status === 'active' &&
+                                                ((unitType === 'team' && getAssignmentRoleKey(assignment) === 'team_leader') ||
+                                                      (unitType === 'committee' && getAssignmentRoleKey(assignment) === 'committee_head'))
+                                    );
+
+                                    const members = assignments.filter(
+                                          (assignment) =>
+                                                Number(assignment.unitId || 0) === Number(unit.id) &&
+                                                assignment.status === 'active' &&
+                                                !leaders.some((leader) => leader.id === assignment.id)
+                                    );
+
+                                    return (
+                                          <div
+                                                key={unit.id}
+                                                className="rounded-3xl border border-amber-100/70 bg-[linear-gradient(135deg,#ffffff_0%,#fffefb_72%,#fff8f2_100%)] p-3 shadow-[0_10px_26px_rgba(120,53,15,0.045)]"
+                                          >
+                                                <div>
+                                                      <div className="mb-3 flex items-start justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                  <p className="truncate text-base font-extrabold text-slate-800">
+                                                                        {unit.name}
+                                                                  </p>
+                                                            </div>
+                                                            <span
+                                                                  className={[
+                                                                        'rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold ring-1',
+                                                                        isTeam
+                                                                              ? 'text-emerald-700 ring-emerald-100'
+                                                                              : 'text-violet-700 ring-violet-100',
+                                                                  ].join(' ')}
+                                                                  title="Số thành viên"
+                                                            >
+                                                                  {members.length + leaders.length}
+                                                            </span>
+                                                      </div>
+
+                                                      <div className="space-y-2">
+                                                            {leaders.length > 0 ? (
+                                                                  leaders.map((leader) => (
+                                                                        <PremiumOrgPersonCard
+                                                                              key={leader.id}
+                                                                              title={isTeam ? 'Tổ trưởng' : 'Trưởng ban'}
+                                                                              assignment={leader}
+                                                                              variant="unit"
+                                                                              onEdit={onEdit}
+                                                                              onEnd={onEnd}
+                                                                        />
+                                                                  ))
+                                                            ) : (
+                                                                  <PremiumOrgPersonCard
+                                                                        title={isTeam ? 'Tổ trưởng' : 'Trưởng ban'}
+                                                                        variant="unit"
+                                                                        onCreateAssignment={() =>
+                                                                              onCreateAssignment(
+                                                                                    unit.id,
+                                                                                    isTeam ? 'team_leader' : 'committee_head'
+                                                                              )
+                                                                        }
+                                                                  />
+                                                            )}
+
+                                                            {members.length > 0 && (
+                                                                  <div className="flex flex-wrap gap-1.5 pt-1">
+                                                                        {members.slice(0, 8).map((member) => (
+                                                                              <span
+                                                                                    key={member.id}
+                                                                                    className="rounded-full bg-white/75 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200/80"
+                                                                                    title={getDisplayRoleTitle(member)}
+                                                                              >
+                                                                                    {getDisplayResidentName(member)}
+                                                                              </span>
+                                                                        ))}
+                                                                        {members.length > 8 && (
+                                                                              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-100">
+                                                                                    +{members.length - 8}
+                                                                              </span>
+                                                                        )}
+                                                                  </div>
+                                                            )}
+                                                      </div>
+
+                                                      <div className="mt-4 flex flex-wrap gap-2">
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => onOpenUnitMembers(unit)}
+                                                                  className="rounded-full border border-slate-200 bg-white/75 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                                                            >
+                                                                  Thành viên
+                                                            </button>
+                                                            {isTeam && (
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => onOpenTeamTransfer(unit)}
+                                                                        className="rounded-full border border-emerald-100 bg-white/75 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+                                                                  >
+                                                                        Điều chuyển
+                                                                  </button>
+                                                            )}
+                                                      </div>
+                                                </div>
+                                          </div>
+                                    );
+                              })
+                        )}
+                  </div>
+            </section>
+      );
+}
+
+function PremiumOrganizationChart({
+      assignments,
+      units,
+      onEditAssignment,
+      onEndAssignment,
+      onCreateAssignment,
+      onOpenUnitMembers,
+      onOpenTeamTransfer,
+}: {
+      assignments: OrganizationAssignment[];
+      roles: OrganizationRole[];
+      units: OrganizationUnit[];
+      onEditAssignment: (assignment: OrganizationAssignment) => void;
+      onEndAssignment: (assignment: OrganizationAssignment) => void;
+      onCreateAssignment: (unitId?: number, roleKey?: string) => void;
+      onOpenUnitMembers: (unit: OrganizationUnit) => void;
+      onOpenTeamTransfer: (unit: OrganizationUnit) => void;
+      showActions?: boolean;
+}) {
+      const activeAssignments = assignments.filter((assignment) => assignment.status === 'active');
+      const leader = activeAssignments.find((assignment) => getAssignmentRoleKey(assignment) === 'leader') || null;
+      const deputies = activeAssignments.filter((assignment) => getAssignmentRoleKey(assignment) === 'deputy');
+      const secretary = activeAssignments.find((assignment) => getAssignmentRoleKey(assignment) === 'secretary') || null;
+      const treasurer = activeAssignments.find((assignment) => getAssignmentRoleKey(assignment) === 'treasurer') || null;
+
+      const executiveAssignments = [
+            { title: 'Trưởng', roleKey: 'leader', assignment: leader, variant: 'head' as const },
+            { title: 'Phó 1', roleKey: 'deputy', assignment: deputies[0] || null, variant: 'normal' as const },
+            { title: 'Phó 2', roleKey: 'deputy', assignment: deputies[1] || null, variant: 'normal' as const },
+            { title: 'Thư ký', roleKey: 'secretary', assignment: secretary, variant: 'normal' as const },
+            { title: 'Thủ quỹ', roleKey: 'treasurer', assignment: treasurer, variant: 'normal' as const },
+      ];
+
+      return (
+            <div className="space-y-5">
+                  <div className="rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf9_72%,#fff6ee_100%)] p-5 shadow-[0_24px_70px_rgba(120,53,15,0.09)]">
+                        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                              <div>
+                                    <p className={residenceMediumStyle.modalEyebrow}>Cơ cấu hiện tại</p>
+                                    <h3 className="mt-1 text-[22px] font-bold tracking-tight text-slate-950">
+                                          Sơ đồ tổ chức lưu xá
+                                    </h3>
+                                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                                          Nhìn nhanh người đang đảm nhiệm từng vị trí. Có thể phân công hoặc điều chuyển ngay trên sơ đồ.
+                                    </p>
+                              </div>
+                              <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                                    {activeAssignments.length} phân công
+                              </span>
+                        </div>
+
+                        <div className="rounded-[28px] border border-amber-100/70 bg-[linear-gradient(135deg,#ffffff_0%,#fffdfa_58%,#fff7f0_100%)] p-4 shadow-[0_14px_38px_rgba(120,53,15,0.055)]">
+                              <div className="mb-4 flex items-end justify-between gap-3">
+                                    <div>
+                                          <p className={residenceMediumStyle.modalEyebrow}>Ban điều hành</p>
+                                          <h4 className="mt-1 text-lg font-bold text-slate-900">Các chức vụ điều hành chính</h4>
+                                    </div>
+                              </div>
+
+                              <div className="mx-auto max-w-xl">
+                                    <PremiumOrgPersonCard
+                                          title="Trưởng"
+                                          assignment={leader}
+                                          variant="head"
+                                          onEdit={onEditAssignment}
+                                          onEnd={onEndAssignment}
+                                          onCreateAssignment={() => onCreateAssignment(undefined, 'leader')}
+                                    />
+                              </div>
+
+                              <div className="mx-auto my-5 h-7 w-px bg-gradient-to-b from-slate-200 to-transparent" />
+
+                              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                    {executiveAssignments.slice(1).map((item, index) => (
+                                          <PremiumOrgPersonCard
+                                                key={`${item.title}-${item.assignment?.id || index}`}
+                                                title={item.title}
+                                                assignment={item.assignment}
+                                                variant={item.variant}
+                                                onEdit={onEditAssignment}
+                                                onEnd={onEndAssignment}
+                                                onCreateAssignment={() => onCreateAssignment(undefined, item.roleKey)}
+                                          />
+                                    ))}
+                              </div>
+                        </div>
+                  </div>
+
+                  <div className="rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf9_72%,#fff7f1_100%)] p-5 shadow-[0_22px_58px_rgba(120,53,15,0.075)]">
+                        <div className="mb-5">
+                              <p className={residenceMediumStyle.modalEyebrow}>Tổ / Ban</p>
+                              <h3 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
+                                    Các đơn vị đang hoạt động
+                              </h3>
+                              <p className="mt-2 text-sm leading-6 text-slate-500">
+                                    Theo dõi Tổ và Ban riêng theo từng khối để dễ quan sát, thêm thành viên và điều chuyển.
+                              </p>
+                        </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                              <PremiumUnitColumn
+                                    title="Tổ"
+                                    units={units}
+                                    assignments={activeAssignments}
+                                    unitType="team"
+                                    onEdit={onEditAssignment}
+                                    onEnd={onEndAssignment}
+                                    onCreateAssignment={onCreateAssignment}
+                                    onOpenUnitMembers={onOpenUnitMembers}
+                                    onOpenTeamTransfer={onOpenTeamTransfer}
+                              />
+                              <PremiumUnitColumn
+                                    title="Ban"
+                                    units={units}
+                                    assignments={activeAssignments}
+                                    unitType="committee"
+                                    onEdit={onEditAssignment}
+                                    onEnd={onEndAssignment}
+                                    onCreateAssignment={onCreateAssignment}
+                                    onOpenUnitMembers={onOpenUnitMembers}
+                                    onOpenTeamTransfer={onOpenTeamTransfer}
+                              />
+                        </div>
+                  </div>
+            </div>
+      );
+}
+
 function SectionEmpty({ title, description }: { title: string; description: string }) {
       return (
-            <div className="rounded-3xl border border-dashed border-neutral-300 bg-neutral-50 p-6 text-center">
-                  <p className="font-semibold text-neutral-800">{title}</p>
-                  <p className="mt-1 text-sm text-neutral-500">{description}</p>
+            <div className="rounded-3xl border border-dashed border-amber-100 bg-amber-50/45 p-6 text-center">
+                  <p className="font-semibold text-slate-800">{title}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
             </div>
       );
 }
@@ -402,6 +1020,12 @@ export default function OrganizationSimple() {
       const [handoverResidentId, setHandoverResidentId] = useState<number | null>(null);
 
       const [assignmentForm, setAssignmentForm] = useState<AssignmentForm | null>(null);
+      const [assignmentRoleLock, setAssignmentRoleLock] = useState<{
+            roleId: string;
+            unitId?: string;
+            returnTab: SimpleTab;
+      } | null>(null);
+      const [assignmentFormReturnTab, setAssignmentFormReturnTab] = useState<SimpleTab>('assignments');
       const [unitForm, setUnitForm] = useState<UnitForm | null>(null);
       const [selectedUnitForMembers, setSelectedUnitForMembers] = useState<OrganizationUnit | null>(null);
       const [selectedResidentToAdd, setSelectedResidentToAdd] = useState<string>("");
@@ -615,6 +1239,10 @@ export default function OrganizationSimple() {
             ? activeMembers.find((member: any) => String(member.id) === String(assignmentForm.residentId)) || null
             : null;
 
+      const assignmentRoleOptions = assignmentRoleLock?.roleId
+            ? roles.filter((role) => String(role.id) === String(assignmentRoleLock.roleId))
+            : roles;
+
       const currentTerm = currentTermId
             ? terms.find((term) => term.id === currentTermId) || null
             : activeTerm;
@@ -625,6 +1253,58 @@ export default function OrganizationSimple() {
 
             window.location.assign(returnToMembersPath);
       };
+
+      const openAssignmentCreateFromStructure = (unitId?: number, roleKey?: string) => {
+            setMessage(null);
+
+            const role = findRoleForStructureKey(roles, roleKey);
+            const unit = unitId ? activeUnits.find((item) => Number(item.id) === Number(unitId)) || null : null;
+            const roleId = role ? String(role.id) : '';
+
+            setAssignmentFormReturnTab(activeTab);
+            setAssignmentRoleLock(
+                  roleId
+                        ? {
+                                roleId,
+                                unitId: unitId ? String(unitId) : undefined,
+                                returnTab: activeTab,
+                          }
+                        : null
+            );
+            setAssignmentForm({
+                  ...emptyAssignmentForm,
+                  termId: currentTermId ? String(currentTermId) : '',
+                  roleId,
+                  unitId: unitId ? String(unitId) : '',
+                  assignmentTitle: role ? buildAssignmentTitle(role, unit) : '',
+            });
+      };
+
+      const openUnitMembersFromStructure = (unit: OrganizationUnit) => {
+            openUnitMembers(unit);
+            setActiveTab('units');
+      };
+
+      const openTeamTransferFromStructure = (unit: OrganizationUnit) => {
+            const targetTeam =
+                  activeUnits.find(
+                        (item) =>
+                              item.unitType === 'team' &&
+                              Number(item.id) !== Number(unit.id)
+                  ) || null;
+
+            setSelectedUnitForMembers(unit);
+            setSelectedResidentToAdd('');
+            setSelectedResidentToTransfer('');
+            setSelectedTargetUnitToTransfer(targetTeam ? String(targetTeam.id) : '');
+            setTransferConfirm(null);
+            setActiveTab('units');
+            setMessage({
+                  type: 'info',
+                  text: `Đã mở phần điều chuyển cho ${unit.name}. Chọn học viên và Tổ đến để tiếp tục.`,
+            });
+      };
+
 
       useEffect(() => {
             if (!pendingOrganizationFocus) return;
@@ -746,6 +1426,8 @@ export default function OrganizationSimple() {
 
       const openAssignmentCreate = (residentId?: number) => {
             setMessage(null);
+            setAssignmentRoleLock(null);
+            setAssignmentFormReturnTab('assignments');
             setAssignmentForm({
                   ...emptyAssignmentForm,
                   termId: currentTermId ? String(currentTermId) : '',
@@ -756,6 +1438,12 @@ export default function OrganizationSimple() {
 
       const openAssignmentEdit = (assignment: OrganizationAssignment) => {
             setMessage(null);
+            setAssignmentFormReturnTab(activeTab);
+            setAssignmentRoleLock({
+                  roleId: String(assignment.roleId),
+                  unitId: assignment.unitId ? String(assignment.unitId) : undefined,
+                  returnTab: activeTab,
+            });
             setAssignmentForm({
                   id: assignment.id,
                   termId: String(assignment.termId),
@@ -768,7 +1456,13 @@ export default function OrganizationSimple() {
                   status: assignment.status,
                   notes: assignment.notes || '',
             });
-            setActiveTab('assignments');
+      };
+
+      const closeAssignmentForm = () => {
+            setAssignmentForm(null);
+            setAssignmentRoleLock(null);
+            setActiveTab(assignmentFormReturnTab);
+            if (returnToMembersPath) returnToMembers();
       };
 
       const validateAssignment = () => {
@@ -897,7 +1591,9 @@ export default function OrganizationSimple() {
                   }
 
                   setAssignmentForm(null);
+                  setAssignmentRoleLock(null);
                   await refetchOrganization();
+                  setActiveTab(assignmentFormReturnTab);
 
                   if (returnToMembersPath) {
                         returnToMembers();
@@ -915,7 +1611,7 @@ export default function OrganizationSimple() {
 
             try {
                   await endAssignmentMutation.mutateAsync({ id: assignment.id });
-                  setMessage({ type: 'success', text: 'Đã kết thúc vai trò.' });
+                  setMessage({ type: 'success', text: 'Đã kết thúc vai trò. Lịch sử phân công vẫn được giữ lại.' });
                   await refetchOrganization();
             } catch (err: any) {
                   setMessage({
@@ -1468,50 +2164,51 @@ export default function OrganizationSimple() {
 
       return (
             <ResidenceCareLayout>
-                  <div className="space-y-6">
-                        <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                    <div>
-                                          <p className="text-sm font-semibold text-blue-700">Tổ chức lưu xá</p>
-                                          <h1 className="mt-1 text-2xl font-bold tracking-tight text-neutral-950">
-                                                Tổ chức lưu xá
-                                          </h1>
-                                          <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">
-                                                Quản lý nhiệm kỳ, Tổ/Ban và các vai trò phụ trách trong một màn hình gọn, dễ thao tác.
-                                          </p>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-2">
-                                          {returnToMembersPath && (
-                                                <button
-                                                      type="button"
-                                                      onClick={returnToMembers}
-                                                      className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
-                                                >
-                                                      {returnToMembersLabel}
-                                                </button>
-                                          )}
-
+                  <div className={residenceMediumStyle.page}>
+                        <div className={residenceMediumStyle.pageShell}>
+                        <div className={residenceMediumStyle.topArea}>
+                              <div className="flex flex-wrap justify-end gap-2 px-1">
+                                    {returnToMembersPath && (
                                           <button
                                                 type="button"
-                                                onClick={() => (window.location.href = '/organization-roles')}
-                                                className="inline-flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+                                                onClick={returnToMembers}
+                                                className={residenceMediumStyle.secondaryButton}
                                           >
-                                                <Settings className="h-4 w-4" />
-                                                Cấu hình chức vụ
+                                                {returnToMembersLabel}
                                           </button>
-                                          <button
-                                                type="button"
-                                                onClick={() => openAssignmentCreate()}
-                                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                                          >
-                                                <Plus className="h-4 w-4" />
-                                                Bổ nhiệm
-                                          </button>
-                                    </div>
+                                    )}
+
+                                    <button
+                                          type="button"
+                                          disabled
+                                          title="Bộ chức vụ mặc định hiện đã đủ dùng. Khi cần mở rộng sẽ bật cấu hình sau."
+                                          className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-amber-100 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-400 opacity-70"
+                                    >
+                                          <Settings className="h-4 w-4" />
+                                          Cấu hình chức vụ
+                                    </button>
+
+                                    <button
+                                          type="button"
+                                          onClick={() => openAssignmentCreate()}
+                                          className={`${residenceMediumStyle.warmPrimaryButton} inline-flex items-center gap-2`}
+                                    >
+                                          <Plus className="h-4 w-4" />
+                                          Bổ nhiệm
+                                    </button>
                               </div>
 
-                              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                              <div className={`${residenceMediumStyle.topInner} text-center`}>
+                                    <p className={residenceMediumStyle.modalEyebrow}>Tổ chức lưu xá</p>
+                                    <h1 className={residenceMediumStyle.topTitle}>
+                                          Cơ cấu tổ chức lưu xá
+                                    </h1>
+                                    <p className={`${residenceMediumStyle.topSubtitle} mx-auto`}>
+                                          Một màn hình để nhìn tổng thể cơ cấu, nhiệm kỳ, Tổ/Ban và các chức vụ đang phụ trách.
+                                    </p>
+                              </div>
+
+                              <div className="grid gap-3 md:grid-cols-3">
                                     <StatCard
                                           label="Nhiệm kỳ hiện tại"
                                           value={activeTerm?.name || 'Chưa có'}
@@ -1519,22 +2216,16 @@ export default function OrganizationSimple() {
                                           icon={<CalendarDays className="h-5 w-5" />}
                                     />
                                     <StatCard
-                                          label="Đang phụ trách"
+                                          label="Vai trò đang hiệu lực"
                                           value={activeAssignments.length}
-                                          helper="Vai trò đang hiệu lực"
+                                          helper="Tổng số phân công đang phụ trách"
                                           icon={<ShieldCheck className="h-5 w-5" />}
                                     />
                                     <StatCard
-                                          label="Tổ/Ban hoạt động"
-                                          value={activeUnits.length}
-                                          helper={`${activeUnits.filter((unit) => unit.unitType === 'team').length} tổ · ${activeUnits.filter((unit) => unit.unitType === 'committee').length} ban`}
+                                          label="Tổ / Ban hoạt động"
+                                          value={`${activeUnits.filter((unit) => unit.unitType === 'team').length} / ${activeUnits.filter((unit) => unit.unitType === 'committee').length}`}
+                                          helper={`${activeUnits.length} đơn vị đang hoạt động`}
                                           icon={<UsersRound className="h-5 w-5" />}
-                                    />
-                                    <StatCard
-                                          label="Cần bổ sung"
-                                          value={missingRoles.reduce((sum, item) => sum + item.missing, 0)}
-                                          helper="Theo số lượng tối thiểu"
-                                          icon={<Crown className="h-5 w-5" />}
                                     />
                               </div>
                         </div>
@@ -1544,17 +2235,17 @@ export default function OrganizationSimple() {
                                     className={[
                                           'rounded-2xl border px-4 py-3 text-sm font-medium',
                                           message.type === 'success'
-                                                ? 'border-green-100 bg-green-50 text-green-700'
+                                                ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
                                                 : message.type === 'error'
                                                       ? 'border-red-100 bg-red-50 text-red-700'
-                                                      : 'border-blue-100 bg-blue-50 text-blue-700',
+                                                      : 'border-amber-100 bg-amber-50 text-amber-800',
                                     ].join(' ')}
                               >
                                     {message.text}
                               </div>
                         )}
 
-                        <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                        <div className="rounded-[28px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff6ee_100%)] p-3 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
                               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                                     <div className="flex flex-wrap gap-2">
                                           {tabs.map((tab) => (
@@ -1563,10 +2254,10 @@ export default function OrganizationSimple() {
                                                       type="button"
                                                       onClick={() => setActiveTab(tab.key)}
                                                       className={[
-                                                            'inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition',
+                                                            residenceMediumStyle.chipBase,
                                                             activeTab === tab.key
-                                                                  ? 'bg-neutral-950 text-white shadow-sm'
-                                                                  : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50',
+                                                                  ? residenceMediumStyle.chipActive
+                                                                  : residenceMediumStyle.chipIdle,
                                                       ].join(' ')}
                                                 >
                                                       {tab.icon}
@@ -1579,7 +2270,7 @@ export default function OrganizationSimple() {
                                           <select
                                                 value={selectedTermId}
                                                 onChange={(event) => setSelectedTermId(event.target.value)}
-                                                className="rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 outline-none"
+                                                className="h-10 rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                           >
                                                 <option value="active">Nhiệm kỳ hiện tại</option>
                                                 <option value="all">Tất cả nhiệm kỳ</option>
@@ -1596,7 +2287,7 @@ export default function OrganizationSimple() {
                                                       value={searchTerm}
                                                       onChange={(event) => setSearchTerm(event.target.value)}
                                                       placeholder="Tìm học viên, chức vụ, Tổ/Ban..."
-                                                      className="h-10 min-w-[260px] rounded-2xl pl-9"
+                                                      className="h-10 min-w-[260px] rounded-xl border-amber-100 bg-white/90 pl-9 text-sm shadow-[0_8px_18px_rgba(120,53,15,0.055)]"
                                                 />
                                           </div>
                                     </div>
@@ -1604,7 +2295,7 @@ export default function OrganizationSimple() {
                         </div>
 
                         {isLoading && (
-                              <div className="rounded-3xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500">
+                              <div className="rounded-3xl border border-amber-100 bg-white/85 p-8 text-center text-sm text-slate-500">
                                     Đang tải dữ liệu tổ chức...
                               </div>
                         )}
@@ -1619,22 +2310,21 @@ export default function OrganizationSimple() {
                                     )}
 
                                     {currentTerm && (
-                                          <OrganizationHierarchyChart
-                                                assignments={activeAssignments as any}
-                                                roles={roles as any}
-                                                units={activeUnits as any}
-                                                onEditAssignment={(assignment) =>
-                                                      openAssignmentEdit(assignment as OrganizationAssignment)
-                                                }
-                                                onEndAssignment={(assignment) =>
-                                                      endAssignment(assignment as OrganizationAssignment)
-                                                }
+                                          <PremiumOrganizationChart
+                                                assignments={activeAssignments}
+                                                roles={roles}
+                                                units={activeUnits}
+                                                onEditAssignment={openAssignmentEdit}
+                                                onEndAssignment={endAssignment}
+                                                onCreateAssignment={openAssignmentCreateFromStructure}
+                                                onOpenUnitMembers={openUnitMembersFromStructure}
+                                                onOpenTeamTransfer={openTeamTransferFromStructure}
                                                 showActions
                                           />
                                     )}
 
                                     {missingRoles.length > 0 && (
-                                          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
+                                          <div className="rounded-3xl border border-amber-100 bg-amber-50/70 p-5">
                                                 <h3 className="font-bold text-amber-900">Vị trí cần bổ sung</h3>
                                                 <div className="mt-3 flex flex-wrap gap-2">
                                                       {missingRoles.map((item) => (
@@ -1693,7 +2383,7 @@ export default function OrganizationSimple() {
                                           </div>
                                     )}
 
-                                    <AssignmentsTab
+                                    <AssignmentsPanel
                                           filteredAssignments={filteredAssignments}
                                           onCreateAssignment={openAssignmentCreate}
                                           onEditAssignment={openAssignmentEdit}
@@ -1703,11 +2393,11 @@ export default function OrganizationSimple() {
                         )}
 
                         {!isLoading && activeTab === 'units' && (
-                              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                              <div className="rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] p-5 shadow-[0_20px_54px_rgba(120,53,15,0.075)]">
                                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                           <div>
-                                                <h2 className="text-lg font-bold text-neutral-950">Tổ / Ban</h2>
-                                                <p className="mt-1 text-sm text-neutral-500">
+                                                <h2 className="text-lg font-bold text-slate-950">Tổ / Ban</h2>
+                                                <p className="mt-1 text-sm text-slate-500">
                                                       Quản lý các tổ và ban đang sử dụng trong lưu xá.
                                                 </p>
                                           </div>
@@ -1716,7 +2406,7 @@ export default function OrganizationSimple() {
                                                       type="button"
                                                       onClick={syncUnitLeadersToMembers}
                                                       disabled={syncUnitLeadersMutation.isPending}
-                                                      className="inline-flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
+                                                      className={`${residenceMediumStyle.secondaryButton} inline-flex items-center gap-2 disabled:opacity-60`}
                                                 >
                                                       <UsersRound className="h-4 w-4" />
                                                       {syncUnitLeadersMutation.isPending
@@ -1727,7 +2417,7 @@ export default function OrganizationSimple() {
                                                 <button
                                                       type="button"
                                                       onClick={openUnitCreate}
-                                                      className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                                      className={`${residenceMediumStyle.primaryButton} inline-flex items-center gap-2`}
                                                 >
                                                       <Plus className="h-4 w-4" />
                                                       Thêm Tổ/Ban
@@ -1737,12 +2427,12 @@ export default function OrganizationSimple() {
 
                                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                           {units.map((unit) => (
-                                                <div key={unit.id} className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
+                                                <div key={unit.id} className="rounded-3xl border border-amber-100 bg-white/85 p-4 shadow-sm shadow-amber-900/5">
                                                       <div className="flex items-start justify-between gap-3">
                                                             <div>
-                                                                  <p className="font-bold text-neutral-950">{unit.name}</p>
-                                                                  <p className="mt-1 text-xs text-neutral-500">{unit.code}</p>
-                                                                  <p className="mt-2 text-xs font-semibold text-neutral-600">
+                                                                  <p className="font-bold text-slate-950">{unit.name}</p>
+                                                                  <p className="mt-1 text-xs text-slate-500">{unit.code}</p>
+                                                                  <p className="mt-2 text-xs font-semibold text-slate-600">
                                                                         Thành viên: {(unit as any).memberCount ?? (unit as any).membersCount ?? (unit as any).activeMemberCount ?? 0}
                                                                   </p>
                                                             </div>
@@ -1752,21 +2442,21 @@ export default function OrganizationSimple() {
                                                       </div>
 
                                                       {unit.description && (
-                                                            <p className="mt-3 text-sm leading-6 text-neutral-600">{unit.description}</p>
+                                                            <p className="mt-3 text-sm leading-6 text-slate-600">{unit.description}</p>
                                                       )}
 
                                                       <div className="mt-4 flex flex-wrap gap-2">
                                                             <button
                                                                   type="button"
                                                                   onClick={() => openUnitMembers(unit)}
-                                                                  className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                                                                  className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100"
                                                             >
                                                                   Thành viên
                                                             </button>
                                                             <button
                                                                   type="button"
                                                                   onClick={() => openUnitEdit(unit)}
-                                                                  className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                                                                  className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50"
                                                             >
                                                                   Sửa
                                                             </button>
@@ -1790,18 +2480,18 @@ export default function OrganizationSimple() {
                         )}
 
                         {!isLoading && activeTab === 'terms' && (
-                              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                              <div className="rounded-[30px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] p-5 shadow-[0_20px_54px_rgba(120,53,15,0.075)]">
                                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                           <div>
-                                                <h2 className="text-lg font-bold text-neutral-950">Nhiệm kỳ</h2>
-                                                <p className="mt-1 text-sm text-neutral-500">
+                                                <h2 className="text-lg font-bold text-slate-950">Nhiệm kỳ</h2>
+                                                <p className="mt-1 text-sm text-slate-500">
                                                       Tạo, cập nhật và chọn nhiệm kỳ hiện tại.
                                                 </p>
                                           </div>
                                           <button
                                                 type="button"
                                                 onClick={openTermCreate}
-                                                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                                className={`${residenceMediumStyle.primaryButton} inline-flex items-center gap-2`}
                                           >
                                                 <Plus className="h-4 w-4" />
                                                 Thêm nhiệm kỳ
@@ -1812,16 +2502,16 @@ export default function OrganizationSimple() {
                                           {terms.map((term) => (
                                                 <div
                                                       key={term.id}
-                                                      className="flex flex-col gap-3 rounded-3xl border border-neutral-200 bg-neutral-50 p-4 md:flex-row md:items-center md:justify-between"
+                                                      className="flex flex-col gap-3 rounded-3xl border border-amber-100 bg-white/85 p-4 shadow-sm shadow-amber-900/5 md:flex-row md:items-center md:justify-between"
                                                 >
                                                       <div>
                                                             <div className="flex flex-wrap items-center gap-2">
-                                                                  <p className="font-bold text-neutral-950">{term.name}</p>
+                                                                  <p className="font-bold text-slate-950">{term.name}</p>
                                                                   <Badge className={getTermStatusClass(term.status)}>
                                                                         {getTermStatusLabel(term.status)}
                                                                   </Badge>
                                                             </div>
-                                                            <p className="mt-1 text-sm text-neutral-500">
+                                                            <p className="mt-1 text-sm text-slate-500">
                                                                   {term.code} · {formatDate(term.startDate)} - {formatDate(term.endDate)}
                                                             </p>
                                                       </div>
@@ -1830,7 +2520,7 @@ export default function OrganizationSimple() {
                                                             <button
                                                                   type="button"
                                                                   onClick={() => openTermEdit(term)}
-                                                                  className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                                                                  className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50"
                                                             >
                                                                   Sửa
                                                             </button>
@@ -1852,27 +2542,28 @@ export default function OrganizationSimple() {
                         )}
 
                         {assignmentForm && (
-                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 px-4 py-6 backdrop-blur-sm">
-                                    <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
-                                          <div className="mb-5 flex items-start justify-between gap-4">
+                              <div className={residenceMediumStyle.modalOverlay}>
+                                    <div className={`${residenceMediumStyle.modalShell} max-w-3xl`}>
+                                          <div className={residenceMediumStyle.modalHeader}>
                                                 <div>
-                                                      <h2 className="text-xl font-bold text-neutral-950">
+                                                      <p className={residenceMediumStyle.modalEyebrow}>Phân công</p>
+                                                      <h2 className={residenceMediumStyle.modalTitle}>
                                                             {assignmentForm.id ? 'Cập nhật phân công' : 'Bổ nhiệm / Phân công'}
                                                       </h2>
-                                                      <p className="mt-1 text-sm text-neutral-500">
+                                                      <p className={residenceMediumStyle.modalSubtitle}>
                                                             Chọn học viên, chức vụ và nhiệm kỳ phù hợp.
                                                       </p>
                                                 </div>
                                                 <button
                                                       type="button"
-                                                      onClick={() => { setAssignmentForm(null); if (returnToMembersPath) returnToMembers(); }}
-                                                      className="rounded-xl border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50"
+                                                      onClick={closeAssignmentForm}
+                                                      className="rounded-xl p-2 text-slate-500 transition hover:bg-white/70 hover:text-slate-700"
                                                 >
                                                       <X className="h-4 w-4" />
                                                 </button>
                                           </div>
 
-                                          <div className="grid gap-4 md:grid-cols-2">
+                                          <div className="grid gap-3 overflow-y-auto px-5 py-4 md:grid-cols-2">
                                                 <label className="space-y-1.5">
                                                       <Label>Nhiệm kỳ</Label>
                                                       <select
@@ -1882,7 +2573,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, termId: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                            className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                                       >
                                                             <option value="">Chọn nhiệm kỳ</option>
                                                             {terms.map((term) => (
@@ -1897,6 +2588,7 @@ export default function OrganizationSimple() {
                                                       <Label>Chức vụ</Label>
                                                       <select
                                                             value={assignmentForm.roleId}
+                                                            disabled={Boolean(assignmentRoleLock?.roleId)}
                                                             onChange={(event) => {
                                                                   const role = roles.find((item) => String(item.id) === event.target.value) || null;
                                                                   const nextUnitId = roleRequiresUnit(role) ? assignmentForm.unitId : '';
@@ -1915,10 +2607,10 @@ export default function OrganizationSimple() {
                                                                               : current
                                                                   );
                                                             }}
-                                                            className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                            className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                                       >
                                                             <option value="">Chọn chức vụ</option>
-                                                            {roles.map((role) => (
+                                                            {assignmentRoleOptions.map((role) => (
                                                                   <option key={role.id} value={role.id}>
                                                                         {role.name}
                                                                   </option>
@@ -1931,6 +2623,7 @@ export default function OrganizationSimple() {
                                                             <Label>Tổ/Ban</Label>
                                                             <select
                                                                   value={assignmentForm.unitId}
+                                                                  disabled={Boolean(assignmentRoleLock?.unitId)}
                                                                   onChange={(event) => {
                                                                         const unit = units.find((item) => String(item.id) === event.target.value) || null;
                                                                         setAssignmentForm((current) =>
@@ -1943,7 +2636,7 @@ export default function OrganizationSimple() {
                                                                                     : current
                                                                         );
                                                                   }}
-                                                                  className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                                  className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                                             >
                                                                   <option value="">Chọn Tổ/Ban</option>
                                                                   {activeUnits.map((unit) => (
@@ -1964,7 +2657,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, residentId: event.target.value } : current
                                                                   )
                                                             }
-                                                            className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                            className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                                       >
                                                             <option value="">Chọn học viên</option>
                                                             {activeMembers.map((member: any) => (
@@ -2097,7 +2790,7 @@ export default function OrganizationSimple() {
                                                                               : current
                                                                   )
                                                             }
-                                                            className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                            className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                                       >
                                                             <option value="team">Tổ</option>
                                                             <option value="committee">Ban</option>
@@ -2216,7 +2909,7 @@ export default function OrganizationSimple() {
                                                                         current ? { ...current, status: event.target.value as TermStatus } : current
                                                                   )
                                                             }
-                                                            className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-sm"
+                                                            className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                                       >
                                                             <option value="inactive">Chưa kích hoạt</option>
                                                             <option value="active">Đang áp dụng</option>
@@ -2393,7 +3086,7 @@ export default function OrganizationSimple() {
                                                             type="button"
                                                             onClick={addSelectedUnitMember}
                                                             disabled={addUnitMemberMutation.isPending}
-                                                            className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                                                            className={residenceMediumStyle.primaryButton}
                                                       >
                                                             {addUnitMemberMutation.isPending ? 'Đang thêm...' : 'Thêm thành viên'}
                                                       </button>
@@ -2573,6 +3266,7 @@ export default function OrganizationSimple() {
                               </div>
                         )}
 
+                        </div>
                   </div>
             </ResidenceCareLayout>
       );
