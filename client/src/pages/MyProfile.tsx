@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -46,6 +45,14 @@ function displayValue(value?: string | number | null) {
       }
 
       return String(value);
+}
+
+function formatProfileDate(value: unknown) {
+      if (typeof value === 'string' || value instanceof Date || value === null || value === undefined) {
+            return formatDate(value);
+      }
+
+      return formatDate(null);
 }
 
 function getGenderLabel(value?: string | null) {
@@ -439,7 +446,7 @@ export default function MyProfile() {
                                                 />
                                                 <InfoItem
                                                       label="Ngày sinh"
-                                                      value={formatDate(member?.dateOfBirth)}
+                                                      value={formatProfileDate(member?.dateOfBirth)}
                                                 />
                                                 <InfoItem
                                                       label="Giới tính"
@@ -452,7 +459,7 @@ export default function MyProfile() {
                                                 />
                                                 <InfoItem
                                                       label="Ngày vào lưu xá"
-                                                      value={formatDate(member?.admissionDate)}
+                                                      value={formatProfileDate(member?.admissionDate)}
                                                 />
                                                 <InfoItem
                                                       label="Trạng thái"

@@ -19,12 +19,6 @@ export const simpleManagerNavigation: NavigationItem[] = [
                         roles: ["manager"],
                   },
                   {
-                        label: "Phòng ở",
-                        path: "/rooms",
-                        icon: "🚪",
-                        roles: ["manager"],
-                  },
-                  {
                         label: "Tổ chức lưu xá",
                         path: "/organization",
                         icon: "🏛️",

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -146,6 +145,8 @@ type TermForm = {
       endDate: string;
       status: TermStatus;
       description: string;
+      copyFromTermId: string;
+      copyAssignments: boolean;
 };
 
 const today = new Date().toISOString().split('T')[0];
@@ -178,6 +179,8 @@ const emptyTermForm: TermForm = {
       endDate: '',
       status: 'inactive',
       description: '',
+      copyFromTermId: '',
+      copyAssignments: false,
 };
 
 function normalizeText(value?: string | null) {
@@ -1988,7 +1991,6 @@ export default function OrganizationSimple() {
             try {
                   await toggleUnitActiveMutation.mutateAsync({
                         id: unit.id,
-                        isActive: !unit.isActive,
                   });
                   setMessage({
                         type: 'success',
@@ -2202,7 +2204,7 @@ export default function OrganizationSimple() {
                         type: 'success',
                         text:
                               result?.message ||
-                              `Đã đồng bộ ${result?.created || 0} người phụ trách vào danh sách thành viên.`,
+                              `Đã đồng bộ ${result?.createdOrUpdated || 0} người phụ trách vào danh sách thành viên.`,
                   });
 
                   await Promise.all([
@@ -3040,7 +3042,7 @@ export default function OrganizationSimple() {
                                                       />
                                                 </label>
 
-                                                {!termForm.id && (
+                                                {termForm && !termForm.id && (
                                                       <div className="md:col-span-2 rounded-2xl border border-amber-100 bg-white/70 p-4">
                                                             <label className="flex items-start gap-3">
                                                                   <input

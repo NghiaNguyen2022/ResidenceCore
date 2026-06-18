@@ -533,7 +533,7 @@ export const membersRouter = router({
 
       suggestResidentUsername: protectedProcedure
             .input(suggestResidentUsernameSchema)
-            .query(async ({ ctx, input }) => {
+            .mutation(async ({ ctx, input }) => {
                   requireMemberManagementAccess(ctx.user);
 
                   const baseUsername = userDb.generateResidentUsernameBase(input.fullName);

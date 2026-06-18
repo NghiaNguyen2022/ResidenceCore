@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import TemplateSelector from "./TemplateSelector";
@@ -9,8 +8,8 @@ interface ChecklistItem {
   itemOrder: number;
   checklistItem: string;
   isRequired: boolean;
-  description?: string;
-  estimatedTimeMinutes?: number;
+  description?: string | null;
+  estimatedTimeMinutes?: number | null;
 }
 
 interface DutyTemplate {
@@ -18,11 +17,11 @@ interface DutyTemplate {
   templateCode: string;
   templateName: string;
   dutyType: string;
-  startTime: string;
-  endTime: string;
+  startTime: string | null;
+  endTime: string | null;
   minPersons: number;
   maxPersons: number;
-  description: string;
+  description: string | null;
   isActive: boolean;
 }
 
@@ -116,9 +115,9 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
       ...formData,
       dutyCode: `${template.templateCode}_${Date.now()}`,
       dutyName: template.templateName,
-      description: template.description,
-      startTime: template.startTime,
-      endTime: template.endTime,
+      description: template.description || "",
+      startTime: template.startTime || DEFAULT_TIME,
+      endTime: template.endTime || DEFAULT_TIME,
       minPersons: template.minPersons,
       maxPersons: template.maxPersons,
       dutyType: template.dutyType as "daily" | "weekly" | "monthly",
@@ -143,12 +142,13 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
       await deleteChecklistItemMutation.mutateAsync({ id });
     }
 
-    for (const [index, item] of checklistItems.entries()) {
+    for (let index = 0; index < checklistItems.length; index += 1) {
+      const item = checklistItems[index];
       const payload = {
         checklistItem: item.checklistItem.trim(),
         description: item.description || undefined,
         isRequired: item.isRequired,
-        estimatedTimeMinutes: item.estimatedTimeMinutes,
+        estimatedTimeMinutes: item.estimatedTimeMinutes ?? undefined,
       };
 
       if (!payload.checklistItem) continue;
@@ -202,14 +202,12 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
       if (duty) {
         const updatedConfig: any = await updateConfigMutation.mutateAsync({
           id: duty.id,
-          data: {
-            dutyName: formData.dutyName,
-            description: formData.description,
-            startTime: formData.startTime || undefined,
-            endTime: formData.endTime || undefined,
-            minPersons: formData.minPersons,
-            maxPersons: formData.maxPersons,
-          },
+          dutyName: formData.dutyName,
+          description: formData.description,
+          startTime: formData.startTime || undefined,
+          endTime: formData.endTime || undefined,
+          minPersons: formData.minPersons,
+          maxPersons: formData.maxPersons,
         });
 
         dutyConfigId =

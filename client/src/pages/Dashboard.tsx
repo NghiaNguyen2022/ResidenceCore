@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Users, DoorOpen, Briefcase, TrendingUp, AlertCircle, AlertTriangle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -18,6 +17,39 @@ interface StatCardProps {
   description: string;
   color: "blue" | "green" | "orange" | "red" | "purple";
 }
+
+type DashboardResidentsStats = {
+  total: number;
+  active: number;
+  inactive: number;
+  transferredOut: number;
+  transferred_out?: number;
+};
+
+type DashboardRoomsStats = {
+  totalRooms: number;
+  totalCapacity: number;
+  totalOccupancy: number;
+  totalAvailable: number;
+  fullRooms: number;
+  occupancyRate: number;
+};
+
+const defaultResidentsStats: DashboardResidentsStats = {
+  total: 0,
+  active: 0,
+  inactive: 0,
+  transferredOut: 0,
+};
+
+const defaultRoomsStats: DashboardRoomsStats = {
+  totalRooms: 0,
+  totalCapacity: 0,
+  totalOccupancy: 0,
+  totalAvailable: 0,
+  fullRooms: 0,
+  occupancyRate: 0,
+};
 
 function StatCard({ icon, label, value, description, color }: StatCardProps) {
   const colorClasses = {
@@ -108,18 +140,17 @@ export default function Dashboard() {
     );
   }
 
-  // Destructure data với default values
-  const {
-    residents = { total: 0, active: 0, inactive: 0, transferredOut: 0 },
-    rooms = {
-      totalRooms: 0,
-      totalCapacity: 0,
-      totalOccupancy: 0,
-      totalAvailable: 0,
-      fullRooms: 0,
-      occupancyRate: 0,
-    },
-  } = data;
+  const rawResidents = (data.residents || defaultResidentsStats) as Partial<DashboardResidentsStats>;
+  const rawRooms = (data.rooms || defaultRoomsStats) as Partial<DashboardRoomsStats>;
+  const residents: DashboardResidentsStats = {
+    ...defaultResidentsStats,
+    ...rawResidents,
+    transferredOut: rawResidents.transferredOut ?? rawResidents.transferred_out ?? 0,
+  };
+  const rooms: DashboardRoomsStats = {
+    ...defaultRoomsStats,
+    ...rawRooms,
+  };
 
   // Tính toán room status
   const availableRooms = rooms.totalAvailable || 0;

@@ -73,7 +73,7 @@ export const residenceMediumStyle = {
       segmentedActive: 'bg-white text-slate-900 shadow-[0_8px_18px_rgba(120,53,15,0.10)]',
       segmentedIdle: 'text-slate-500 hover:text-slate-800',
 
-      cardTitle: 'min-w-0 text-xl font-semibold leading-7 text-slate-950',
+      cardTitle: 'min-w-0 text-[16px] font-semibold leading-6 text-[#17335f]',
       cardHolyName: 'text-xs font-medium leading-5 text-slate-500',
       cardMeta: 'mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-500',
 
@@ -81,14 +81,14 @@ export const residenceMediumStyle = {
       compactSectionHint: 'mt-1 text-xs leading-5 text-slate-500',
 
       card:
-            'relative overflow-visible rounded-3xl border p-4 shadow-[0_18px_42px_rgba(120,53,15,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_56px_rgba(120,53,15,0.12)]',
-      cardActive: cx(tone.border, tone.cardGradient, 'hover:border-amber-200'),
-      cardLeft: 'border-rose-200 bg-rose-50/80',
-      cardInactive: 'border-amber-200 bg-amber-50/80',
+            'relative overflow-visible rounded-2xl border p-4 shadow-[0_12px_30px_rgba(15,23,42,0.055)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)]',
+      cardActive: cx('border-slate-200 bg-white/95', 'hover:border-slate-300'),
+      cardLeft: 'border-rose-100 bg-rose-50/70',
+      cardInactive: 'border-amber-100 bg-amber-50/65',
       cardSection: cx(
-            'rounded-2xl border px-4 py-3 shadow-sm shadow-amber-900/5',
+            'rounded-2xl border px-4 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.035)]',
             tone.border,
-            tone.cardSoftGradient
+            'bg-white/80'
       ),
 
       listPanel:

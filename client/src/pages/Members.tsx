@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import type { ReactNode } from 'react';
@@ -343,21 +342,21 @@ function SimpleMemberListTable({
       );
 
       return (
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+                  <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-3">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="text-sm font-semibold text-slate-700">
-                                    Chế độ List view
+                              <div className="text-sm font-semibold text-slate-800">
+                                    Danh sách gọn
                               </div>
                               <div className="text-xs text-slate-500">
-                                    View only · {sortedRows.length} học viên · Có thể sort theo tên, phòng, tổ, trạng thái
+                                    {sortedRows.length} học viên · Sắp xếp theo tên, phòng, tổ, trạng thái
                               </div>
                         </div>
                   </div>
 
                   <div className="overflow-x-auto">
                         <table className="min-w-[1180px] divide-y divide-slate-100 text-sm">
-                              <thead className="bg-white">
+                              <thead className="bg-slate-50/40">
                                     <tr>
                                           <th className="px-4 py-3 text-left">
                                                 <SortableHeader
@@ -432,30 +431,30 @@ function SimpleMemberListTable({
                                           return (
                                                 <tr
                                                       key={member.id}
-                                                      className="transition hover:bg-slate-50/80"
+                                                      className="transition hover:bg-slate-50/70"
                                                 >
-                                                      <td className="whitespace-nowrap px-4 py-3">
-                                                            <div className="font-semibold text-slate-900">
+                                                       <td className="whitespace-nowrap px-4 py-3.5">
+                                                             <div className="font-semibold leading-5 text-slate-900">
                                                                   {getDisplayName(member)}
                                                             </div>
-                                                            <div className="text-xs text-slate-400">
+                                                             <div className="mt-0.5 text-xs text-slate-400">
                                                                   {member?.gender
                                                                         ? getGenderLabel(member.gender)
                                                                         : 'Thông tin cơ bản'}
                                                             </div>
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">
+                                                       <td className="whitespace-nowrap px-4 py-3.5 font-medium text-slate-500">
                                                             {member?.residentCode || member?.code || 'Chưa có'}
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3">
-                                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                                                       <td className="whitespace-nowrap px-4 py-3.5">
+                                                             <span className="rounded-full bg-emerald-50/80 px-2.5 py-1 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-100">
                                                                   {statusLabel}
                                                             </span>
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-700">
+                                                       <td className="whitespace-nowrap px-4 py-3.5 font-medium text-slate-600">
                                                             {getRoomLabelFromMember(member) || 'Chưa gán'}
                                                       </td>
 
@@ -1004,7 +1003,6 @@ export default function Members() {
                   }
             }
 
-            return membersResult.data;
       };
 
       const clearFilters = () => {
@@ -1527,7 +1525,7 @@ export default function Members() {
                                                 value: 'closeMessageBox',
                                                 description:
                                                       'Hủy thao tác rời lưu xá, giữ nguyên hồ sơ và tài khoản học viên.',
-                                                variant: 'secondary',
+                                                variant: 'info',
                                           },
                                     ],
                               });
@@ -2110,7 +2108,7 @@ export default function Members() {
                                                                               : residenceMediumStyle.segmentedIdle,
                                                                   ].join(' ')}
                                                             >
-                                                                  List
+                                                                  Danh sách
                                                             </button>
                                                       </div>
 
@@ -2312,10 +2310,16 @@ export default function Members() {
                                                 suggestUsernameMutation.isPending
                                           }
                                           isReactivating={reactivateMemberMutation.isPending}
-                                          onDataChange={refetchMembers}
+                                          onDataChange={async () => {
+                                                await refetchMembers();
+                                          }}
                                           isSavingEducation={upsertEducationMutation.isPending}
-                                          onSaveEducation={(data: EducationInfoPayload) => {
-                                                upsertEducationMutation.mutate(data);
+                                          onSaveEducation={(data) => {
+                                                upsertEducationMutation.mutate({
+                                                      ...data,
+                                                      schoolName: data.schoolName || '',
+                                                      educationLevel: data.educationLevel as EducationLevel | null | undefined,
+                                                });
                                           }}
                                           isSavingStudySchedule={
                                                 createStudyScheduleMutation.isPending ||
@@ -2398,15 +2402,15 @@ export default function Members() {
                                                 setIsContactsDialogOpen(false);
                                                 setSelectedMemberForContacts(null);
                                           }}
-                                          onChanged={() =>
-                                                refetchMembers(
+                                          onChanged={async () => {
+                                                await refetchMembers(
                                                       selectedMemberForContacts?.id
                                                             ? Number(selectedMemberForContacts.id)
                                                             : selectedMember?.id
                                                                   ? Number(selectedMember.id)
                                                                   : undefined
-                                                )
-                                          }
+                                                );
+                                          }}
                                     />
                               )}
 

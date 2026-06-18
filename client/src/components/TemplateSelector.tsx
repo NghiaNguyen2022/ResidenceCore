@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 
@@ -7,11 +6,11 @@ interface DutyTemplate {
   templateCode: string;
   templateName: string;
   dutyType: string;
-  startTime: string;
-  endTime: string;
+  startTime: string | null;
+  endTime: string | null;
   minPersons: number;
   maxPersons: number;
-  description: string;
+  description: string | null;
   isActive: boolean;
 }
 

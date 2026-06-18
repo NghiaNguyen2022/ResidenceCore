@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -7,6 +6,15 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+
+type MyDutyAssignment = {
+      id: number;
+      assignedDate: Date | string;
+      notes: string | null;
+      status: string;
+      startDateTime: Date | string | null;
+      endDateTime: Date | string | null;
+};
 
 function getStatusLabel(status: string) {
       switch (status) {
@@ -27,18 +35,18 @@ function getStatusLabel(status: string) {
       }
 }
 
-function getStatusBadgeVariant(status: string) {
+function getStatusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
       switch (status) {
             case "pending":
                   return "secondary";
             case "confirmed":
-                  return "accent";
+                  return "default";
             case "in_progress":
-                  return "info";
+                  return "default";
             case "completed":
-                  return "success";
+                  return "outline";
             case "skipped":
-                  return "warning";
+                  return "secondary";
             case "cancelled":
                   return "destructive";
             default:
@@ -65,7 +73,7 @@ export default function MyDuties() {
             },
       });
 
-      const assignments = assignmentsQuery.data ?? [];
+      const assignments = (assignmentsQuery.data ?? []) as MyDutyAssignment[];
 
       const canShowResidentView = useMemo(() => {
             if (loading) return false;
@@ -140,7 +148,7 @@ export default function MyDuties() {
                                                       </div>
 
                                                       <Button
-                                                            disabled={assignment.status === "completed" || assignment.status === "cancelled" || updateMutation.isLoading}
+                                                            disabled={assignment.status === "completed" || assignment.status === "cancelled" || updateMutation.isPending}
                                                             onClick={() => handleMarkComplete(assignment.id)}
                                                       >
                                                             Đánh dấu hoàn thành
