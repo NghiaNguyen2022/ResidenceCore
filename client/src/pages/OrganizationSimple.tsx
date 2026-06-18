@@ -145,8 +145,6 @@ type TermForm = {
       endDate: string;
       status: TermStatus;
       description: string;
-      copyFromTermId: string;
-      copyAssignments: boolean;
 };
 
 const today = new Date().toISOString().split('T')[0];
@@ -179,8 +177,6 @@ const emptyTermForm: TermForm = {
       endDate: '',
       status: 'inactive',
       description: '',
-      copyFromTermId: '',
-      copyAssignments: false,
 };
 
 function normalizeText(value?: string | null) {
@@ -916,46 +912,52 @@ function PremiumOrgPersonCard({
 }) {
       const hasAssignment = Boolean(assignment);
       const displayName = getDisplayResidentName(assignment);
+      const isUnit = variant === 'unit';
+
+      const cardClass = hasAssignment
+            ? variant === 'head'
+                  ? residenceMediumStyle.orgPersonCardHead
+                  : isUnit
+                        ? residenceMediumStyle.orgPersonCardUnit
+                        : residenceMediumStyle.orgPersonCard
+            : isUnit
+                  ? residenceMediumStyle.orgPersonCardUnit
+                  : residenceMediumStyle.orgPersonCardEmpty;
 
       return (
-            <div
-                  className={
-                        hasAssignment
-                              ? variant === 'head'
-                                    ? residenceMediumStyle.orgPersonCardHead
-                                    : residenceMediumStyle.orgPersonCard
-                              : residenceMediumStyle.orgPersonCardEmpty
-                  }
-            >
-                  <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                              <p className={residenceMediumStyle.orgPersonTitle}>
-                                    {title}
-                              </p>
-                              <p className={residenceMediumStyle.orgPersonName}>
-                                    {hasAssignment ? displayName : 'Đang trống'}
-                              </p>
-                        </div>
+            <div className={cardClass}>
+                  <span className={residenceMediumStyle.orgPersonCardGlow} />
+                  {hasAssignment && <span className={residenceMediumStyle.orgPersonCardShine} />}
 
-                        <div
+                  <div className="relative min-w-0">
+                        <p
                               className={
-                                    hasAssignment
-                                          ? residenceMediumStyle.orgAvatarActive
-                                          : residenceMediumStyle.orgAvatarEmpty
+                                    isUnit
+                                          ? residenceMediumStyle.orgPersonTitleUnit
+                                          : residenceMediumStyle.orgPersonTitle
                               }
                         >
-                              {hasAssignment ? displayName.charAt(0).toUpperCase() : '—'}
-                        </div>
+                              {title}
+                        </p>
+                        <p
+                              className={
+                                    isUnit
+                                          ? residenceMediumStyle.orgPersonNameUnit
+                                          : residenceMediumStyle.orgPersonName
+                              }
+                        >
+                              {hasAssignment ? displayName : 'Đang trống'}
+                        </p>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className={isUnit ? 'relative mt-2 flex flex-wrap justify-center gap-1.5' : 'relative mt-3 flex flex-wrap justify-center gap-1.5'}>
                         {assignment ? (
                               <>
                                     {onEdit && (
                                           <button
                                                 type="button"
                                                 onClick={() => onEdit(assignment)}
-                                                className="rounded-full border border-slate-200 bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                                className="rounded-full border border-slate-200 bg-white/78 px-2 py-0.5 text-[11px] font-semibold text-slate-500 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
                                           >
                                                 Sửa
                                           </button>
@@ -964,7 +966,7 @@ function PremiumOrgPersonCard({
                                           <button
                                                 type="button"
                                                 onClick={() => onEnd(assignment)}
-                                                className="rounded-full border border-rose-100 bg-white/80 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                                                className="rounded-full border border-rose-100 bg-white/78 px-2 py-0.5 text-[11px] font-semibold text-rose-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                                           >
                                                 Kết thúc
                                           </button>
@@ -975,7 +977,7 @@ function PremiumOrgPersonCard({
                                     <button
                                           type="button"
                                           onClick={onCreateAssignment}
-                                          className="rounded-full border border-amber-100 bg-white/80 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-50"
+                                          className="rounded-full border border-amber-100 bg-white/78 px-2 py-0.5 text-[11px] font-semibold text-amber-700 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-800"
                                     >
                                           Phân công
                                     </button>
@@ -1011,36 +1013,37 @@ function PremiumUnitColumn({
       const isTeam = unitType === 'team';
       const headerAccent =
             unitType === 'team'
-                  ? 'from-emerald-50 via-teal-50 to-white'
-                  : 'from-violet-50 via-indigo-50 to-white';
+                  ? 'from-emerald-50/70 via-white to-white'
+                  : 'from-violet-50/70 via-white to-white';
 
       return (
             <section className={residenceMediumStyle.orgUnitColumn}>
-                  <div className={`bg-gradient-to-r ${headerAccent} px-5 py-4`}>
-                        <div className="flex items-end justify-between gap-3">
+                  <div className={`bg-gradient-to-r ${headerAccent} px-4 py-3`}>
+                        <div className="flex items-center justify-between gap-3">
                               <div>
-                                    <h3 className="text-xl font-extrabold tracking-tight text-slate-900">
+                                    <h3 className="text-base font-bold tracking-tight text-slate-800">
                                           {title}
                                     </h3>
-                                    <p className="mt-1 text-xs font-medium text-slate-500">
+                                    <p className="mt-0.5 text-[11px] font-medium text-slate-400">
                                           {activeUnits.length} đơn vị đang hoạt động
                                     </p>
                               </div>
-                              <span className={['rounded-full bg-white/80 px-3 py-1 text-sm font-bold ring-1', isTeam ? 'text-emerald-700 ring-amber-100 bg-white/80' : 'text-violet-700 ring-amber-100 bg-white/80'].join(' ')}>
+                              <span className={['rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-bold ring-1', isTeam ? 'text-emerald-600 ring-emerald-100' : 'text-violet-600 ring-violet-100'].join(' ')}>
                                     {activeUnits.length}
                               </span>
                         </div>
                   </div>
 
-                  <div className="space-y-3 p-3 sm:p-4">
+                  <div className="grid gap-2 p-2.5 sm:grid-cols-2 xl:grid-cols-3">
                         {activeUnits.length === 0 ? (
-                              <SectionEmpty
-                                    title={`Chưa có ${title.toLowerCase()}`}
-                                    description="Có thể tạo thêm trong tab Tổ / Ban."
-                              />
+                              <div className="sm:col-span-2 xl:col-span-3">
+                                    <SectionEmpty
+                                          title={`Chưa có ${title.toLowerCase()}`}
+                                          description="Có thể tạo thêm trong tab Tổ / Ban."
+                                    />
+                              </div>
                         ) : (
-                              activeUnits.map((unit, index) => {
-                                    const accent = residenceMediumAccents[index % residenceMediumAccents.length];
+                              activeUnits.map((unit) => {
                                     const leaders = assignments.filter(
                                           (assignment) =>
                                                 Number(assignment.unitId || 0) === Number(unit.id) &&
@@ -1061,89 +1064,85 @@ function PremiumUnitColumn({
                                                 key={unit.id}
                                                 className={residenceMediumStyle.orgUnitCard}
                                           >
-                                                <div>
-                                                      <div className="mb-3 flex items-start justify-between gap-3">
-                                                            <div className="min-w-0">
-                                                                  <p className="truncate text-base font-extrabold text-slate-800">
-                                                                        {unit.name}
-                                                                  </p>
-                                                            </div>
-                                                            <span
-                                                                  className={[
-                                                                        'rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold ring-1',
-                                                                        isTeam
-                                                                              ? 'text-emerald-700 ring-emerald-100'
-                                                                              : 'text-violet-700 ring-violet-100',
-                                                                  ].join(' ')}
-                                                                  title="Số thành viên"
-                                                            >
-                                                                  {members.length + leaders.length}
-                                                            </span>
-                                                      </div>
+                                                <div className="mb-2 flex items-center justify-between gap-2">
+                                                      <p className="truncate text-sm font-semibold text-slate-700">
+                                                            {unit.name}
+                                                      </p>
+                                                      <span
+                                                            className={[
+                                                                  'rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold ring-1',
+                                                                  isTeam
+                                                                        ? 'text-emerald-600 ring-emerald-100'
+                                                                        : 'text-violet-600 ring-violet-100',
+                                                            ].join(' ')}
+                                                            title="Số thành viên"
+                                                      >
+                                                            {members.length + leaders.length}
+                                                      </span>
+                                                </div>
 
-                                                      <div className="space-y-2">
-                                                            {leaders.length > 0 ? (
-                                                                  leaders.map((leader) => (
-                                                                        <PremiumOrgPersonCard
-                                                                              key={leader.id}
-                                                                              title={isTeam ? 'Tổ trưởng' : 'Trưởng ban'}
-                                                                              assignment={leader}
-                                                                              variant="unit"
-                                                                              onEdit={onEdit}
-                                                                              onEnd={onEnd}
-                                                                        />
-                                                                  ))
-                                                            ) : (
+                                                <div className="space-y-1.5">
+                                                      {leaders.length > 0 ? (
+                                                            leaders.map((leader) => (
                                                                   <PremiumOrgPersonCard
+                                                                        key={leader.id}
                                                                         title={isTeam ? 'Tổ trưởng' : 'Trưởng ban'}
+                                                                        assignment={leader}
                                                                         variant="unit"
-                                                                        onCreateAssignment={() =>
-                                                                              onCreateAssignment(
-                                                                                    unit.id,
-                                                                                    isTeam ? 'team_leader' : 'committee_head'
-                                                                              )
-                                                                        }
+                                                                        onEdit={onEdit}
+                                                                        onEnd={onEnd}
                                                                   />
-                                                            )}
+                                                            ))
+                                                      ) : (
+                                                            <PremiumOrgPersonCard
+                                                                  title={isTeam ? 'Tổ trưởng' : 'Trưởng ban'}
+                                                                  variant="unit"
+                                                                  onCreateAssignment={() =>
+                                                                        onCreateAssignment(
+                                                                              unit.id,
+                                                                              isTeam ? 'team_leader' : 'committee_head'
+                                                                        )
+                                                                  }
+                                                            />
+                                                      )}
 
-                                                            {members.length > 0 && (
-                                                                  <div className="flex flex-wrap gap-1.5 pt-1">
-                                                                        {members.slice(0, 8).map((member) => (
-                                                                              <span
-                                                                                    key={member.id}
-                                                                                    className="rounded-full bg-white/75 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200/80"
-                                                                                    title={getDisplayRoleTitle(member)}
-                                                                              >
-                                                                                    {getDisplayResidentName(member)}
-                                                                              </span>
-                                                                        ))}
-                                                                        {members.length > 8 && (
-                                                                              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-100">
-                                                                                    +{members.length - 8}
-                                                                              </span>
-                                                                        )}
-                                                                  </div>
-                                                            )}
-                                                      </div>
+                                                      {members.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 pt-0.5">
+                                                                  {members.slice(0, 5).map((member) => (
+                                                                        <span
+                                                                              key={member.id}
+                                                                              className="rounded-full bg-white/65 px-2 py-0.5 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200/70"
+                                                                              title={getDisplayRoleTitle(member)}
+                                                                        >
+                                                                              {getDisplayResidentName(member)}
+                                                                        </span>
+                                                                  ))}
+                                                                  {members.length > 5 && (
+                                                                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-100">
+                                                                              +{members.length - 5}
+                                                                        </span>
+                                                                  )}
+                                                            </div>
+                                                      )}
+                                                </div>
 
-                                                      <div className="mt-4 flex flex-wrap gap-2">
+                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => onOpenUnitMembers(unit)}
+                                                            className="rounded-full border border-slate-200 bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
+                                                      >
+                                                            Thành viên
+                                                      </button>
+                                                      {isTeam && (
                                                             <button
                                                                   type="button"
-                                                                  onClick={() => onOpenUnitMembers(unit)}
-                                                                  className="rounded-full border border-slate-200 bg-white/75 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                                                                  onClick={() => onOpenTeamTransfer(unit)}
+                                                                  className="rounded-full border border-emerald-100 bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50"
                                                             >
-                                                                  Thành viên
+                                                                  Điều chuyển
                                                             </button>
-                                                            {isTeam && (
-                                                                  <button
-                                                                        type="button"
-                                                                        onClick={() => onOpenTeamTransfer(unit)}
-                                                                        className="rounded-full border border-emerald-100 bg-white/75 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50"
-                                                                  >
-                                                                        Điều chuyển
-                                                                  </button>
-                                                            )}
-                                                      </div>
+                                                      )}
                                                 </div>
                                           </div>
                                     );
@@ -1188,32 +1187,34 @@ function PremiumOrganizationChart({
       ];
 
       return (
-            <div className="space-y-5">
+            <div className="space-y-3">
                   <div className={residenceMediumStyle.orgChartPanel}>
-                        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                               <div>
                                     <p className={residenceMediumStyle.modalEyebrow}>Cơ cấu hiện tại</p>
-                                    <h3 className="mt-1 text-[22px] font-bold tracking-tight text-slate-950">
+                                    <h3 className="mt-1 text-xl font-bold tracking-tight text-slate-950">
                                           Sơ đồ tổ chức lưu xá
                                     </h3>
-                                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                                    <p className="mt-1 text-xs leading-5 text-slate-500">
                                           Nhìn nhanh người đang đảm nhiệm từng vị trí. Có thể phân công hoặc điều chuyển ngay trên sơ đồ.
                                     </p>
                               </div>
-                              <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                              <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">
                                     {activeAssignments.length} phân công
                               </span>
                         </div>
 
                         <div className={residenceMediumStyle.orgExecutivePanel}>
-                              <div className="mb-4 flex items-end justify-between gap-3">
+                              <div className="mb-3 flex items-center justify-between gap-3">
                                     <div>
                                           <p className={residenceMediumStyle.modalEyebrow}>Ban điều hành</p>
-                                          <h4 className="mt-1 text-lg font-bold text-slate-900">Các chức vụ điều hành chính</h4>
+                                          <h4 className="mt-0.5 text-base font-semibold text-slate-800">
+                                                Các chức vụ điều hành chính
+                                          </h4>
                                     </div>
                               </div>
 
-                              <div className="mx-auto max-w-xl">
+                              <div className="mx-auto max-w-sm">
                                     <PremiumOrgPersonCard
                                           title="Trưởng"
                                           assignment={leader}
@@ -1224,9 +1225,9 @@ function PremiumOrganizationChart({
                                     />
                               </div>
 
-                              <div className="mx-auto my-5 h-7 w-px bg-gradient-to-b from-slate-200 to-transparent" />
+                              <div className="mx-auto my-2 h-4 w-px bg-gradient-to-b from-slate-200 to-transparent" />
 
-                              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                                     {executiveAssignments.slice(1).map((item, index) => (
                                           <PremiumOrgPersonCard
                                                 key={`${item.title}-${item.assignment?.id || index}`}
@@ -1243,17 +1244,17 @@ function PremiumOrganizationChart({
                   </div>
 
                   <div className={residenceMediumStyle.orgUnitsPanel}>
-                        <div className="mb-5">
+                        <div className="mb-3">
                               <p className={residenceMediumStyle.modalEyebrow}>Tổ / Ban</p>
-                              <h3 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
+                              <h3 className="mt-0.5 text-xl font-bold tracking-tight text-slate-950">
                                     Các đơn vị đang hoạt động
                               </h3>
-                              <p className="mt-2 text-sm leading-6 text-slate-500">
+                              <p className="mt-1 text-xs leading-5 text-slate-500">
                                     Theo dõi Tổ và Ban riêng theo từng khối để dễ quan sát, thêm thành viên và điều chuyển.
                               </p>
                         </div>
 
-                        <div className="grid gap-4 lg:grid-cols-2">
+                        <div className="grid gap-3 2xl:grid-cols-2">
                               <PremiumUnitColumn
                                     title="Tổ"
                                     units={units}
@@ -1991,6 +1992,7 @@ export default function OrganizationSimple() {
             try {
                   await toggleUnitActiveMutation.mutateAsync({
                         id: unit.id,
+                        isActive: !unit.isActive,
                   });
                   setMessage({
                         type: 'success',
@@ -2204,7 +2206,7 @@ export default function OrganizationSimple() {
                         type: 'success',
                         text:
                               result?.message ||
-                              `Đã đồng bộ ${result?.createdOrUpdated || 0} người phụ trách vào danh sách thành viên.`,
+                              `Đã đồng bộ ${result?.created || 0} người phụ trách vào danh sách thành viên.`,
                   });
 
                   await Promise.all([
@@ -3042,7 +3044,7 @@ export default function OrganizationSimple() {
                                                       />
                                                 </label>
 
-                                                {termForm && !termForm.id && (
+                                                {!termForm.id && (
                                                       <div className="md:col-span-2 rounded-2xl border border-amber-100 bg-white/70 p-4">
                                                             <label className="flex items-start gap-3">
                                                                   <input

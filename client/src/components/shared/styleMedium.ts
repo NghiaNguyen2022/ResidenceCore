@@ -20,9 +20,9 @@ export const residenceMediumStyle = {
       pageShell: density.pageShell,
 
       topArea: 'relative overflow-visible px-1 pt-1',
-      topInner: 'relative mx-auto flex max-w-4xl flex-col items-center overflow-visible px-1 py-1 text-center text-slate-900 sm:px-2',
-      topTitle: 'text-center text-[32px] font-bold tracking-tight text-slate-950 sm:text-[38px]',
-      topSubtitle: 'mx-auto mt-2 max-w-3xl text-center text-sm leading-7 text-slate-600 sm:text-[15px]',
+      topInner: 'relative overflow-visible px-1 py-1 text-slate-900 sm:px-2',
+      topTitle: 'text-[32px] font-bold tracking-tight text-slate-950 sm:text-[38px]',
+      topSubtitle: 'mt-2 max-w-3xl text-sm leading-7 text-slate-600 sm:text-[15px]',
 
       warmButton:
             'rounded-md border border-amber-200/80 bg-[linear-gradient(180deg,#fffaf0_0%,#fff3dc_100%)] px-4 py-2 text-sm font-semibold text-amber-900 shadow-[0_10px_24px_rgba(180,83,9,0.12)] transition hover:shadow-[0_14px_28px_rgba(180,83,9,0.16)]',
@@ -67,14 +67,13 @@ export const residenceMediumStyle = {
       sectionHeader:
             'border-b border-amber-100/70 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_70%,#fff4e8_100%)] px-5 py-2.5',
       sectionTitle: 'text-[20px] font-bold tracking-tight text-slate-900 sm:text-[21px]',
-      subsectionTitle: 'text-lg font-semibold tracking-tight text-slate-900',
       sectionBody: cx('bg-[linear-gradient(180deg,rgba(255,250,240,0.45)_0%,rgba(248,250,252,0.35)_100%)]', density.sectionBody),
 
       segmentedControl: 'flex rounded-2xl bg-slate-100 p-1 text-sm font-semibold',
       segmentedActive: 'bg-white text-slate-900 shadow-[0_8px_18px_rgba(120,53,15,0.10)]',
       segmentedIdle: 'text-slate-500 hover:text-slate-800',
 
-      cardTitle: 'min-w-0 text-[16px] font-semibold leading-6 text-[#17335f]',
+      cardTitle: 'min-w-0 text-xl font-semibold leading-7 text-slate-950',
       cardHolyName: 'text-xs font-medium leading-5 text-slate-500',
       cardMeta: 'mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-500',
 
@@ -82,14 +81,14 @@ export const residenceMediumStyle = {
       compactSectionHint: 'mt-1 text-xs leading-5 text-slate-500',
 
       card:
-            'relative overflow-visible rounded-2xl border p-4 shadow-[0_12px_30px_rgba(15,23,42,0.055)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)]',
-      cardActive: cx('border-slate-200 bg-white/95', 'hover:border-slate-300'),
-      cardLeft: 'border-rose-100 bg-rose-50/70',
-      cardInactive: 'border-amber-100 bg-amber-50/65',
+            'relative overflow-visible rounded-3xl border p-4 shadow-[0_18px_42px_rgba(120,53,15,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_56px_rgba(120,53,15,0.12)]',
+      cardActive: cx(tone.border, tone.cardGradient, 'hover:border-amber-200'),
+      cardLeft: 'border-rose-200 bg-rose-50/80',
+      cardInactive: 'border-amber-200 bg-amber-50/80',
       cardSection: cx(
-            'rounded-2xl border px-4 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.035)]',
+            'rounded-2xl border px-4 py-3 shadow-sm shadow-amber-900/5',
             tone.border,
-            'bg-white/80'
+            tone.cardSoftGradient
       ),
 
       listPanel:
@@ -182,58 +181,69 @@ export const residenceMediumStyle = {
             tone.softBorder
       ),
       orgChartPanel: cx(
-            'rounded-[30px] border p-5',
+            'rounded-[26px] border p-4',
             tone.border,
             tone.panelGradient,
-            tone.shadowDeep
+            tone.shadowMedium
       ),
       orgExecutivePanel: cx(
-            'rounded-[28px] border p-4',
+            'rounded-[22px] border p-3',
             tone.border,
             tone.cardGradient,
-            tone.shadowMedium
-      ),
-      orgUnitsPanel: cx(
-            'rounded-[30px] border p-5',
-            tone.border,
-            tone.panelGradient,
-            tone.shadowMedium
-      ),
-      orgUnitColumn: cx(
-            'overflow-hidden rounded-[30px] border',
-            tone.border,
-            tone.cardGradient,
-            tone.shadowMedium
-      ),
-      orgUnitCard: cx(
-            'rounded-3xl border p-3',
-            tone.border,
-            tone.cardSoftGradient,
             tone.shadowSoft
       ),
-      orgPersonCard: cx(
-            'relative overflow-hidden rounded-3xl border p-4 transition hover:-translate-y-0.5',
+      orgUnitsPanel: cx(
+            'rounded-[26px] border p-4',
+            tone.border,
+            tone.panelGradient,
+            tone.shadowSoft
+      ),
+      orgUnitColumn: cx(
+            'overflow-hidden rounded-[22px] border',
             tone.border,
             tone.cardGradient,
-            tone.shadowMedium
+            tone.shadowSoft
+      ),
+      orgUnitCard: cx(
+            'rounded-2xl border p-2.5',
+            tone.softBorder,
+            'bg-white/58'
+      ),
+      orgPersonCard: cx(
+            'group relative overflow-hidden rounded-2xl border p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-200 hover:bg-white/92 hover:shadow-[0_14px_34px_rgba(120,53,15,0.11)]',
+            tone.softBorder,
+            'bg-[linear-gradient(145deg,rgba(255,255,255,0.86)_0%,rgba(255,250,241,0.72)_100%)] shadow-[0_8px_22px_rgba(120,53,15,0.055)]'
       ),
       orgPersonCardHead: cx(
-            'relative overflow-hidden rounded-3xl border p-4 transition hover:-translate-y-0.5',
+            'group relative overflow-hidden rounded-2xl border p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-200 hover:bg-white/94 hover:shadow-[0_18px_42px_rgba(120,53,15,0.13)]',
             tone.border,
-            tone.cardGradient,
-            tone.shadowDeep
+            'bg-[linear-gradient(145deg,rgba(255,255,255,0.92)_0%,rgba(255,248,236,0.84)_100%)] shadow-[0_12px_32px_rgba(120,53,15,0.08)]'
       ),
       orgPersonCardEmpty: cx(
-            'relative overflow-hidden rounded-3xl border border-dashed p-4 transition hover:-translate-y-0.5',
+            'group relative overflow-hidden rounded-2xl border border-dashed p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/78 hover:shadow-[0_10px_28px_rgba(120,53,15,0.08)]',
             tone.softBorder,
-            'bg-white/55'
+            'bg-white/45'
       ),
-      orgPersonTitle: 'text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-500',
-      orgPersonName: 'mt-1.5 truncate text-[20px] font-extrabold leading-7 text-slate-800',
+      orgPersonCardUnit: cx(
+            'group relative overflow-hidden rounded-xl border border-slate-200/70 p-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-100 hover:bg-white/86 hover:shadow-[0_10px_24px_rgba(120,53,15,0.08)]',
+            'bg-[linear-gradient(145deg,rgba(255,255,255,0.74)_0%,rgba(248,250,252,0.58)_100%)] shadow-[0_4px_12px_rgba(15,23,42,0.035)]'
+      ),
+      orgPersonCardGlow:
+            'pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent opacity-80',
+      orgPersonCardShine:
+            'pointer-events-none absolute -right-8 -top-8 h-16 w-16 rounded-full bg-amber-100/35 blur-2xl transition-opacity duration-200 group-hover:opacity-90',
+      orgPersonTitle:
+            'text-center text-[11px] font-semibold normal-case tracking-normal text-amber-700/90 transition-colors group-hover:text-amber-800',
+      orgPersonName:
+            'mt-1 truncate text-center text-[15px] font-medium leading-5 text-slate-700 transition-colors group-hover:text-slate-900',
+      orgPersonTitleUnit:
+            'text-center text-[10px] font-semibold normal-case tracking-normal text-slate-400 transition-colors group-hover:text-amber-700/80',
+      orgPersonNameUnit:
+            'mt-0.5 truncate text-center text-[13px] font-medium leading-5 text-slate-600 transition-colors group-hover:text-slate-800',
       orgAvatarActive:
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white shadow-sm shadow-slate-900/20',
+            'hidden',
       orgAvatarEmpty:
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-sm font-bold text-slate-400 ring-1 ring-amber-100',
+            'hidden',
 
 };
 
