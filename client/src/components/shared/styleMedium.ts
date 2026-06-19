@@ -199,44 +199,47 @@ export const residenceMediumStyle = {
             tone.shadowSoft
       ),
       orgUnitColumn: cx(
-            'overflow-hidden rounded-[20px] border',
-            tone.border,
-            tone.cardGradient,
-            tone.shadowSoft
+            'overflow-hidden rounded-[22px] border border-amber-100/55',
+            'bg-[linear-gradient(35deg,rgba(255,251,235,0.74)_0%,rgba(254,243,199,0.54)_42%,rgba(180,83,9,0.18)_78%,rgba(28,25,23,0.08)_100%)] shadow-[0_16px_36px_rgba(28,25,23,0.08)]'
       ),
       orgUnitCard: cx(
-            'rounded-2xl p-2.5 transition-all duration-200 hover:-translate-y-0.5',
-            'bg-white/52 shadow-sm shadow-slate-900/5 hover:bg-white/78 hover:shadow-[0_14px_34px_rgba(120,53,15,0.08)]'
+            'relative overflow-hidden rounded-2xl p-2.5 transition-all duration-200 hover:-translate-y-0.5',
+            'bg-[linear-gradient(35deg,rgba(255,255,255,0.90)_0%,rgba(255,251,235,0.74)_42%,rgba(251,191,36,0.34)_72%,rgba(68,64,60,0.12)_100%)] shadow-[0_10px_26px_rgba(28,25,23,0.075),inset_0_1px_0_rgba(255,255,255,0.94)] hover:bg-[linear-gradient(35deg,rgba(255,255,255,0.96)_0%,rgba(254,243,199,0.82)_44%,rgba(245,158,11,0.42)_74%,rgba(41,37,36,0.13)_100%)] hover:shadow-[0_18px_42px_rgba(28,25,23,0.12),0_0_0_1px_rgba(251,191,36,0.18)]'
       ),
       orgPersonCard: cx(
-            'group relative overflow-hidden rounded-2xl border p-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-200 hover:bg-white/92 hover:shadow-[0_12px_28px_rgba(120,53,15,0.10)]',
-            tone.softBorder,
-            'bg-[linear-gradient(145deg,rgba(255,255,255,0.86)_0%,rgba(255,250,241,0.70)_100%)] shadow-[0_7px_18px_rgba(120,53,15,0.05)]'
+            'group relative overflow-hidden rounded-2xl border p-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300/70 hover:shadow-[0_18px_40px_rgba(28,25,23,0.16),0_0_0_1px_rgba(251,191,36,0.14)]',
+            'border-amber-100/60',
+            'bg-[linear-gradient(35deg,rgba(255,255,255,0.96)_0%,rgba(255,251,235,0.88)_44%,rgba(251,191,36,0.34)_74%,rgba(41,37,36,0.10)_100%)] shadow-[0_12px_28px_rgba(28,25,23,0.09),inset_0_1px_0_rgba(255,255,255,0.95)]'
       ),
       orgPersonCardHead: cx(
-            'group relative overflow-hidden rounded-2xl border p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-200 hover:bg-white/94 hover:shadow-[0_16px_34px_rgba(120,53,15,0.12)]',
-            tone.border,
-            'bg-[linear-gradient(145deg,rgba(255,255,255,0.92)_0%,rgba(255,248,236,0.82)_100%)] shadow-[0_10px_26px_rgba(120,53,15,0.075)]'
+            'group relative overflow-hidden rounded-2xl border p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300/75 hover:shadow-[0_22px_48px_rgba(28,25,23,0.18),0_0_0_1px_rgba(251,191,36,0.18)]',
+            'border-amber-100/70',
+            'bg-[linear-gradient(35deg,rgba(255,255,255,0.98)_0%,rgba(255,251,235,0.92)_40%,rgba(245,158,11,0.38)_72%,rgba(28,25,23,0.12)_100%)] shadow-[0_16px_36px_rgba(28,25,23,0.11),inset_0_1px_0_rgba(255,255,255,0.96)]'
       ),
       orgPersonCardEmpty: cx(
-            'group relative overflow-hidden rounded-2xl border border-dashed p-2 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/78 hover:shadow-[0_9px_22px_rgba(120,53,15,0.075)]',
-            tone.softBorder,
-            'bg-white/45'
+            'group relative overflow-hidden rounded-2xl border border-dashed p-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300/60 hover:bg-[linear-gradient(35deg,rgba(255,255,255,0.86)_0%,rgba(255,251,235,0.68)_44%,rgba(251,191,36,0.24)_74%,rgba(68,64,60,0.08)_100%)] hover:shadow-[0_12px_28px_rgba(28,25,23,0.10)]',
+            'border-amber-100/60',
+            'bg-[linear-gradient(35deg,rgba(255,255,255,0.62)_0%,rgba(255,251,235,0.42)_54%,rgba(68,64,60,0.06)_100%)]'
       ),
       orgPersonCardUnit: cx(
-            'group relative overflow-hidden rounded-xl border border-slate-200/55 p-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-100 hover:bg-white/86 hover:shadow-[0_9px_20px_rgba(120,53,15,0.075)]',
-            'bg-[linear-gradient(145deg,rgba(255,255,255,0.72)_0%,rgba(248,250,252,0.55)_100%)] shadow-[0_3px_10px_rgba(15,23,42,0.03)]'
+            'group relative overflow-hidden rounded-xl border p-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300/60 hover:shadow-[0_14px_28px_rgba(28,25,23,0.11),0_0_0_1px_rgba(251,191,36,0.12)]',
+            'border-amber-100/55',
+            'bg-[linear-gradient(35deg,rgba(255,255,255,0.90)_0%,rgba(255,251,235,0.74)_44%,rgba(251,191,36,0.26)_74%,rgba(68,64,60,0.08)_100%)] shadow-[0_8px_18px_rgba(28,25,23,0.075),inset_0_1px_0_rgba(255,255,255,0.93)]'
       ),
       orgPersonCardGlow:
-            'pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent opacity-80',
+            'pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent opacity-95',
       orgPersonCardShine:
-            'pointer-events-none absolute -right-8 -top-8 h-16 w-16 rounded-full bg-amber-100/35 blur-2xl transition-opacity duration-200 group-hover:opacity-90',
+            'pointer-events-none absolute -right-8 -top-8 h-24 w-32 rounded-full bg-amber-300/26 blur-3xl transition-opacity duration-200 group-hover:opacity-100',
+      orgPersonCardGloss:
+            'pointer-events-none absolute inset-0 bg-[linear-gradient(35deg,transparent_0%,transparent_34%,rgba(255,255,255,0.34)_43%,rgba(255,255,255,0.14)_50%,transparent_60%,transparent_100%)] opacity-55 transition-opacity duration-200 group-hover:opacity-85',
+      orgPersonCardGlass:
+            'pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-[linear-gradient(180deg,rgba(255,255,255,0.28)_0%,rgba(255,255,255,0.08)_48%,transparent_100%)] opacity-80',
       orgPersonTitle:
-            'text-center text-[11px] font-semibold normal-case tracking-normal text-amber-700/90 transition-colors group-hover:text-amber-800',
+            'text-center text-[11px] font-semibold normal-case tracking-normal text-slate-500 transition-colors group-hover:text-amber-800',
       orgPersonName:
             'mt-0.5 truncate text-center text-[14px] font-medium leading-5 text-slate-700 transition-colors group-hover:text-slate-900',
       orgPersonTitleUnit:
-            'text-center text-[10px] font-semibold normal-case tracking-normal text-slate-400 transition-colors group-hover:text-amber-700/80',
+            'text-center text-[10px] font-semibold normal-case tracking-normal text-slate-400 transition-colors group-hover:text-amber-700',
       orgPersonNameUnit:
             'mt-0.5 truncate text-center text-[12px] font-medium leading-4 text-slate-600 transition-colors group-hover:text-slate-800',
       orgAvatarActive:

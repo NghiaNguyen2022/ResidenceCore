@@ -927,6 +927,8 @@ function PremiumOrgPersonCard({
       return (
             <div className={cardClass}>
                   <span className={residenceMediumStyle.orgPersonCardGlow} />
+                  <span className={residenceMediumStyle.orgPersonCardGlass} />
+                  <span className={residenceMediumStyle.orgPersonCardGloss} />
                   {hasAssignment && <span className={residenceMediumStyle.orgPersonCardShine} />}
 
                   <div className="relative min-w-0">
@@ -1026,16 +1028,22 @@ function PremiumUnitColumn({
             <section className={residenceMediumStyle.orgUnitColumn}>
                   <div className={`bg-gradient-to-r ${headerAccent} px-4 py-2.5`}>
                         <div className="flex items-center justify-between gap-3">
-                              <div>
-                                    <h3 className="text-base font-bold tracking-tight text-slate-800">
+                              <div className="flex min-w-0 items-center gap-2">
+                                    <span
+                                          className={[
+                                                'h-2.5 w-2.5 rounded-full',
+                                                isTeam ? 'bg-emerald-400' : 'bg-violet-400',
+                                          ].join(' ')}
+                                    />
+                                    <h3 className="truncate text-[13px] font-semibold tracking-[0.08em] text-slate-700">
                                           {title}
                                     </h3>
-                                    <p className="mt-0.5 text-[11px] font-medium text-slate-400">
-                                          {activeUnits.length} đơn vị đang hoạt động
-                                    </p>
+                                    <span className="text-[12px] font-medium text-slate-400">
+                                          pool
+                                    </span>
                               </div>
                               <span className={['rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-semibold ring-1', isTeam ? 'text-emerald-600 ring-emerald-100' : 'text-violet-600 ring-violet-100'].join(' ')}>
-                                    {activeUnits.length}
+                                    {activeUnits.length} đơn vị
                               </span>
                         </div>
                   </div>
@@ -1159,7 +1167,7 @@ function PremiumUnitColumn({
                                                       </div>
                                                 )}
 
-                                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                                <div className="relative mt-1.5 flex flex-wrap gap-1.5">
                                                       <button
                                                             type="button"
                                                             onClick={() => onOpenUnitMembers(unit)}
@@ -1220,65 +1228,72 @@ function PremiumOrganizationChart({
       ];
 
       return (
-            <div className="space-y-2">
-                  <div className={residenceMediumStyle.orgChartPanel}>
-                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
-                                    <p className={residenceMediumStyle.modalEyebrow}>Cơ cấu hiện tại</p>
-                                    <h3 className="mt-1 text-xl font-bold tracking-tight text-slate-950">
-                                          Sơ đồ tổ chức lưu xá
-                                    </h3>
-                              </div>
-                              <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">
-                                    {activeAssignments.length} phân công
+            <div className={residenceMediumStyle.orgChartPanel}>
+                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                                    Cơ cấu hiện tại
+                              </span>
+                              <span className="text-slate-300">·</span>
+                              <span className="text-[13px] font-semibold text-slate-700">
+                                    Sơ đồ tổ chức lưu xá
                               </span>
                         </div>
+                        <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">
+                              {activeAssignments.length} phân công
+                        </span>
+                  </div>
 
-                        <div className={residenceMediumStyle.orgExecutivePanel}>
-                              <div className="mb-2 flex items-center justify-between gap-3">
-                                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                                          <p className={residenceMediumStyle.modalEyebrow}>Ban điều hành</p>
-                                          <span className="text-sm font-semibold text-slate-700">
-                                                Chức vụ chính
-                                          </span>
-                                    </div>
+                  <div className={residenceMediumStyle.orgExecutivePanel}>
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span className="text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                                          Ban điều hành
+                                    </span>
+                                    <span className="text-slate-300">·</span>
+                                    <span className="text-[13px] font-semibold text-slate-700">
+                                          Chức vụ chính
+                                    </span>
                               </div>
+                        </div>
 
-                              <div className="mx-auto max-w-xs">
+                        <div className="mx-auto max-w-xs">
+                              <PremiumOrgPersonCard
+                                    title="Trưởng"
+                                    assignment={leader}
+                                    variant="head"
+                                    onEdit={onEditAssignment}
+                                    onEnd={onEndAssignment}
+                                    onCreateAssignment={() => onCreateAssignment(undefined, 'leader')}
+                              />
+                        </div>
+
+                        <div className="mx-auto my-1.5 h-3 w-px bg-gradient-to-b from-slate-200 to-transparent" />
+
+                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                              {executiveAssignments.slice(1).map((item, index) => (
                                     <PremiumOrgPersonCard
-                                          title="Trưởng"
-                                          assignment={leader}
-                                          variant="head"
+                                          key={`${item.title}-${item.assignment?.id || index}`}
+                                          title={item.title}
+                                          assignment={item.assignment}
+                                          variant={item.variant}
                                           onEdit={onEditAssignment}
                                           onEnd={onEndAssignment}
-                                          onCreateAssignment={() => onCreateAssignment(undefined, 'leader')}
+                                          onCreateAssignment={() => onCreateAssignment(undefined, item.roleKey)}
                                     />
-                              </div>
-
-                              <div className="mx-auto my-1.5 h-3 w-px bg-gradient-to-b from-slate-200 to-transparent" />
-
-                              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                                    {executiveAssignments.slice(1).map((item, index) => (
-                                          <PremiumOrgPersonCard
-                                                key={`${item.title}-${item.assignment?.id || index}`}
-                                                title={item.title}
-                                                assignment={item.assignment}
-                                                variant={item.variant}
-                                                onEdit={onEditAssignment}
-                                                onEnd={onEndAssignment}
-                                                onCreateAssignment={() => onCreateAssignment(undefined, item.roleKey)}
-                                          />
-                                    ))}
-                              </div>
+                              ))}
                         </div>
                   </div>
 
-                  <div className={residenceMediumStyle.orgUnitsPanel}>
-                        <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                              <p className={residenceMediumStyle.modalEyebrow}>Tổ / Ban</p>
-                              <h3 className="text-base font-semibold text-slate-800">
+                  <div className="mt-2">
+                        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                                    Tổ / Ban
+                              </span>
+                              <span className="text-slate-300">·</span>
+                              <span className="text-[13px] font-semibold text-slate-700">
                                     Đơn vị đang hoạt động
-                              </h3>
+                              </span>
                         </div>
 
                         <div className="grid gap-3 xl:grid-cols-2">
@@ -2756,11 +2771,14 @@ export default function OrganizationSimple() {
                         {!isLoading && activeTab === 'units' && (
                               <div className={residenceMediumStyle.premiumSection}>
                                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                          <div>
-                                                <h2 className="text-lg font-bold text-slate-950">Tổ / Ban</h2>
-                                                <p className="mt-1 text-sm text-slate-500">
-                                                      Quản lý các tổ và ban đang sử dụng trong lưu xá.
-                                                </p>
+                                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                <span className="text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                                                      Tổ / Ban
+                                                </span>
+                                                <span className="text-slate-300">·</span>
+                                                <span className="text-[13px] font-semibold text-slate-700">
+                                                      Quản lý đơn vị
+                                                </span>
                                           </div>
                                           <div className="flex flex-wrap gap-2">
                                                 <button
@@ -2786,56 +2804,117 @@ export default function OrganizationSimple() {
                                           </div>
                                     </div>
 
-                                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                          {units.map((unit) => (
-                                                <div key={unit.id} className="rounded-3xl border border-amber-100 bg-white/85 p-4 shadow-sm shadow-amber-900/5">
-                                                      <div className="flex items-start justify-between gap-3">
-                                                            <div>
-                                                                  <p className="font-bold text-slate-950">{unit.name}</p>
-                                                                  <p className="mt-1 text-xs text-slate-500">{unit.code}</p>
-                                                                  <p className="mt-2 text-xs font-semibold text-slate-600">
-                                                                        Thành viên: {(unit as any).memberCount ?? (unit as any).membersCount ?? (unit as any).activeMemberCount ?? 0}
-                                                                  </p>
+                                    <div className="grid gap-4 xl:grid-cols-2">
+                                          {(['team', 'committee'] as UnitType[]).map((unitType) => {
+                                                const laneUnits = units.filter((unit) => unit.unitType === unitType);
+                                                const isTeamLane = unitType === 'team';
+                                                const laneTitle = isTeamLane ? 'Tổ' : 'Ban';
+                                                const laneGradient = isTeamLane
+                                                      ? 'from-emerald-50/80 via-white to-white'
+                                                      : 'from-violet-50/80 via-white to-white';
+                                                const laneDot = isTeamLane ? 'bg-emerald-400' : 'bg-violet-400';
+                                                const laneText = isTeamLane ? 'text-emerald-700' : 'text-violet-700';
+                                                const laneRing = isTeamLane ? 'ring-emerald-100' : 'ring-violet-100';
+
+                                                return (
+                                                      <section
+                                                            key={unitType}
+                                                            className="overflow-hidden rounded-[24px] border border-amber-100/70 bg-white/62 shadow-sm shadow-slate-900/5"
+                                                      >
+                                                            <div className={`bg-gradient-to-r ${laneGradient} px-4 py-3`}>
+                                                                  <div className="flex items-center justify-between gap-3">
+                                                                        <div className="flex min-w-0 items-center gap-2">
+                                                                              <span className={`h-2.5 w-2.5 rounded-full ${laneDot}`} />
+                                                                              <h3 className="truncate text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                                                                                    {laneTitle}
+                                                                              </h3>
+                                                                              <span className="text-[12px] font-medium text-slate-400">
+                                                                                    lane
+                                                                              </span>
+                                                                        </div>
+                                                                        <span className={`rounded-full bg-white/75 px-2.5 py-0.5 text-xs font-semibold ${laneText} ring-1 ${laneRing}`}>
+                                                                              {laneUnits.length} đơn vị
+                                                                        </span>
+                                                                  </div>
                                                             </div>
-                                                            <Badge className={getUnitTypeClass(unit.unitType)}>
-                                                                  {getUnitTypeLabel(unit.unitType)}
-                                                            </Badge>
-                                                      </div>
 
-                                                      {unit.description && (
-                                                            <p className="mt-3 text-sm leading-6 text-slate-600">{unit.description}</p>
-                                                      )}
+                                                            <div className="grid gap-2.5 p-3 sm:grid-cols-2">
+                                                                  {laneUnits.length === 0 ? (
+                                                                        <SectionEmpty
+                                                                              title={`Chưa có ${laneTitle.toLowerCase()}`}
+                                                                              description="Có thể tạo thêm đơn vị mới bằng nút Thêm Tổ/Ban."
+                                                                        />
+                                                                  ) : (
+                                                                        laneUnits.map((unit) => {
+                                                                              const unitMemberCount =
+                                                                                    typeof unit.assignedCount === 'number'
+                                                                                          ? Number(unit.assignedCount)
+                                                                                          : Number(
+                                                                                                  (unit as any).memberCount ??
+                                                                                                        (unit as any).membersCount ??
+                                                                                                        (unit as any).activeMemberCount ??
+                                                                                                        0
+                                                                                            );
 
-                                                      <div className="mt-4 flex flex-wrap gap-2">
-                                                            <button
-                                                                  type="button"
-                                                                  onClick={() => openUnitMembers(unit)}
-                                                                  className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-                                                            >
-                                                                  Thành viên
-                                                            </button>
-                                                            <button
-                                                                  type="button"
-                                                                  onClick={() => openUnitEdit(unit)}
-                                                                  className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50"
-                                                            >
-                                                                  Sửa
-                                                            </button>
-                                                            <button
-                                                                  type="button"
-                                                                  onClick={() => toggleUnit(unit)}
-                                                                  className={[
-                                                                        'rounded-xl border px-3 py-2 text-xs font-semibold',
-                                                                        unit.isActive
-                                                                              ? 'border-orange-100 bg-orange-50 text-orange-700 hover:bg-orange-100'
-                                                                              : 'border-green-100 bg-green-50 text-green-700 hover:bg-green-100',
-                                                                  ].join(' ')}
-                                                            >
-                                                                  {unit.isActive ? 'Ngừng dùng' : 'Kích hoạt'}
-                                                            </button>
-                                                      </div>
-                                                </div>
-                                          ))}
+                                                                              return (
+                                                                                    <div
+                                                                                          key={unit.id}
+                                                                                          className="group rounded-2xl bg-white/58 p-3 shadow-sm shadow-slate-900/5 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/82 hover:shadow-[0_14px_34px_rgba(120,53,15,0.08)]"
+                                                                                    >
+                                                                                          <div className="flex items-start justify-between gap-3">
+                                                                                                <div className="min-w-0">
+                                                                                                      <p className="truncate text-sm font-semibold text-slate-700 transition-colors group-hover:text-slate-950">
+                                                                                                            {unit.name}
+                                                                                                      </p>
+                                                                                                      <p className="mt-0.5 text-[11px] text-slate-400">{unit.code}</p>
+                                                                                                </div>
+                                                                                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${isTeamLane ? 'bg-emerald-50/80 text-emerald-600' : 'bg-violet-50/80 text-violet-600'}`}>
+                                                                                                      {unitMemberCount} người
+                                                                                                </span>
+                                                                                          </div>
+
+                                                                                          {unit.description && (
+                                                                                                <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                                                                                      {unit.description}
+                                                                                                </p>
+                                                                                          )}
+
+                                                                                          <div className="mt-3 flex flex-wrap gap-1.5">
+                                                                                                <button
+                                                                                                      type="button"
+                                                                                                      onClick={() => openUnitMembers(unit)}
+                                                                                                      className="rounded-full bg-white/65 px-2.5 py-1 text-[11px] font-medium text-slate-500 transition hover:bg-white hover:text-slate-700"
+                                                                                                >
+                                                                                                      Thành viên
+                                                                                                </button>
+                                                                                                <button
+                                                                                                      type="button"
+                                                                                                      onClick={() => openUnitEdit(unit)}
+                                                                                                      className="rounded-full bg-white/65 px-2.5 py-1 text-[11px] font-medium text-slate-500 transition hover:bg-white hover:text-slate-700"
+                                                                                                >
+                                                                                                      Sửa
+                                                                                                </button>
+                                                                                                <button
+                                                                                                      type="button"
+                                                                                                      onClick={() => toggleUnit(unit)}
+                                                                                                      className={[
+                                                                                                            'rounded-full px-2.5 py-1 text-[11px] font-medium transition',
+                                                                                                            unit.isActive
+                                                                                                                  ? 'bg-orange-50/80 text-orange-600 hover:bg-orange-50 hover:text-orange-700'
+                                                                                                                  : 'bg-green-50/80 text-green-600 hover:bg-green-50 hover:text-green-700',
+                                                                                                      ].join(' ')}
+                                                                                                >
+                                                                                                      {unit.isActive ? 'Ngừng dùng' : 'Kích hoạt'}
+                                                                                                </button>
+                                                                                          </div>
+                                                                                    </div>
+                                                                              );
+                                                                        })
+                                                                  )}
+                                                            </div>
+                                                      </section>
+                                                );
+                                          })}
                                     </div>
                               </div>
                         )}
