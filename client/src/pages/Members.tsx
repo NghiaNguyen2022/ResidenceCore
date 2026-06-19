@@ -191,23 +191,21 @@ function SimpleStatCard({
       details?: Array<{ label: string; value: number }>;
 }) {
       return (
-            <div className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
-                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-slate-300 via-blue-300 to-emerald-300 opacity-80" />
-
+            <div className={residenceMediumStyle.statCard}>
                   <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                                     {label}
                               </div>
                               <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
                                     {value}
                               </div>
-                              <div className="mt-1 text-xs leading-5 text-slate-500">
+                              <div className="mt-1 text-xs leading-5 text-slate-600">
                                     {description}
                               </div>
                         </div>
 
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 ring-1 ring-slate-200">
+                        <div className={residenceMediumStyle.statIcon}>
                               {icon}
                         </div>
                   </div>
@@ -217,7 +215,7 @@ function SimpleStatCard({
                               {details.map((item) => (
                                     <span
                                           key={item.label}
-                                          className="rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200"
+                                          className={residenceMediumStyle.statDetailPill}
                                     >
                                           {item.label}: {item.value}
                                     </span>
@@ -238,39 +236,36 @@ function SimpleMemberListTable({
       getOrganizationUnitsForMember: (member: any) => string[];
 }) {
       return (
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                  <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-100 text-sm">
-                              <thead className="bg-slate-50">
+            <div className={residenceMediumStyle.listPanel}>
+                  <div className={residenceMediumStyle.listPanelHeader}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                                          Danh sách học viên
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-slate-500">
+                                          Xem nhanh hồ sơ, phòng ở, liên hệ và vai trò tổ chức.
+                                    </p>
+                              </div>
+                              <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-amber-100/70">
+                                    {members.length} học viên
+                              </span>
+                        </div>
+                  </div>
+
+                  <div className={residenceMediumStyle.listTableWrap}>
+                        <table className={residenceMediumStyle.listTable}>
+                              <thead className={residenceMediumStyle.listHead}>
                                     <tr>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Học viên
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Mã
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Trạng thái
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Phòng
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Tổ / Ban
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Chức vụ
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Liên hệ chính
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                Điện thoại
-                                          </th>
+                                          {['Học viên', 'Mã', 'Trạng thái', 'Phòng', 'Tổ / Ban', 'Chức vụ', 'Liên hệ chính', 'Điện thoại'].map((header) => (
+                                                <th key={header} className={residenceMediumStyle.listHeadCell}>
+                                                      {header}
+                                                </th>
+                                          ))}
                                     </tr>
                               </thead>
 
-                              <tbody className="divide-y divide-slate-100 bg-white">
+                              <tbody>
                                     {members.map((member) => {
                                           const statusLabel = getStatusLabel(
                                                 member?.status || member?.residenceStatus || 'active'
@@ -286,48 +281,49 @@ function SimpleMemberListTable({
                                           return (
                                                 <tr
                                                       key={member.id}
-                                                      className="transition hover:bg-slate-50/80"
+                                                      className={residenceMediumStyle.listRow}
                                                 >
-                                                      <td className="whitespace-nowrap px-4 py-3">
-                                                            <div className="font-semibold text-slate-900">
+                                                      <td className={residenceMediumStyle.listCell}>
+                                                            <div className={residenceMediumStyle.listPrimaryText}>
                                                                   {getDisplayName(member)}
                                                             </div>
-                                                            <div className="text-xs text-slate-400">
+                                                            <div className={residenceMediumStyle.listSecondaryText}>
                                                                   {member?.gender
                                                                         ? getGenderLabel(member.gender)
                                                                         : 'Thông tin cơ bản'}
                                                             </div>
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">
+                                                      <td className={`${residenceMediumStyle.listCell} font-semibold text-slate-600`}>
                                                             {member?.residentCode || member?.code || 'Chưa có'}
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3">
-                                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                                                      <td className={residenceMediumStyle.listCell}>
+                                                            <span className={['rounded-full px-2.5 py-1 text-xs font-semibold ring-1', getStatusClass(member?.status || member?.residenceStatus || 'active')].join(' ')}>
                                                                   {statusLabel}
                                                             </span>
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-700">
+                                                      <td className={`${residenceMediumStyle.listCell} font-semibold text-slate-700`}>
                                                             {getRoomLabelFromMember(member) || 'Chưa gán'}
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                                                      <td className={`${residenceMediumStyle.listCell} text-slate-600`}>
                                                             {organizationUnits.length > 0
                                                                   ? organizationUnits.join(', ')
-                                                                  : 'Chưa phân tổ'}
+                                                                  : <span className={residenceMediumStyle.listEmptyText}>Chưa phân tổ</span>}
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                                                      <td className={`${residenceMediumStyle.listCell} text-slate-600`}>
                                                             {organizationTitles.length > 0
                                                                   ? organizationTitles.join(', ')
-                                                                  : 'Chưa có'}
+                                                                  : <span className={residenceMediumStyle.listEmptyText}>Chưa có</span>}
                                                       </td>
 
                                                       <td
                                                             className={[
-                                                                  'whitespace-nowrap px-4 py-3 font-medium',
+                                                                  residenceMediumStyle.listCell,
+                                                                  'font-medium',
                                                                   missingContact
                                                                         ? 'text-amber-700'
                                                                         : 'text-slate-700',
@@ -336,7 +332,7 @@ function SimpleMemberListTable({
                                                             {contactText}
                                                       </td>
 
-                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-700">
+                                                      <td className={`${residenceMediumStyle.listCell} font-medium text-slate-600`}>
                                                             {member?.phoneNumber || '-'}
                                                       </td>
                                                 </tr>
@@ -348,7 +344,6 @@ function SimpleMemberListTable({
             </div>
       );
 }
-
 
 export default function Members() {
       const [, navigate] = useLocation();
@@ -1547,6 +1542,7 @@ export default function Members() {
                                                 </div>
                                           </div>
                                     </div>
+                              </div>
 
                         {error && (
                               <div className="flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
@@ -1641,7 +1637,7 @@ export default function Members() {
                               </div>
                         )}
 
-                        <div className="rounded-[26px] border border-slate-200/80 bg-white/90 p-3 shadow-sm">
+                        <div className="rounded-[26px] border border-amber-100/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.78)_0%,rgba(255,251,235,0.50)_58%,rgba(248,250,252,0.70)_100%)] p-3 shadow-[0_14px_36px_rgba(12,10,9,0.06),inset_0_1px_0_rgba(255,255,255,0.72)]">
                               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                                     <div className="relative min-w-0 flex-1">
                                           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -1651,7 +1647,7 @@ export default function Members() {
                                                       setSearchTerm(event.target.value)
                                                 }
                                                 placeholder="Tìm theo tên, mã lưu trú, số điện thoại..."
-                                                className="h-11 rounded-2xl border-slate-200 bg-slate-50/80 pl-10 text-sm shadow-none transition placeholder:text-slate-400 focus:bg-white"
+                                                className="h-11 rounded-2xl border-amber-100/70 bg-white/70 pl-10 text-sm font-medium text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition placeholder:text-slate-400 focus:border-amber-200 focus:bg-white focus:ring-2 focus:ring-amber-100/70"
                                           />
                                     </div>
 
@@ -1662,7 +1658,7 @@ export default function Members() {
                                                       onChange={(event) =>
                                                             setStatusFilter(event.target.value)
                                                       }
-                                                      className="h-11 min-w-[190px] appearance-none rounded-2xl border border-slate-200 bg-slate-50/80 py-0 pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition hover:bg-white focus:border-slate-300 focus:bg-white focus:ring-2 focus:ring-slate-100"
+                                                      className="h-11 min-w-[190px] appearance-none rounded-2xl border border-amber-100/70 bg-white/70 py-0 pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition hover:bg-white focus:border-amber-200 focus:bg-white focus:ring-2 focus:ring-amber-100/70"
                                                 >
                                                       <option value="all">Tất cả trạng thái</option>
                                                       <option value="active">Đang ở</option>
@@ -1678,7 +1674,7 @@ export default function Members() {
                                           <button
                                                 type="button"
                                                 onClick={clearFilters}
-                                                className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                                                className={residenceMediumStyle.buttonCard}
                                           >
                                                 Xóa lọc
                                           </button>
@@ -1686,11 +1682,11 @@ export default function Members() {
                               </div>
                         </div>
 
-                        <section className="overflow-visible rounded-[28px] border border-slate-200/90 bg-white shadow-sm">
-                              <div className="border-b border-slate-100 bg-white px-5 py-4">
+                        <section className="overflow-visible rounded-[28px] border border-amber-100/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.76)_0%,rgba(255,251,235,0.46)_58%,rgba(248,250,252,0.68)_100%)] shadow-[0_18px_46px_rgba(12,10,9,0.075),inset_0_1px_0_rgba(255,255,255,0.72)]">
+                              <div className="border-b border-amber-100/55 bg-white/42 px-5 py-4">
                                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                                           <div>
-                                                <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
+                                                <h2 className="text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl">
                                                       Danh sách học viên
                                                 </h2>
                                                 <p className="mt-1 text-sm text-slate-500">
@@ -1699,14 +1695,14 @@ export default function Members() {
                                           </div>
 
                                           <div className="flex flex-wrap items-center gap-2">
-                                                <div className="flex rounded-2xl bg-slate-100 p-1 text-sm font-semibold">
+                                                <div className="flex rounded-2xl border border-amber-100/60 bg-white/60 p-1 text-sm font-semibold shadow-sm shadow-slate-900/5">
                                                       <button
                                                             type="button"
                                                             onClick={() => setSimpleViewMode('cards')}
                                                             className={[
                                                                   'rounded-xl px-3 py-1.5 transition',
                                                                   simpleViewMode === 'cards'
-                                                                        ? 'bg-white text-slate-900 shadow-sm'
+                                                                        ? 'bg-[linear-gradient(135deg,rgba(255,255,255,0.92)_0%,rgba(255,251,235,0.82)_100%)] text-slate-900 shadow-sm shadow-slate-900/5'
                                                                         : 'text-slate-500 hover:text-slate-800',
                                                             ].join(' ')}
                                                       >
@@ -1719,7 +1715,7 @@ export default function Members() {
                                                             className={[
                                                                   'rounded-xl px-3 py-1.5 transition',
                                                                   simpleViewMode === 'list'
-                                                                        ? 'bg-white text-slate-900 shadow-sm'
+                                                                        ? 'bg-[linear-gradient(135deg,rgba(255,255,255,0.92)_0%,rgba(255,251,235,0.82)_100%)] text-slate-900 shadow-sm shadow-slate-900/5'
                                                                         : 'text-slate-500 hover:text-slate-800',
                                                             ].join(' ')}
                                                       >
@@ -1737,16 +1733,16 @@ export default function Members() {
                                     </div>
                               </div>
 
-                              <div className="bg-slate-50/50 p-4 sm:p-5">
+                              <div className="bg-[linear-gradient(180deg,rgba(255,251,235,0.32)_0%,rgba(248,250,252,0.48)_100%)] p-4 sm:p-5">
 
                               {membersQuery.isLoading ? (
-                                    <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-500">
+                                    <div className="rounded-2xl border border-dashed border-amber-100/70 bg-white/70 p-8 text-center text-sm text-slate-500 shadow-sm shadow-slate-900/5">
                                           Đang tải dữ liệu học viên...
                                     </div>
                               ) : isSimple ? (
                                     <>
                                           {sortedMembers.length === 0 ? (
-                                                <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-500">
+                                                <div className="rounded-2xl border border-dashed border-amber-100/70 bg-white/70 p-8 text-center text-sm text-slate-500 shadow-sm shadow-slate-900/5">
                                                       Không có học viên nào phù hợp.
                                                 </div>
                                           ) : (
@@ -1758,7 +1754,7 @@ export default function Members() {
                                                             getOrganizationUnitsForMember={getOrganizationUnitsForMember}
                                                       />
                                                 ) : (
-                                                      <div className="space-y-3">
+                                                      <div className="space-y-3.5">
                                                             {simplePagedMembers.map((member: any, index: number) => (
                                                                   <SimpleMemberCard
                                                                         key={member.id}
@@ -1781,7 +1777,7 @@ export default function Members() {
                                                       </div>
                                                 )}
 
-                                          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
+                                          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-100/60 bg-white/62 px-4 py-3 shadow-[0_12px_30px_rgba(12,10,9,0.055),inset_0_1px_0_rgba(255,255,255,0.72)] md:flex-row md:items-center md:justify-between">
                                                 <div className="text-sm text-slate-500">
                                                       Hiển thị{' '}
                                                       <span className="font-medium text-slate-900">
@@ -1807,7 +1803,7 @@ export default function Members() {
                                                                   setSimplePageSize(Number(event.target.value));
                                                                   setSimplePage(1);
                                                             }}
-                                                            className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-900"
+                                                            className="rounded-xl border border-amber-100/70 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100/70"
                                                       >
                                                             <option value={5}>5 / trang</option>
                                                             <option value={7}>7 / trang</option>
@@ -1822,7 +1818,7 @@ export default function Members() {
                                                                   )
                                                             }
                                                             disabled={simplePage <= 1}
-                                                            className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            className="rounded-xl border border-amber-100/70 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                                                       >
                                                             Trước
                                                       </button>
@@ -1839,7 +1835,7 @@ export default function Members() {
                                                                   )
                                                             }
                                                             disabled={simplePage >= simpleTotalPages}
-                                                            className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            className="rounded-xl border border-amber-100/70 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                                                       >
                                                             Sau
                                                       </button>
@@ -2016,7 +2012,6 @@ export default function Members() {
                                     bulkCreateResidentUsersMutation.isPending
                               }
                         />
-                  </div>
                   </div>
             </ResidenceCareLayout>
       );

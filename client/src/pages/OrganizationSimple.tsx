@@ -378,21 +378,14 @@ function StatCard({
       icon: React.ReactNode;
 }) {
       return (
-            <div className={`${residenceMediumStyle.orgPersonCard} min-h-[132px] p-4`}>
-                  <span className={residenceMediumStyle.orgPersonCardGlow} />
-                  <span className={residenceMediumStyle.orgPersonCardGlass} />
-                  <span className={residenceMediumStyle.orgPersonCardGoldBeam} />
-                  <span className={residenceMediumStyle.orgPersonCardGloss} />
-                  <span className={residenceMediumStyle.orgPersonCardGlossThin} />
-                  <span className={residenceMediumStyle.orgPersonCardShine} />
-
-                  <div className="relative flex h-full items-start justify-between gap-3">
+            <div className={residenceMediumStyle.statCard}>
+                  <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
                               <p className="mt-2 truncate text-2xl font-extrabold tracking-tight text-slate-950">{value}</p>
                               {helper && <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">{helper}</p>}
                         </div>
-                        <div className="rounded-2xl border border-white/70 bg-white/70 p-2.5 text-amber-800 shadow-[0_10px_24px_rgba(12,10,9,0.10),inset_0_1px_0_rgba(255,255,255,0.80)]">{icon}</div>
+                        <div className={residenceMediumStyle.statIcon}>{icon}</div>
                   </div>
             </div>
       );
@@ -2553,53 +2546,49 @@ export default function OrganizationSimple() {
                   <div className={residenceMediumStyle.page}>
                         <span className={residenceMediumStyle.pageAura} />
                         <div className={residenceMediumStyle.pageShell}>
-                              <div className="relative overflow-visible px-1 pb-5 pt-3">
-                                    <div className="absolute right-1 top-2 z-20 flex flex-wrap justify-end gap-2">
-                                          {returnToMembersPath && (
-                                                <button
-                                                      type="button"
-                                                      onClick={returnToMembers}
-                                                      className={residenceMediumStyle.buttonCard}
-                                                >
-                                                      {returnToMembersLabel}
-                                                </button>
-                                          )}
-
+                        <div className={residenceMediumStyle.topArea}>
+                              <div className={residenceMediumStyle.actionBar}>
+                                    {returnToMembersPath && (
                                           <button
                                                 type="button"
-                                                disabled
-                                                title="Bộ chức vụ mặc định hiện đã đủ dùng. Khi cần mở rộng sẽ bật cấu hình sau."
-                                                className={residenceMediumStyle.buttonCard}
+                                                onClick={returnToMembers}
+                                                className={residenceMediumStyle.secondaryButton}
                                           >
-                                                <Settings className={residenceMediumStyle.buttonCardIcon} />
-                                                Cấu hình chức vụ
+                                                {returnToMembersLabel}
                                           </button>
+                                    )}
 
-                                          <button
-                                                type="button"
-                                                onClick={() => openAssignmentCreate()}
-                                                className={residenceMediumStyle.buttonCardPrimary}
-                                          >
-                                                <Plus className={residenceMediumStyle.buttonCardIcon} />
-                                                Bổ nhiệm
-                                          </button>
-                                    </div>
+                                    <button
+                                          type="button"
+                                          disabled
+                                          title="Bộ chức vụ mặc định hiện đã đủ dùng. Khi cần mở rộng sẽ bật cấu hình sau."
+                                          className={residenceMediumStyle.disabledActionButton}
+                                    >
+                                          <Settings className="h-4 w-4" />
+                                          Cấu hình chức vụ
+                                    </button>
 
-                                    <div className={`${residenceMediumStyle.topInner} mx-auto max-w-4xl pt-9 text-center`}>
-                                          <div className="mb-2 flex flex-wrap items-center justify-center gap-2">
-                                                <span className="rounded-full bg-white/72 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-700 ring-1 ring-amber-100/70 shadow-sm shadow-slate-900/5">
-                                                      Tổ chức lưu xá
-                                                </span>
-                                          </div>
-                                          <h1 className={residenceMediumStyle.topTitle}>
-                                                Cơ cấu tổ chức lưu xá
-                                          </h1>
-                                          <p className={`${residenceMediumStyle.topSubtitle} mx-auto`}>
-                                                Một màn hình để nhìn tổng thể cơ cấu, nhiệm kỳ, Tổ/Ban và các chức vụ đang phụ trách.
-                                          </p>
-                                    </div>
+                                    <button
+                                          type="button"
+                                          onClick={() => openAssignmentCreate()}
+                                          className={`${residenceMediumStyle.warmPrimaryButton} inline-flex items-center gap-2`}
+                                    >
+                                          <Plus className="h-4 w-4" />
+                                          Bổ nhiệm
+                                    </button>
+                              </div>
 
-                                    <div className="mt-12 grid gap-3 md:grid-cols-3">
+                              <div className={`${residenceMediumStyle.topInner} text-center`}>
+                                    <p className={residenceMediumStyle.modalEyebrow}>Tổ chức lưu xá</p>
+                                    <h1 className={residenceMediumStyle.topTitle}>
+                                          Cơ cấu tổ chức lưu xá
+                                    </h1>
+                                    <p className={`${residenceMediumStyle.topSubtitle} mx-auto`}>
+                                          Một màn hình để nhìn tổng thể cơ cấu, nhiệm kỳ, Tổ/Ban và các chức vụ đang phụ trách.
+                                    </p>
+                              </div>
+
+                              <div className="grid gap-3 md:grid-cols-3">
                                     <StatCard
                                           label="Nhiệm kỳ hiện tại"
                                           value={activeTerm?.name || 'Chưa có'}
@@ -2636,7 +2625,7 @@ export default function OrganizationSimple() {
                               </div>
                         )}
 
-                        <div className="rounded-[28px] border border-amber-100/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.78)_0%,rgba(255,251,235,0.54)_58%,rgba(248,250,252,0.66)_100%)] p-3 shadow-[0_16px_40px_rgba(12,10,9,0.07),inset_0_1px_0_rgba(255,255,255,0.72)]">
+                        <div className="rounded-[28px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff6ee_100%)] p-3 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
                               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                                     <div className="flex flex-wrap gap-2">
                                           {tabs.map((tab) => (
