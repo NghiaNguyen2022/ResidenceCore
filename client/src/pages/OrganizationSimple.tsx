@@ -950,10 +950,10 @@ function PremiumOrgPersonCard({
                         </p>
                   </div>
 
-                  <div className={isUnit ? 'relative mt-2 flex flex-wrap justify-center gap-1.5' : 'relative mt-3 flex flex-wrap justify-center gap-1.5'}>
+                  <div className={isUnit ? 'relative mt-2 flex w-full items-center' : 'relative mt-3 flex w-full items-center'}>
                         {assignment ? (
-                              <>
-                                    {onEdit && (
+                              <div className="flex w-full items-center justify-between gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+                                    {onEdit ? (
                                           <button
                                                 type="button"
                                                 onClick={() => onEdit(assignment)}
@@ -961,8 +961,10 @@ function PremiumOrgPersonCard({
                                           >
                                                 Sửa
                                           </button>
+                                    ) : (
+                                          <span />
                                     )}
-                                    {onEnd && (
+                                    {onEnd ? (
                                           <button
                                                 type="button"
                                                 onClick={() => onEnd(assignment)}
@@ -970,17 +972,21 @@ function PremiumOrgPersonCard({
                                           >
                                                 Kết thúc
                                           </button>
+                                    ) : (
+                                          <span />
                                     )}
-                              </>
+                              </div>
                         ) : (
                               onCreateAssignment && (
-                                    <button
-                                          type="button"
-                                          onClick={onCreateAssignment}
-                                          className="rounded-full border border-amber-100 bg-white/78 px-2 py-0.5 text-[11px] font-semibold text-amber-700 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-800"
-                                    >
-                                          Phân công
-                                    </button>
+                                    <div className="flex w-full justify-center">
+                                          <button
+                                                type="button"
+                                                onClick={onCreateAssignment}
+                                                className="rounded-full border border-amber-100 bg-white/78 px-2 py-0.5 text-[11px] font-semibold text-amber-700 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-800"
+                                          >
+                                                Phân công
+                                          </button>
+                                    </div>
                               )
                         )}
                   </div>
@@ -1028,15 +1034,15 @@ function PremiumUnitColumn({
                                           {activeUnits.length} đơn vị đang hoạt động
                                     </p>
                               </div>
-                              <span className={['rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-bold ring-1', isTeam ? 'text-emerald-600 ring-emerald-100' : 'text-violet-600 ring-violet-100'].join(' ')}>
+                              <span className={['rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-semibold ring-1', isTeam ? 'text-emerald-600 ring-emerald-100' : 'text-violet-600 ring-violet-100'].join(' ')}>
                                     {activeUnits.length}
                               </span>
                         </div>
                   </div>
 
-                  <div className="grid gap-2 p-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid gap-2.5 p-2.5 sm:grid-cols-2">
                         {activeUnits.length === 0 ? (
-                              <div className="sm:col-span-2 xl:col-span-3">
+                              <div className="sm:col-span-2">
                                     <SectionEmpty
                                           title={`Chưa có ${title.toLowerCase()}`}
                                           description="Có thể tạo thêm trong tab Tổ / Ban."
@@ -1059,78 +1065,105 @@ function PremiumUnitColumn({
                                                 !leaders.some((leader) => leader.id === assignment.id)
                                     );
 
+                                    const leader = leaders[0] || null;
+                                    const leaderTitle = isTeam ? 'Tổ trưởng' : 'Trưởng ban';
+                                    const assignmentCount = members.length + leaders.length;
+                                    const totalPeople =
+                                          typeof unit.assignedCount === 'number'
+                                                ? Number(unit.assignedCount)
+                                                : assignmentCount;
+
                                     return (
                                           <div
                                                 key={unit.id}
-                                                className={residenceMediumStyle.orgUnitCard}
+                                                className="group rounded-2xl bg-white/52 p-2.5 shadow-sm shadow-slate-900/5 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/78 hover:shadow-[0_14px_34px_rgba(120,53,15,0.08)]"
                                           >
                                                 <div className="mb-2 flex items-center justify-between gap-2">
-                                                      <p className="truncate text-sm font-semibold text-slate-700">
+                                                      <p className="truncate text-sm font-semibold text-slate-700 transition-colors group-hover:text-slate-900">
                                                             {unit.name}
                                                       </p>
                                                       <span
                                                             className={[
-                                                                  'rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold ring-1',
+                                                                  'rounded-full px-2 py-0.5 text-[11px] font-medium',
                                                                   isTeam
-                                                                        ? 'text-emerald-600 ring-emerald-100'
-                                                                        : 'text-violet-600 ring-violet-100',
+                                                                        ? 'bg-emerald-50/75 text-emerald-600'
+                                                                        : 'bg-violet-50/75 text-violet-600',
                                                             ].join(' ')}
                                                             title="Số thành viên"
                                                       >
-                                                            {members.length + leaders.length}
+                                                            {totalPeople} người
                                                       </span>
                                                 </div>
 
-                                                <div className="space-y-1.5">
-                                                      {leaders.length > 0 ? (
-                                                            leaders.map((leader) => (
-                                                                  <PremiumOrgPersonCard
-                                                                        key={leader.id}
-                                                                        title={isTeam ? 'Tổ trưởng' : 'Trưởng ban'}
-                                                                        assignment={leader}
-                                                                        variant="unit"
-                                                                        onEdit={onEdit}
-                                                                        onEnd={onEnd}
-                                                                  />
-                                                            ))
-                                                      ) : (
-                                                            <PremiumOrgPersonCard
-                                                                  title={isTeam ? 'Tổ trưởng' : 'Trưởng ban'}
-                                                                  variant="unit"
-                                                                  onCreateAssignment={() =>
-                                                                        onCreateAssignment(
-                                                                              unit.id,
-                                                                              isTeam ? 'team_leader' : 'committee_head'
-                                                                        )
-                                                                  }
-                                                            />
-                                                      )}
+                                                <div className="rounded-xl bg-white/42 px-2 py-2 transition group-hover:bg-white/70">
+                                                      <p className="text-center text-[10px] font-semibold text-slate-400">
+                                                            {leaderTitle}
+                                                      </p>
+                                                      <p className={leader ? 'mt-0.5 truncate text-center text-[13px] font-medium text-slate-600' : 'mt-0.5 truncate text-center text-[13px] font-medium text-slate-400'}>
+                                                            {leader ? getDisplayResidentName(leader) : 'Đang trống'}
+                                                      </p>
 
-                                                      {members.length > 0 && (
-                                                            <div className="flex flex-wrap gap-1 pt-0.5">
-                                                                  {members.slice(0, 5).map((member) => (
-                                                                        <span
-                                                                              key={member.id}
-                                                                              className="rounded-full bg-white/65 px-2 py-0.5 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200/70"
-                                                                              title={getDisplayRoleTitle(member)}
+                                                      <div className="mt-2 flex w-full items-center">
+                                                            {leader ? (
+                                                                  <div className="flex w-full items-center justify-between gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => onEdit(leader)}
+                                                                              className="rounded-full border border-slate-200 bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-slate-500 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
                                                                         >
-                                                                              {getDisplayResidentName(member)}
-                                                                        </span>
-                                                                  ))}
-                                                                  {members.length > 5 && (
-                                                                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-100">
-                                                                              +{members.length - 5}
-                                                                        </span>
-                                                                  )}
-                                                            </div>
-                                                      )}
+                                                                              Sửa
+                                                                        </button>
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => onEnd(leader)}
+                                                                              className="rounded-full border border-rose-100 bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-rose-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                                                                        >
+                                                                              Kết thúc
+                                                                        </button>
+                                                                  </div>
+                                                            ) : (
+                                                                  <div className="flex w-full justify-center">
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() =>
+                                                                                    onCreateAssignment(
+                                                                                          unit.id,
+                                                                                          isTeam ? 'team_leader' : 'committee_head'
+                                                                                    )
+                                                                              }
+                                                                              className="rounded-full border border-amber-100 bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-amber-700 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-800"
+                                                                        >
+                                                                              Phân công
+                                                                        </button>
+                                                                  </div>
+                                                            )}
+                                                      </div>
                                                 </div>
+
+                                                {members.length > 0 && (
+                                                      <div className="mt-2 flex flex-wrap gap-1">
+                                                            {members.slice(0, 4).map((member) => (
+                                                                  <span
+                                                                        key={member.id}
+                                                                        className="rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-medium text-slate-400"
+                                                                        title={getDisplayRoleTitle(member)}
+                                                                  >
+                                                                        {getDisplayResidentName(member)}
+                                                                  </span>
+                                                            ))}
+                                                            {members.length > 4 && (
+                                                                  <span className="rounded-full bg-amber-50/80 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                                                                        +{members.length - 4}
+                                                                  </span>
+                                                            )}
+                                                      </div>
+                                                )}
 
                                                 <div className="mt-2 flex flex-wrap gap-1.5">
                                                       <button
                                                             type="button"
                                                             onClick={() => onOpenUnitMembers(unit)}
-                                                            className="rounded-full border border-slate-200 bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
+                                                            className="rounded-full bg-white/60 px-2.5 py-1 text-[11px] font-medium text-slate-500 transition hover:bg-white hover:text-slate-700"
                                                       >
                                                             Thành viên
                                                       </button>
@@ -1138,7 +1171,7 @@ function PremiumUnitColumn({
                                                             <button
                                                                   type="button"
                                                                   onClick={() => onOpenTeamTransfer(unit)}
-                                                                  className="rounded-full border border-emerald-100 bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50"
+                                                                  className="rounded-full bg-emerald-50/70 px-2.5 py-1 text-[11px] font-medium text-emerald-600 transition hover:bg-emerald-50 hover:text-emerald-700"
                                                             >
                                                                   Điều chuyển
                                                             </button>
@@ -1189,15 +1222,12 @@ function PremiumOrganizationChart({
       return (
             <div className="space-y-3">
                   <div className={residenceMediumStyle.orgChartPanel}>
-                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                               <div>
                                     <p className={residenceMediumStyle.modalEyebrow}>Cơ cấu hiện tại</p>
                                     <h3 className="mt-1 text-xl font-bold tracking-tight text-slate-950">
                                           Sơ đồ tổ chức lưu xá
                                     </h3>
-                                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                                          Nhìn nhanh người đang đảm nhiệm từng vị trí. Có thể phân công hoặc điều chuyển ngay trên sơ đồ.
-                                    </p>
                               </div>
                               <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">
                                     {activeAssignments.length} phân công
@@ -1206,11 +1236,11 @@ function PremiumOrganizationChart({
 
                         <div className={residenceMediumStyle.orgExecutivePanel}>
                               <div className="mb-3 flex items-center justify-between gap-3">
-                                    <div>
+                                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                                           <p className={residenceMediumStyle.modalEyebrow}>Ban điều hành</p>
-                                          <h4 className="mt-0.5 text-base font-semibold text-slate-800">
-                                                Các chức vụ điều hành chính
-                                          </h4>
+                                          <span className="text-sm font-semibold text-slate-700">
+                                                Chức vụ chính
+                                          </span>
                                     </div>
                               </div>
 
@@ -1244,14 +1274,11 @@ function PremiumOrganizationChart({
                   </div>
 
                   <div className={residenceMediumStyle.orgUnitsPanel}>
-                        <div className="mb-3">
+                        <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                               <p className={residenceMediumStyle.modalEyebrow}>Tổ / Ban</p>
-                              <h3 className="mt-0.5 text-xl font-bold tracking-tight text-slate-950">
-                                    Các đơn vị đang hoạt động
+                              <h3 className="text-base font-semibold text-slate-800">
+                                    Đơn vị đang hoạt động
                               </h3>
-                              <p className="mt-1 text-xs leading-5 text-slate-500">
-                                    Theo dõi Tổ và Ban riêng theo từng khối để dễ quan sát, thêm thành viên và điều chuyển.
-                              </p>
                         </div>
 
                         <div className="grid gap-3 2xl:grid-cols-2">

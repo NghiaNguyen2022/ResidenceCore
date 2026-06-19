@@ -205,9 +205,8 @@ export const residenceMediumStyle = {
             tone.shadowSoft
       ),
       orgUnitCard: cx(
-            'rounded-2xl border p-2.5',
-            tone.softBorder,
-            'bg-white/58'
+            'rounded-2xl p-2.5 transition-all duration-200 hover:-translate-y-0.5',
+            'bg-white/52 shadow-sm shadow-slate-900/5 hover:bg-white/78 hover:shadow-[0_14px_34px_rgba(120,53,15,0.08)]'
       ),
       orgPersonCard: cx(
             'group relative overflow-hidden rounded-2xl border p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-200 hover:bg-white/92 hover:shadow-[0_14px_34px_rgba(120,53,15,0.11)]',
