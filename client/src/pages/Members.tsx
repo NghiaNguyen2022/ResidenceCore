@@ -191,21 +191,24 @@ function SimpleStatCard({
       details?: Array<{ label: string; value: number }>;
 }) {
       return (
-            <div className={residenceMediumStyle.statCard}>
+            <div className="group relative overflow-hidden rounded-[26px] border border-amber-100/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.78)_0%,rgba(255,251,235,0.58)_58%,rgba(245,158,11,0.14)_100%)] p-4 shadow-[0_18px_40px_rgba(12,10,9,0.075),inset_0_1px_0_rgba(255,255,255,0.74)] transition hover:-translate-y-0.5 hover:border-amber-200/80 hover:shadow-[0_24px_54px_rgba(12,10,9,0.11),0_0_0_1px_rgba(251,191,36,0.10)]">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-300 via-amber-200 to-emerald-300 opacity-85" />
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.26)_0%,transparent_42%,rgba(245,158,11,0.08)_100%)]" />
+
                   <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                              <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
                                     {label}
                               </div>
                               <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
                                     {value}
                               </div>
-                              <div className="mt-1 text-xs leading-5 text-slate-600">
+                              <div className="mt-1 text-xs leading-5 text-slate-500">
                                     {description}
                               </div>
                         </div>
 
-                        <div className={residenceMediumStyle.statIcon}>
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-100/70 bg-white/82 text-amber-700 shadow-[0_10px_24px_rgba(120,53,15,0.08)]">
                               {icon}
                         </div>
                   </div>
@@ -215,7 +218,7 @@ function SimpleStatCard({
                               {details.map((item) => (
                                     <span
                                           key={item.label}
-                                          className={residenceMediumStyle.statDetailPill}
+                                          className="rounded-full border border-amber-100/75 bg-white/76 px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm shadow-slate-900/5"
                                     >
                                           {item.label}: {item.value}
                                     </span>
@@ -236,36 +239,39 @@ function SimpleMemberListTable({
       getOrganizationUnitsForMember: (member: any) => string[];
 }) {
       return (
-            <div className={residenceMediumStyle.listPanel}>
-                  <div className={residenceMediumStyle.listPanelHeader}>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div>
-                                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                                          Danh sách học viên
-                                    </p>
-                                    <p className="mt-0.5 text-xs text-slate-500">
-                                          Xem nhanh hồ sơ, phòng ở, liên hệ và vai trò tổ chức.
-                                    </p>
-                              </div>
-                              <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-amber-100/70">
-                                    {members.length} học viên
-                              </span>
-                        </div>
-                  </div>
-
-                  <div className={residenceMediumStyle.listTableWrap}>
-                        <table className={residenceMediumStyle.listTable}>
-                              <thead className={residenceMediumStyle.listHead}>
+            <div className="overflow-hidden rounded-3xl border border-amber-100/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.88)_0%,rgba(255,251,235,0.60)_100%)] shadow-[0_18px_40px_rgba(12,10,9,0.07)]">
+                  <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-100 text-sm">
+                              <thead className="bg-amber-50/55 backdrop-blur">
                                     <tr>
-                                          {['Học viên', 'Mã', 'Trạng thái', 'Phòng', 'Tổ / Ban', 'Chức vụ', 'Liên hệ chính', 'Điện thoại'].map((header) => (
-                                                <th key={header} className={residenceMediumStyle.listHeadCell}>
-                                                      {header}
-                                                </th>
-                                          ))}
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Học viên
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Mã
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Trạng thái
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Phòng
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Tổ / Ban
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Chức vụ
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Liên hệ chính
+                                          </th>
+                                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                Điện thoại
+                                          </th>
                                     </tr>
                               </thead>
 
-                              <tbody>
+                              <tbody className="divide-y divide-amber-100/70 bg-transparent">
                                     {members.map((member) => {
                                           const statusLabel = getStatusLabel(
                                                 member?.status || member?.residenceStatus || 'active'
@@ -281,49 +287,48 @@ function SimpleMemberListTable({
                                           return (
                                                 <tr
                                                       key={member.id}
-                                                      className={residenceMediumStyle.listRow}
+                                                      className="transition hover:bg-slate-50/80"
                                                 >
-                                                      <td className={residenceMediumStyle.listCell}>
-                                                            <div className={residenceMediumStyle.listPrimaryText}>
+                                                      <td className="whitespace-nowrap px-4 py-3">
+                                                            <div className="font-semibold text-slate-900">
                                                                   {getDisplayName(member)}
                                                             </div>
-                                                            <div className={residenceMediumStyle.listSecondaryText}>
+                                                            <div className="text-xs text-slate-400">
                                                                   {member?.gender
                                                                         ? getGenderLabel(member.gender)
                                                                         : 'Thông tin cơ bản'}
                                                             </div>
                                                       </td>
 
-                                                      <td className={`${residenceMediumStyle.listCell} font-semibold text-slate-600`}>
+                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">
                                                             {member?.residentCode || member?.code || 'Chưa có'}
                                                       </td>
 
-                                                      <td className={residenceMediumStyle.listCell}>
-                                                            <span className={['rounded-full px-2.5 py-1 text-xs font-semibold ring-1', getStatusClass(member?.status || member?.residenceStatus || 'active')].join(' ')}>
+                                                      <td className="whitespace-nowrap px-4 py-3">
+                                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
                                                                   {statusLabel}
                                                             </span>
                                                       </td>
 
-                                                      <td className={`${residenceMediumStyle.listCell} font-semibold text-slate-700`}>
+                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-700">
                                                             {getRoomLabelFromMember(member) || 'Chưa gán'}
                                                       </td>
 
-                                                      <td className={`${residenceMediumStyle.listCell} text-slate-600`}>
+                                                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                                                             {organizationUnits.length > 0
                                                                   ? organizationUnits.join(', ')
-                                                                  : <span className={residenceMediumStyle.listEmptyText}>Chưa phân tổ</span>}
+                                                                  : 'Chưa phân tổ'}
                                                       </td>
 
-                                                      <td className={`${residenceMediumStyle.listCell} text-slate-600`}>
+                                                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                                                             {organizationTitles.length > 0
                                                                   ? organizationTitles.join(', ')
-                                                                  : <span className={residenceMediumStyle.listEmptyText}>Chưa có</span>}
+                                                                  : 'Chưa có'}
                                                       </td>
 
                                                       <td
                                                             className={[
-                                                                  residenceMediumStyle.listCell,
-                                                                  'font-medium',
+                                                                  'whitespace-nowrap px-4 py-3 font-medium',
                                                                   missingContact
                                                                         ? 'text-amber-700'
                                                                         : 'text-slate-700',
@@ -332,7 +337,7 @@ function SimpleMemberListTable({
                                                             {contactText}
                                                       </td>
 
-                                                      <td className={`${residenceMediumStyle.listCell} font-medium text-slate-600`}>
+                                                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-700">
                                                             {member?.phoneNumber || '-'}
                                                       </td>
                                                 </tr>
@@ -345,13 +350,13 @@ function SimpleMemberListTable({
       );
 }
 
+
 export default function Members() {
       const [, navigate] = useLocation();
       const { isDetailed } = useSystemDisplayMode();
       const isSimple = !isDetailed;
 
       const [searchTerm, setSearchTerm] = useState('');
-      const [statusFilter, setStatusFilter] = useState('all');
       const [simpleViewMode, setSimpleViewMode] = useState<'cards' | 'list'>('cards');
       const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
       const [isContactsDialogOpen, setIsContactsDialogOpen] = useState(false);
@@ -393,7 +398,6 @@ export default function Members() {
 
       const membersQuery = trpc.members.list.useQuery({
             search: searchTerm,
-            status: statusFilter !== 'all' ? (statusFilter as any) : undefined,
       });
 
       const statsQuery = trpc.members.getStats.useQuery();
@@ -654,7 +658,7 @@ export default function Members() {
 
       useEffect(() => {
             setSimplePage(1);
-      }, [searchTerm, statusFilter, simplePageSize]);
+      }, [searchTerm, simplePageSize]);
 
       const refetchMembers = async () => {
             await membersQuery.refetch();
@@ -665,7 +669,6 @@ export default function Members() {
 
       const clearFilters = () => {
             setSearchTerm('');
-            setStatusFilter('all');
       };
 
       const clearSelectedMembers = () => {
@@ -1439,16 +1442,7 @@ export default function Members() {
 
                                     <div className="relative min-h-[136px]">
                                           <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
-                                                <div className="flex flex-wrap items-center justify-center gap-2">
-                                                      <span className="rounded-full bg-white/48 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-600 ring-1 ring-amber-100/70 shadow-sm shadow-slate-900/5">
-                                                            Quản lý lưu trú
-                                                      </span>
-                                                      <span className="text-sm text-slate-500">
-                                                            Học viên · Phòng · Liên hệ · Chức vụ
-                                                      </span>
-                                                </div>
-
-                                                <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+                                                <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
                                                       Học viên lưu trú
                                                 </h1>
 
@@ -1542,7 +1536,6 @@ export default function Members() {
                                                 </div>
                                           </div>
                                     </div>
-                              </div>
 
                         {error && (
                               <div className="flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
@@ -1557,41 +1550,25 @@ export default function Members() {
                         )}
 
                         {isSimple ? (
-                              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                                    <SimpleStatCard
-                                          label="Tổng học viên"
-                                          value={stats.total}
-                                          description="Tất cả hồ sơ học viên"
-                                          icon={<Users className="h-5 w-5" />}
-                                    />
-
-                                    <SimpleStatCard
-                                          label="Đang lưu trú"
-                                          value={stats.active}
-                                          description="Học viên đang ở lưu xá"
-                                          icon={<UserCheck className="h-5 w-5" />}
-                                    />
-
-                                    <SimpleStatCard
-                                          label="Cần xử lý"
-                                          value={attentionStats.needAttentionCount}
-                                          description="Các hồ sơ còn thiếu thông tin cần bổ sung"
-                                          icon={<AlertCircle className="h-5 w-5" />}
-                                          details={[
-                                                {
-                                                      label: 'Chưa có phòng',
-                                                      value: attentionStats.missingRoom,
-                                                },
-                                                {
-                                                      label: 'Chưa có tài khoản',
-                                                      value: attentionStats.missingUser,
-                                                },
-                                                {
-                                                      label: 'Thiếu liên hệ',
-                                                      value: attentionStats.missingContact,
-                                                },
-                                          ]}
-                                    />
+                              <div className="flex flex-wrap items-center justify-center gap-2 rounded-[24px] border border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.62)_0%,rgba(255,251,235,0.42)_62%,rgba(245,158,11,0.08)_100%)] px-4 py-3 shadow-[0_14px_30px_rgba(12,10,9,0.045),inset_0_1px_0_rgba(255,255,255,0.70)]">
+                                    <span className="rounded-full bg-white/76 px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-amber-100/75 shadow-sm shadow-slate-900/5">
+                                          Tổng: {stats.total}
+                                    </span>
+                                    <span className="rounded-full bg-emerald-50/80 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                                          Đang lưu trú: {stats.active}
+                                    </span>
+                                    <span className="rounded-full bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-100">
+                                          Cần xử lý: {attentionStats.needAttentionCount}
+                                    </span>
+                                    <span className="rounded-full bg-white/70 px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-amber-100/70">
+                                          Chưa có phòng: {attentionStats.missingRoom}
+                                    </span>
+                                    <span className="rounded-full bg-white/70 px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-amber-100/70">
+                                          Chưa có tài khoản: {attentionStats.missingUser}
+                                    </span>
+                                    <span className="rounded-full bg-white/70 px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-amber-100/70">
+                                          Thiếu liên hệ: {attentionStats.missingContact}
+                                    </span>
                               </div>
                         ) : (
                               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1637,8 +1614,8 @@ export default function Members() {
                               </div>
                         )}
 
-                        <div className="rounded-[26px] border border-amber-100/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.78)_0%,rgba(255,251,235,0.50)_58%,rgba(248,250,252,0.70)_100%)] p-3 shadow-[0_14px_36px_rgba(12,10,9,0.06),inset_0_1px_0_rgba(255,255,255,0.72)]">
-                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                        <div className="rounded-[26px] border border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82)_0%,rgba(255,251,235,0.62)_58%,rgba(245,158,11,0.10)_100%)] p-3 shadow-[0_18px_38px_rgba(12,10,9,0.065),inset_0_1px_0_rgba(255,255,255,0.72)]">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                                     <div className="relative min-w-0 flex-1">
                                           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                           <Input
@@ -1647,46 +1624,27 @@ export default function Members() {
                                                       setSearchTerm(event.target.value)
                                                 }
                                                 placeholder="Tìm theo tên, mã lưu trú, số điện thoại..."
-                                                className="h-11 rounded-2xl border-amber-100/70 bg-white/70 pl-10 text-sm font-medium text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition placeholder:text-slate-400 focus:border-amber-200 focus:bg-white focus:ring-2 focus:ring-amber-100/70"
+                                                className="h-11 rounded-2xl border-amber-100/80 bg-white/72 pl-10 text-sm shadow-[0_8px_18px_rgba(12,10,9,0.05)] transition placeholder:text-slate-400 focus:border-amber-200 focus:bg-white"
                                           />
                                     </div>
 
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                          <div className="relative">
-                                                <select
-                                                      value={statusFilter}
-                                                      onChange={(event) =>
-                                                            setStatusFilter(event.target.value)
-                                                      }
-                                                      className="h-11 min-w-[190px] appearance-none rounded-2xl border border-amber-100/70 bg-white/70 py-0 pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition hover:bg-white focus:border-amber-200 focus:bg-white focus:ring-2 focus:ring-amber-100/70"
-                                                >
-                                                      <option value="all">Tất cả trạng thái</option>
-                                                      <option value="active">Đang ở</option>
-                                                      <option value="inactive">Tạm rời</option>
-                                                      <option value="transferred_out">Đã rời</option>
-                                                </select>
-
-                                                <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">
-                                                      ▾
-                                                </span>
-                                          </div>
-
+                                    {searchTerm && (
                                           <button
                                                 type="button"
                                                 onClick={clearFilters}
-                                                className={residenceMediumStyle.buttonCard}
+                                                className="h-11 rounded-2xl border border-amber-100/80 bg-white/76 px-4 text-sm font-semibold text-slate-600 shadow-sm shadow-slate-900/5 transition hover:border-amber-200 hover:bg-white"
                                           >
-                                                Xóa lọc
+                                                Xóa tìm kiếm
                                           </button>
-                                    </div>
+                                    )}
                               </div>
                         </div>
 
-                        <section className="overflow-visible rounded-[28px] border border-amber-100/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.76)_0%,rgba(255,251,235,0.46)_58%,rgba(248,250,252,0.68)_100%)] shadow-[0_18px_46px_rgba(12,10,9,0.075),inset_0_1px_0_rgba(255,255,255,0.72)]">
-                              <div className="border-b border-amber-100/55 bg-white/42 px-5 py-4">
+                        <section className="overflow-visible rounded-[28px] border border-amber-100/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.82)_0%,rgba(255,251,235,0.62)_54%,rgba(248,250,252,0.70)_100%)] shadow-[0_22px_52px_rgba(12,10,9,0.075),inset_0_1px_0_rgba(255,255,255,0.74)]">
+                              <div className="border-b border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.86)_0%,rgba(255,251,235,0.68)_62%,rgba(245,158,11,0.10)_100%)] px-5 py-4">
                                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                                           <div>
-                                                <h2 className="text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl">
+                                                <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
                                                       Danh sách học viên
                                                 </h2>
                                                 <p className="mt-1 text-sm text-slate-500">
@@ -1695,14 +1653,14 @@ export default function Members() {
                                           </div>
 
                                           <div className="flex flex-wrap items-center gap-2">
-                                                <div className="flex rounded-2xl border border-amber-100/60 bg-white/60 p-1 text-sm font-semibold shadow-sm shadow-slate-900/5">
+                                                <div className="flex rounded-2xl bg-white/66 p-1 text-sm font-semibold ring-1 ring-amber-100/70 shadow-sm shadow-slate-900/5">
                                                       <button
                                                             type="button"
                                                             onClick={() => setSimpleViewMode('cards')}
                                                             className={[
                                                                   'rounded-xl px-3 py-1.5 transition',
                                                                   simpleViewMode === 'cards'
-                                                                        ? 'bg-[linear-gradient(135deg,rgba(255,255,255,0.92)_0%,rgba(255,251,235,0.82)_100%)] text-slate-900 shadow-sm shadow-slate-900/5'
+                                                                        ? 'bg-white text-slate-900 shadow-[0_10px_20px_rgba(12,10,9,0.06)]'
                                                                         : 'text-slate-500 hover:text-slate-800',
                                                             ].join(' ')}
                                                       >
@@ -1715,7 +1673,7 @@ export default function Members() {
                                                             className={[
                                                                   'rounded-xl px-3 py-1.5 transition',
                                                                   simpleViewMode === 'list'
-                                                                        ? 'bg-[linear-gradient(135deg,rgba(255,255,255,0.92)_0%,rgba(255,251,235,0.82)_100%)] text-slate-900 shadow-sm shadow-slate-900/5'
+                                                                        ? 'bg-white text-slate-900 shadow-[0_10px_20px_rgba(12,10,9,0.06)]'
                                                                         : 'text-slate-500 hover:text-slate-800',
                                                             ].join(' ')}
                                                       >
@@ -1723,26 +1681,21 @@ export default function Members() {
                                                       </button>
                                                 </div>
 
-                                                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
-                                                      Đang lưu trú: {stats.active}
-                                                </span>
-                                                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-100">
-                                                      Cần xử lý: {attentionStats.needAttentionCount}
-                                                </span>
+
                                           </div>
                                     </div>
                               </div>
 
-                              <div className="bg-[linear-gradient(180deg,rgba(255,251,235,0.32)_0%,rgba(248,250,252,0.48)_100%)] p-4 sm:p-5">
+                              <div className="bg-[linear-gradient(180deg,rgba(255,251,235,0.32)_0%,rgba(248,250,252,0.42)_100%)] p-4 sm:p-5">
 
                               {membersQuery.isLoading ? (
-                                    <div className="rounded-2xl border border-dashed border-amber-100/70 bg-white/70 p-8 text-center text-sm text-slate-500 shadow-sm shadow-slate-900/5">
+                                    <div className="rounded-2xl border border-dashed border-amber-100/80 bg-white/76 p-8 text-center text-sm text-slate-500">
                                           Đang tải dữ liệu học viên...
                                     </div>
                               ) : isSimple ? (
                                     <>
                                           {sortedMembers.length === 0 ? (
-                                                <div className="rounded-2xl border border-dashed border-amber-100/70 bg-white/70 p-8 text-center text-sm text-slate-500 shadow-sm shadow-slate-900/5">
+                                                <div className="rounded-2xl border border-dashed border-amber-100/80 bg-white/76 p-8 text-center text-sm text-slate-500">
                                                       Không có học viên nào phù hợp.
                                                 </div>
                                           ) : (
@@ -1754,7 +1707,7 @@ export default function Members() {
                                                             getOrganizationUnitsForMember={getOrganizationUnitsForMember}
                                                       />
                                                 ) : (
-                                                      <div className="space-y-3.5">
+                                                      <div className="space-y-3">
                                                             {simplePagedMembers.map((member: any, index: number) => (
                                                                   <SimpleMemberCard
                                                                         key={member.id}
@@ -1777,7 +1730,7 @@ export default function Members() {
                                                       </div>
                                                 )}
 
-                                          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-100/60 bg-white/62 px-4 py-3 shadow-[0_12px_30px_rgba(12,10,9,0.055),inset_0_1px_0_rgba(255,255,255,0.72)] md:flex-row md:items-center md:justify-between">
+                                          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-100/75 bg-white/76 px-4 py-3 shadow-[0_14px_28px_rgba(12,10,9,0.05)] md:flex-row md:items-center md:justify-between">
                                                 <div className="text-sm text-slate-500">
                                                       Hiển thị{' '}
                                                       <span className="font-medium text-slate-900">
@@ -1803,7 +1756,7 @@ export default function Members() {
                                                                   setSimplePageSize(Number(event.target.value));
                                                                   setSimplePage(1);
                                                             }}
-                                                            className="rounded-xl border border-amber-100/70 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100/70"
+                                                            className="rounded-xl border border-amber-100/80 bg-white/78 px-3 py-2 text-sm outline-none focus:border-amber-300"
                                                       >
                                                             <option value={5}>5 / trang</option>
                                                             <option value={7}>7 / trang</option>
@@ -1818,7 +1771,7 @@ export default function Members() {
                                                                   )
                                                             }
                                                             disabled={simplePage <= 1}
-                                                            className="rounded-xl border border-amber-100/70 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                            className="rounded-xl border border-amber-100/80 bg-white/78 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-amber-200 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                                                       >
                                                             Trước
                                                       </button>
@@ -1835,7 +1788,7 @@ export default function Members() {
                                                                   )
                                                             }
                                                             disabled={simplePage >= simpleTotalPages}
-                                                            className="rounded-xl border border-amber-100/70 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                            className="rounded-xl border border-amber-100/80 bg-white/78 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-amber-200 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                                                       >
                                                             Sau
                                                       </button>
@@ -2012,6 +1965,7 @@ export default function Members() {
                                     bulkCreateResidentUsersMutation.isPending
                               }
                         />
+                  </div>
                   </div>
             </ResidenceCareLayout>
       );

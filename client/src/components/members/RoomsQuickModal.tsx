@@ -254,70 +254,83 @@ export function RoomsQuickModal({
         <div className={residenceMediumStyle.modalHeader}>
           <div>
             <p className={residenceMediumStyle.modalEyebrow}>
-              Quản lý phòng
+              Quản lý phòng nhanh
             </p>
             <h2 className={residenceMediumStyle.modalTitle}>
-              Phòng & sức chứa
+              Danh sách phòng & sức chứa
             </h2>
             <p className={residenceMediumStyle.modalSubtitle}>
-              Xem nhanh tình trạng phòng, thêm phòng mới hoặc cập nhật sức chứa cơ bản.
+              Xem sức chứa, thêm phòng và cập nhật thông tin cơ bản của phòng.
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 transition hover:bg-white/70 hover:text-slate-700"
+            className="rounded-xl border border-amber-100 bg-white/75 p-2 text-slate-500 shadow-sm shadow-slate-900/5 transition hover:bg-white hover:text-slate-800"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[1fr_340px]">
-          <div className="min-h-0 overflow-y-auto p-4">
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {[
-                ["Số phòng", summary.totalRooms],
-                ["Sức chứa", summary.totalCapacity],
-                ["Đang ở", summary.totalOccupied],
-                ["Còn trống", summary.totalAvailable],
-              ].map(([label, value]) => (
-                <div key={label} className={residenceMediumStyle.metricCard}>
-                  <div className={residenceMediumStyle.metricLabel}>{label}</div>
-                  <div className={residenceMediumStyle.metricValue}>{value}</div>
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden bg-[linear-gradient(180deg,rgba(255,251,235,0.26)_0%,rgba(248,250,252,0.46)_100%)] lg:grid-cols-[1fr_360px]">
+          <div className="min-h-0 overflow-y-auto p-5 sm:p-6">
+            <div className="grid gap-3 md:grid-cols-4">
+              <div className={residenceMediumStyle.statCard}>
+                <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Số phòng</div>
+                <div className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+                  {summary.totalRooms}
                 </div>
-              ))}
+              </div>
+              <div className={residenceMediumStyle.statCard}>
+                <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Tổng sức chứa</div>
+                <div className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+                  {summary.totalCapacity}
+                </div>
+              </div>
+              <div className={residenceMediumStyle.statCard}>
+                <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Đang ở</div>
+                <div className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+                  {summary.totalOccupied}
+                </div>
+              </div>
+              <div className={residenceMediumStyle.statCard}>
+                <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Còn trống</div>
+                <div className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+                  {summary.totalAvailable}
+                </div>
+              </div>
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Tìm mã phòng hoặc ghi chú..."
-                  className={residenceMediumStyle.searchInput}
+                  placeholder="Tìm mã phòng, ghi chú..."
+                  className="h-10 rounded-2xl border-amber-100/70 bg-white/70 pl-10 text-sm font-medium text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition placeholder:text-slate-400 focus:border-amber-200 focus:bg-white focus:ring-2 focus:ring-amber-100/70"
                 />
               </div>
 
               <button
                 type="button"
                 onClick={openCreate}
-                className={`${residenceMediumStyle.primaryButton} inline-flex items-center justify-center gap-2`}
+                className={residenceMediumStyle.buttonCardPrimary}
               >
                 <Plus className="h-4 w-4" />
                 Thêm phòng
               </button>
             </div>
 
-            <div className="mt-4 overflow-hidden rounded-2xl border border-amber-100/80 bg-white/80 shadow-sm shadow-amber-900/5">
-              <div className="grid grid-cols-[1.1fr_0.7fr_0.7fr_0.7fr_0.7fr_auto] gap-3 bg-amber-50/50 px-4 py-2.5 text-xs font-semibold text-slate-500">
+            <div className={residenceMediumStyle.listPanel + " mt-5"}>
+              <div className="grid grid-cols-[1.1fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] gap-3 border-b border-amber-100/55 bg-white/58 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                 <div>Phòng</div>
                 <div>Sức chứa</div>
                 <div>Đang ở</div>
                 <div>Còn trống</div>
                 <div>Trạng thái</div>
-                <div className="text-right">Sửa</div>
+                <div className="text-right">Thao tác</div>
               </div>
 
               {roomsQuery.isLoading ? (
@@ -329,7 +342,7 @@ export function RoomsQuickModal({
                   Chưa có phòng nào phù hợp.
                 </div>
               ) : (
-                <div className="divide-y divide-amber-100/70">
+                <div className="divide-y divide-amber-100/45">
                   {rooms.map((room: any) => {
                     const occupied = getRoomCurrentOccupancy(room);
                     const available = getRoomAvailableSlots(room);
@@ -338,7 +351,7 @@ export function RoomsQuickModal({
                     return (
                       <div
                         key={room.id}
-                        className="grid grid-cols-[1.1fr_0.7fr_0.7fr_0.7fr_0.7fr_auto] items-center gap-3 px-4 py-2.5 text-sm transition hover:bg-amber-50/40"
+                        className="grid grid-cols-[1.1fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] items-center gap-3 px-4 py-3 text-[13px] transition hover:bg-white/68"
                       >
                         <div>
                           <div className="font-semibold text-slate-900">
@@ -386,7 +399,7 @@ export function RoomsQuickModal({
                           <button
                             type="button"
                             onClick={() => openEdit(room)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-amber-100 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-amber-50"
+                            className="inline-flex items-center gap-1 rounded-xl border border-amber-100/70 bg-white/70 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm shadow-slate-900/5 transition hover:bg-white"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                             Sửa
@@ -400,45 +413,48 @@ export function RoomsQuickModal({
             </div>
           </div>
 
-          <div className="min-h-0 border-t border-amber-100/80 bg-amber-50/35 p-4 lg:border-l lg:border-t-0">
+          <div className="min-h-0 border-t border-amber-100/60 bg-white/42 p-5 shadow-[inset_1px_0_0_rgba(251,191,36,0.10)] lg:border-l lg:border-t-0 lg:p-6">
             <div className="sticky top-0">
-              <div className={residenceMediumStyle.cardSection}>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-950">
-                    {mode === "edit"
-                      ? "Sửa phòng"
-                      : mode === "create"
-                        ? "Thêm phòng"
-                        : "Thông tin phòng"}
-                  </h3>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">
-                    {mode === "list"
-                      ? "Chọn một phòng để sửa hoặc bấm Thêm phòng."
-                      : "Chỉ nhập các thông tin cơ bản cần thiết."}
-                  </p>
+              <div className={`${residenceMediumStyle.premiumGoldBlackSoftSurface} p-5`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold tracking-tight text-slate-950">
+                      {mode === "edit"
+                        ? "Sửa phòng"
+                        : mode === "create"
+                          ? "Thêm phòng"
+                          : "Thông tin phòng"}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {mode === "list"
+                        ? "Chọn một phòng để sửa hoặc bấm Thêm phòng."
+                        : "Cập nhật thông tin cơ bản của phòng."}
+                    </p>
+                  </div>
                 </div>
 
                 {error && (
-                  <div className="mt-3 flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                  <div className="mt-4 flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>{error}</span>
                   </div>
                 )}
 
                 {success && (
-                  <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
                     {success}
                   </div>
                 )}
 
                 {mode === "list" ? (
-                  <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm leading-6 text-slate-600">
-                    Mã phòng không chỉnh sửa sau khi tạo. Có thể dùng ghi chú để mô tả tầng, vị trí hoặc ghi chú vận hành.
+                  <div className="mt-5 rounded-2xl border border-amber-100/55 bg-white/58 px-4 py-3 text-sm leading-6 text-slate-500 shadow-sm shadow-slate-900/5">
+                    Mã phòng không chỉnh sửa sau khi tạo. Khi cần đổi cách hiển
+                    thị, dùng phần ghi chú/tên hiển thị tạm thời.
                   </div>
                 ) : (
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-5 space-y-4">
                     <div>
-                      <label className={residenceMediumStyle.fieldLabel}>
+                      <label className="text-sm font-semibold text-slate-700">
                         Mã phòng {mode === "edit" ? "(không sửa)" : "*"}
                       </label>
                       <Input
@@ -451,12 +467,12 @@ export function RoomsQuickModal({
                         }
                         disabled={mode === "edit"}
                         placeholder="Ví dụ: A101"
-                        className={residenceMediumStyle.formInput}
+                        className={`${residenceMediumStyle.formInput} mt-1`}
                       />
                     </div>
 
                     <div>
-                      <label className={residenceMediumStyle.fieldLabel}>
+                      <label className="text-sm font-semibold text-slate-700">
                         Sức chứa *
                       </label>
                       <Input
@@ -469,18 +485,19 @@ export function RoomsQuickModal({
                         }
                         type="number"
                         min={1}
-                        className={residenceMediumStyle.formInput}
+                        className={`${residenceMediumStyle.formInput} mt-1`}
                       />
                       {mode === "edit" && editingRoom && (
                         <p className="mt-1 text-xs text-slate-400">
-                          Đang ở: {getRoomCurrentOccupancy(editingRoom)} học viên.
+                          Đang ở: {getRoomCurrentOccupancy(editingRoom)} học
+                          viên.
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <label className={residenceMediumStyle.fieldLabel}>
-                        Ghi chú
+                      <label className="text-sm font-semibold text-slate-700">
+                        Ghi chú / tên hiển thị
                       </label>
                       <Textarea
                         value={formData.notes}
@@ -490,17 +507,17 @@ export function RoomsQuickModal({
                             notes: event.target.value,
                           }))
                         }
-                        placeholder="Ví dụ: tầng 1, gần cầu thang..."
-                        className={residenceMediumStyle.formTextarea}
+                        placeholder="Ví dụ: Phòng gần cầu thang, tầng 1..."
+                        className={`${residenceMediumStyle.formTextarea} mt-1`}
                       />
                     </div>
 
-                    <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                       <button
                         type="button"
                         onClick={cancelForm}
                         disabled={isSaving}
-                        className={residenceMediumStyle.secondaryButton}
+                        className={residenceMediumStyle.buttonCard}
                       >
                         Hủy
                       </button>
@@ -511,7 +528,7 @@ export function RoomsQuickModal({
                           mode === "edit" ? handleUpdateRoom : handleCreateRoom
                         }
                         disabled={isSaving}
-                        className={residenceMediumStyle.primaryButton}
+                        className={residenceMediumStyle.buttonCardPrimary}
                       >
                         {isSaving
                           ? "Đang lưu..."

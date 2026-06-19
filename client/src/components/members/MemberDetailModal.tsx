@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
       CalendarDays,
       Database,
@@ -15,6 +15,7 @@ import { residenceMediumStyle } from '@/components/shared/styleMedium';
 import { ParentsSection } from './ParentsSection';
 import { EducationInfoSection } from './EducationInfoSection';
 import { StudyScheduleSection } from './StudyScheduleSection';
+import ContactsListModal from './ContactsListModal';
 import {
       formatDate,
       getGenderLabel,
@@ -201,6 +202,7 @@ export function MemberDetailModal({
 
       const isLeft = isResidentLeft(member);
       const accountStatus = getAccountStatus(member);
+      const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
       return (
             <div className={residenceMediumStyle.modalOverlay}>
@@ -462,6 +464,7 @@ export function MemberDetailModal({
                                                 residentId={member.id}
                                                 readonly={isLeft}
                                                 onDataChange={onDataChange}
+                                                onAddContact={() => setIsContactModalOpen(true)}
                                           />
                                     </DetailCard>
 
@@ -516,6 +519,20 @@ export function MemberDetailModal({
                                           />
                                     </DetailCard>
                               </div>
+
+                              {isContactModalOpen && (
+                                    <ContactsListModal
+                                          initialMode="create"
+                                          initialResidentId={Number(member.id)}
+                                          initialSearchTerm={displayName}
+                                          closeAfterSave
+                                          formOnly
+                                          onClose={() => setIsContactModalOpen(false)}
+                                          onChanged={async () => {
+                                                await onDataChange?.();
+                                          }}
+                                    />
+                              )}
                         </div>
                   </div>
             </div>

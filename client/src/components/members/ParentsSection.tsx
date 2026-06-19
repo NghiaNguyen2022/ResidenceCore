@@ -4,6 +4,7 @@ import { trpc } from '@/lib/trpc';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { residenceMediumStyle } from '@/components/shared/styleMedium';
 import type { ParentFormData, ParentType } from './memberTypes';
 import { defaultParentFormData } from './memberTypes';
 import {
@@ -16,10 +17,12 @@ export function ParentsSection({
       residentId,
       readonly = false,
       onDataChange,
+      onAddContact,
 }: {
       residentId: number;
       readonly?: boolean;
       onDataChange?: () => void | Promise<void>;
+      onAddContact?: () => void;
 }) {
       const [isFormOpen, setIsFormOpen] = useState(false);
       const [editingParent, setEditingParent] = useState<any>(null);
@@ -42,6 +45,11 @@ export function ParentsSection({
 
       const openCreateParent = () => {
             if (readonly) return;
+
+            if (onAddContact) {
+                  onAddContact();
+                  return;
+            }
 
             setEditingParent(null);
             setParentForm(defaultParentFormData);
@@ -134,10 +142,10 @@ export function ParentsSection({
             <div className="space-y-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                              <p className="text-sm font-semibold text-neutral-800">
+                              <p className="text-sm font-semibold text-slate-800">
                                     Danh sách liên hệ
                               </p>
-                              <p className="text-xs text-neutral-500">
+                              <p className="text-xs text-slate-500">
                                     Một học viên chỉ có tối đa 1 Cha, 1 Mẹ. Người giám hộ có thể nhiều
                                     nếu không trùng tên hoặc số điện thoại.
                               </p>
@@ -147,7 +155,7 @@ export function ParentsSection({
                               <button
                                     type="button"
                                     onClick={openCreateParent}
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                                    className={residenceMediumStyle.buttonCardPrimary}
                               >
                                     <Plus className="h-3.5 w-3.5" />
                                     Thêm liên hệ
@@ -168,15 +176,15 @@ export function ParentsSection({
                   )}
 
                   {parentsQuery.isLoading ? (
-                        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-500">
+                        <div className="rounded-xl border border-amber-200 bg-white/50 p-4 text-sm text-slate-500">
                               Đang tải danh sách liên hệ...
                         </div>
                   ) : parents.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-4">
-                              <p className="text-sm font-semibold text-neutral-700">
+                        <div className="rounded-2xl border border-dashed border-amber-100/70 bg-white/52 p-4 shadow-sm shadow-slate-900/5">
+                              <p className="text-sm font-semibold text-slate-700">
                                     Chưa có liên hệ phụ huynh / người giám hộ
                               </p>
-                              <p className="mt-1 text-sm text-neutral-500">
+                              <p className="mt-1 text-sm text-slate-500">
                                     {readonly
                                           ? 'Hồ sơ đã rời lưu xá nên không thể thêm liên hệ mới.'
                                           : 'Bấm “Thêm liên hệ” để tạo liên hệ thật cho học viên này.'}
@@ -187,12 +195,12 @@ export function ParentsSection({
                               {parents.map((parent: any) => (
                                     <div
                                           key={parent.id}
-                                          className="rounded-xl border border-neutral-200 bg-white p-4"
+                                          className="rounded-2xl border border-amber-100/55 bg-white/58 p-4 shadow-sm shadow-slate-900/5"
                                     >
                                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                                 <div>
                                                       <div className="flex flex-wrap items-center gap-2">
-                                                            <p className="font-semibold text-neutral-900">
+                                                            <p className="font-semibold text-slate-900">
                                                                   {parent.fullName || '-'}
                                                             </p>
                                                             <span
@@ -204,29 +212,29 @@ export function ParentsSection({
                                                             </span>
                                                       </div>
 
-                                                      <div className="mt-2 space-y-1 text-sm text-neutral-600">
+                                                      <div className="mt-2 space-y-1 text-sm text-slate-600">
                                                             <p className="flex items-center gap-2">
-                                                                  <Phone className="h-3.5 w-3.5 text-neutral-400" />
+                                                                  <Phone className="h-3.5 w-3.5 text-slate-400" />
                                                                   {parent.phoneNumber || '-'}
                                                             </p>
 
                                                             {parent.email && (
                                                                   <p className="flex items-center gap-2">
-                                                                        <Mail className="h-3.5 w-3.5 text-neutral-400" />
+                                                                        <Mail className="h-3.5 w-3.5 text-slate-400" />
                                                                         {parent.email}
                                                                   </p>
                                                             )}
 
                                                             {parent.occupation && (
                                                                   <p className="flex items-center gap-2">
-                                                                        <Briefcase className="h-3.5 w-3.5 text-neutral-400" />
+                                                                        <Briefcase className="h-3.5 w-3.5 text-slate-400" />
                                                                         {parent.occupation}
                                                                   </p>
                                                             )}
 
                                                             {parent.address && (
                                                                   <p className="flex items-center gap-2">
-                                                                        <MapPin className="h-3.5 w-3.5 text-neutral-400" />
+                                                                        <MapPin className="h-3.5 w-3.5 text-slate-400" />
                                                                         {parent.address}
                                                                   </p>
                                                             )}
@@ -257,7 +265,7 @@ export function ParentsSection({
                                           </div>
 
                                           {parent.notes && (
-                                                <div className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
+                                                <div className="mt-3 rounded-lg bg-white/50 p-3 text-sm text-slate-600">
                                                       {parent.notes}
                                                 </div>
                                           )}
@@ -314,10 +322,10 @@ function ParentFormModal({
       return (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
                   <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-                        <div className="sticky top-0 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
+                        <div className="sticky top-0 flex items-center justify-between border-b border-amber-200 bg-white px-6 py-4">
                               <div>
-                                    <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
-                                    <p className="mt-1 text-sm text-neutral-500">
+                                    <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+                                    <p className="mt-1 text-sm text-slate-500">
                                           Cập nhật thông tin phụ huynh hoặc người giám hộ.
                                     </p>
                               </div>
@@ -325,7 +333,7 @@ function ParentFormModal({
                               <button
                                     type="button"
                                     onClick={onClose}
-                                    className="rounded-lg p-2 transition hover:bg-neutral-100"
+                                    className="rounded-lg p-2 transition hover:bg-white/100"
                               >
                                     <X className="h-5 w-5" />
                               </button>
@@ -355,7 +363,7 @@ function ParentFormModal({
                                                             parentType: event.target.value as ParentType,
                                                       })
                                                 }
-                                                className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                                className="h-10 w-full rounded-md border border-amber-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                           >
                                                 <option value="father">Cha</option>
                                                 <option value="mother">Mẹ</option>
@@ -449,11 +457,11 @@ function ParentFormModal({
                                     />
                               </div>
 
-                              <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
+                              <div className="flex flex-col-reverse gap-3 border-t border-amber-200 pt-5 sm:flex-row sm:justify-end">
                                     <button
                                           type="button"
                                           onClick={onClose}
-                                          className="rounded-xl border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                          className="rounded-xl border border-amber-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-white/50"
                                     >
                                           Hủy
                                     </button>

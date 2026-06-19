@@ -105,17 +105,17 @@ export const residenceMediumStyle = {
       ),
 
       listPanel:
-            'overflow-hidden rounded-[24px] border border-amber-100/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.80)_0%,rgba(255,251,235,0.54)_58%,rgba(248,250,252,0.70)_100%)] shadow-[0_18px_46px_rgba(12,10,9,0.075),inset_0_1px_0_rgba(255,255,255,0.72)]',
+            'overflow-hidden rounded-2xl border border-amber-100/80 bg-[linear-gradient(180deg,#ffffff_0%,#fffdfa_100%)] shadow-[0_14px_34px_rgba(120,53,15,0.055)]',
       listPanelHeader:
-            'border-b border-amber-100/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.84)_0%,rgba(255,251,235,0.64)_64%,rgba(245,158,11,0.10)_100%)] px-4 py-2.5',
+            'border-b border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf7_72%,#fff3e3_100%)] px-4 py-2.5',
       listTableWrap: 'max-h-[560px] overflow-auto',
-      listTable: 'min-w-[1180px] border-separate border-spacing-0 text-[13px]',
-      listHead: 'sticky top-0 z-10 bg-white/72 backdrop-blur',
-      listHeadCell: 'px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500',
-      listRow: 'transition hover:bg-white/68',
-      listCell: 'border-t border-amber-100/45 px-4 py-3 text-slate-700',
-      listPrimaryText: 'font-semibold tracking-tight text-slate-950',
-      listSecondaryText: 'text-xs font-medium text-slate-500',
+      listTable: 'min-w-[1180px] divide-y divide-amber-100/70 text-sm',
+      listHead: 'sticky top-0 z-10 bg-amber-50/75 backdrop-blur',
+      listHeadCell: 'px-4 py-2.5 text-left text-xs font-semibold text-slate-500',
+      listRow: 'transition hover:bg-amber-50/45',
+      listCell: 'px-4 py-2.5 text-slate-700',
+      listPrimaryText: 'font-semibold text-slate-900',
+      listSecondaryText: 'text-xs text-slate-400',
       listEmptyText: 'text-slate-400',
 
       dropdownPanel:
@@ -203,25 +203,8 @@ export const residenceMediumStyle = {
       premiumSubtleSection:
             'relative overflow-hidden rounded-[30px] border border-amber-100/50 bg-[linear-gradient(145deg,rgba(255,255,255,0.72)_0%,rgba(255,251,235,0.45)_58%,rgba(248,250,252,0.65)_100%)] p-5 shadow-[0_14px_36px_rgba(12,10,9,0.06)]',
       statCard:
-            'relative overflow-hidden rounded-[24px] border border-amber-100/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.78)_0%,rgba(255,251,235,0.56)_62%,rgba(245,158,11,0.12)_100%)] p-4 shadow-[0_16px_40px_rgba(12,10,9,0.075),inset_0_1px_0_rgba(255,255,255,0.70)] transition hover:-translate-y-0.5 hover:border-amber-200/75 hover:shadow-[0_22px_52px_rgba(12,10,9,0.11),inset_0_1px_0_rgba(255,255,255,0.78)]',
-      statIcon:
-            'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-100/65 bg-white/70 text-amber-800 shadow-[0_10px_24px_rgba(12,10,9,0.08),inset_0_1px_0_rgba(255,255,255,0.80)]',
-      statDetailPill:
-            'rounded-full bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-amber-100/65 shadow-sm shadow-slate-900/5',
-      memberCard:
-            'group relative overflow-hidden rounded-[24px] border border-amber-100/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.82)_0%,rgba(255,251,235,0.56)_60%,rgba(245,158,11,0.12)_100%)] p-4 shadow-[0_16px_40px_rgba(12,10,9,0.075),inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:-translate-y-0.5 hover:border-amber-200/75 hover:shadow-[0_22px_52px_rgba(12,10,9,0.11),inset_0_1px_0_rgba(255,255,255,0.78)]',
-      memberCardInactive:
-            'group relative overflow-hidden rounded-[24px] border border-amber-200/60 bg-[linear-gradient(135deg,rgba(255,251,235,0.82)_0%,rgba(254,243,199,0.50)_100%)] p-4 shadow-[0_14px_34px_rgba(12,10,9,0.07)]',
-      memberCardLeft:
-            'group relative overflow-hidden rounded-[24px] border border-rose-100/75 bg-[linear-gradient(135deg,rgba(255,241,242,0.82)_0%,rgba(255,255,255,0.68)_100%)] p-4 shadow-[0_14px_34px_rgba(12,10,9,0.06)]',
-      memberAvatar:
-            'hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82)_0%,rgba(254,243,199,0.72)_65%,rgba(245,158,11,0.22)_100%)] text-sm font-bold text-slate-800 shadow-[0_10px_24px_rgba(12,10,9,0.08),inset_0_1px_0_rgba(255,255,255,0.80)] sm:flex',
-      memberInfoBox:
-            'rounded-2xl border border-amber-100/45 bg-white/48 px-3 py-2 shadow-sm shadow-slate-900/5',
-      memberLabel:
-            'text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400',
-      memberValue:
-            'mt-0.5 truncate text-[13px] font-semibold leading-5 text-slate-700',
+            'relative overflow-hidden rounded-[24px] border border-amber-100/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.78)_0%,rgba(255,251,235,0.56)_62%,rgba(245,158,11,0.12)_100%)] p-4 shadow-[0_16px_40px_rgba(12,10,9,0.075),inset_0_1px_0_rgba(255,255,255,0.70)]',
+      statIcon: tone.iconBubble,
       actionBar: 'flex flex-wrap justify-end gap-2 px-1',
       disabledActionButton: cx(
             radius.button,

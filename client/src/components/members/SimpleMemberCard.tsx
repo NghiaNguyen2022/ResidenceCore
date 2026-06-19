@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
       getAccountBadge,
       getAttentionItems,
@@ -146,7 +145,6 @@ export function SimpleMemberCard({
       isLeaving?: boolean;
       isReactivating?: boolean;
 }) {
-      const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
       const memberHasRoom = hasCurrentRoom(member);
       const memberIsLeft = isResidentLeft(member);
       const memberIsInactive = isResidentInactive(member);
@@ -167,25 +165,27 @@ export function SimpleMemberCard({
       const shouldHighlightMissingContact = primaryContactText === 'Chưa có người liên hệ' && !memberIsClosed;
 
       const cardClass = memberIsLeft
-            ? 'border-rose-200 bg-rose-50/80'
+            ? 'border-rose-200/80 bg-[linear-gradient(135deg,rgba(255,241,242,0.92)_0%,rgba(255,255,255,0.82)_100%)]'
             : memberIsInactive
-                  ? 'border-amber-200 bg-amber-50/80'
-                  : 'border-slate-200 bg-white hover:border-slate-300';
+                  ? 'border-amber-200/85 bg-[linear-gradient(135deg,rgba(255,247,237,0.92)_0%,rgba(255,255,255,0.82)_100%)]'
+                  : 'border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.86)_0%,rgba(255,251,235,0.64)_58%,rgba(245,158,11,0.12)_100%)] hover:border-amber-200/80';
 
       return (
-            <article className={['relative overflow-visible rounded-3xl border p-4 shadow-sm transition hover:shadow-md', cardClass].join(' ')}>
+            <article className={['group relative overflow-visible rounded-3xl border p-4 shadow-[0_20px_44px_rgba(12,10,9,0.075),inset_0_1px_0_rgba(255,255,255,0.72)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_60px_rgba(12,10,9,0.11),0_0_0_1px_rgba(251,191,36,0.10)]', cardClass].join(' ')}>
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.18)_0%,transparent_40%,rgba(245,158,11,0.08)_100%)]" />
                   <div className={["absolute inset-x-0 top-0 h-1 rounded-t-3xl bg-gradient-to-r", accent.strip].join(' ')} />
+                  <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent opacity-90" />
 
                   <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                         <div className="min-w-0 flex-1">
                               <div className="flex items-start gap-3">
-                                    <div className={["hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-sm font-bold text-white shadow-sm sm:flex", accent.avatar].join(' ')}>
+                                    <div className={["hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-sm font-bold text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)] sm:flex", accent.avatar].join(' ')}>
                                           {getInitials(displayName)}
                                     </div>
 
                                     <div className="min-w-0 flex-1">
                                           <div className="flex flex-wrap items-center gap-2">
-                                                <h3 className="truncate text-base font-bold leading-6 text-slate-950 sm:text-[17px]">
+                                                <h3 className="truncate text-base font-semibold leading-6 text-slate-950 sm:text-[17px]">
                                                       {displayName}
                                                 </h3>
 
@@ -242,36 +242,6 @@ export function SimpleMemberCard({
                                           <ActionButton onClick={() => onRoomAction(member)} disabled={isRoomProcessing} tone="green">
                                                 {memberHasRoom ? 'Chuyển phòng' : 'Gắn phòng'}
                                           </ActionButton>
-
-                                          <div className="relative">
-                                                <ActionButton onClick={() => setIsActionMenuOpen((value) => !value)}>
-                                                      Thao tác
-                                                </ActionButton>
-
-                                                {isActionMenuOpen && (
-                                                      <div className="absolute right-0 top-full z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl">
-                                                            {onEdit && (
-                                                                  <button type="button" onClick={() => { setIsActionMenuOpen(false); onEdit(member); }} className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                                                        Sửa hồ sơ
-                                                                  </button>
-                                                            )}
-                                                            {onContacts && (
-                                                                  <button type="button" onClick={() => { setIsActionMenuOpen(false); onContacts(member); }} className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                                                        Liên hệ gia đình
-                                                                  </button>
-                                                            )}
-                                                            {onOrganization && (
-                                                                  <button type="button" onClick={() => { setIsActionMenuOpen(false); onOrganization(member); }} className="w-full px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                                                        Chức vụ / tổ chức
-                                                                  </button>
-                                                            )}
-                                                            <div className="my-1 border-t border-slate-100" />
-                                                            <button type="button" onClick={() => { setIsActionMenuOpen(false); onLeaveOrDelete(member); }} disabled={isLeaving} className="w-full px-4 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60">
-                                                                  Ngừng / Rời lưu xá
-                                                            </button>
-                                                      </div>
-                                                )}
-                                          </div>
                                     </>
                               )}
                         </div>
