@@ -950,14 +950,14 @@ function PremiumOrgPersonCard({
                         </p>
                   </div>
 
-                  <div className={isUnit ? 'relative mt-2 flex w-full items-center' : 'relative mt-3 flex w-full items-center'}>
+                  <div className={isUnit ? 'relative mt-1.5 flex w-full items-center' : 'relative mt-2 flex w-full items-center'}>
                         {assignment ? (
                               <div className="flex w-full items-center justify-between gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
                                     {onEdit ? (
                                           <button
                                                 type="button"
                                                 onClick={() => onEdit(assignment)}
-                                                className="rounded-full border border-slate-200 bg-white/78 px-2 py-0.5 text-[11px] font-semibold text-slate-500 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
+                                                className="rounded-full border border-slate-200 bg-white/78 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
                                           >
                                                 Sửa
                                           </button>
@@ -968,7 +968,7 @@ function PremiumOrgPersonCard({
                                           <button
                                                 type="button"
                                                 onClick={() => onEnd(assignment)}
-                                                className="rounded-full border border-rose-100 bg-white/78 px-2 py-0.5 text-[11px] font-semibold text-rose-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                                                className="rounded-full border border-rose-100 bg-white/78 px-1.5 py-0.5 text-[10px] font-semibold text-rose-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                                           >
                                                 Kết thúc
                                           </button>
@@ -982,7 +982,7 @@ function PremiumOrgPersonCard({
                                           <button
                                                 type="button"
                                                 onClick={onCreateAssignment}
-                                                className="rounded-full border border-amber-100 bg-white/78 px-2 py-0.5 text-[11px] font-semibold text-amber-700 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-800"
+                                                className="rounded-full border border-amber-100 bg-white/78 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-800"
                                           >
                                                 Phân công
                                           </button>
@@ -1024,7 +1024,7 @@ function PremiumUnitColumn({
 
       return (
             <section className={residenceMediumStyle.orgUnitColumn}>
-                  <div className={`bg-gradient-to-r ${headerAccent} px-4 py-3`}>
+                  <div className={`bg-gradient-to-r ${headerAccent} px-4 py-2.5`}>
                         <div className="flex items-center justify-between gap-3">
                               <div>
                                     <h3 className="text-base font-bold tracking-tight text-slate-800">
@@ -1040,7 +1040,7 @@ function PremiumUnitColumn({
                         </div>
                   </div>
 
-                  <div className="grid gap-2.5 p-2.5 sm:grid-cols-2">
+                  <div className="grid gap-2 p-2 sm:grid-cols-2">
                         {activeUnits.length === 0 ? (
                               <div className="sm:col-span-2">
                                     <SectionEmpty
@@ -1076,15 +1076,15 @@ function PremiumUnitColumn({
                                     return (
                                           <div
                                                 key={unit.id}
-                                                className="group rounded-2xl bg-white/52 p-2.5 shadow-sm shadow-slate-900/5 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/78 hover:shadow-[0_14px_34px_rgba(120,53,15,0.08)]"
+                                                className="group rounded-2xl bg-white/52 p-2 shadow-sm shadow-slate-900/5 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/80 hover:shadow-[0_14px_34px_rgba(120,53,15,0.08)]"
                                           >
-                                                <div className="mb-2 flex items-center justify-between gap-2">
+                                                <div className="mb-1.5 flex items-center justify-between gap-2">
                                                       <p className="truncate text-sm font-semibold text-slate-700 transition-colors group-hover:text-slate-900">
                                                             {unit.name}
                                                       </p>
                                                       <span
                                                             className={[
-                                                                  'rounded-full px-2 py-0.5 text-[11px] font-medium',
+                                                                  'rounded-full px-1.5 py-0.5 text-[10px] font-medium',
                                                                   isTeam
                                                                         ? 'bg-emerald-50/75 text-emerald-600'
                                                                         : 'bg-violet-50/75 text-violet-600',
@@ -1095,7 +1095,7 @@ function PremiumUnitColumn({
                                                       </span>
                                                 </div>
 
-                                                <div className="rounded-xl bg-white/42 px-2 py-2 transition group-hover:bg-white/70">
+                                                <div className="rounded-xl bg-white/42 px-2 py-1.5 transition group-hover:bg-white/70">
                                                       <p className="text-center text-[10px] font-semibold text-slate-400">
                                                             {leaderTitle}
                                                       </p>
@@ -1103,20 +1103,20 @@ function PremiumUnitColumn({
                                                             {leader ? getDisplayResidentName(leader) : 'Đang trống'}
                                                       </p>
 
-                                                      <div className="mt-2 flex w-full items-center">
+                                                      <div className="mt-1.5 flex w-full items-center">
                                                             {leader ? (
                                                                   <div className="flex w-full items-center justify-between gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
                                                                         <button
                                                                               type="button"
                                                                               onClick={() => onEdit(leader)}
-                                                                              className="rounded-full border border-slate-200 bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-slate-500 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
+                                                                              className="rounded-full border border-slate-200 bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
                                                                         >
                                                                               Sửa
                                                                         </button>
                                                                         <button
                                                                               type="button"
                                                                               onClick={() => onEnd(leader)}
-                                                                              className="rounded-full border border-rose-100 bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-rose-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                                                                              className="rounded-full border border-rose-100 bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold text-rose-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                                                                         >
                                                                               Kết thúc
                                                                         </button>
@@ -1141,8 +1141,8 @@ function PremiumUnitColumn({
                                                 </div>
 
                                                 {members.length > 0 && (
-                                                      <div className="mt-2 flex flex-wrap gap-1">
-                                                            {members.slice(0, 4).map((member) => (
+                                                      <div className="mt-1 hidden flex-wrap gap-1 opacity-0 transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100">
+                                                            {members.slice(0, 3).map((member) => (
                                                                   <span
                                                                         key={member.id}
                                                                         className="rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-medium text-slate-400"
@@ -1151,15 +1151,15 @@ function PremiumUnitColumn({
                                                                         {getDisplayResidentName(member)}
                                                                   </span>
                                                             ))}
-                                                            {members.length > 4 && (
+                                                            {members.length > 3 && (
                                                                   <span className="rounded-full bg-amber-50/80 px-2 py-0.5 text-[10px] font-medium text-amber-600">
-                                                                        +{members.length - 4}
+                                                                        +{members.length - 3}
                                                                   </span>
                                                             )}
                                                       </div>
                                                 )}
 
-                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                <div className="mt-1.5 flex flex-wrap gap-1.5">
                                                       <button
                                                             type="button"
                                                             onClick={() => onOpenUnitMembers(unit)}
@@ -1220,9 +1220,9 @@ function PremiumOrganizationChart({
       ];
 
       return (
-            <div className="space-y-3">
+            <div className="space-y-2">
                   <div className={residenceMediumStyle.orgChartPanel}>
-                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                               <div>
                                     <p className={residenceMediumStyle.modalEyebrow}>Cơ cấu hiện tại</p>
                                     <h3 className="mt-1 text-xl font-bold tracking-tight text-slate-950">
@@ -1235,7 +1235,7 @@ function PremiumOrganizationChart({
                         </div>
 
                         <div className={residenceMediumStyle.orgExecutivePanel}>
-                              <div className="mb-3 flex items-center justify-between gap-3">
+                              <div className="mb-2 flex items-center justify-between gap-3">
                                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                                           <p className={residenceMediumStyle.modalEyebrow}>Ban điều hành</p>
                                           <span className="text-sm font-semibold text-slate-700">
@@ -1244,7 +1244,7 @@ function PremiumOrganizationChart({
                                     </div>
                               </div>
 
-                              <div className="mx-auto max-w-sm">
+                              <div className="mx-auto max-w-xs">
                                     <PremiumOrgPersonCard
                                           title="Trưởng"
                                           assignment={leader}
@@ -1255,9 +1255,9 @@ function PremiumOrganizationChart({
                                     />
                               </div>
 
-                              <div className="mx-auto my-2 h-4 w-px bg-gradient-to-b from-slate-200 to-transparent" />
+                              <div className="mx-auto my-1.5 h-3 w-px bg-gradient-to-b from-slate-200 to-transparent" />
 
-                              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                                     {executiveAssignments.slice(1).map((item, index) => (
                                           <PremiumOrgPersonCard
                                                 key={`${item.title}-${item.assignment?.id || index}`}
@@ -1274,14 +1274,14 @@ function PremiumOrganizationChart({
                   </div>
 
                   <div className={residenceMediumStyle.orgUnitsPanel}>
-                        <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                               <p className={residenceMediumStyle.modalEyebrow}>Tổ / Ban</p>
                               <h3 className="text-base font-semibold text-slate-800">
                                     Đơn vị đang hoạt động
                               </h3>
                         </div>
 
-                        <div className="grid gap-3 2xl:grid-cols-2">
+                        <div className="grid gap-3 xl:grid-cols-2">
                               <PremiumUnitColumn
                                     title="Tổ"
                                     units={units}
