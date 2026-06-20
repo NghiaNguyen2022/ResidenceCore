@@ -392,27 +392,27 @@ function SidebarItem({
       const isDeepChild = depth >= 2;
 
       const itemClass = [
-            "group flex w-full items-center gap-2 rounded-xl transition",
+            "group flex w-full items-center gap-2 rounded-2xl border transition",
             isParent ? "px-2.5 py-2 text-[14px] font-semibold" : "",
             isChild ? "px-2.5 py-1.5 text-[13px] font-medium" : "",
             isDeepChild ? "px-2.5 py-1.5 text-[13px]" : "",
             isDirectActive
-                  ? "bg-slate-900 text-white shadow-sm"
+                  ? "border-amber-200/60 bg-[linear-gradient(35deg,rgba(255,255,255,0.94)_0%,rgba(254,243,199,0.82)_38%,rgba(245,158,11,0.32)_78%,rgba(28,25,23,0.14)_100%)] text-slate-950 shadow-[0_14px_28px_rgba(12,10,9,0.10),inset_0_1px_0_rgba(255,255,255,0.78)]"
                   : active && hasChildren
-                        ? "bg-slate-100 text-slate-900"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                        ? "border-amber-100/70 bg-white/70 text-slate-900 shadow-sm shadow-slate-900/5"
+                        : "border-transparent text-slate-600 hover:border-amber-100/70 hover:bg-white/68 hover:text-slate-900 hover:shadow-sm hover:shadow-slate-900/5",
             depth > 0 ? "ml-2" : "",
       ]
             .filter(Boolean)
             .join(" ");
 
       const iconClass = [
-            "flex shrink-0 items-center justify-center rounded-lg text-center",
+            "flex shrink-0 items-center justify-center rounded-xl text-center",
             isParent ? "h-7 w-7 text-sm" : "h-6 w-6 text-xs",
             isDirectActive
-                  ? "bg-white/15 text-white"
+                  ? "bg-white/76 text-amber-800 shadow-sm"
                   : isParent
-                        ? "bg-slate-100 text-slate-700 group-hover:bg-white"
+                        ? "bg-white/62 text-amber-800 ring-1 ring-amber-100/70 group-hover:bg-white"
                         : "bg-transparent text-slate-400",
       ].join(" ");
 
@@ -421,7 +421,7 @@ function SidebarItem({
             isParent ? "tracking-tight" : "",
             isChild ? "text-slate-700 group-hover:text-slate-900" : "",
             isDeepChild ? "text-slate-500 group-hover:text-slate-800" : "",
-            isDirectActive ? "!text-white" : "",
+            isDirectActive ? "!text-slate-950" : "",
       ]
             .filter(Boolean)
             .join(" ");
@@ -429,7 +429,7 @@ function SidebarItem({
       const chevronClass = [
             "text-xs transition-transform",
             isOpen ? "rotate-90" : "",
-            isDirectActive ? "text-white/80" : "text-slate-400",
+            isDirectActive ? "text-amber-800/80" : "text-slate-400",
       ].join(" ");
 
       const content = (
@@ -439,7 +439,7 @@ function SidebarItem({
                   <span className={labelClass}>{item.label}</span>
 
                   {item.badge && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                        <span className="rounded-full bg-white/74 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-amber-100/70">
                               {item.badge}
                         </span>
                   )}
@@ -454,7 +454,7 @@ function SidebarItem({
                         <span
                               className={[
                                     "absolute left-0 top-0 h-full w-px",
-                                    isDirectActive ? "bg-slate-900" : "bg-slate-200",
+                                    isDirectActive ? "bg-amber-400" : "bg-amber-100/70",
                               ].join(" ")}
                         />
                   )}
@@ -473,7 +473,7 @@ function SidebarItem({
                                     <span
                                           className={[
                                                 "h-1.5 w-1.5 shrink-0 rounded-full",
-                                                isDirectActive ? "bg-white" : "bg-slate-300",
+                                                isDirectActive ? "bg-amber-700" : "bg-amber-300",
                                           ].join(" ")}
                                     />
                               )}
@@ -487,8 +487,8 @@ function SidebarItem({
                         <div
                               className={[
                                     "mt-1 space-y-1",
-                                    depth === 0 ? "ml-3 border-l border-slate-200 pl-2" : "",
-                                    depth > 0 ? "ml-4 border-l border-slate-100 pl-2" : "",
+                                    depth === 0 ? "ml-3 border-l border-amber-100/70 pl-2" : "",
+                                    depth > 0 ? "ml-4 border-l border-amber-100/55 pl-2" : "",
                               ].join(" ")}
                         >
                               {item.children?.map((child) => (
@@ -647,16 +647,16 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
       }
 
       return (
-            <div className="min-h-screen bg-slate-50">
-                  <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-white lg:flex lg:flex-col">
-                        <div className="border-b px-4 py-4">
+            <div className="min-h-screen bg-[radial-gradient(circle_at_12%_16%,rgba(251,191,36,0.16)_0%,transparent_28%),linear-gradient(135deg,#fffaf0_0%,#f8fafc_46%,#fef3c7_82%,#111827_160%)]">
+                  <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-amber-100/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.86)_0%,rgba(255,251,235,0.72)_55%,rgba(245,158,11,0.12)_100%)] shadow-[18px_0_46px_rgba(12,10,9,0.075),inset_-1px_0_0_rgba(255,255,255,0.72)] backdrop-blur lg:flex lg:flex-col">
+                        <div className="border-b border-amber-100/70 px-4 py-4">
                               <div className="text-lg font-bold tracking-tight text-slate-900">
                                     ResidenceCore
                               </div>
-                              <div className="mt-0.5 text-xs text-slate-500">Quản lý lưu xá</div>
+                              <div className="mt-0.5 text-xs font-medium text-slate-500">Quản lý lưu xá</div>
                         </div>
 
-                        <nav className="flex-1 space-y-1 overflow-y-auto px-2.5 py-3">
+                        <nav className="flex-1 space-y-1.5 overflow-y-auto px-2.5 py-3">
                               {visibleNavigationItems.map((item) => (
                                     <SidebarItem
                                           key={`${item.label}-${item.path ?? "group"}`}
@@ -666,12 +666,12 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                               ))}
                         </nav>
 
-                        <div className="border-t bg-white px-4 py-3">
+                        <div className="border-t border-amber-100/70 bg-white/52 px-4 py-3">
                               <div className="flex items-center gap-2">
                                     <button
                                           type="button"
                                           onClick={openProfileModal}
-                                          className="min-w-0 flex-1 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-50"
+                                          className="min-w-0 flex-1 rounded-2xl border border-transparent px-2 py-1.5 text-left transition hover:border-amber-100/70 hover:bg-white/72"
                                           title={`${displayName} · ${roleText}`}
                                     >
                                           <div className="truncate text-sm font-semibold text-slate-900">
@@ -683,7 +683,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                     <button
                                           type="button"
                                           onClick={logout}
-                                          className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                          className="shrink-0 rounded-2xl border border-amber-100/70 bg-white/68 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm shadow-slate-900/5 transition hover:bg-white"
                                     >
                                           Đăng xuất
                                     </button>
@@ -692,7 +692,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                   </aside>
 
                   <div className="lg:pl-64">
-                        <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur">
+                        <header className="sticky top-0 z-20 border-b border-amber-100/70 bg-white/72 shadow-[0_12px_34px_rgba(12,10,9,0.045)] backdrop-blur">
                               <div className="flex h-14 items-center justify-between px-4 lg:px-6">
                                     <div>
                                           <div className="text-sm font-medium text-slate-900">

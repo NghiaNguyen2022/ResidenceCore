@@ -1436,17 +1436,17 @@ export default function Members() {
             <ResidenceCareLayout>
                   <div className={residenceMediumStyle.page}>
                         <span className={residenceMediumStyle.pageAura} />
-                        <div className="relative mx-auto max-w-[1420px] space-y-5 px-2 pb-8">
-                              <div className="relative overflow-visible px-5 pb-5 pt-4 text-slate-900 sm:px-6">
-                                    <div className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-70 [background-image:radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.92),transparent_30%),radial-gradient(circle_at_78%_8%,rgba(251,191,36,0.18),transparent_26%)]" />
+                        <div className="relative mx-auto max-w-[1420px] space-y-4 px-2 pb-8">
+                              <div className="relative overflow-visible px-5 pb-2 pt-3 text-slate-900 sm:px-6">
+                                    <div className="pointer-events-none absolute inset-x-0 top-0 h-32 opacity-70 [background-image:radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.92),transparent_30%),radial-gradient(circle_at_78%_8%,rgba(251,191,36,0.18),transparent_26%)]" />
 
-                                    <div className="relative min-h-[136px]">
+                                    <div className="relative min-h-[88px]">
                                           <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
-                                                <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+                                                <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-[38px]">
                                                       Học viên lưu trú
                                                 </h1>
 
-                                                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 sm:text-[15px]">
+                                                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500 sm:text-[15px]">
                                                       Một màn hình để theo dõi hồ sơ, phòng ở, liên hệ gia đình và vai trò tổ chức của từng học viên.
                                                 </p>
                                           </div>
@@ -1550,7 +1550,7 @@ export default function Members() {
                         )}
 
                         {isSimple ? (
-                              <div className="flex flex-wrap items-center justify-center gap-2 rounded-[24px] border border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.62)_0%,rgba(255,251,235,0.42)_62%,rgba(245,158,11,0.08)_100%)] px-4 py-3 shadow-[0_14px_30px_rgba(12,10,9,0.045),inset_0_1px_0_rgba(255,255,255,0.70)]">
+                              <div className="flex flex-wrap items-center justify-center gap-2 rounded-[24px] border border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.62)_0%,rgba(255,251,235,0.42)_62%,rgba(245,158,11,0.08)_100%)] px-4 py-2.5 shadow-[0_14px_30px_rgba(12,10,9,0.045),inset_0_1px_0_rgba(255,255,255,0.70)]">
                                     <span className="rounded-full bg-white/76 px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-amber-100/75 shadow-sm shadow-slate-900/5">
                                           Tổng: {stats.total}
                                     </span>
@@ -1614,7 +1614,7 @@ export default function Members() {
                               </div>
                         )}
 
-                        <div className="rounded-[26px] border border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82)_0%,rgba(255,251,235,0.62)_58%,rgba(245,158,11,0.10)_100%)] p-3 shadow-[0_18px_38px_rgba(12,10,9,0.065),inset_0_1px_0_rgba(255,255,255,0.72)]">
+                        <div className="rounded-[24px] border border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82)_0%,rgba(255,251,235,0.62)_58%,rgba(245,158,11,0.10)_100%)] p-2.5 shadow-[0_18px_38px_rgba(12,10,9,0.065),inset_0_1px_0_rgba(255,255,255,0.72)]">
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                                     <div className="relative min-w-0 flex-1">
                                           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
