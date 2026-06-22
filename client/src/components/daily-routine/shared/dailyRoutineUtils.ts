@@ -7,7 +7,7 @@ export type DutyVisualState =
       | 'cancelled';
 
 export function todayValue() {
-      return new Date().toISOString().slice(0, 10);
+      return formatDateValue(new Date());
 }
 
 export { formatTime } from '@/lib/format';
@@ -159,7 +159,7 @@ export function getTimelineCardClass(type: 'routine' | 'duty', state: DutyVisual
       }
 
       if (type === 'duty' && state === 'skipped') {
-            return 'border-amber-200 bg-amber-50/70 ring-1 ring-amber-100';
+            return 'border-amber-200 bg-amber-50 ring-1 ring-amber-100';
       }
 
       if (type === 'duty' && state === 'cancelled') {

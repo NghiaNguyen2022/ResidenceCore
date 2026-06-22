@@ -1608,9 +1608,9 @@ export async function assignDutyBatch(input: PreviewDutyAssignmentInput) {
       for (const item of preview.items.filter((row) => row.canCreate)) {
             const payload = normalizeDutyAssignmentForInsert({
                   dutyConfigId: input.dutyConfigId,
-                  residentId: input.assignedToType === "resident" ? input.assignedToId : null,
+                  residentId: input.assignedToType === "resident" ? ((item as any).assignedToId || null) : null,
                   assignedToType: input.assignedToType,
-                  assignedToId,
+                  assignedToId: (item as any).assignedToId,
                   assignedDate: item.date,
                   startDateTime: input.startTime,
                   endDateTime: input.endTime,

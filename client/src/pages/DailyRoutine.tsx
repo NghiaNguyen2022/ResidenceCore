@@ -123,7 +123,7 @@ function getDayTypeClass(dayType?: string | null) {
 }
 
 function todayValue() {
-      return new Date().toISOString().slice(0, 10);
+      return formatDateValue(new Date());
 }
 
 function formatDateValue(date: Date) {
@@ -160,8 +160,7 @@ function getDayOfWeekValue(dateText: string): DayOfWeek {
 }
 
 function getWeekRangeValues(dateText: string) {
-      const date = parseDateValue(dateText);
-      const startDate = addDays(date, -date.getDay());
+      const startDate = parseDateValue(dateText);
       const endDate = addDays(startDate, 6);
 
       return {

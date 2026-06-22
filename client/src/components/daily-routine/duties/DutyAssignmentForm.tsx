@@ -101,10 +101,8 @@ function getDayOfWeekValue(dateText: string): DayOfWeek {
 
 function getWeekEndDate(dateText: string) {
       const date = parseDateValue(dateText);
-      const startDate = new Date(date);
-      startDate.setDate(date.getDate() - date.getDay());
-      const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + 6);
+      const endDate = new Date(date);
+      endDate.setDate(date.getDate() + 6);
 
       const year = endDate.getFullYear();
       const month = String(endDate.getMonth() + 1).padStart(2, '0');
