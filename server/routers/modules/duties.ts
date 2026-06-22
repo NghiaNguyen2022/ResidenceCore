@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { protectedProcedure, router } from "../../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -78,7 +77,7 @@ export const dutiesRouter = router({
       listConfigs: protectedProcedure
             .input(
                   z.object({
-                        dutyType: z.enum(["daily", "weekly", "monthly"]).optional(),
+                        dutyType: z.enum(["daily", "weekly", "monthly", "event"]).optional(),
                         search: z.string().optional(),
                         isActive: z.boolean().optional(),
                         limit: z.number().default(50),
@@ -138,13 +137,22 @@ export const dutiesRouter = router({
                         dutyCode: z.string().min(1, "Mã công tác không được để trống"),
                         dutyName: z.string().min(1, "Tên công tác không được để trống"),
                         description: z.string().optional(),
-                        dutyType: z.enum(["daily", "weekly", "monthly"]),
+                        dutyType: z.enum(["daily", "weekly", "monthly", "event"]),
                         startTime: z.string().optional(),
                         endTime: z.string().optional(),
                         minPersons: z.number().min(1, "Số người tối thiểu phải lớn hơn 0"),
                         maxPersons: z.number().min(1, "Số người tối đa phải lớn hơn 0"),
-                        frequency: z.enum(["daily", "weekly", "monthly"]).optional(),
+                        frequency: z.enum(["daily", "weekly", "monthly", "event"]).optional(),
                         dayOfWeek: z.number().optional(),
+                        frequencyPerWeek: z.number().optional().nullable(),
+                        frequencyPerMonth: z.number().optional().nullable(),
+                        weeklyDaysJson: z.any().optional().nullable(),
+                        monthWeeksJson: z.any().optional().nullable(),
+                        monthWeekDaysJson: z.any().optional().nullable(),
+                        monthDaysJson: z.any().optional().nullable(),
+                        eventName: z.string().optional().nullable(),
+                        eventStartDate: z.date().optional().nullable(),
+                        eventEndDate: z.date().optional().nullable(),
                         requiresStudyScheduleCheck: z.boolean().default(true),
                         isActive: z.boolean().default(true),
                   })
@@ -186,8 +194,17 @@ export const dutiesRouter = router({
                         endTime: z.string().optional(),
                         minPersons: z.number().optional(),
                         maxPersons: z.number().optional(),
-                        frequency: z.enum(["daily", "weekly", "monthly"]).optional(),
+                        frequency: z.enum(["daily", "weekly", "monthly", "event"]).optional(),
                         dayOfWeek: z.number().optional(),
+                        frequencyPerWeek: z.number().optional().nullable(),
+                        frequencyPerMonth: z.number().optional().nullable(),
+                        weeklyDaysJson: z.any().optional().nullable(),
+                        monthWeeksJson: z.any().optional().nullable(),
+                        monthWeekDaysJson: z.any().optional().nullable(),
+                        monthDaysJson: z.any().optional().nullable(),
+                        eventName: z.string().optional().nullable(),
+                        eventStartDate: z.date().optional().nullable(),
+                        eventEndDate: z.date().optional().nullable(),
                         requiresStudyScheduleCheck: z.boolean().optional(),
                         isActive: z.boolean().optional(),
                   })
@@ -268,6 +285,9 @@ export const dutiesRouter = router({
                         description: z.string().optional(),
                         isRequired: z.boolean().default(true),
                         itemOrder: z.number().int().positive().optional(),
+                        stageType: z.enum(["normal", "preparation", "during", "after"]).optional(),
+                        minPersons: z.number().min(1).optional(),
+                        maxPersons: z.number().min(1).optional(),
                         estimatedTimeMinutes: z.number().optional(),
                   })
             )
@@ -294,6 +314,9 @@ export const dutiesRouter = router({
                         checklistItem: z.string().optional(),
                         description: z.string().optional(),
                         isRequired: z.boolean().optional(),
+                        stageType: z.enum(["normal", "preparation", "during", "after"]).optional(),
+                        minPersons: z.number().min(1).optional(),
+                        maxPersons: z.number().min(1).optional(),
                         estimatedTimeMinutes: z.number().optional(),
                   })
             )
@@ -710,6 +733,7 @@ export const dutiesRouter = router({
             .input(
                   z.object({
                         dutyConfigId: z.number(),
+                        dutyTaskId: z.number().optional().nullable(),
                         residentId: z.number().optional().nullable(),
                         assignedToType: z
                               .enum(["resident", "team", "room", "committee"])
@@ -882,7 +906,7 @@ export const dutiesRouter = router({
                   }
             }),
       getTemplatesByType: protectedProcedure
-            .input(z.object({ dutyType: z.enum(["daily", "weekly", "monthly"]) }))
+            .input(z.object({ dutyType: z.enum(["daily", "weekly", "monthly", "event"]) }))
             .query(async ({ input }) => {
                   try {
                         const templates = await db.getDutyTemplatesByType(input.dutyType);
@@ -987,6 +1011,7 @@ export const dutiesRouter = router({
             .input(
                   z.object({
                         dutyConfigId: z.number(),
+                        dutyTaskId: z.number().optional().nullable(),
                         residentIds: z.array(z.number()).min(1),
                         assignedDate: z.string(), // YYYY-MM-DD
                         startTime: z.string().optional().nullable(),
@@ -1017,3 +1042,4 @@ export const dutiesRouter = router({
                   }
             }),
 });
+

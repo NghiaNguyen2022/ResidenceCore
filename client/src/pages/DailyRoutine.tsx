@@ -1451,30 +1451,31 @@ export default function DailyRoutine() {
                         )}
 
                         {isDutyConfigFormOpen && (
-                              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-amber-700/45 px-4 py-6 backdrop-blur-sm">
-                                    <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff7ed_100%)] p-3 shadow-[0_16px_40px_rgba(120,53,15,0.08)]">
-                                          <div className="mb-5 flex items-start justify-between">
+                              <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/38 px-4 py-6 backdrop-blur-sm">
+                                    <div className="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff8ef_100%)] shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
+                                          <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-amber-100/70 bg-white/92 px-5 py-4 backdrop-blur">
                                                 <div>
-                                                      <h2 className="text-xl font-bold text-slate-900">
+                                                      <h2 className="text-2xl font-bold tracking-tight text-slate-900">
                                                             {selectedDutyConfigForEdit
-                                                                  ? 'Cập nhật mẫu công tác'
-                                                                  : 'Thêm mẫu công tác'}
+                                                                  ? 'Cập nhật công tác'
+                                                                  : 'Thêm công tác'}
                                                       </h2>
                                                       <p className="mt-1 text-sm text-slate-500">
-                                                            Thiết lập thông tin công tác và danh sách việc cần hoàn thành.
+                                                            Thiết lập loại công tác, lịch lặp và các công đoạn cần hoàn thành.
                                                       </p>
                                                 </div>
 
                                                 <button
                                                       type="button"
                                                       onClick={() => setIsDutyConfigFormOpen(false)}
-                                                      className="rounded-xl border border-amber-100 p-2 text-slate-500 hover:bg-amber-50"
+                                                      className="rounded-xl border border-amber-100 bg-white px-2.5 py-2 text-slate-500 shadow-[0_4px_12px_rgba(120,53,15,0.035)] transition hover:bg-amber-50"
                                                 >
                                                       <X className="h-4 w-4" />
                                                 </button>
                                           </div>
 
-                                          <DutyConfigForm
+                                          <div className="max-h-[calc(100vh-180px)] overflow-y-auto px-5 py-4">
+                                                <DutyConfigForm
                                                 duty={selectedDutyConfigForEdit}
                                                 onSave={async () => {
                                                       setIsDutyConfigFormOpen(false);
@@ -1486,6 +1487,7 @@ export default function DailyRoutine() {
                                                 }}
                                                 onCancel={() => setIsDutyConfigFormOpen(false)}
                                           />
+                                          </div>
                                     </div>
                               </div>
                         )}

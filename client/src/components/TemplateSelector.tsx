@@ -1,153 +1,215 @@
-import { useState } from "react";
-import { trpc } from "@/lib/trpc";
+'use client';
+
+import { useState } from 'react';
+import { X } from 'lucide-react';
+
+import { trpc } from '@/lib/trpc';
 
 interface DutyTemplate {
-  id: number;
-  templateCode: string;
-  templateName: string;
-  dutyType: string;
-  startTime: string;
-  endTime: string;
-  minPersons: number;
-  maxPersons: number;
-  description: string;
-  isActive: boolean;
+      id: number;
+      templateCode: string;
+      templateName: string;
+      dutyType: string;
+      startTime: string;
+      endTime: string;
+      minPersons: number;
+      maxPersons: number;
+      description: string;
+      isActive: boolean;
 }
 
 interface TemplateSelectorProps {
-  onSelect: (template: DutyTemplate) => void;
-  onCancel: () => void;
+      onSelect: (template: DutyTemplate) => void;
+      onCancel: () => void;
+}
+
+type DutyTemplateType = 'daily' | 'weekly' | 'monthly';
+
+const DUTY_TYPE_OPTIONS: Array<{ value: DutyTemplateType; label: string }> = [
+      { value: 'daily', label: 'Hằng ngày' },
+      { value: 'weekly', label: 'Hằng tuần' },
+      { value: 'monthly', label: 'Hằng tháng' },
+];
+
+function formatTimeText(value?: string | null) {
+      if (!value) return '--:--';
+
+      return String(value).slice(0, 5);
 }
 
 export default function TemplateSelector({ onSelect, onCancel }: TemplateSelectorProps) {
-  const [dutyType, setDutyType] = useState<"daily" | "weekly" | "monthly">("daily");
-  const [selectedTemplate, setSelectedTemplate] = useState<DutyTemplate | null>(null);
+      const [dutyType, setDutyType] = useState<DutyTemplateType>('daily');
+      const [selectedTemplate, setSelectedTemplate] = useState<DutyTemplate | null>(null);
 
-  // Fetch templates by type
-  const { data: templates = [], isLoading } = trpc.duties.getTemplatesByType.useQuery({
-    dutyType,
-  });
+      const { data: templates = [], isLoading } = trpc.duties.getTemplatesByType.useQuery({
+            dutyType,
+      });
 
-  const handleSelect = () => {
-    if (selectedTemplate) {
-      onSelect(selectedTemplate);
-    }
-  };
+      const handleSelect = () => {
+            if (selectedTemplate) {
+                  onSelect(selectedTemplate);
+            }
+      };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-3 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">📋 Chọn Công Tác Mẫu</h2>
+      return (
+            <div className="fixed inset-0 z-[80] overflow-y-auto bg-slate-950/38 px-4 py-8 backdrop-blur-sm">
+                  <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff8ef_100%)] shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
+                        <div className="flex items-start justify-between gap-4 border-b border-amber-100/70 bg-white/92 px-5 py-4">
+                              <div>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
+                                          Công tác mẫu
+                                    </p>
+                                    <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                                          Chọn công tác mẫu
+                                    </h2>
+                                    <p className="mt-1 text-sm text-slate-500">
+                                          Chọn mẫu có sẵn rồi điều chỉnh lại cho phù hợp với lịch thực tế.
+                                    </p>
+                              </div>
 
-        {/* Type Filter */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Loại Công Tác</label>
-          <div className="flex gap-2">
-            {["daily", "weekly", "monthly"].map((type) => (
-              <button
-                key={type}
-                onClick={() => {
-                  setDutyType(type as "daily" | "weekly" | "monthly");
-                  setSelectedTemplate(null);
-                }}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  dutyType === type
-                    ? "bg-blue-500 text-amber-900"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-              >
-                {type === "daily" && "Hàng Ngày"}
-                {type === "weekly" && "Hàng Tuần"}
-                {type === "monthly" && "Hàng Tháng"}
-              </button>
-            ))}
-          </div>
-        </div>
+                              <button
+                                    type="button"
+                                    onClick={onCancel}
+                                    className="rounded-xl border border-amber-100 bg-white px-2.5 py-2 text-slate-500 shadow-[0_4px_12px_rgba(120,53,15,0.035)] transition hover:bg-amber-50"
+                              >
+                                    <X className="h-4 w-4" />
+                              </button>
+                        </div>
 
-        {/* Templates List */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Danh Sách Mẫu</label>
-          {isLoading ? (
-            <div className="text-center py-8 text-gray-500">Đang tải...</div>
-          ) : templates.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">Không có công tác mẫu nào</div>
-          ) : (
-            <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-300 rounded-lg p-4">
-              {templates.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => setSelectedTemplate(template)}
-                  className={`w-full text-left p-3 rounded-lg transition ${
-                    selectedTemplate?.id === template.id
-                      ? "bg-blue-100 border-2 border-blue-500"
-                      : "bg-gray-50 border border-gray-300 hover:bg-gray-100"
-                  }`}
-                >
-                  <div className="font-medium text-gray-900">{template.templateName}</div>
-                  <div className="text-sm text-gray-600">
-                    {template.startTime} - {template.endTime}
+                        <div className="space-y-4 px-5 py-4">
+                              <div>
+                                    <p className="mb-2 text-sm font-semibold text-slate-700">
+                                          Loại công tác
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                          {DUTY_TYPE_OPTIONS.map((option) => (
+                                                <button
+                                                      key={option.value}
+                                                      type="button"
+                                                      onClick={() => {
+                                                            setDutyType(option.value);
+                                                            setSelectedTemplate(null);
+                                                      }}
+                                                      className={[
+                                                            'rounded-xl border px-3 py-2 text-sm font-semibold transition',
+                                                            dutyType === option.value
+                                                                  ? 'border-amber-200 bg-amber-50 text-amber-900 ring-1 ring-amber-100'
+                                                                  : 'border-amber-100 bg-white/90 text-slate-600 hover:bg-amber-50',
+                                                      ].join(' ')}
+                                                >
+                                                      {option.label}
+                                                </button>
+                                          ))}
+                                    </div>
+                              </div>
+
+                              <div>
+                                    <p className="mb-2 text-sm font-semibold text-slate-700">
+                                          Danh sách mẫu
+                                    </p>
+
+                                    {isLoading ? (
+                                          <div className="rounded-2xl border border-amber-100 bg-white/75 p-6 text-center text-sm text-slate-500">
+                                                Đang tải mẫu công tác...
+                                          </div>
+                                    ) : templates.length === 0 ? (
+                                          <div className="rounded-2xl border border-dashed border-amber-200 bg-white/65 p-6 text-center text-sm text-slate-500">
+                                                Chưa có công tác mẫu thuộc loại này.
+                                          </div>
+                                    ) : (
+                                          <div className="max-h-[310px] space-y-2 overflow-y-auto rounded-2xl border border-amber-100 bg-white/65 p-3">
+                                                {templates.map((template) => {
+                                                      const isSelected =
+                                                            selectedTemplate?.id === template.id;
+
+                                                      return (
+                                                            <button
+                                                                  key={template.id}
+                                                                  type="button"
+                                                                  onClick={() => setSelectedTemplate(template)}
+                                                                  className={[
+                                                                        'w-full rounded-xl border px-4 py-3 text-left transition',
+                                                                        isSelected
+                                                                              ? 'border-amber-200 bg-amber-50/75 shadow-[0_4px_14px_rgba(120,53,15,0.035)]'
+                                                                              : 'border-amber-100 bg-white/90 hover:bg-amber-50/70',
+                                                                  ].join(' ')}
+                                                            >
+                                                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                                                        <div>
+                                                                              <p className="font-semibold text-slate-900">
+                                                                                    {template.templateName}
+                                                                              </p>
+                                                                              <p className="mt-1 text-xs text-slate-500">
+                                                                                    {template.templateCode}
+                                                                              </p>
+                                                                        </div>
+
+                                                                        <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">
+                                                                              {formatTimeText(template.startTime)} - {formatTimeText(template.endTime)}
+                                                                        </span>
+                                                                  </div>
+                                                            </button>
+                                                      );
+                                                })}
+                                          </div>
+                                    )}
+                              </div>
+
+                              {selectedTemplate && (
+                                    <div className="rounded-2xl border border-amber-100 bg-amber-50/45 p-4">
+                                          <p className="font-semibold text-slate-900">
+                                                {selectedTemplate.templateName}
+                                          </p>
+                                          <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                                                <p>
+                                                      <span className="font-medium text-slate-700">Mã:</span>{' '}
+                                                      {selectedTemplate.templateCode}
+                                                </p>
+                                                <p>
+                                                      <span className="font-medium text-slate-700">Giờ:</span>{' '}
+                                                      {formatTimeText(selectedTemplate.startTime)} - {formatTimeText(selectedTemplate.endTime)}
+                                                </p>
+                                                <p>
+                                                      <span className="font-medium text-slate-700">Số người:</span>{' '}
+                                                      {selectedTemplate.minPersons} - {selectedTemplate.maxPersons}
+                                                </p>
+                                                <p>
+                                                      <span className="font-medium text-slate-700">Loại:</span>{' '}
+                                                      {selectedTemplate.dutyType}
+                                                </p>
+                                          </div>
+                                          {selectedTemplate.description && (
+                                                <p className="mt-3 text-sm leading-6 text-slate-600">
+                                                      {selectedTemplate.description}
+                                                </p>
+                                          )}
+                                    </div>
+                              )}
+                        </div>
+
+                        <div className="flex justify-end gap-3 border-t border-amber-100/70 bg-white/88 px-5 py-4">
+                              <button
+                                    type="button"
+                                    onClick={onCancel}
+                                    className="rounded-xl border border-amber-100 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-amber-50"
+                              >
+                                    Hủy
+                              </button>
+                              <button
+                                    type="button"
+                                    onClick={handleSelect}
+                                    disabled={!selectedTemplate}
+                                    className={[
+                                          'rounded-xl border px-4 py-2 text-sm font-semibold transition',
+                                          selectedTemplate
+                                                ? 'border-amber-100 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                                                : 'cursor-not-allowed border-slate-100 bg-slate-100 text-slate-400',
+                                    ].join(' ')}
+                              >
+                                    Chọn mẫu
+                              </button>
+                        </div>
                   </div>
-                </button>
-              ))}
             </div>
-          )}
-        </div>
-
-        {/* Template Details */}
-        {selectedTemplate && (
-          <div className="mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="font-bold text-gray-900 mb-3">📌 Chi Tiết Mẫu</h3>
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="font-medium text-gray-700">Mã:</span>
-                <span className="ml-2 text-gray-600">{selectedTemplate.templateCode}</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">Tên:</span>
-                <span className="ml-2 text-gray-600">{selectedTemplate.templateName}</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">Giờ:</span>
-                <span className="ml-2 text-gray-600">
-                  {selectedTemplate.startTime} - {selectedTemplate.endTime}
-                </span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">Số Người:</span>
-                <span className="ml-2 text-gray-600">
-                  {selectedTemplate.minPersons} - {selectedTemplate.maxPersons}
-                </span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">Mô Tả:</span>
-                <span className="ml-2 text-gray-600 block mt-1">{selectedTemplate.description}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Buttons */}
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onCancel}
-            className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handleSelect}
-            disabled={!selectedTemplate}
-            className={`px-6 py-2 rounded-lg font-medium transition ${
-              selectedTemplate
-                ? "bg-blue-500 text-amber-900 hover:bg-blue-600"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
-          >
-            Chọn Mẫu
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+      );
 }

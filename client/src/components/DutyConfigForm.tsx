@@ -1,649 +1,1005 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import { trpc } from "@/lib/trpc";
-import TemplateSelector from "./TemplateSelector";
-import { DEFAULT_TIME } from "@/lib/formDefaults";
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+
+import { trpc } from '@/lib/trpc';
+import TemplateSelector from './TemplateSelector';
+import { DEFAULT_TIME } from '@/lib/formDefaults';
+import { DAY_OPTIONS, type DayOfWeek } from '@/lib/days';
+
+type DutyType = 'daily' | 'weekly' | 'monthly' | 'event';
+type StageType = 'normal' | 'preparation' | 'during' | 'after';
+type MonthWeek = '1' | '2' | '3' | '4' | 'last';
 
 interface ChecklistItem {
-  id?: number;
-  itemOrder: number;
-  checklistItem: string;
-  isRequired: boolean;
-  description?: string;
-  estimatedTimeMinutes?: number;
+      id?: number;
+      itemOrder: number;
+      checklistItem: string;
+      isRequired: boolean;
+      description?: string;
+      stageType?: StageType;
+      minPersons?: number;
+      maxPersons?: number;
+      estimatedTimeMinutes?: number;
 }
 
 interface DutyTemplate {
-  id: number;
-  templateCode: string;
-  templateName: string;
-  dutyType: string;
-  startTime: string;
-  endTime: string;
-  minPersons: number;
-  maxPersons: number;
-  description: string;
-  isActive: boolean;
+      id: number;
+      templateCode: string;
+      templateName: string;
+      dutyType: DutyType;
+      startTime: string;
+      endTime: string;
+      minPersons: number;
+      maxPersons: number;
+      description: string;
+      isActive: boolean;
 }
 
 interface DutyConfigFormProps {
-  duty?: any; // null for create, DutyConfig for edit
-  onSave: () => void;
-  onCancel: () => void;
+      duty?: any;
+      onSave: () => void;
+      onCancel: () => void;
+}
+
+const DUTY_TYPE_OPTIONS: Array<{ value: DutyType; label: string; description: string }> = [
+      {
+            value: 'daily',
+            label: 'Theo ngày',
+            description: 'Đi chợ, nấu ăn, vệ sinh khu vực chung, phòng ngủ, trực cửa hàng.',
+      },
+      {
+            value: 'weekly',
+            label: 'Theo tuần',
+            description: 'Tập hát, vệ sinh toàn lưu xá, các việc lặp 2-4 lần mỗi tuần.',
+      },
+      {
+            value: 'monthly',
+            label: 'Theo tháng',
+            description: 'Tổng vệ sinh hoặc các việc lặp theo tuần 1, tuần 3, tuần cuối tháng.',
+      },
+      {
+            value: 'event',
+            label: 'Sự kiện / bất thường',
+            description: 'Công tác phát sinh theo sự kiện, chia chuẩn bị / diễn ra / sau sự kiện.',
+      },
+];
+
+const MONTH_WEEK_OPTIONS: Array<{ value: MonthWeek; label: string }> = [
+      { value: '1', label: 'Tuần 1' },
+      { value: '2', label: 'Tuần 2' },
+      { value: '3', label: 'Tuần 3' },
+      { value: '4', label: 'Tuần 4' },
+      { value: 'last', label: 'Tuần cuối' },
+];
+
+const STAGE_OPTIONS: Array<{ value: StageType; label: string }> = [
+      { value: 'normal', label: 'Thông thường' },
+      { value: 'preparation', label: 'Chuẩn bị' },
+      { value: 'during', label: 'Trong khi diễn ra' },
+      { value: 'after', label: 'Sau khi diễn ra' },
+];
+
+function normalizeArrayValue<T extends string>(value: unknown): T[] {
+      if (Array.isArray(value)) return value as T[];
+
+      if (typeof value === 'string' && value.trim()) {
+            try {
+                  const parsed = JSON.parse(value);
+                  return Array.isArray(parsed) ? (parsed as T[]) : [];
+            } catch {
+                  return [];
+            }
+      }
+
+      return [];
+}
+
+function TogglePill({
+      active,
+      children,
+      onClick,
+}: {
+      active: boolean;
+      children: React.ReactNode;
+      onClick: () => void;
+}) {
+      return (
+            <button
+                  type="button"
+                  onClick={onClick}
+                  className={[
+                        'rounded-xl border px-3 py-1.5 text-xs font-semibold transition',
+                        active
+                              ? 'border-amber-200 bg-amber-50 text-amber-900'
+                              : 'border-amber-100 bg-white/90 text-slate-600 hover:bg-amber-50',
+                  ].join(' ')}
+            >
+                  {children}
+            </button>
+      );
+}
+
+function toggleValue<T extends string>(list: T[], value: T) {
+      return list.includes(value)
+            ? list.filter((item) => item !== value)
+            : [...list, value];
 }
 
 export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFormProps) {
-  const [activeTab, setActiveTab] = useState<"basic" | "checklist">("basic");
-  const [loading, setLoading] = useState(false);
-  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
-  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
-  const [newChecklistItem, setNewChecklistItem] = useState<ChecklistItem>({
-    itemOrder: 0,
-    checklistItem: "",
-    isRequired: true,
-  });
-
-  const [formData, setFormData] = useState({
-    dutyCode: "",
-    dutyName: "",
-    description: "",
-    dutyType: "daily" as "daily" | "weekly" | "monthly",
-    startTime: DEFAULT_TIME,
-    endTime: DEFAULT_TIME,
-    minPersons: 1,
-    maxPersons: 5,
-    frequency: "daily" as "daily" | "weekly" | "monthly",
-    dayOfWeek: 0,
-    requiresStudyScheduleCheck: true,
-  });
-
-  // tRPC queries & mutations
-  const listTemplatesQuery = trpc.duties.listTemplates.useQuery();
-  const getChecklistQuery = trpc.duties.getChecklist.useQuery(
-    { dutyConfigId: duty?.id || 0 },
-    { enabled: !!duty?.id }
-  );
-  const createConfigMutation = trpc.duties.createConfig.useMutation();
-  const updateConfigMutation = trpc.duties.updateConfig.useMutation();
-  const addChecklistItemMutation = trpc.duties.addChecklistItem.useMutation();
-  const updateChecklistItemMutation = trpc.duties.updateChecklistItem.useMutation();
-  const deleteChecklistItemMutation = trpc.duties.deleteChecklistItem.useMutation();
-
-  // Load data
-  useEffect(() => {
-    if (duty) {
-      setFormData({
-        dutyCode: duty.dutyCode,
-        dutyName: duty.dutyName,
-        description: duty.description || "",
-        dutyType: duty.dutyType,
-        startTime: duty.startTime || DEFAULT_TIME,
-        endTime: duty.endTime || DEFAULT_TIME,
-        minPersons: duty.minPersons,
-        maxPersons: duty.maxPersons,
-        frequency: duty.frequency,
-        dayOfWeek: duty.dayOfWeek || 0,
-        requiresStudyScheduleCheck: duty.requiresStudyScheduleCheck,
+      const [activeTab, setActiveTab] = useState<'basic' | 'checklist'>('basic');
+      const [loading, setLoading] = useState(false);
+      const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+      const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+      const [newChecklistItem, setNewChecklistItem] = useState<ChecklistItem>({
+            itemOrder: 0,
+            checklistItem: '',
+            isRequired: true,
+            stageType: 'normal',
+            minPersons: 1,
+            maxPersons: 1,
       });
-    } else {
-      setChecklistItems([]);
-      setFormData({
-        dutyCode: "",
-        dutyName: "",
-        description: "",
-        dutyType: "daily",
-        startTime: DEFAULT_TIME,
-        endTime: DEFAULT_TIME,
-        minPersons: 1,
-        maxPersons: 5,
-        frequency: "daily",
-        dayOfWeek: 0,
-        requiresStudyScheduleCheck: true,
+
+      const [formData, setFormData] = useState({
+            dutyCode: '',
+            dutyName: '',
+            description: '',
+            dutyType: 'daily' as DutyType,
+            startTime: DEFAULT_TIME,
+            endTime: DEFAULT_TIME,
+            minPersons: 1,
+            maxPersons: 5,
+            frequency: 'daily' as DutyType,
+            dayOfWeek: 0,
+            frequencyPerWeek: 2,
+            frequencyPerMonth: 1,
+            weeklyDays: ['monday'] as DayOfWeek[],
+            monthWeeks: ['last'] as MonthWeek[],
+            monthWeekDays: ['saturday'] as DayOfWeek[],
+            monthDays: [] as number[],
+            eventName: '',
+            eventStartDate: '',
+            eventEndDate: '',
+            requiresStudyScheduleCheck: true,
       });
-    }
-  }, [duty]);
 
-  useEffect(() => {
-    if (getChecklistQuery.data) {
-      setChecklistItems(getChecklistQuery.data);
-    }
-  }, [getChecklistQuery.data]);
+      trpc.duties.listTemplates.useQuery();
+      const getChecklistQuery = trpc.duties.getChecklist.useQuery(
+            { dutyConfigId: duty?.id || 0 },
+            { enabled: !!duty?.id }
+      );
+      const createConfigMutation = trpc.duties.createConfig.useMutation();
+      const updateConfigMutation = trpc.duties.updateConfig.useMutation();
+      const addChecklistItemMutation = trpc.duties.addChecklistItem.useMutation();
+      const updateChecklistItemMutation = trpc.duties.updateChecklistItem.useMutation();
+      const deleteChecklistItemMutation = trpc.duties.deleteChecklistItem.useMutation();
 
-  // Handle select template
-  const handleSelectTemplate = (template: DutyTemplate) => {
-    setFormData({
-      ...formData,
-      dutyCode: `${template.templateCode}_${Date.now()}`,
-      dutyName: template.templateName,
-      description: template.description,
-      startTime: template.startTime,
-      endTime: template.endTime,
-      minPersons: template.minPersons,
-      maxPersons: template.maxPersons,
-      dutyType: template.dutyType as "daily" | "weekly" | "monthly",
-      frequency: template.dutyType as "daily" | "weekly" | "monthly",
-    });
-    setShowTemplateSelector(false);
-  };
+      useEffect(() => {
+            if (duty) {
+                  setFormData({
+                        dutyCode: duty.dutyCode || '',
+                        dutyName: duty.dutyName || '',
+                        description: duty.description || '',
+                        dutyType: duty.dutyType || 'daily',
+                        startTime: duty.startTime || DEFAULT_TIME,
+                        endTime: duty.endTime || DEFAULT_TIME,
+                        minPersons: duty.minPersons || 1,
+                        maxPersons: duty.maxPersons || 5,
+                        frequency: duty.frequency || duty.dutyType || 'daily',
+                        dayOfWeek: duty.dayOfWeek || 0,
+                        frequencyPerWeek: duty.frequencyPerWeek || 2,
+                        frequencyPerMonth: duty.frequencyPerMonth || 1,
+                        weeklyDays: normalizeArrayValue<DayOfWeek>(duty.weeklyDaysJson),
+                        monthWeeks: normalizeArrayValue<MonthWeek>(duty.monthWeeksJson),
+                        monthWeekDays: normalizeArrayValue<DayOfWeek>(duty.monthWeekDaysJson),
+                        monthDays: normalizeArrayValue<number>(duty.monthDaysJson),
+                        eventName: duty.eventName || '',
+                        eventStartDate: duty.eventStartDate || '',
+                        eventEndDate: duty.eventEndDate || '',
+                        requiresStudyScheduleCheck: duty.requiresStudyScheduleCheck !== false,
+                  });
+            }
+      }, [duty]);
 
-  const persistChecklistItems = async (dutyConfigId: number) => {
-    const originalItems = (getChecklistQuery.data || []) as ChecklistItem[];
-    const originalIds = originalItems
-      .map((item) => item.id)
-      .filter((id): id is number => Boolean(id));
+      useEffect(() => {
+            if (getChecklistQuery.data) {
+                  setChecklistItems(
+                        (getChecklistQuery.data as ChecklistItem[]).map((item) => ({
+                              ...item,
+                              stageType: item.stageType || 'normal',
+                              minPersons: item.minPersons || 1,
+                              maxPersons: item.maxPersons || 1,
+                        }))
+                  );
+            }
+      }, [getChecklistQuery.data]);
 
-    const currentIds = checklistItems
-      .map((item) => item.id)
-      .filter((id): id is number => Boolean(id));
+      const selectedDutyType = useMemo(
+            () => DUTY_TYPE_OPTIONS.find((item) => item.value === formData.dutyType),
+            [formData.dutyType]
+      );
 
-    const deletedIds = originalIds.filter((id) => !currentIds.includes(id));
-
-    for (const id of deletedIds) {
-      await deleteChecklistItemMutation.mutateAsync({ id });
-    }
-
-    for (const [index, item] of checklistItems.entries()) {
-      const payload = {
-        checklistItem: item.checklistItem.trim(),
-        description: item.description || undefined,
-        isRequired: item.isRequired,
-        estimatedTimeMinutes: item.estimatedTimeMinutes,
+      const handleSelectTemplate = (template: DutyTemplate) => {
+            setFormData((current) => ({
+                  ...current,
+                  dutyCode: `${template.templateCode}_${Date.now()}`,
+                  dutyName: template.templateName,
+                  description: template.description,
+                  startTime: template.startTime,
+                  endTime: template.endTime,
+                  minPersons: template.minPersons,
+                  maxPersons: template.maxPersons,
+                  dutyType: template.dutyType || 'daily',
+                  frequency: template.dutyType || 'daily',
+            }));
+            setShowTemplateSelector(false);
       };
 
-      if (!payload.checklistItem) continue;
+      const validateForm = () => {
+            if (!formData.dutyCode.trim()) return 'Vui lòng nhập mã công tác.';
+            if (!formData.dutyName.trim()) return 'Vui lòng nhập tên công tác.';
 
-      if (item.id) {
-        await updateChecklistItemMutation.mutateAsync({
-          id: item.id,
-          ...payload,
-        });
-      } else {
-        await addChecklistItemMutation.mutateAsync({
-          dutyConfigId,
-          itemOrder: index + 1,
-          ...payload,
-        });
-      }
-    }
-  };
+            if (formData.maxPersons < formData.minPersons) {
+                  return 'Số người tối đa phải lớn hơn hoặc bằng số người tối thiểu.';
+            }
 
-  const getDutyConfigIdFromResult = (result: any) => {
-    const rawId =
-      result?.id ??
-      result?.dutyConfigId ??
-      result?.insertId ??
-      result?.data?.id ??
-      result?.data?.dutyConfigId ??
-      result?.data?.insertId ??
-      result?.result?.id ??
-      result?.result?.insertId ??
-      result?.[0]?.id ??
-      result?.[0]?.insertId;
+            if (formData.dutyType === 'weekly') {
+                  if (formData.frequencyPerWeek <= 0) return 'Vui lòng nhập tần suất theo tuần.';
+                  if (formData.weeklyDays.length === 0) return 'Vui lòng chọn thứ thực hiện trong tuần.';
+            }
 
-    const parsedId = Number(rawId);
-
-    return Number.isFinite(parsedId) && parsedId > 0 ? parsedId : 0;
-  };
-
-  // Handle save
-  const handleSave = async () => {
-    if (!formData.dutyCode || !formData.dutyName) {
-      alert("Vui lòng nhập mã và tên công tác");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      let dutyConfigId = duty?.id ? Number(duty.id) : 0;
-
-      if (duty) {
-        const updatedConfig: any = await updateConfigMutation.mutateAsync({
-          id: duty.id,
-          data: {
-            dutyName: formData.dutyName,
-            description: formData.description,
-            startTime: formData.startTime || undefined,
-            endTime: formData.endTime || undefined,
-            minPersons: formData.minPersons,
-            maxPersons: formData.maxPersons,
-          },
-        });
-
-        dutyConfigId =
-          dutyConfigId ||
-          getDutyConfigIdFromResult(updatedConfig) ||
-          Number(duty.id || 0);
-      } else {
-        const createdConfig: any = await createConfigMutation.mutateAsync({
-          dutyCode: formData.dutyCode,
-          dutyName: formData.dutyName,
-          description: formData.description,
-          dutyType: formData.dutyType,
-          startTime: formData.startTime || undefined,
-          endTime: formData.endTime || undefined,
-          minPersons: formData.minPersons,
-          maxPersons: formData.maxPersons,
-          frequency: formData.frequency,
-          dayOfWeek: formData.dayOfWeek,
-          requiresStudyScheduleCheck: formData.requiresStudyScheduleCheck,
-        });
-
-        dutyConfigId = getDutyConfigIdFromResult(createdConfig);
-
-        if (!dutyConfigId) {
-          console.warn(
-            "Đã lưu cấu hình công tác nhưng response chưa trả về ID. Bỏ qua bước lưu danh sách công việc trong lần này.",
-            createdConfig
-          );
-        }
-      }
-
-      const hasChecklistItems = checklistItems.some((item) =>
-        item.checklistItem?.trim()
-      );
-
-      if (hasChecklistItems && dutyConfigId) {
-        await persistChecklistItems(dutyConfigId);
-      } else if (hasChecklistItems && !dutyConfigId) {
-        console.warn(
-          "Không xác định được công tác cần lưu danh sách công việc. Vui lòng mở lại công tác vừa tạo để bổ sung danh sách công việc nếu cần."
-        );
-      }
-
-      onSave();
-    } catch (error) {
-      console.error("Error saving duty config:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Lỗi khi lưu công tác"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle add checklist item
-  const handleAddChecklistItem = () => {
-    const checklistItem = newChecklistItem.checklistItem.trim();
-
-    if (!checklistItem) {
-      alert("Vui lòng nhập nội dung công việc");
-      return;
-    }
-
-    const newItem = {
-      ...newChecklistItem,
-      checklistItem,
-      itemOrder: checklistItems.length + 1,
-    };
-
-    setChecklistItems([...checklistItems, newItem]);
-    setNewChecklistItem({
-      itemOrder: 0,
-      checklistItem: "",
-      isRequired: true,
-    });
-  };
-
-  // Handle delete checklist item
-  const handleDeleteChecklistItem = (index: number) => {
-    setChecklistItems(
-      checklistItems
-        .filter((_, itemIndex) => itemIndex !== index)
-        .map((item, itemIndex) => ({
-          ...item,
-          itemOrder: itemIndex + 1,
-        }))
-    );
-  };
-
-  return (
-    <div className="space-y-6 text-slate-800">
-      {/* Tabs */}
-      <div className="rounded-xl border border-amber-100/80 bg-white/78 p-2 shadow-[0_8px_20px_rgba(120,53,15,0.045)]">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab("basic")}
-            className={`rounded-xl px-3 py-2.5 text-sm font-bold transition ${
-              activeTab === "basic"
-                ? "bg-amber-100 text-amber-900 shadow-[0_4px_12px_rgba(120,53,15,0.035)]"
-                : "text-slate-600 hover:bg-amber-50 hover:text-slate-900"
-            }`}
-          >
-            Công tác
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("checklist")}
-            className={`rounded-xl px-3 py-2.5 text-sm font-bold transition ${
-              activeTab === "checklist"
-                ? "bg-amber-100 text-amber-900 shadow-[0_4px_12px_rgba(120,53,15,0.035)]"
-                : "text-slate-600 hover:bg-amber-50 hover:text-slate-900"
-            }`}
-          >
-            Nhiệm vụ / checklist
-          </button>
-        </div>
-      </div>
-
-      {/* Basic Tab */}
-      {activeTab === "basic" && (
-        <div className="space-y-4">
-          {/* Template Selector Button */}
-          {!duty && (
-            <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setShowTemplateSelector(true)}
-                className="w-full px-3 py-2.5 bg-amber-100 text-amber-900 rounded-xl hover:bg-amber-200 font-medium transition flex items-center justify-center gap-2"
-              >
-                📋 Chọn Công Tác Mẫu
-              </button>
-              <p className="text-sm text-amber-800 mt-2">
-                💡 Chọn mẫu để tự động điền thông tin cơ bản
-              </p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Mã công tác *
-              </label>
-              <input
-                type="text"
-                value={formData.dutyCode}
-                onChange={(e) => setFormData({ ...formData, dutyCode: e.target.value })}
-                disabled={!!duty}
-                className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
-                placeholder="VD: DI_CHO_1234567890"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Tên công tác *
-              </label>
-              <input
-                type="text"
-                value={formData.dutyName}
-                onChange={(e) => setFormData({ ...formData, dutyName: e.target.value })}
-                className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100"
-                placeholder="VD: Đi Chợ"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Mô tả
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100"
-              placeholder="Mô tả chi tiết về công tác"
-              rows={3}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Loại công tác *
-              </label>
-              <select
-                value={formData.dutyType}
-                onChange={(e) => setFormData({ ...formData, dutyType: e.target.value as any })}
-                disabled={!!duty}
-                className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
-              >
-                <option value="daily">Hàng Ngày</option>
-                <option value="weekly">Hàng Tuần</option>
-                <option value="monthly">Hàng Tháng</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Tần Suất *
-              </label>
-              <select
-                value={formData.frequency}
-                onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
-                className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100"
-              >
-                <option value="daily">Hàng Ngày</option>
-                <option value="weekly">Hàng Tuần</option>
-                <option value="monthly">Hàng Tháng</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Giờ Bắt Đầu
-              </label>
-              <input
-                type="time"
-                value={formData.startTime}
-                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Giờ Kết Thúc
-              </label>
-              <input
-                type="time"
-                value={formData.endTime}
-                onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Số Người Tối Thiểu
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={formData.minPersons}
-                onChange={(e) => setFormData({ ...formData, minPersons: parseInt(e.target.value) })}
-                className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Số Người Tối Đa
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={formData.maxPersons}
-                onChange={(e) => setFormData({ ...formData, maxPersons: parseInt(e.target.value) })}
-                className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={formData.requiresStudyScheduleCheck}
-                onChange={(e) =>
-                  setFormData({ ...formData, requiresStudyScheduleCheck: e.target.checked })
-                }
-                className="w-4 h-4 rounded border-amber-100"
-              />
-              <span className="text-sm font-medium text-slate-700">
-                Kiểm tra xung đột với lịch học
-              </span>
-            </label>
-          </div>
-        </div>
-      )}
-
-      {/* Checklist Tab */}
-      {activeTab === "checklist" && (
-        <div className="space-y-4">
-          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-            <p className="text-sm text-amber-800">
-              💡 Thêm danh sách công việc cần hoàn thành cho công tác này
-            </p>
-          </div>
-
-          {/* Existing Checklist Items */}
-          {checklistItems.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="font-medium text-slate-900">Nhiệm vụ Hiện Tại</h3>
-              <div className="space-y-2">
-                {checklistItems.map((item, index) => (
-                  <div
-                    key={item.id || index}
-                    className="flex items-start gap-3 p-3 bg-amber-50/45 rounded-xl border border-amber-100"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={item.isRequired}
-                          disabled
-                          className="w-4 h-4 rounded border-amber-100"
-                        />
-                        <span className="font-medium text-slate-900">{item.checklistItem}</span>
-                        {item.estimatedTimeMinutes && (
-                          <span className="text-xs text-gray-500">
-                            ({item.estimatedTimeMinutes} phút)
-                          </span>
-                        )}
-                      </div>
-                      {item.description && (
-                        <p className="text-sm text-gray-600 mt-1 ml-6">{item.description}</p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleDeleteChecklistItem(index)}
-                      className="text-red-600 hover:text-red-900 font-medium text-sm"
-                    >
-                      Xóa
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Add New Checklist Item */}
-          <div className="space-y-3 p-3 bg-amber-50/45 rounded-xl border border-amber-100">
-            <h3 className="font-medium text-slate-900">Thêm nhiệm vụ</h3>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Nội dung nhiệm vụ *
-              </label>
-              <input
-                type="text"
-                value={newChecklistItem.checklistItem}
-                onChange={(e) =>
-                  setNewChecklistItem({ ...newChecklistItem, checklistItem: e.target.value })
-                }
-                className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100"
-                placeholder="VD: Mua rau, Mua thịt, Mua gia vị"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Mô tả Chi Tiết
-              </label>
-              <input
-                type="text"
-                value={newChecklistItem.description || ""}
-                onChange={(e) =>
-                  setNewChecklistItem({ ...newChecklistItem, description: e.target.value })
-                }
-                className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100"
-                placeholder="Mô tả chi tiết (tùy chọn)"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Thời Gian Ước Tính (phút)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={newChecklistItem.estimatedTimeMinutes || ""}
-                  onChange={(e) =>
-                    setNewChecklistItem({
-                      ...newChecklistItem,
-                      estimatedTimeMinutes: e.target.value ? parseInt(e.target.value) : undefined,
-                    })
+            if (formData.dutyType === 'monthly') {
+                  if (formData.frequencyPerMonth <= 0) return 'Vui lòng nhập tần suất theo tháng.';
+                  if (formData.monthWeeks.length === 0 || formData.monthWeekDays.length === 0) {
+                        return 'Vui lòng chọn tuần trong tháng và thứ thực hiện.';
                   }
-                  className="w-full px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] focus:outline-none focus:ring-2 focus:ring-amber-100"
-                  placeholder="30"
-                />
-              </div>
-              <div>
-                <label className="flex items-center gap-2 mt-6">
-                  <input
-                    type="checkbox"
-                    checked={newChecklistItem.isRequired}
-                    onChange={(e) =>
-                      setNewChecklistItem({ ...newChecklistItem, isRequired: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded border-amber-100"
-                  />
-                  <span className="text-sm font-medium text-slate-700">Bắt buộc</span>
-                </label>
-              </div>
+            }
+
+            if (formData.dutyType === 'event') {
+                  if (!formData.eventName.trim()) return 'Vui lòng nhập tên sự kiện.';
+                  if (!formData.eventStartDate || !formData.eventEndDate) {
+                        return 'Vui lòng nhập ngày bắt đầu và kết thúc sự kiện.';
+                  }
+            }
+
+            const invalidTask = checklistItems.find(
+                  (item) => Number(item.maxPersons || 1) < Number(item.minPersons || 1)
+            );
+
+            if (invalidTask) {
+                  return `Nhiệm vụ "${invalidTask.checklistItem}" có số người tối đa nhỏ hơn tối thiểu.`;
+            }
+
+            return '';
+      };
+
+      const persistChecklistItems = async (dutyConfigId: number) => {
+            const originalItems = (getChecklistQuery.data || []) as ChecklistItem[];
+            const originalIds = originalItems.map((item) => item.id).filter((id): id is number => Boolean(id));
+            const currentIds = checklistItems.map((item) => item.id).filter((id): id is number => Boolean(id));
+            const deletedIds = originalIds.filter((id) => !currentIds.includes(id));
+
+            for (const id of deletedIds) {
+                  await deleteChecklistItemMutation.mutateAsync({ id });
+            }
+
+            for (const [index, item] of checklistItems.entries()) {
+                  const payload = {
+                        checklistItem: item.checklistItem.trim(),
+                        description: item.description || undefined,
+                        isRequired: item.isRequired,
+                        stageType: item.stageType || 'normal',
+                        minPersons: Number(item.minPersons || 1),
+                        maxPersons: Number(item.maxPersons || 1),
+                        estimatedTimeMinutes: item.estimatedTimeMinutes,
+                  };
+
+                  if (!payload.checklistItem) continue;
+
+                  if (item.id) {
+                        await updateChecklistItemMutation.mutateAsync({
+                              id: item.id,
+                              ...payload,
+                        } as any);
+                  } else {
+                        await addChecklistItemMutation.mutateAsync({
+                              dutyConfigId,
+                              itemOrder: index + 1,
+                              ...payload,
+                        } as any);
+                  }
+            }
+      };
+
+      const handleSave = async () => {
+            const errorMessage = validateForm();
+
+            if (errorMessage) {
+                  alert(errorMessage);
+                  return;
+            }
+
+            setLoading(true);
+
+            try {
+                  const payload = {
+                        dutyCode: formData.dutyCode.trim(),
+                        dutyName: formData.dutyName.trim(),
+                        description: formData.description || undefined,
+                        dutyType: formData.dutyType,
+                        startTime: formData.startTime,
+                        endTime: formData.endTime,
+                        minPersons: Number(formData.minPersons),
+                        maxPersons: Number(formData.maxPersons),
+                        frequency: formData.dutyType,
+                        dayOfWeek: formData.weeklyDays.length
+                              ? DAY_OPTIONS.findIndex((day) => day.value === formData.weeklyDays[0])
+                              : formData.dayOfWeek,
+                        frequencyPerWeek:
+                              formData.dutyType === 'weekly' ? Number(formData.frequencyPerWeek) : null,
+                        frequencyPerMonth:
+                              formData.dutyType === 'monthly' ? Number(formData.frequencyPerMonth) : null,
+                        weeklyDaysJson: formData.dutyType === 'weekly' ? formData.weeklyDays : null,
+                        monthWeeksJson: formData.dutyType === 'monthly' ? formData.monthWeeks : null,
+                        monthWeekDaysJson:
+                              formData.dutyType === 'monthly' ? formData.monthWeekDays : null,
+                        monthDaysJson: formData.dutyType === 'monthly' ? formData.monthDays : null,
+                        eventName: formData.dutyType === 'event' ? formData.eventName : null,
+                        eventStartDate:
+                              formData.dutyType === 'event' && formData.eventStartDate
+                                    ? new Date(formData.eventStartDate)
+                                    : null,
+                        eventEndDate:
+                              formData.dutyType === 'event' && formData.eventEndDate
+                                    ? new Date(formData.eventEndDate)
+                                    : null,
+                        requiresStudyScheduleCheck: formData.requiresStudyScheduleCheck,
+                        isActive: true,
+                  };
+
+                  let dutyConfigId = duty?.id;
+
+                  if (duty?.id) {
+                        await updateConfigMutation.mutateAsync({
+                              id: duty.id,
+                              ...payload,
+                        } as any);
+                  } else {
+                        const result = await createConfigMutation.mutateAsync(payload as any);
+                        dutyConfigId = (result as any)?.insertId || (result as any)?.id || dutyConfigId;
+                  }
+
+                  if (dutyConfigId) {
+                        await persistChecklistItems(Number(dutyConfigId));
+                  }
+
+                  onSave();
+            } catch (error) {
+                  console.error('[DutyConfigForm] save error', error);
+                  alert(error instanceof Error ? error.message : 'Không thể lưu công tác.');
+            } finally {
+                  setLoading(false);
+            }
+      };
+
+      const handleAddChecklistItem = () => {
+            const checklistItem = newChecklistItem.checklistItem.trim();
+
+            if (!checklistItem) {
+                  alert('Vui lòng nhập nội dung nhiệm vụ.');
+                  return;
+            }
+
+            if (Number(newChecklistItem.maxPersons || 1) < Number(newChecklistItem.minPersons || 1)) {
+                  alert('Số người tối đa phải lớn hơn hoặc bằng số người tối thiểu.');
+                  return;
+            }
+
+            setChecklistItems((current) => [
+                  ...current,
+                  {
+                        ...newChecklistItem,
+                        checklistItem,
+                        itemOrder: current.length + 1,
+                        minPersons: Number(newChecklistItem.minPersons || 1),
+                        maxPersons: Number(newChecklistItem.maxPersons || 1),
+                  },
+            ]);
+
+            setNewChecklistItem({
+                  itemOrder: 0,
+                  checklistItem: '',
+                  isRequired: true,
+                  stageType: formData.dutyType === 'event' ? 'preparation' : 'normal',
+                  minPersons: 1,
+                  maxPersons: 1,
+            });
+      };
+
+      const handleDeleteChecklistItem = (index: number) => {
+            setChecklistItems((current) =>
+                  current
+                        .filter((_, itemIndex) => itemIndex !== index)
+                        .map((item, itemIndex) => ({
+                              ...item,
+                              itemOrder: itemIndex + 1,
+                        }))
+            );
+      };
+
+      return (
+            <div className="space-y-4 text-slate-800">
+                  <div className="rounded-2xl border border-amber-100/75 bg-white/88 p-1 shadow-[0_6px_18px_rgba(120,53,15,0.035)]">
+                        <div className="grid gap-1 sm:grid-cols-2">
+                              {[
+                                    { key: 'basic', label: 'Công tác' },
+                                    { key: 'checklist', label: 'Công đoạn / nhiệm vụ' },
+                              ].map((tab) => (
+                                    <button
+                                          key={tab.key}
+                                          type="button"
+                                          onClick={() => setActiveTab(tab.key as 'basic' | 'checklist')}
+                                          className={[
+                                                'rounded-xl px-3 py-2 text-sm font-semibold transition',
+                                                activeTab === tab.key
+                                                      ? 'bg-amber-50 text-amber-900 ring-1 ring-amber-100'
+                                                      : 'text-slate-500 hover:bg-amber-50/70 hover:text-slate-800',
+                                          ].join(' ')}
+                                    >
+                                          {tab.label}
+                                    </button>
+                              ))}
+                        </div>
+                  </div>
+
+                  {activeTab === 'basic' && (
+                        <div className="space-y-4">
+                              {!duty && (
+                                    <div className="flex flex-col gap-2 rounded-2xl border border-amber-100/75 bg-white/70 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                          <p className="text-sm leading-6 text-slate-500">
+                                                Có thể chọn mẫu trước, sau đó chỉnh lại loại công tác, lịch lặp và nhiệm vụ nhỏ.
+                                          </p>
+                                          <button
+                                                type="button"
+                                                onClick={() => setShowTemplateSelector(true)}
+                                                className="shrink-0 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
+                                          >
+                                                Chọn công tác mẫu
+                                          </button>
+                                    </div>
+                              )}
+
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                    <label className="space-y-1.5">
+                                          <span className="text-sm font-medium text-slate-700">Mã công tác *</span>
+                                          <input
+                                                type="text"
+                                                value={formData.dutyCode}
+                                                onChange={(event) =>
+                                                      setFormData({ ...formData, dutyCode: event.target.value })
+                                                }
+                                                disabled={!!duty}
+                                                className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80 disabled:bg-slate-50"
+                                                placeholder="VD: DI_CHO"
+                                          />
+                                    </label>
+
+                                    <label className="space-y-1.5">
+                                          <span className="text-sm font-medium text-slate-700">Tên công tác *</span>
+                                          <input
+                                                type="text"
+                                                value={formData.dutyName}
+                                                onChange={(event) =>
+                                                      setFormData({ ...formData, dutyName: event.target.value })
+                                                }
+                                                className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                placeholder="VD: Đi chợ, Tập hát, Tổng vệ sinh"
+                                          />
+                                    </label>
+                              </div>
+
+                              <label className="space-y-1.5">
+                                    <span className="text-sm font-medium text-slate-700">Mô tả</span>
+                                    <textarea
+                                          value={formData.description}
+                                          onChange={(event) =>
+                                                setFormData({ ...formData, description: event.target.value })
+                                          }
+                                          className="min-h-[72px] w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                          placeholder="Mô tả ngắn mục đích công tác"
+                                    />
+                              </label>
+
+                              <div className="rounded-2xl border border-amber-100/75 bg-white/72 p-3 shadow-[0_4px_14px_rgba(120,53,15,0.025)]">
+                                    <p className="mb-2 text-sm font-semibold text-slate-800">Loại công tác</p>
+                                    <div className="grid gap-2 lg:grid-cols-4">
+                                          {DUTY_TYPE_OPTIONS.map((option) => (
+                                                <button
+                                                      key={option.value}
+                                                      type="button"
+                                                      onClick={() =>
+                                                            setFormData({
+                                                                  ...formData,
+                                                                  dutyType: option.value,
+                                                                  frequency: option.value,
+                                                            })
+                                                      }
+                                                      className={[
+                                                            'rounded-xl border px-3 py-3 text-left transition',
+                                                            formData.dutyType === option.value
+                                                                  ? 'border-amber-200 bg-amber-50/75 text-amber-950 shadow-[0_4px_14px_rgba(120,53,15,0.035)]'
+                                                                  : 'border-amber-100/75 bg-white/88 text-slate-600 hover:bg-amber-50/65 hover:text-slate-800',
+                                                      ].join(' ')}
+                                                >
+                                                      <p className="text-sm font-bold">{option.label}</p>
+                                                      <p className="mt-1 text-xs leading-5 opacity-80">
+                                                            {option.description}
+                                                      </p>
+                                                </button>
+                                          ))}
+                                    </div>
+                              </div>
+
+                              <div className="rounded-2xl border border-amber-100/75 bg-white/72 p-3 shadow-[0_4px_14px_rgba(120,53,15,0.025)]">
+                                    <p className="text-sm font-semibold text-slate-800">
+                                          Thiết lập lịch — {selectedDutyType?.label}
+                                    </p>
+
+                                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                          <label className="space-y-1.5">
+                                                <span className="text-sm font-medium text-slate-700">Giờ bắt đầu</span>
+                                                <input
+                                                      type="time"
+                                                      value={formData.startTime}
+                                                      onChange={(event) =>
+                                                            setFormData({ ...formData, startTime: event.target.value })
+                                                      }
+                                                      className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                />
+                                          </label>
+
+                                          <label className="space-y-1.5">
+                                                <span className="text-sm font-medium text-slate-700">Giờ kết thúc</span>
+                                                <input
+                                                      type="time"
+                                                      value={formData.endTime}
+                                                      onChange={(event) =>
+                                                            setFormData({ ...formData, endTime: event.target.value })
+                                                      }
+                                                      className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                />
+                                          </label>
+                                    </div>
+
+                                    {formData.dutyType === 'weekly' && (
+                                          <div className="mt-3 space-y-3">
+                                                <label className="block max-w-xs space-y-1.5">
+                                                      <span className="text-sm font-medium text-slate-700">
+                                                            Tần suất / tuần
+                                                      </span>
+                                                      <input
+                                                            type="number"
+                                                            min={1}
+                                                            max={7}
+                                                            value={formData.frequencyPerWeek}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        frequencyPerWeek: Number(event.target.value || 1),
+                                                                  })
+                                                            }
+                                                            className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                      />
+                                                </label>
+
+                                                <div>
+                                                      <p className="mb-2 text-sm font-medium text-slate-700">
+                                                            Thứ thực hiện
+                                                      </p>
+                                                      <div className="flex flex-wrap gap-2">
+                                                            {DAY_OPTIONS.map((day) => (
+                                                                  <TogglePill
+                                                                        key={day.value}
+                                                                        active={formData.weeklyDays.includes(day.value)}
+                                                                        onClick={() =>
+                                                                              setFormData({
+                                                                                    ...formData,
+                                                                                    weeklyDays: toggleValue(
+                                                                                          formData.weeklyDays,
+                                                                                          day.value
+                                                                                    ),
+                                                                              })
+                                                                        }
+                                                                  >
+                                                                        {day.label}
+                                                                  </TogglePill>
+                                                            ))}
+                                                      </div>
+                                                </div>
+                                          </div>
+                                    )}
+
+                                    {formData.dutyType === 'monthly' && (
+                                          <div className="mt-3 space-y-3">
+                                                <label className="block max-w-xs space-y-1.5">
+                                                      <span className="text-sm font-medium text-slate-700">
+                                                            Tần suất / tháng
+                                                      </span>
+                                                      <input
+                                                            type="number"
+                                                            min={1}
+                                                            max={10}
+                                                            value={formData.frequencyPerMonth}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        frequencyPerMonth: Number(event.target.value || 1),
+                                                                  })
+                                                            }
+                                                            className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                      />
+                                                </label>
+
+                                                <div>
+                                                      <p className="mb-2 text-sm font-medium text-slate-700">
+                                                            Tuần trong tháng
+                                                      </p>
+                                                      <div className="flex flex-wrap gap-2">
+                                                            {MONTH_WEEK_OPTIONS.map((week) => (
+                                                                  <TogglePill
+                                                                        key={week.value}
+                                                                        active={formData.monthWeeks.includes(week.value)}
+                                                                        onClick={() =>
+                                                                              setFormData({
+                                                                                    ...formData,
+                                                                                    monthWeeks: toggleValue(
+                                                                                          formData.monthWeeks,
+                                                                                          week.value
+                                                                                    ),
+                                                                              })
+                                                                        }
+                                                                  >
+                                                                        {week.label}
+                                                                  </TogglePill>
+                                                            ))}
+                                                      </div>
+                                                </div>
+
+                                                <div>
+                                                      <p className="mb-2 text-sm font-medium text-slate-700">
+                                                            Thứ trong tuần đã chọn
+                                                      </p>
+                                                      <div className="flex flex-wrap gap-2">
+                                                            {DAY_OPTIONS.map((day) => (
+                                                                  <TogglePill
+                                                                        key={day.value}
+                                                                        active={formData.monthWeekDays.includes(day.value)}
+                                                                        onClick={() =>
+                                                                              setFormData({
+                                                                                    ...formData,
+                                                                                    monthWeekDays: toggleValue(
+                                                                                          formData.monthWeekDays,
+                                                                                          day.value
+                                                                                    ),
+                                                                              })
+                                                                        }
+                                                                  >
+                                                                        {day.label}
+                                                                  </TogglePill>
+                                                            ))}
+                                                      </div>
+                                                </div>
+                                          </div>
+                                    )}
+
+                                    {formData.dutyType === 'event' && (
+                                          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                                                <label className="space-y-1.5">
+                                                      <span className="text-sm font-medium text-slate-700">Tên sự kiện</span>
+                                                      <input
+                                                            type="text"
+                                                            value={formData.eventName}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        eventName: event.target.value,
+                                                                  })
+                                                            }
+                                                            className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                            placeholder="VD: Lễ bổn mạng"
+                                                      />
+                                                </label>
+
+                                                <label className="space-y-1.5">
+                                                      <span className="text-sm font-medium text-slate-700">Từ ngày</span>
+                                                      <input
+                                                            type="date"
+                                                            value={formData.eventStartDate}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        eventStartDate: event.target.value,
+                                                                  })
+                                                            }
+                                                            className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                      />
+                                                </label>
+
+                                                <label className="space-y-1.5">
+                                                      <span className="text-sm font-medium text-slate-700">Đến ngày</span>
+                                                      <input
+                                                            type="date"
+                                                            value={formData.eventEndDate}
+                                                            onChange={(event) =>
+                                                                  setFormData({
+                                                                        ...formData,
+                                                                        eventEndDate: event.target.value,
+                                                                  })
+                                                            }
+                                                            className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                      />
+                                                </label>
+                                          </div>
+                                    )}
+                              </div>
+
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                    <label className="space-y-1.5">
+                                          <span className="text-sm font-medium text-slate-700">Số người tối thiểu</span>
+                                          <input
+                                                type="number"
+                                                min={1}
+                                                value={formData.minPersons}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            minPersons: Number(event.target.value || 1),
+                                                      })
+                                                }
+                                                className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                          />
+                                    </label>
+
+                                    <label className="space-y-1.5">
+                                          <span className="text-sm font-medium text-slate-700">Số người tối đa</span>
+                                          <input
+                                                type="number"
+                                                min={1}
+                                                value={formData.maxPersons}
+                                                onChange={(event) =>
+                                                      setFormData({
+                                                            ...formData,
+                                                            maxPersons: Number(event.target.value || 1),
+                                                      })
+                                                }
+                                                className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                          />
+                                    </label>
+                              </div>
+
+                              <label className="flex items-center gap-2 rounded-xl border border-amber-100 bg-white/80 px-3 py-2">
+                                    <input
+                                          type="checkbox"
+                                          checked={formData.requiresStudyScheduleCheck}
+                                          onChange={(event) =>
+                                                setFormData({
+                                                      ...formData,
+                                                      requiresStudyScheduleCheck: event.target.checked,
+                                                })
+                                          }
+                                          className="h-4 w-4 rounded border-amber-100"
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">
+                                          Kiểm tra xung đột với lịch học khi phân công học viên
+                                    </span>
+                              </label>
+                        </div>
+                  )}
+
+                  {activeTab === 'checklist' && (
+                        <div className="space-y-4">
+                              <div className="rounded-2xl border border-amber-100 bg-amber-50/55 p-3 text-sm leading-6 text-amber-900">
+                                    Mỗi công đoạn/nhiệm vụ có số người tối thiểu và tối đa riêng. Với công tác sự kiện,
+                                    hãy chia theo giai đoạn: chuẩn bị, trong khi diễn ra, sau khi diễn ra.
+                              </div>
+
+                              {checklistItems.length > 0 && (
+                                    <div className="space-y-2">
+                                          {checklistItems.map((item, index) => (
+                                                <div
+                                                      key={item.id || index}
+                                                      className="rounded-2xl border border-amber-100 bg-white/85 p-3"
+                                                >
+                                                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                                            <div>
+                                                                  <div className="flex flex-wrap items-center gap-2">
+                                                                        <p className="font-bold text-slate-900">
+                                                                              {item.checklistItem}
+                                                                        </p>
+                                                                        <span className="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                                                                              {
+                                                                                    STAGE_OPTIONS.find(
+                                                                                          (stage) => stage.value === item.stageType
+                                                                                    )?.label
+                                                                              }
+                                                                        </span>
+                                                                        <span className="rounded-full border border-slate-100 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
+                                                                              {item.minPersons || 1}-{item.maxPersons || 1} người
+                                                                        </span>
+                                                                  </div>
+                                                                  {item.description && (
+                                                                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                                                                              {item.description}
+                                                                        </p>
+                                                                  )}
+                                                            </div>
+
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => handleDeleteChecklistItem(index)}
+                                                                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                                                            >
+                                                                  <Trash2 className="h-3.5 w-3.5" />
+                                                                  Xóa
+                                                            </button>
+                                                      </div>
+                                                </div>
+                                          ))}
+                                    </div>
+                              )}
+
+                              <div className="space-y-3 rounded-2xl border border-amber-100/75 bg-white/72 p-3 shadow-[0_4px_14px_rgba(120,53,15,0.025)]">
+                                    <p className="font-bold text-slate-900">Thêm công đoạn / nhiệm vụ</p>
+
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                          <label className="space-y-1.5 sm:col-span-2">
+                                                <span className="text-sm font-medium text-slate-700">
+                                                      Nội dung nhiệm vụ *
+                                                </span>
+                                                <input
+                                                      type="text"
+                                                      value={newChecklistItem.checklistItem}
+                                                      onChange={(event) =>
+                                                            setNewChecklistItem({
+                                                                  ...newChecklistItem,
+                                                                  checklistItem: event.target.value,
+                                                            })
+                                                      }
+                                                      className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                      placeholder="VD: Lau bàn ăn, kiểm tra bếp, chuẩn bị ghế"
+                                                />
+                                          </label>
+
+                                          <label className="space-y-1.5">
+                                                <span className="text-sm font-medium text-slate-700">Giai đoạn</span>
+                                                <select
+                                                      value={newChecklistItem.stageType || 'normal'}
+                                                      onChange={(event) =>
+                                                            setNewChecklistItem({
+                                                                  ...newChecklistItem,
+                                                                  stageType: event.target.value as StageType,
+                                                            })
+                                                      }
+                                                      className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                >
+                                                      {STAGE_OPTIONS.map((stage) => (
+                                                            <option key={stage.value} value={stage.value}>
+                                                                  {stage.label}
+                                                            </option>
+                                                      ))}
+                                                </select>
+                                          </label>
+
+                                          <label className="space-y-1.5">
+                                                <span className="text-sm font-medium text-slate-700">
+                                                      Thời gian ước tính (phút)
+                                                </span>
+                                                <input
+                                                      type="number"
+                                                      min={0}
+                                                      value={newChecklistItem.estimatedTimeMinutes || ''}
+                                                      onChange={(event) =>
+                                                            setNewChecklistItem({
+                                                                  ...newChecklistItem,
+                                                                  estimatedTimeMinutes: event.target.value
+                                                                        ? Number(event.target.value)
+                                                                        : undefined,
+                                                            })
+                                                      }
+                                                      className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                />
+                                          </label>
+
+                                          <label className="space-y-1.5">
+                                                <span className="text-sm font-medium text-slate-700">
+                                                      Số người tối thiểu
+                                                </span>
+                                                <input
+                                                      type="number"
+                                                      min={1}
+                                                      value={newChecklistItem.minPersons || 1}
+                                                      onChange={(event) =>
+                                                            setNewChecklistItem({
+                                                                  ...newChecklistItem,
+                                                                  minPersons: Number(event.target.value || 1),
+                                                            })
+                                                      }
+                                                      className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                />
+                                          </label>
+
+                                          <label className="space-y-1.5">
+                                                <span className="text-sm font-medium text-slate-700">
+                                                      Số người tối đa
+                                                </span>
+                                                <input
+                                                      type="number"
+                                                      min={1}
+                                                      value={newChecklistItem.maxPersons || 1}
+                                                      onChange={(event) =>
+                                                            setNewChecklistItem({
+                                                                  ...newChecklistItem,
+                                                                  maxPersons: Number(event.target.value || 1),
+                                                            })
+                                                      }
+                                                      className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                />
+                                          </label>
+
+                                          <label className="space-y-1.5 sm:col-span-2">
+                                                <span className="text-sm font-medium text-slate-700">Mô tả</span>
+                                                <input
+                                                      type="text"
+                                                      value={newChecklistItem.description || ''}
+                                                      onChange={(event) =>
+                                                            setNewChecklistItem({
+                                                                  ...newChecklistItem,
+                                                                  description: event.target.value,
+                                                            })
+                                                      }
+                                                      className="w-full rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                      placeholder="Ghi chú ngắn nếu cần"
+                                                />
+                                          </label>
+                                    </div>
+
+                                    <button
+                                          type="button"
+                                          onClick={handleAddChecklistItem}
+                                          className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+                                    >
+                                          <Plus className="h-4 w-4" />
+                                          Thêm nhiệm vụ
+                                    </button>
+                              </div>
+                        </div>
+                  )}
+
+                  <div className="flex gap-3 border-t border-amber-100 pt-4">
+                        <button
+                              type="button"
+                              onClick={onCancel}
+                              className="flex-1 rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-amber-50"
+                        >
+                              Hủy
+                        </button>
+                        <button
+                              type="button"
+                              onClick={handleSave}
+                              disabled={loading}
+                              className="flex-1 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                              {loading ? 'Đang lưu...' : duty ? 'Cập nhật' : 'Tạo mới'}
+                        </button>
+                  </div>
+
+                  {showTemplateSelector && (
+                        <TemplateSelector
+                              onSelect={handleSelectTemplate}
+                              onCancel={() => setShowTemplateSelector(false)}
+                        />
+                  )}
             </div>
-
-            <button
-              onClick={handleAddChecklistItem}
-              className="w-full px-3 py-1.5 bg-amber-100 text-amber-900 rounded-xl shadow-[0_4px_12px_rgba(120,53,15,0.035)] hover:bg-amber-200 font-medium"
-            >
-              + Thêm nhiệm vụ
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div className="flex gap-3 pt-4 border-t border-amber-100">
-        <button
-          onClick={onCancel}
-          className="flex-1 px-3 py-1.5 border border-amber-100 rounded-xl bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] bg-white/90 shadow-[0_4px_12px_rgba(120,53,15,0.035)] text-slate-700 hover:bg-amber-50/45 font-medium"
-        >
-          Hủy
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="flex-1 px-3 py-1.5 bg-amber-100 text-amber-900 rounded-xl shadow-[0_4px_12px_rgba(120,53,15,0.035)] hover:bg-amber-200 disabled:bg-gray-400 font-medium"
-        >
-          {loading ? "Đang Lưu..." : duty ? "Cập Nhật" : "Tạo Mới"}
-        </button>
-      </div>
-
-      {/* Template Selector Modal */}
-      {showTemplateSelector && (
-        <TemplateSelector
-          onSelect={handleSelectTemplate}
-          onCancel={() => setShowTemplateSelector(false)}
-        />
-      )}
-    </div>
-  );
+      );
 }

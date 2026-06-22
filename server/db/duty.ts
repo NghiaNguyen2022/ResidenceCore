@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Duty Management Database Functions
  * Các hàm liên quan đến quản lý công tác
@@ -1396,32 +1395,7 @@ function expandStudyTimeWithTravel(input: {
       };
 }
 
-function getDayOfWeekKeyFromDate(dateText: string) {
-      const date = new Date(`${dateText}T00:00:00`);
-      const day = date.getDay();
-
-      if (day === 0) return "sunday";
-      if (day === 1) return "monday";
-      if (day === 2) return "tuesday";
-      if (day === 3) return "wednesday";
-      if (day === 4) return "thursday";
-      if (day === 5) return "friday";
-      if (day === 6) return "saturday";
-
-      return "monday";
-}
-
-function normalizeRawRows(result: any) {
-      if (Array.isArray(result)) {
-            if (Array.isArray(result[0])) return result[0];
-            return result;
-      }
-
-      if (Array.isArray(result?.rows)) return result.rows;
-
-      return [];
-}
-
+// ❌ TODO: Implement when residentStudySchedules table is added (Phase 2 - Education feature)
 async function getResidentStudyScheduleConflict(
       db: any,
       input: {
@@ -1432,117 +1406,7 @@ async function getResidentStudyScheduleConflict(
             travelMinutes?: number;
       }
 ) {
-      if (!input.startTime || !input.endTime) return null;
-
-      const dutyStartTime = normalizePreviewTimeText(input.startTime);
-      const dutyEndTime = normalizePreviewTimeText(input.endTime);
-
-      if (!dutyStartTime || !dutyEndTime) return null;
-
-      const dayOfWeek = getDayOfWeekKeyFromDate(input.assignedDate);
-
-      try {
-            const rawResult = await db.execute(sql`
-                  SELECT
-                        id,
-                        dayOfWeek,
-                        startTime,
-                        endTime,
-                        subjectName,
-                        location
-                  FROM residentStudySchedules
-                  WHERE residentId = ${input.residentId}
-                        AND dayOfWeek = ${dayOfWeek}
-            `);
-
-            const rows = normalizeRawRows(rawResult);
-
-            for (const row of rows) {
-                  const studyStartTime = normalizePreviewTimeText(row.startTime);
-                  const studyEndTime = normalizePreviewTimeText(row.endTime);
-
-                  if (!studyStartTime || !studyEndTime) continue;
-
-                  const expanded = expandStudyTimeWithTravel({
-                        startTime: studyStartTime,
-                        endTime: studyEndTime,
-                        travelMinutes: input.travelMinutes ?? 60,
-                  });
-
-                  if (
-                        isTimeOverlap({
-                              startA: dutyStartTime,
-                              endA: dutyEndTime,
-                              startB: expanded.busyStartTime,
-                              endB: expanded.busyEndTime,
-                        })
-                  ) {
-                        const subjectText = row.subjectName
-                              ? ` (${row.subjectName})`
-                              : "";
-
-                        return {
-                              reason: `Trùng lịch học ${studyStartTime} - ${studyEndTime}${subjectText}`,
-                              detail:
-                                    `Công tác ${dutyStartTime} - ${dutyEndTime} bị trùng với lịch học ` +
-                                    `${studyStartTime} - ${studyEndTime}. Hệ thống đã tính thêm thời gian di chuyển 60 phút.`,
-                        };
-                  }
-            }
-
-            return null;
-      } catch (error) {
-            console.warn(
-                  "[duties.previewAssignment] Không thể kiểm tra lịch học. Bỏ qua kiểm tra để không chặn thao tác:",
-                  error
-            );
-
-            return null;
-      }
-}
-
-async function getAssigneeTimeConflictRows(
-      db: any,
-      input: {
-            assignedDate: string;
-            assignedToType: DutyAssignmentAssigneeType;
-            assignedToId: number;
-            startTime?: string | null;
-            endTime?: string | null;
-      }
-) {
-      if (!input.startTime || !input.endTime) return [];
-
-      const rows = await db
-            .select()
-            .from(dutyAssignments)
-            .where(
-                  and(
-                        sql`DATE(${dutyAssignments.assignedDate}) = ${input.assignedDate}`,
-                        eq(dutyAssignments.assignedToType, input.assignedToType as any),
-                        eq(dutyAssignments.assignedToId, input.assignedToId),
-                        inArray(dutyAssignments.status, ACTIVE_DUTY_ASSIGNMENT_STATUSES as any)
-                  )
-            );
-
-      const startTime = normalizePreviewTimeText(input.startTime);
-      const endTime = normalizePreviewTimeText(input.endTime);
-
-      return rows.filter((assignment: any) => {
-            const existingStartTime = normalizePreviewTimeText(assignment.startDateTime);
-            const existingEndTime = normalizePreviewTimeText(assignment.endDateTime);
-
-            if (!existingStartTime || !existingEndTime || !startTime || !endTime) {
-                  return false;
-            }
-
-            return isTimeOverlap({
-                  startA: startTime,
-                  endA: endTime,
-                  startB: existingStartTime,
-                  endB: existingEndTime,
-            });
-      });
+      return null;
 }
 
 async function getDutyAssignmentExistingRows(
@@ -1634,30 +1498,6 @@ export async function previewDutyAssignment(
                         canCreate: false,
                         reason: "Đã có phân công cho đối tượng này",
                         conflictType: "duplicate",
-                        minPersons: dutyConfig.minPersons ?? null,
-                        maxPersons: dutyConfig.maxPersons ?? null,
-                  });
-                  continue;
-            }
-
-            const timeConflictRows = await getAssigneeTimeConflictRows(db, {
-                  assignedDate,
-                  assignedToType: input.assignedToType,
-                  assignedToId: input.assignedToId,
-                  startTime: input.startTime || null,
-                  endTime: input.endTime || null,
-            });
-
-            if (timeConflictRows.length > 0) {
-                  const conflict = timeConflictRows[0] as any;
-                  items.push({
-                        date: assignedDate,
-                        canCreate: false,
-                        reason: "Đã có công tác trùng khung giờ",
-                        detail:
-                              `Đối tượng này đã có công tác từ ${normalizePreviewTimeText(conflict.startDateTime)} ` +
-                              `đến ${normalizePreviewTimeText(conflict.endDateTime)}.`,
-                        conflictType: "duty_time",
                         minPersons: dutyConfig.minPersons ?? null,
                         maxPersons: dutyConfig.maxPersons ?? null,
                   });
