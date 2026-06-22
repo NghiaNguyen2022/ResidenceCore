@@ -53,6 +53,7 @@ type AssignmentForm = {
       endTime: string;
       assignedToType: AssignToType;
       assignedToId: string;
+      assignedToIds: string[];
       assignWholeWeek: boolean;
       repeatType: RepeatType;
       repeatEndDate: string;
@@ -143,6 +144,43 @@ const DAY_INDEX_BY_VALUE: Record<DayOfWeek, number> = {
       saturday: 6,
 };
 
+const DAY_VALUE_BY_INDEX: DayOfWeek[] = [
+      'sunday',
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+];
+
+function getDayOfWeekValue(dateText: string): DayOfWeek {
+      const date = parseDateValue(dateText);
+      return DAY_VALUE_BY_INDEX[date.getDay()] || 'monday';
+}
+
+function getWeekRangeValues(dateText: string) {
+      const date = parseDateValue(dateText);
+      const startDate = addDays(date, -date.getDay());
+      const endDate = addDays(startDate, 6);
+
+      return {
+            startDate: formatDateValue(startDate),
+            endDate: formatDateValue(endDate),
+      };
+}
+
+function getMonthRangeForDateValue(dateText: string) {
+      const date = parseDateValue(dateText);
+      const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+      const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+      return {
+            startDate: formatDateValue(startDate),
+            endDate: formatDateValue(endDate),
+      };
+}
+
 function parseDateValue(dateText: string) {
       const [year, month, day] = dateText.split('-').map(Number);
       return new Date(year, month - 1, day);
@@ -203,16 +241,47 @@ function generateAssignmentDatesByRule(form: AssignmentForm) {
       if (!form.assignedDate) return [];
 
       const startDate = form.assignedDate;
-      const endDate =
-            form.repeatType === 'once'
-                  ? form.assignedDate
-                  : form.repeatEndDate || form.assignedDate;
-
-      if (endDate < startDate) return [];
 
       if (form.repeatType === 'once') {
+            if (form.assignWholeWeek) {
+                  const range = getWeekRangeValues(startDate);
+                  const selectedDayIndexes = new Set(
+                        (form.weeklyDays?.length
+                              ? form.weeklyDays
+                              : DAY_OPTIONS.map((day) => day.value)
+                        ).map((day) => DAY_INDEX_BY_VALUE[day])
+                  );
+
+                  const dates: string[] = [];
+                  let currentDate = parseDateValue(range.startDate);
+                  const lastDate = parseDateValue(range.endDate);
+
+                  while (currentDate <= lastDate) {
+                        if (selectedDayIndexes.has(currentDate.getDay())) {
+                              dates.push(formatDateValue(currentDate));
+                        }
+
+                        currentDate = addDays(currentDate, 1);
+                  }
+
+                  return uniqueSortedDates(dates);
+            }
+
+            if (form.weeklyDays?.length > 0) {
+                  const selectedDayIndexes = new Set(
+                        form.weeklyDays.map((day) => DAY_INDEX_BY_VALUE[day])
+                  );
+                  const selectedDate = parseDateValue(startDate);
+
+                  return selectedDayIndexes.has(selectedDate.getDay()) ? [startDate] : [];
+            }
+
             return [startDate];
       }
+
+      const endDate = form.repeatEndDate || form.assignedDate;
+
+      if (endDate < startDate) return [];
 
       if (form.repeatType === 'weekly') {
             if (!form.weeklyDays.length) return [];
@@ -484,10 +553,11 @@ export default function DailyRoutine() {
             endTime: '',
             assignedToType: 'resident',
             assignedToId: '',
+            assignedToIds: [],
             assignWholeWeek: false,
             repeatType: 'once',
             repeatEndDate: todayValue(),
-            weeklyDays: ['monday'],
+            weeklyDays: [getDayOfWeekValue(todayValue())],
             monthlyMode: 'month_boundary',
             monthBoundary: 'first_day',
             monthDays: [1],
@@ -809,7 +879,7 @@ export default function DailyRoutine() {
       const isAssignmentPreviewReady = Boolean(
             assignmentForm.dutyConfigId &&
                   assignmentForm.assignedDate &&
-                  assignmentForm.assignedToId &&
+                  (assignmentForm.assignedToIds || []).length > 0 &&
                   assignmentPreviewDates.length > 0
       );
 
@@ -818,7 +888,8 @@ export default function DailyRoutine() {
                   dutyConfigId: Number(assignmentForm.dutyConfigId || 0),
                   assignedDates: assignmentPreviewDates,
                   assignedToType: assignmentForm.assignedToType,
-                  assignedToId: Number(assignmentForm.assignedToId || 0),
+                  assignedToId: Number(assignmentForm.assignedToIds[0] || assignmentForm.assignedToId || 0),
+                  assignedToIds: (assignmentForm.assignedToIds || []).map((id) => Number(id)).filter(Boolean),
                   startTime: assignmentForm.startTime || null,
                   endTime: assignmentForm.endTime || null,
                   notes: assignmentForm.notes || null,
@@ -834,6 +905,7 @@ export default function DailyRoutine() {
                     skippedCount: number;
                     items: Array<{
                           date: string;
+                          assignedToId?: number;
                           canCreate: boolean;
                           reason?: string;
                           detail?: string;
@@ -904,7 +976,10 @@ export default function DailyRoutine() {
 
       const saveAssignment = async () => {
             const dutyConfigId = Number(assignmentForm.dutyConfigId || 0);
-            const assignedToId = Number(assignmentForm.assignedToId || 0);
+            const assignedToIds = (assignmentForm.assignedToIds || [])
+                  .map((id) => Number(id || 0))
+                  .filter((id) => id > 0);
+            const assignedToId = assignedToIds[0] || Number(assignmentForm.assignedToId || 0);
 
             if (!dutyConfigId) {
                   showMessage('error', 'Vui lòng chọn công tác.');
@@ -950,8 +1025,8 @@ export default function DailyRoutine() {
                   return;
             }
 
-            if (!assignedToId) {
-                  showMessage('error', 'Vui lòng chọn đối tượng được phân công.');
+            if (assignedToIds.length === 0) {
+                  showMessage('error', 'Vui lòng chọn ít nhất một đối tượng được phân công.');
                   return;
             }
 
@@ -961,6 +1036,7 @@ export default function DailyRoutine() {
                         assignedDates: assignmentPreviewDates,
                         assignedToType: assignmentForm.assignedToType,
                         assignedToId,
+                        assignedToIds,
                         startTime: assignmentForm.startTime || null,
                         endTime: assignmentForm.endTime || null,
                         notes: assignmentForm.notes || null,
@@ -980,10 +1056,11 @@ export default function DailyRoutine() {
                         endTime: '',
                         assignedToType: 'resident',
                         assignedToId: '',
+                        assignedToIds: [],
                         assignWholeWeek: false,
                         repeatType: 'once',
                         repeatEndDate: assignmentForm.assignedDate,
-                        weeklyDays: ['monday'],
+                        weeklyDays: [getDayOfWeekValue(assignmentForm.assignedDate)],
                         monthlyMode: 'month_boundary',
                         monthBoundary: 'first_day',
                         monthDays: [1],

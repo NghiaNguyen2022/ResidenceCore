@@ -1283,7 +1283,8 @@ export type PreviewDutyAssignmentInput = {
       dutyConfigId: number;
       assignedDates: string[];
       assignedToType: DutyAssignmentAssigneeType;
-      assignedToId: number;
+      assignedToId?: number;
+      assignedToIds?: number[];
       startTime?: string | null;
       endTime?: string | null;
       notes?: string | null;
@@ -1291,6 +1292,7 @@ export type PreviewDutyAssignmentInput = {
 
 export type PreviewDutyAssignmentItem = {
       date: string;
+      assignedToId?: number;
       canCreate: boolean;
       reason?: string;
       detail?: string;
@@ -1455,6 +1457,21 @@ async function getDutyAssignmentResidentRows(
             );
 }
 
+function normalizeAssigneeIds(input: { assignedToId?: number; assignedToIds?: number[] }) {
+      const ids = Array.from(
+            new Set(
+                  [
+                        ...(input.assignedToIds || []),
+                        input.assignedToId,
+                  ]
+                        .map((value) => Number(value || 0))
+                        .filter((value) => value > 0)
+            )
+      );
+
+      return ids;
+}
+
 export async function previewDutyAssignment(
       input: PreviewDutyAssignmentInput
 ): Promise<{
@@ -1482,19 +1499,22 @@ export async function previewDutyAssignment(
       const assignedDates = Array.from(
             new Set((input.assignedDates || []).map((rawDate) => toDateOnlyText(rawDate)).filter(Boolean))
       ).sort();
+      const assigneeIds = normalizeAssigneeIds(input);
 
       for (const assignedDate of assignedDates) {
+            for (const assignedToId of assigneeIds) {
 
             const duplicateRows = await getDutyAssignmentExistingRows(db, {
                   dutyConfigId: input.dutyConfigId,
                   assignedDate,
                   assignedToType: input.assignedToType,
-                  assignedToId: input.assignedToId,
+                  assignedToId,
             });
 
             if (duplicateRows.length > 0) {
                   items.push({
                         date: assignedDate,
+                        assignedToId,
                         canCreate: false,
                         reason: "Đã có phân công cho đối tượng này",
                         conflictType: "duplicate",
@@ -1506,7 +1526,7 @@ export async function previewDutyAssignment(
 
             if (input.assignedToType === "resident") {
                   const studyConflict = await getResidentStudyScheduleConflict(db, {
-                        residentId: input.assignedToId,
+                        residentId: assignedToId,
                         assignedDate,
                         startTime: input.startTime || null,
                         endTime: input.endTime || null,
@@ -1516,6 +1536,7 @@ export async function previewDutyAssignment(
                   if (studyConflict) {
                         items.push({
                               date: assignedDate,
+                              assignedToId,
                               canCreate: false,
                               reason: studyConflict.reason,
                               detail: studyConflict.detail,
@@ -1536,6 +1557,7 @@ export async function previewDutyAssignment(
                   if (currentResidentRows.length >= Number(dutyConfig.maxPersons)) {
                         items.push({
                               date: assignedDate,
+                              assignedToId,
                               canCreate: false,
                               reason: `Đã đủ số lượng tối đa (${dutyConfig.maxPersons} học viên)`,
                               conflictType: "capacity",
@@ -1548,6 +1570,7 @@ export async function previewDutyAssignment(
 
                   items.push({
                         date: assignedDate,
+                        assignedToId,
                         canCreate: true,
                         currentResidentCount: currentResidentRows.length,
                         minPersons: dutyConfig.minPersons ?? null,
@@ -1558,10 +1581,12 @@ export async function previewDutyAssignment(
 
             items.push({
                   date: assignedDate,
+                  assignedToId,
                   canCreate: true,
                   minPersons: dutyConfig.minPersons ?? null,
                   maxPersons: dutyConfig.maxPersons ?? null,
             });
+            }
       }
 
       return {
@@ -1585,7 +1610,7 @@ export async function assignDutyBatch(input: PreviewDutyAssignmentInput) {
                   dutyConfigId: input.dutyConfigId,
                   residentId: input.assignedToType === "resident" ? input.assignedToId : null,
                   assignedToType: input.assignedToType,
-                  assignedToId: input.assignedToId,
+                  assignedToId,
                   assignedDate: item.date,
                   startDateTime: input.startTime,
                   endDateTime: input.endTime,
