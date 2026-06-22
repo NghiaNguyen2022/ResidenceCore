@@ -30,7 +30,7 @@ function getDayTypeLabel(dayType?: string | null) {
 function getDayTypeClass(dayType?: string | null) {
       if (dayType === 'sunday') return 'border-purple-100 bg-purple-50 text-purple-700';
       if (dayType === 'special') return 'border-amber-100 bg-amber-50 text-amber-700';
-      return 'border-blue-100 bg-blue-50 text-blue-700';
+      return 'border-amber-100 bg-amber-50 text-amber-800';
 }
 
 export function RoutineTemplateList({
@@ -54,7 +54,7 @@ export function RoutineTemplateList({
                         <button
                               type="button"
                               onClick={onCreateTemplate}
-                              className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                              className="rounded-xl bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-200"
                         >
                               Thêm mẫu
                         </button>
@@ -69,7 +69,7 @@ export function RoutineTemplateList({
                                           onSearchTermChange(event.target.value)
                                     }
                                     placeholder="Tìm mẫu lịch..."
-                                    className="rounded-2xl pl-9"
+                                    className="rounded-xl pl-9"
                               />
                         </div>
 
@@ -78,7 +78,7 @@ export function RoutineTemplateList({
                               onChange={(event) =>
                                     onDayTypeFilterChange(event.target.value as DayTypeFilter)
                               }
-                              className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                              className="h-10 w-full rounded-xl border border-amber-100 bg-white/88 px-3 text-sm"
                         >
                               <option value="all">Tất cả loại ngày</option>
                               <option value="weekday">Ngày thường</option>
@@ -100,7 +100,7 @@ export function RoutineTemplateList({
                                     <button
                                           type="button"
                                           onClick={onCreateTemplate}
-                                          className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                          className="rounded-xl bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-200"
                                     >
                                           Thêm mẫu lịch
                                     </button>
@@ -117,15 +117,15 @@ export function RoutineTemplateList({
                                                 key={template.id}
                                                 onClick={() => onSelectTemplate(template.id)}
                                                 className={[
-                                                      'w-full rounded-3xl border p-4 text-left transition',
+                                                      'w-full rounded-xl border p-3 text-left transition',
                                                       isSelected
-                                                            ? 'border-blue-300 bg-blue-50 shadow-sm'
-                                                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50',
+                                                            ? 'border-amber-200 bg-amber-50/70 shadow-[0_4px_12px_rgba(120,53,15,0.035)]'
+                                                            : 'border-amber-100 bg-white/88 hover:border-amber-200 hover:bg-amber-50',
                                                 ].join(' ')}
                                           >
                                                 <div className="flex items-start justify-between gap-3">
                                                       <div>
-                                                            <p className="font-bold text-slate-950">
+                                                            <p className="font-bold text-slate-900">
                                                                   {template.name}
                                                             </p>
                                                             <p className="mt-1 text-xs text-slate-500">
@@ -151,7 +151,7 @@ export function RoutineTemplateList({
                                                                   event.stopPropagation();
                                                                   onEditTemplate(template);
                                                             }}
-                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-100 bg-white/88 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-amber-50"
                                                       >
                                                             <Edit2 className="h-3.5 w-3.5" />
                                                             Sửa
@@ -163,7 +163,7 @@ export function RoutineTemplateList({
                                                                   event.stopPropagation();
                                                                   onRemoveTemplate(template);
                                                             }}
-                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
                                                       >
                                                             <Trash2 className="h-3.5 w-3.5" />
                                                             Xóa

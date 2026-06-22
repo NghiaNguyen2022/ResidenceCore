@@ -1210,6 +1210,17 @@ export default function Members() {
 
                         setError(null);
                         clearSelectedMembers();
+                        setSelectedMember((current: any) =>
+                              current && Number(current.id) === Number(member.id)
+                                    ? {
+                                            ...current,
+                                            status: 'transferred_out',
+                                            residenceStatus: 'transferred_out',
+                                            departureDate: new Date(),
+                                      }
+                                    : current
+                        );
+                        setDetailInitialTab('room');
                         closeMessageBox();
                         await refetchMembers();
                         await roomsQuery.refetch();
@@ -1347,7 +1358,29 @@ export default function Members() {
 
             if (value === 'handoverOrganizationRoles') {
                   if (pendingActionMember?.id) {
-                        window.location.href = `/organization?handoverResidentId=${pendingActionMember.id}`;
+                        try {
+                              sessionStorage.setItem(
+                                    'residencecare.members.reopenDetailResidentId',
+                                    String(pendingActionMember.id)
+                              );
+                              sessionStorage.setItem(
+                                    'residencecare.members.reopenDetailTab',
+                                    'room'
+                              );
+                              sessionStorage.setItem(
+                                    'residencecare.organization.returnTo',
+                                    '/members'
+                              );
+                              sessionStorage.setItem(
+                                    'residencecare.organization.returnLabel',
+                                    'Quay lại hồ sơ học viên'
+                              );
+                        } catch {
+                              // Ignore storage errors.
+                        }
+
+                        closeMessageBox();
+                        navigate(`/organization?handoverResidentId=${pendingActionMember.id}`);
                         return;
                   }
 

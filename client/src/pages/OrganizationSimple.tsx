@@ -1455,6 +1455,9 @@ export default function OrganizationSimple() {
 
             if (residentId > 0) {
                   setHandoverResidentId(residentId);
+                  setReturnToMembersPath('/members');
+                  setReturnToMembersLabel('Quay lại hồ sơ học viên');
+                  setReturnFocusResidentId(residentId);
                   setActiveTab('assignments');
                   setSelectedTermId('active');
                   setSearchTerm('');
@@ -2560,7 +2563,22 @@ export default function OrganizationSimple() {
 
                   await refetchOrganization();
 
-                  window.location.href = '/members';
+                  try {
+                        sessionStorage.setItem(
+                              'residencecare.members.reopenDetailResidentId',
+                              String(handoverResidentId)
+                        );
+                        sessionStorage.setItem(
+                              'residencecare.members.reopenDetailTab',
+                              'room'
+                        );
+                  } catch {
+                        // Ignore storage errors.
+                  }
+
+                  window.setTimeout(() => {
+                        navigate('/members');
+                  }, 180);
             } catch (err: any) {
                   setMessage({
                         type: 'error',

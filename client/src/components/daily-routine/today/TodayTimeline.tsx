@@ -31,8 +31,8 @@ export function TodayTimeline({
 
       return (
             <SectionCard
-                  title="Lịch sinh hoạt trong ngày"
-                  description="Các khung giờ sinh hoạt cố định trong ngày."
+                  title="Sinh hoạt trong ngày"
+                  description="Các khung giờ sinh hoạt cố định, chỉ để theo dõi nhanh."
             >
                   {isLoading ? (
                         <EmptyState
@@ -56,7 +56,7 @@ export function TodayTimeline({
                                           <div
                                                 key={item.id || `${item.startTime}-${item.title}`}
                                                 className={[
-                                                      'rounded-3xl border p-4 shadow-sm transition',
+                                                      'rounded-xl border p-3 shadow-[0_4px_12px_rgba(120,53,15,0.035)] transition',
                                                       getTimelineCardClass(
                                                             'routine',
                                                             visualState
@@ -71,11 +71,11 @@ export function TodayTimeline({
 
                                                       <div>
                                                             <div className="flex flex-wrap items-center gap-2">
-                                                                  <h3 className="font-bold text-slate-950">
+                                                                  <h3 className="font-bold text-slate-900">
                                                                         {item.title}
                                                                   </h3>
 
-                                                                  <Badge className="border-blue-100 bg-blue-50 text-blue-700">
+                                                                  <Badge className="border-amber-100 bg-amber-50 text-amber-800">
                                                                         Lịch sinh hoạt
                                                                   </Badge>
 

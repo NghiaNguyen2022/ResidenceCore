@@ -18,17 +18,17 @@ export function SectionCard({
       return (
             <section
                   className={[
-                        'rounded-[26px] border border-amber-100/80 bg-white/90 p-5 shadow-[0_16px_36px_rgba(120,53,15,0.06)]',
+                        'relative overflow-hidden rounded-2xl border border-amber-100/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.92)_0%,rgba(255,251,235,0.55)_100%)] p-4 shadow-[0_10px_26px_rgba(120,53,15,0.05)]',
                         className,
                   ].join(' ')}
             >
                   {(title || description || action) && (
-                        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                               <div>
                                     {title && (
-                                          <h3 className="text-lg font-semibold tracking-tight text-slate-900">
+                                          <h2 className="text-lg font-bold tracking-tight text-slate-900">
                                                 {title}
-                                          </h3>
+                                          </h2>
                                     )}
                                     {description && (
                                           <p className="mt-1 text-sm leading-6 text-slate-500">

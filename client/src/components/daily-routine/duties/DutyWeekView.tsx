@@ -51,15 +51,15 @@ export function DutyWeekView({
                                           type="button"
                                           onClick={() => onSelectDate(date)}
                                           className={[
-                                                'rounded-3xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md',
+                                                'rounded-xl border p-3 text-left shadow-[0_4px_12px_rgba(120,53,15,0.035)] transition hover:-translate-y-0.5 hover:shadow-md',
                                                 date === selectedDate
-                                                      ? 'border-blue-200 bg-blue-50'
-                                                      : 'border-slate-200 bg-white',
+                                                      ? 'border-amber-100 bg-amber-50'
+                                                      : 'border-amber-100 bg-white/88',
                                           ].join(' ')}
                                     >
                                           <div className="flex items-start justify-between gap-2">
                                                 <div>
-                                                      <p className="font-bold text-slate-950">
+                                                      <p className="font-bold text-slate-900">
                                                             {getWeekdayLabel(date)}
                                                       </p>
                                                       <p className="text-sm text-slate-500">
@@ -68,7 +68,7 @@ export function DutyWeekView({
                                                 </div>
 
                                                 {date === selectedDate && (
-                                                      <Badge className="border-blue-100 bg-white text-blue-700">
+                                                      <Badge className="border-amber-100 bg-white text-amber-800">
                                                             Đang xem
                                                       </Badge>
                                                 )}

@@ -32,14 +32,14 @@ export function TodaySummaryBar({
       ).length;
 
       return (
-            <div className="rounded-[26px] border border-amber-100/80 bg-white/90 p-5 shadow-[0_16px_36px_rgba(120,53,15,0.06)]">
+            <div className="rounded-xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff7ed_100%)] p-3 shadow-[0_10px_26px_rgba(120,53,15,0.055)]">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
-                              <h3 className="text-lg font-semibold tracking-tight text-slate-900">
-                                    Hôm nay
-                              </h3>
+                              <h2 className="text-xl font-bold text-slate-900">
+                                    Hôm nay cần theo dõi
+                              </h2>
                               <p className="mt-1 text-sm text-slate-500">
-                                    Xem riêng lịch sinh hoạt và lịch công tác trong ngày.
+                                    Một nơi để xem lịch sinh hoạt và các công tác cần hoàn thành trong ngày.
                               </p>
                         </div>
 
@@ -52,22 +52,22 @@ export function TodaySummaryBar({
                               <button
                                     type="button"
                                     onClick={onCreateDuty}
-                                    className="inline-flex items-center gap-2 rounded-xl bg-[#17335f] px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(23,51,95,0.16)] transition hover:bg-[#244878]"
+                                    className="inline-flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-900 shadow-[0_4px_12px_rgba(120,53,15,0.035)] hover:bg-amber-200"
                               >
                                     <Plus className="h-4 w-4" />
-                                    Thêm phân công
+                                    Thêm công tác
                               </button>
                         </div>
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-                        <Badge className="border-blue-100 bg-blue-50 text-blue-700">
+                        <Badge className="border-amber-100 bg-amber-50 text-amber-700">
                               {routineCount} khung giờ sinh hoạt
                         </Badge>
-                        <Badge className="border-orange-100 bg-orange-50 text-orange-700">
+                        <Badge className="border-amber-100 bg-white/88 text-slate-700">
                               {assignments.length} công tác
                         </Badge>
-                        <Badge className="border-green-100 bg-green-50 text-green-700">
+                        <Badge className="border-emerald-100 bg-emerald-50 text-emerald-700">
                               {completedCount} đã hoàn thành
                         </Badge>
                         <Badge className="border-rose-100 bg-rose-50 text-rose-700">

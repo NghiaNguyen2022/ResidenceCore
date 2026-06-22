@@ -392,19 +392,19 @@ function SidebarItem({
       const isDeepChild = depth >= 2;
 
       const itemClass = [
-            "group flex w-full items-center gap-2 rounded-2xl border transition",
+            "group flex w-full items-center gap-2 rounded-xl border transition",
             isParent ? "px-2.5 py-2 text-[14px] font-semibold" : "",
             isChild ? "px-2.5 py-1.5 text-[13px] font-medium" : "",
             isDeepChild ? "px-2.5 py-1.5 text-[13px]" : "",
             isDirectActive
-                  ? "border-amber-200/60 bg-[linear-gradient(35deg,rgba(255,255,255,0.94)_0%,rgba(254,243,199,0.82)_38%,rgba(245,158,11,0.32)_78%,rgba(28,25,23,0.14)_100%)] text-slate-950 shadow-[0_14px_28px_rgba(12,10,9,0.10),inset_0_1px_0_rgba(255,255,255,0.78)]"
+                  ? "border-amber-200/60 bg-[linear-gradient(35deg,rgba(255,255,255,0.94)_0%,rgba(254,243,199,0.82)_38%,rgba(245,158,11,0.32)_78%,rgba(28,25,23,0.14)_100%)] text-slate-900 shadow-[0_14px_28px_rgba(12,10,9,0.10),inset_0_1px_0_rgba(255,255,255,0.78)]"
                   : active && hasChildren
-                        ? "border-amber-100/70 bg-white/70 text-slate-900 shadow-sm shadow-slate-900/5"
+                        ? "border-amber-100/70 bg-white/70 text-slate-900 shadow-[0_4px_12px_rgba(120,53,15,0.035)] shadow-slate-900/5"
                         : isChild
-                              ? "border-amber-100/55 bg-white/38 text-slate-500 hover:border-amber-100/80 hover:bg-white/66 hover:text-slate-800 hover:shadow-sm hover:shadow-slate-900/5"
+                              ? "border-amber-100/55 bg-white/38 text-slate-500 hover:border-amber-100/80 hover:bg-white/66 hover:text-slate-800 hover:shadow-[0_4px_12px_rgba(120,53,15,0.035)] hover:shadow-slate-900/5"
                               : isDeepChild
                                     ? "border-transparent bg-transparent text-slate-500 hover:border-amber-100/60 hover:bg-white/50 hover:text-slate-800"
-                                    : "border-transparent text-slate-600 hover:border-amber-100/70 hover:bg-white/68 hover:text-slate-900 hover:shadow-sm hover:shadow-slate-900/5",
+                                    : "border-transparent text-slate-600 hover:border-amber-100/70 hover:bg-white/68 hover:text-slate-900 hover:shadow-[0_4px_12px_rgba(120,53,15,0.035)] hover:shadow-slate-900/5",
             "",
       ]
             .filter(Boolean)
@@ -419,9 +419,9 @@ function SidebarItem({
 
       const iconClass = [
             "flex shrink-0 items-center justify-center rounded-xl text-center",
-            isParent ? "h-7 w-7 text-sm" : "h-6 w-6 text-xs",
+            isParent ? "h-6 w-6 text-sm" : "h-6 w-6 text-xs",
             isDirectActive
-                  ? "bg-white/76 text-amber-800 shadow-sm"
+                  ? "bg-white/76 text-amber-800 shadow-[0_4px_12px_rgba(120,53,15,0.035)]"
                   : isParent
                         ? "bg-white/62 text-amber-800 ring-1 ring-amber-100/70 group-hover:bg-white"
                         : "bg-transparent text-slate-400",
@@ -432,7 +432,7 @@ function SidebarItem({
             isParent ? "tracking-tight" : "",
             isChild ? "text-slate-600 group-hover:text-slate-850" : "",
             isDeepChild ? "text-slate-500 group-hover:text-slate-800" : "",
-            isDirectActive ? "!text-slate-950" : "",
+            isDirectActive ? "!text-slate-900" : "",
       ]
             .filter(Boolean)
             .join(" ");
@@ -683,7 +683,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                     <button
                                           type="button"
                                           onClick={openProfileModal}
-                                          className="min-w-0 flex-1 rounded-2xl border border-transparent px-2 py-1.5 text-left transition hover:border-amber-100/70 hover:bg-white/72"
+                                          className="min-w-0 flex-1 rounded-xl border border-transparent px-2 py-1.5 text-left transition hover:border-amber-100/70 hover:bg-white/72"
                                           title={`${displayName} · ${roleText}`}
                                     >
                                           <div className="truncate text-sm font-semibold text-slate-900">
@@ -695,7 +695,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                     <button
                                           type="button"
                                           onClick={logout}
-                                          className="shrink-0 rounded-2xl border border-amber-100/70 bg-white/68 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm shadow-slate-900/5 transition hover:bg-white"
+                                          className="shrink-0 rounded-xl border border-amber-100/70 bg-white/68 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-[0_4px_12px_rgba(120,53,15,0.035)] shadow-slate-900/5 transition hover:bg-white"
                                     >
                                           Đăng xuất
                                     </button>
@@ -735,7 +735,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                                                                           : item.label
                                                                               }
                                                                               className={[
-                                                                                    "shrink-0 rounded-2xl border px-3 py-2 shadow-sm shadow-slate-100/70 transition hover:-translate-y-[1px]",
+                                                                                    "shrink-0 rounded-xl border px-3 py-1.5 shadow-[0_4px_12px_rgba(120,53,15,0.035)] shadow-slate-100/70 transition hover:-translate-y-[1px]",
                                                                                     chipClasses.wrapper,
                                                                               ].join(" ")}
                                                                         >
@@ -790,7 +790,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
 
                   {showProfileModal && !mustChangePassword && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-                              <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
+                              <div className="w-full max-w-lg rounded-xl bg-white p-3 shadow-xl">
                                     <div className="mb-4">
                                           <h2 className="text-lg font-semibold text-slate-900">
                                                 Thông tin cá nhân
@@ -813,7 +813,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                                                   name: event.target.value,
                                                             }))
                                                       }
-                                                      className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-900"
+                                                      className="w-full rounded-xl border px-3 py-1.5 text-sm outline-none focus:border-slate-900"
                                                       placeholder="Nhập họ tên"
                                                 />
                                           </label>
@@ -830,12 +830,12 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                                                   email: event.target.value,
                                                             }))
                                                       }
-                                                      className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-900"
+                                                      className="w-full rounded-xl border px-3 py-1.5 text-sm outline-none focus:border-slate-900"
                                                       placeholder="email@example.com"
                                                 />
                                           </label>
 
-                                          <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                          <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
                                                 <div>
                                                       Tên đăng nhập:{" "}
                                                       <span className="font-medium text-slate-900">
@@ -851,7 +851,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                           </div>
 
                                           {updateMyProfileMutation.error && (
-                                                <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                                                <div className="rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
                                                       {updateMyProfileMutation.error.message}
                                                 </div>
                                           )}
@@ -861,7 +861,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                           <button
                                                 type="button"
                                                 onClick={() => setShowProfileModal(false)}
-                                                className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                                className="rounded-xl border px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
                                           >
                                                 Đóng
                                           </button>
@@ -873,7 +873,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                                                       updateMyProfileMutation.isPending ||
                                                       !profileForm.name.trim()
                                                 }
-                                                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                                                className="rounded-xl bg-slate-900 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-200 disabled:opacity-60"
                                           >
                                                 {updateMyProfileMutation.isPending
                                                       ? "Đang lưu..."

@@ -111,11 +111,11 @@ export function DutyMonthView({
                                           type="button"
                                           onClick={() => onSelectDate(date)}
                                           className={[
-                                                'min-h-[112px] rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md',
+                                                'min-h-[112px] rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md',
                                                 isSelected
-                                                      ? 'border-blue-200 bg-blue-50 ring-1 ring-blue-100'
+                                                      ? 'border-amber-100 bg-amber-50 ring-1 ring-amber-100'
                                                       : currentMonth
-                                                            ? 'border-slate-200 bg-white'
+                                                            ? 'border-amber-100 bg-white/88'
                                                             : 'border-slate-100 bg-slate-50 opacity-60',
                                           ].join(' ')}
                                     >
@@ -124,7 +124,7 @@ export function DutyMonthView({
                                                       className={[
                                                             'text-sm font-bold',
                                                             currentMonth
-                                                                  ? 'text-slate-950'
+                                                                  ? 'text-slate-900'
                                                                   : 'text-slate-400',
                                                       ].join(' ')}
                                                 >
@@ -132,7 +132,7 @@ export function DutyMonthView({
                                                 </span>
 
                                                 {isSelected && (
-                                                      <Badge className="border-blue-100 bg-white text-blue-700">
+                                                      <Badge className="border-amber-100 bg-white text-amber-800">
                                                             Đang xem
                                                       </Badge>
                                                 )}

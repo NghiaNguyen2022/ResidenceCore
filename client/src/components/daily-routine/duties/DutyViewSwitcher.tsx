@@ -15,17 +15,17 @@ const options: Array<{ value: DutyViewMode; label: string }> = [
 
 export function DutyViewSwitcher({ value, onChange }: DutyViewSwitcherProps) {
       return (
-            <div className="inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
+            <div className="inline-flex rounded-xl border border-amber-100 bg-white/80 p-1 shadow-[0_4px_12px_rgba(120,53,15,0.03)]">
                   {options.map((option) => (
                         <button
                               key={option.value}
                               type="button"
                               onClick={() => onChange(option.value)}
                               className={[
-                                    'rounded-xl px-3 py-2 text-sm font-semibold transition',
+                                    'rounded-lg px-3 py-1.5 text-sm font-semibold transition',
                                     value === option.value
-                                          ? 'bg-white text-blue-700 shadow-sm ring-1 ring-blue-100'
-                                          : 'text-slate-500 hover:text-slate-800',
+                                          ? 'bg-amber-100 text-amber-900'
+                                          : 'text-slate-500 hover:bg-amber-50 hover:text-slate-800',
                               ].join(' ')}
                         >
                               {option.label}

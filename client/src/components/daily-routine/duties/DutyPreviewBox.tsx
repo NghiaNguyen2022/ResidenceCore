@@ -33,7 +33,7 @@ export function DutyPreviewBox({
 
       if (isLoading) {
             return (
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
+                  <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
                         Đang kiểm tra lịch phân công...
                   </div>
             );
@@ -41,7 +41,7 @@ export function DutyPreviewBox({
 
       if (!preview) {
             return (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3 text-sm text-slate-600">
                         Chọn công tác và đối tượng để xem trước các ngày sẽ tạo.
                   </div>
             );
@@ -54,11 +54,11 @@ export function DutyPreviewBox({
             preview.canCreateCount === 0
                   ? 'border-rose-200 bg-rose-50 text-rose-800'
                   : preview.skippedCount > 0
-                        ? 'border-amber-200 bg-amber-50 text-amber-800'
-                        : 'border-green-200 bg-green-50 text-green-800';
+                        ? 'border-amber-200 bg-amber-50/70 text-amber-800'
+                        : 'border-emerald-100 bg-emerald-50 text-emerald-800';
 
       return (
-            <div className={['rounded-2xl border p-4 text-sm', boxClass].join(' ')}>
+            <div className={['rounded-xl border p-3 text-sm shadow-[0_10px_24px_rgba(120,53,15,0.04)]', boxClass].join(' ')}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-semibold">
                               Sẽ tạo {preview.canCreateCount} ngày
@@ -83,7 +83,7 @@ export function DutyPreviewBox({
                                     {canCreateItems.map((item) => (
                                           <Badge
                                                 key={item.date}
-                                                className="border-green-200 bg-white text-green-700"
+                                                className="border-emerald-100 bg-white text-emerald-700"
                                           >
                                                 {getPreviewDateLabel(item.date)}
                                           </Badge>
@@ -102,7 +102,7 @@ export function DutyPreviewBox({
                                     {skippedItems.map((item) => (
                                           <div
                                                 key={item.date}
-                                                className="rounded-xl bg-white/80 px-3 py-2 text-xs"
+                                                className="rounded-xl bg-white/80 px-3 py-1.5 text-xs"
                                           >
                                                 <span className="font-semibold">
                                                       {getPreviewDateLabel(item.date)}

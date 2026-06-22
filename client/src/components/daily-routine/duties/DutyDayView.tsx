@@ -45,6 +45,43 @@ function getAssigneeName(assignment: any) {
       );
 }
 
+function getDutyPlace(assignment: any) {
+      return (
+            assignment.place ||
+            assignment.location ||
+            assignment.workPlace ||
+            assignment.notes ||
+            assignment.dutyConfig?.place ||
+            assignment.dutyConfig?.location ||
+            assignment.dutyConfig?.description ||
+            'Chưa ghi nơi làm'
+      );
+}
+
+function getSimpleDutyStatusLabel(status?: string | null) {
+      const normalized = normalizeDutyStatus(status);
+
+      if (normalized === 'completed') return 'Đã hoàn thành';
+      if (normalized === 'cancelled') return 'Đã hủy';
+      if (normalized === 'skipped' || normalized === 'absent') return 'Chưa hoàn thành';
+
+      return 'Chưa hoàn thành';
+}
+
+function getSimpleDutyStatusClass(status?: string | null) {
+      const normalized = normalizeDutyStatus(status);
+
+      if (normalized === 'completed') {
+            return 'border-emerald-100 bg-emerald-50 text-emerald-700';
+      }
+
+      if (normalized === 'cancelled') {
+            return 'border-amber-100 bg-amber-50/55 text-slate-500';
+      }
+
+      return 'border-amber-100 bg-amber-50 text-amber-700';
+}
+
 function formatTimeOnly(value: unknown) {
       if (!value) return '';
 
@@ -113,7 +150,7 @@ function isFinalDutyStatus(status?: string | null) {
 
 function DutyTimeBox({ startTime, endTime }: { startTime: string; endTime: string }) {
       return (
-            <div className="flex min-w-[110px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center shadow-sm">
+            <div className="flex min-w-[110px] flex-col items-center justify-center rounded-xl border border-amber-100 bg-white/88 px-3 py-2.5 text-center shadow-[0_4px_12px_rgba(120,53,15,0.035)]">
                   <span className="text-sm font-bold text-slate-700">
                         {startTime || '--:--'}
                   </span>
@@ -139,7 +176,7 @@ export function DutyDayView({
       return (
             <SectionCard
                   title="Công tác trong ngày"
-                  description="Theo dõi và cập nhật tình trạng công tác theo từng ngày."
+                  description="Theo dõi đơn giản: ngày, nơi làm và trạng thái hoàn thành."
                   action={
                         <div className="flex flex-wrap items-center gap-2">
                               <select
@@ -149,13 +186,13 @@ export function DutyDayView({
                                                 event.target.value as DutyStatusFilter
                                           )
                                     }
-                                    className="h-10 rounded-2xl border border-slate-200 bg-white px-3 text-sm"
+                                    className="h-10 rounded-xl border border-amber-100 bg-white/88 px-3 text-sm"
                               >
                                     <option value="all">Tất cả</option>
-                                    <option value="open">Chưa hoàn tất</option>
+                                    <option value="open">Chưa hoàn thành</option>
                                     <option value="overdue">Đã quá giờ</option>
                                     <option value="completed">Hoàn thành</option>
-                                    <option value="skipped">Vắng / Không làm</option>
+                                    <option value="skipped">Chưa hoàn thành</option>
                                     <option value="cancelled">Đã hủy</option>
                               </select>
 
@@ -188,7 +225,7 @@ export function DutyDayView({
                                           <div
                                                 key={assignment.id}
                                                 className={[
-                                                      'rounded-3xl border p-4 shadow-sm transition',
+                                                      'rounded-xl border p-3 shadow-[0_4px_12px_rgba(120,53,15,0.035)] transition',
                                                       getTimelineCardClass(
                                                             'duty',
                                                             visualState
@@ -196,138 +233,79 @@ export function DutyDayView({
                                                 ].join(' ')}
                                           >
                                                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                                      <div className="flex gap-4">
-                                                            <DutyTimeBox
-                                                                  startTime={getAssignmentStartTime(assignment)}
-                                                                  endTime={getAssignmentEndTime(assignment)}
-                                                            />
+                                                      <div className="min-w-0 flex-1">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                  <h3 className="font-bold text-slate-900">
+                                                                        {assignment.dutyName ||
+                                                                              assignment.dutyConfig?.dutyName ||
+                                                                              `Công tác #${assignment.id}`}
+                                                                  </h3>
 
-                                                            <div>
-                                                                  <div className="flex flex-wrap items-center gap-2">
-                                                                        <h3 className="font-bold text-slate-950">
-                                                                              {assignment.dutyName ||
-                                                                                    assignment.dutyConfig
-                                                                                          ?.dutyName ||
-                                                                                    `Công tác #${assignment.id}`}
-                                                                        </h3>
+                                                                  <Badge className={getSimpleDutyStatusClass(assignment.status)}>
+                                                                        {getSimpleDutyStatusLabel(assignment.status)}
+                                                                  </Badge>
 
-                                                                        <Badge
-                                                                              className={getDutyStatusClass(
-                                                                                    assignment.status
-                                                                              )}
-                                                                        >
-                                                                              {getDutyStatusLabel(
-                                                                                    assignment.status
-                                                                              )}
+                                                                  {getVisualStateLabel('duty', visualState) && (
+                                                                        <Badge className={getVisualStateBadgeClass('duty', visualState)}>
+                                                                              {getVisualStateLabel('duty', visualState)}
                                                                         </Badge>
+                                                                  )}
+                                                            </div>
 
-                                                                        {getVisualStateLabel(
-                                                                              'duty',
-                                                                              visualState
-                                                                        ) && (
-                                                                              <Badge
-                                                                                    className={getVisualStateBadgeClass(
-                                                                                          'duty',
-                                                                                          visualState
-                                                                                    )}
-                                                                              >
-                                                                                    {getVisualStateLabel(
-                                                                                          'duty',
-                                                                                          visualState
-                                                                                    )}
-                                                                              </Badge>
-                                                                        )}
+                                                            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                                                                  <div className="rounded-xl border border-slate-100 bg-white/80 px-3 py-2">
+                                                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ngày</p>
+                                                                        <p className="mt-1 font-semibold text-slate-800">{selectedDate}</p>
                                                                   </div>
 
-                                                                  <p className="mt-1 text-sm text-slate-500">
-                                                                        {getAssigneeTypeLabel(
-                                                                              assignment.assignedToType ||
-                                                                                    (assignment.residentId
-                                                                                          ? 'resident'
-                                                                                          : null)
-                                                                        )}
-                                                                        :{' '}
-                                                                        <span className="font-semibold text-slate-700">
-                                                                              {getAssigneeName(
-                                                                                    assignment
-                                                                              )}
-                                                                        </span>
-                                                                  </p>
+                                                                  <div className="rounded-xl border border-slate-100 bg-white/80 px-3 py-2">
+                                                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Nơi làm</p>
+                                                                        <p className="mt-1 font-semibold text-slate-800">{getDutyPlace(assignment)}</p>
+                                                                  </div>
 
-                                                                  {assignment.dutyConfig && (
-                                                                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                                                                              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
-                                                                                    {getDutyTypeLabel(
-                                                                                          assignment
-                                                                                                .dutyConfig
-                                                                                                .dutyType
-                                                                                    )}
-                                                                              </span>
-
-                                                                              {(assignment.dutyConfig
-                                                                                    .minPersons ||
-                                                                                    assignment.dutyConfig
-                                                                                          .maxPersons) && (
-                                                                                    <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
-                                                                                          Số người:{' '}
-                                                                                          {assignment
-                                                                                                .dutyConfig
-                                                                                                .minPersons ||
-                                                                                                0}
-                                                                                          {assignment
-                                                                                                .dutyConfig
-                                                                                                .maxPersons
-                                                                                                ? ` - ${assignment.dutyConfig.maxPersons}`
-                                                                                                : '+'}
-                                                                                    </span>
+                                                                  <div className="rounded-xl border border-slate-100 bg-white/80 px-3 py-2">
+                                                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Phân công</p>
+                                                                        <p className="mt-1 font-semibold text-slate-800">
+                                                                              {getAssigneeTypeLabel(
+                                                                                    assignment.assignedToType ||
+                                                                                          (assignment.residentId ? 'resident' : null)
                                                                               )}
-                                                                        </div>
-                                                                  )}
+                                                                              : {getAssigneeName(assignment)}
+                                                                        </p>
+                                                                  </div>
                                                             </div>
                                                       </div>
 
                                                       {!isFinalDutyStatus(assignment.status) && (
-                                                                  <div className="flex flex-wrap gap-2 lg:justify-end">
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() =>
-                                                                                    onCompleteDuty(
-                                                                                          assignment
-                                                                                    )
-                                                                              }
-                                                                              className="inline-flex items-center gap-1.5 rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100"
-                                                                        >
-                                                                              <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                              Hoàn thành
-                                                                        </button>
+                                                            <div className="flex flex-wrap gap-2 lg:justify-end">
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => onCompleteDuty(assignment)}
+                                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                                                                  >
+                                                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                                                        Đã hoàn thành
+                                                                  </button>
 
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() =>
-                                                                                    onSkipDuty(
-                                                                                          assignment
-                                                                                    )
-                                                                              }
-                                                                              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100"
-                                                                        >
-                                                                              <SkipForward className="h-3.5 w-3.5" />
-                                                                              Vắng / Không làm
-                                                                        </button>
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => onSkipDuty(assignment)}
+                                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+                                                                  >
+                                                                        <SkipForward className="h-3.5 w-3.5" />
+                                                                        Chưa hoàn thành
+                                                                  </button>
 
-                                                                        <button
-                                                                              type="button"
-                                                                              onClick={() =>
-                                                                                    onCancelDuty(
-                                                                                          assignment
-                                                                                    )
-                                                                              }
-                                                                              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                                                                        >
-                                                                              <X className="h-3.5 w-3.5" />
-                                                                              Hủy
-                                                                        </button>
-                                                                  </div>
-                                                            )}
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => onCancelDuty(assignment)}
+                                                                        className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                                                                  >
+                                                                        <X className="h-3.5 w-3.5" />
+                                                                        Hủy
+                                                                  </button>
+                                                            </div>
+                                                      )}
                                                 </div>
                                           </div>
                                     );

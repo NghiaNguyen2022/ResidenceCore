@@ -12,7 +12,7 @@ export function Badge({ children, className = '' }: StatusBadgeProps) {
       return (
             <span
                   className={[
-                        'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold',
+                        'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold shadow-[0_6px_14px_rgba(120,53,15,0.035)]',
                         className,
                   ].join(' ')}
             >
