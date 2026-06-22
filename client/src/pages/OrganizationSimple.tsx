@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'wouter';
 import {
       Building2,
       CalendarDays,
@@ -378,14 +379,21 @@ function StatCard({
       icon: React.ReactNode;
 }) {
       return (
-            <div className={residenceMediumStyle.statCard}>
-                  <div className="flex items-start justify-between gap-3">
+            <div className={`${residenceMediumStyle.orgPersonCard} min-h-[132px] p-4`}>
+                  <span className={residenceMediumStyle.orgPersonCardGlow} />
+                  <span className={residenceMediumStyle.orgPersonCardGlass} />
+                  <span className={residenceMediumStyle.orgPersonCardGoldBeam} />
+                  <span className={residenceMediumStyle.orgPersonCardGloss} />
+                  <span className={residenceMediumStyle.orgPersonCardGlossThin} />
+                  <span className={residenceMediumStyle.orgPersonCardShine} />
+
+                  <div className="relative flex h-full items-start justify-between gap-3">
                         <div className="min-w-0">
                               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
                               <p className="mt-2 truncate text-2xl font-extrabold tracking-tight text-slate-950">{value}</p>
                               {helper && <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">{helper}</p>}
                         </div>
-                        <div className={residenceMediumStyle.statIcon}>{icon}</div>
+                        <div className="rounded-2xl border border-white/70 bg-white/70 p-2.5 text-amber-800 shadow-[0_10px_24px_rgba(12,10,9,0.10),inset_0_1px_0_rgba(255,255,255,0.80)]">{icon}</div>
                   </div>
             </div>
       );
@@ -605,11 +613,11 @@ function AppointmentHistoryPanel({
       };
 
       return (
-            <div className={residenceMediumStyle.premiumSection}>
+            <div className="relative overflow-hidden rounded-[32px] border border-amber-100/80 bg-[radial-gradient(circle_at_12%_0%,rgba(251,191,36,0.18)_0%,transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.92)_0%,rgba(255,251,235,0.78)_58%,rgba(245,158,11,0.14)_100%)] p-4 shadow-[0_24px_58px_rgba(12,10,9,0.085),inset_0_1px_0_rgba(255,255,255,0.82)]">
                   <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <div>
-                              <p className={residenceMediumStyle.modalEyebrow}>Lịch sử bổ nhiệm</p>
-                              <h3 className="mt-1 text-[22px] font-bold tracking-tight text-slate-950">
+                              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-700">Lịch sử bổ nhiệm</p>
+                              <h3 className="mt-1 text-[24px] font-black tracking-tight text-slate-950">
                                     Lịch sử bổ nhiệm theo nhiệm kỳ
                               </h3>
                               <p className="mt-2 text-sm leading-6 text-slate-500">
@@ -621,18 +629,18 @@ function AppointmentHistoryPanel({
                               <button
                                     type="button"
                                     onClick={expandAll}
-                                    className="rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-xs font-bold text-slate-700 shadow-sm shadow-amber-900/5 transition hover:bg-amber-50"
+                                    className="rounded-2xl border border-amber-100/80 bg-white/78 px-3 py-2 text-xs font-black text-slate-700 shadow-[0_10px_22px_rgba(12,10,9,0.055)] transition hover:bg-amber-50 hover:text-slate-950"
                               >
                                     Mở tất cả
                               </button>
                               <button
                                     type="button"
                                     onClick={collapseAll}
-                                    className="rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-xs font-bold text-slate-700 shadow-sm shadow-amber-900/5 transition hover:bg-amber-50"
+                                    className="rounded-2xl border border-amber-100/80 bg-white/78 px-3 py-2 text-xs font-black text-slate-700 shadow-[0_10px_22px_rgba(12,10,9,0.055)] transition hover:bg-amber-50 hover:text-slate-950"
                               >
                                     Thu gọn tất cả
                               </button>
-                              <span className="rounded-full bg-white/85 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-amber-100">
+                              <span className="rounded-full border border-amber-100/75 bg-white/78 px-3 py-1.5 text-xs font-bold text-amber-800 shadow-sm">
                                     {assignments.length} dòng lịch sử
                               </span>
                         </div>
@@ -654,10 +662,10 @@ function AppointmentHistoryPanel({
                                           <section
                                                 key={term.id}
                                                 className={[
-                                                      'overflow-hidden rounded-[28px] border shadow-[0_14px_36px_rgba(120,53,15,0.055)]',
+                                                      'overflow-hidden rounded-[30px] border shadow-[0_22px_48px_rgba(12,10,9,0.085),inset_0_1px_0_rgba(255,255,255,0.72)]',
                                                       isActiveTerm
-                                                            ? 'border-emerald-100 bg-[linear-gradient(135deg,#ffffff_0%,#f7fdf9_68%,#effaf3_100%)]'
-                                                            : 'border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_70%,#fff7ef_100%)]',
+                                                            ? 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96)_0%,rgba(255,251,235,0.80)_58%,rgba(245,158,11,0.20)_100%)]'
+                                                            : 'border-amber-100/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88)_0%,rgba(255,251,235,0.62)_70%,rgba(245,158,11,0.10)_100%)]',
                                                 ].join(' ')}
                                           >
                                                 <button
@@ -665,7 +673,7 @@ function AppointmentHistoryPanel({
                                                       onClick={() => toggleTerm(term.id)}
                                                       className={[
                                                             'flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition',
-                                                            isActiveTerm ? 'hover:bg-emerald-50/45' : 'hover:bg-amber-50/45',
+                                                            isActiveTerm ? 'hover:bg-amber-50/60' : 'hover:bg-amber-50/45',
                                                       ].join(' ')}
                                                 >
                                                       <div className="flex min-w-0 items-start gap-3">
@@ -673,8 +681,8 @@ function AppointmentHistoryPanel({
                                                                   className={[
                                                                         'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl text-base font-bold text-white shadow-sm',
                                                                         isActiveTerm
-                                                                              ? 'bg-emerald-700 shadow-emerald-900/15'
-                                                                              : 'bg-slate-900 shadow-slate-900/15',
+                                                                              ? 'bg-[linear-gradient(135deg,#111827_0%,#92400e_58%,#f59e0b_140%)] shadow-amber-900/20'
+                                                                              : 'bg-[linear-gradient(135deg,#1f2937_0%,#57534e_72%,#d97706_145%)] shadow-slate-900/15',
                                                                   ].join(' ')}
                                                             >
                                                                   {isTermExpanded ? '−' : '+'}
@@ -685,7 +693,7 @@ function AppointmentHistoryPanel({
                                                                               {getTermStatusLabel(term.status)}
                                                                         </Badge>
                                                                         {isActiveTerm && (
-                                                                              <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                                                                              <span className="rounded-full border border-amber-200/80 bg-amber-50/90 px-2.5 py-1 text-xs font-black text-amber-800 shadow-sm">
                                                                                     Đang áp dụng
                                                                               </span>
                                                                         )}
@@ -710,41 +718,41 @@ function AppointmentHistoryPanel({
                                                 </button>
 
                                                 {isTermExpanded && (
-                                                      <div className="border-t border-amber-100/70 bg-white/45 py-3 pl-7 pr-3 md:pl-10">
+                                                      <div className="border-t border-amber-100/70 bg-white/38 py-3 pl-6 pr-3 md:pl-8">
                                                             {positions.length === 0 ? (
                                                                   <div className="rounded-2xl border border-dashed border-amber-100 bg-white/60 p-4 text-sm text-slate-500">
                                                                         Chưa có lịch sử bổ nhiệm trong nhiệm kỳ này.
                                                                   </div>
                                                             ) : (
-                                                                  <div className="space-y-2 border-l border-dashed border-slate-200 pl-3">
+                                                                  <div className="space-y-2 border-l border-dashed border-amber-200/70 pl-3">
                                                                         {positions.map((position) => {
                                                                               const positionKey = `${term.id}:${position.key}`;
                                                                               const isPositionExpanded = Boolean(expandedPositions[positionKey]);
 
                                                                               return (
                                                                                     <div key={position.key} className="relative">
-                                                                                          <span className="absolute -left-3 top-5 h-px w-3 bg-slate-200" />
-                                                                                          <div className="overflow-hidden rounded-2xl border border-slate-200/75 bg-white/80">
+                                                                                          <span className="absolute -left-3 top-5 h-px w-3 bg-amber-200/80" />
+                                                                                          <div className="overflow-hidden rounded-2xl border border-amber-100/80 bg-white/72 shadow-[0_12px_28px_rgba(12,10,9,0.045),inset_0_1px_0_rgba(255,255,255,0.72)]">
                                                                                                 <button
                                                                                                       type="button"
                                                                                                       onClick={() => togglePosition(term.id, position.key)}
-                                                                                                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50/80"
+                                                                                                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-amber-50/65"
                                                                                                 >
                                                                                                       <div className="flex min-w-0 items-center gap-3">
-                                                                                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+                                                                                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-xl border border-amber-100 bg-white text-xs font-black text-amber-700 shadow-sm">
                                                                                                                   {isPositionExpanded ? '−' : '+'}
                                                                                                             </span>
                                                                                                             <div className="min-w-0">
                                                                                                                   <div className="flex flex-wrap items-center gap-2">
-                                                                                                                        <span className="rounded-full bg-amber-50/70 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-100">
+                                                                                                                        <span className="rounded-full bg-amber-50/90 px-2 py-0.5 text-[10px] font-black text-amber-800 ring-1 ring-amber-100">
                                                                                                                               {position.assignments.length} người
                                                                                                                         </span>
                                                                                                                   </div>
-                                                                                                                  <p className="mt-1 truncate text-[14px] font-bold text-slate-700">
+                                                                                                                  <p className="mt-1 truncate text-[14px] font-black text-slate-900">
                                                                                                                         {position.title}
                                                                                                                   </p>
                                                                                                                   {(position.unitName || position.roleName) && (
-                                                                                                                        <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">
+                                                                                                                        <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500">
                                                                                                                               {[position.roleName, position.unitName].filter(Boolean).join(' · ')}
                                                                                                                         </p>
                                                                                                                   )}
@@ -753,8 +761,8 @@ function AppointmentHistoryPanel({
                                                                                                 </button>
 
                                                                                                 {isPositionExpanded && (
-                                                                                                      <div className="space-y-2 border-t border-slate-200/70 bg-slate-50/30 py-3 pl-7 pr-3 md:pl-9">
-                                                                                                            <div className="space-y-2 border-l border-dashed border-slate-200 pl-3">
+                                                                                                      <div className="space-y-2 border-t border-amber-100/70 bg-amber-50/18 py-3 pl-6 pr-3 md:pl-8">
+                                                                                                            <div className="space-y-2 border-l border-dashed border-amber-200/70 pl-3">
                                                                                                                   {position.assignments.map((assignment) => {
                                                                                                                         const isCurrentHolder =
                                                                                                                               isActiveTerm &&
@@ -763,26 +771,26 @@ function AppointmentHistoryPanel({
 
                                                                                                                         return (
                                                                                                                               <div key={assignment.id} className="relative">
-                                                                                                                                    <span className="absolute -left-3 top-5 h-px w-3 bg-slate-200" />
+                                                                                                                                    <span className="absolute -left-3 top-5 h-px w-3 bg-amber-200/80" />
                                                                                                                                     <div
                                                                                                                                           className={[
-                                                                                                                                                'rounded-2xl border px-3 py-2 shadow-sm',
+                                                                                                                                                'rounded-2xl border px-3 py-2 shadow-[0_10px_24px_rgba(12,10,9,0.045)]',
                                                                                                                                                 isCurrentHolder
-                                                                                                                                                      ? 'border-emerald-100 bg-emerald-50/80 shadow-emerald-900/5'
-                                                                                                                                                      : 'border-slate-200/70 bg-white/82 shadow-slate-900/5',
+                                                                                                                                                      ? 'border-amber-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.92)_0%,rgba(254,243,199,0.72)_100%)] shadow-amber-900/8'
+                                                                                                                                                      : 'border-amber-100/70 bg-white/78 shadow-slate-900/5',
                                                                                                                                           ].join(' ')}
                                                                                                                                     >
                                                                                                                                           <div className="flex flex-wrap items-center justify-between gap-2">
                                                                                                                                                 <p
                                                                                                                                                       className={[
                                                                                                                                                             'text-sm font-semibold',
-                                                                                                                                                            isCurrentHolder ? 'text-emerald-900' : 'text-slate-700',
+                                                                                                                                                            isCurrentHolder ? 'text-amber-900' : 'text-slate-700',
                                                                                                                                                       ].join(' ')}
                                                                                                                                                 >
                                                                                                                                                       {getDisplayResidentName(assignment)}
                                                                                                                                                 </p>
                                                                                                                                                 {isCurrentHolder ? (
-                                                                                                                                                      <span className="rounded-full border border-emerald-100 bg-white/80 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                                                                                                                                                      <span className="rounded-full border border-amber-200/80 bg-white/82 px-2.5 py-1 text-xs font-black text-amber-800">
                                                                                                                                                             Đang giữ vị trí
                                                                                                                                                       </span>
                                                                                                                                                 ) : (
@@ -1337,6 +1345,7 @@ function SectionEmpty({ title, description }: { title: string; description: stri
 }
 
 export default function OrganizationSimple() {
+      const [, navigate] = useLocation();
       const [activeTab, setActiveTab] = useState<SimpleTab>('structure');
       const [selectedTermId, setSelectedTermId] = useState<string>('active');
       const [searchTerm, setSearchTerm] = useState('');
@@ -1364,6 +1373,14 @@ export default function OrganizationSimple() {
       const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
       const [returnToMembersPath, setReturnToMembersPath] = useState<string | null>(null);
       const [returnToMembersLabel, setReturnToMembersLabel] = useState<string>('Quay lại học viên');
+      const [returnFocusResidentId, setReturnFocusResidentId] = useState<number | null>(null);
+      const [isOpeningMemberContext, setIsOpeningMemberContext] = useState(() => {
+            try {
+                  return Boolean(sessionStorage.getItem('residencecare.organization.focusResidentId'));
+            } catch {
+                  return false;
+            }
+      });
       const [pendingOrganizationFocus, setPendingOrganizationFocus] = useState<{
             residentId: number;
             action: OrganizationFocusAction;
@@ -1481,7 +1498,10 @@ export default function OrganizationSimple() {
                   // Ignore storage errors.
             }
 
-            if (!residentId || !action) return;
+            if (!residentId || !action) {
+                  setIsOpeningMemberContext(false);
+                  return;
+            }
 
             setPendingOrganizationFocus({
                   residentId,
@@ -1490,6 +1510,7 @@ export default function OrganizationSimple() {
             });
             setReturnToMembersPath(returnTo || '/members');
             setReturnToMembersLabel(returnLabel || 'Quay lại học viên');
+            setReturnFocusResidentId(residentId);
             setSelectedTermId('active');
             setSearchTerm('');
       }, []);
@@ -1574,7 +1595,24 @@ export default function OrganizationSimple() {
       const returnToMembers = () => {
             if (!returnToMembersPath) return;
 
-            window.location.assign(returnToMembersPath);
+            try {
+                  if (returnFocusResidentId) {
+                        sessionStorage.setItem(
+                              'residencecare.members.reopenDetailResidentId',
+                              String(returnFocusResidentId)
+                        );
+                        sessionStorage.setItem(
+                              'residencecare.members.reopenDetailTab',
+                              'organization'
+                        );
+                  }
+            } catch {
+                  // Ignore storage errors.
+            }
+
+            window.requestAnimationFrame(() => {
+                  navigate(returnToMembersPath);
+            });
       };
 
       const openAssignmentCreateFromStructure = (unitId?: number, roleKey?: string) => {
@@ -1643,6 +1681,7 @@ export default function OrganizationSimple() {
                         text: 'Không tìm thấy học viên cần thao tác trong danh sách đang lưu trú.',
                   });
                   setPendingOrganizationFocus(null);
+                  setIsOpeningMemberContext(false);
                   return;
             }
 
@@ -1658,6 +1697,7 @@ export default function OrganizationSimple() {
                         text: `Đang bổ nhiệm chức vụ cho ${resident.displayName || resident.fullName}.`,
                   });
                   setPendingOrganizationFocus(null);
+                  setIsOpeningMemberContext(false);
                   return;
             }
 
@@ -1679,6 +1719,7 @@ export default function OrganizationSimple() {
                               text: 'Chưa có Tổ đang hoạt động. Vui lòng tạo Tổ trước khi đổi tổ.',
                         });
                         setPendingOrganizationFocus(null);
+                  setIsOpeningMemberContext(false);
                         return;
                   }
 
@@ -1692,6 +1733,7 @@ export default function OrganizationSimple() {
                         text: `Đang đổi tổ cho ${resident.displayName || resident.fullName}. Vui lòng chọn Tổ đến rồi bấm Đổi tổ.`,
                   });
                   setPendingOrganizationFocus(null);
+                  setIsOpeningMemberContext(false);
                   return;
             }
 
@@ -1711,6 +1753,7 @@ export default function OrganizationSimple() {
                                     : 'Chưa có Ban đang hoạt động. Vui lòng tạo Ban trước khi thêm học viên.',
                   });
                   setPendingOrganizationFocus(null);
+                  setIsOpeningMemberContext(false);
                   return;
             }
 
@@ -1726,6 +1769,7 @@ export default function OrganizationSimple() {
                   } rồi bấm Thêm thành viên.`,
             });
             setPendingOrganizationFocus(null);
+                  setIsOpeningMemberContext(false);
       }, [
             pendingOrganizationFocus,
             termsQuery.isLoading,
@@ -1919,7 +1963,7 @@ export default function OrganizationSimple() {
                   setActiveTab(assignmentFormReturnTab);
 
                   if (returnToMembersPath) {
-                        returnToMembers();
+                        window.setTimeout(returnToMembers, 160);
                   }
             } catch (err: any) {
                   setMessage({
@@ -2106,7 +2150,7 @@ export default function OrganizationSimple() {
                   ]);
 
                   if (returnToMembersPath) {
-                        returnToMembers();
+                        window.setTimeout(returnToMembers, 160);
                   }
             } catch (err: any) {
                   const errorMessage = err?.message || 'Không thể thêm thành viên.';
@@ -2543,52 +2587,71 @@ export default function OrganizationSimple() {
 
       return (
             <ResidenceCareLayout>
+                  {isOpeningMemberContext && (
+                        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
+                              <div className="max-w-md rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff3e3_100%)] p-5 text-center shadow-[0_30px_80px_rgba(15,23,42,0.22)]">
+                                    <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-700">
+                                          Đang mở thao tác
+                                    </p>
+                                    <h3 className="mt-2 text-lg font-black text-slate-950">
+                                          Đang đưa học viên sang phần Tổ chức
+                                    </h3>
+                                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                                          Hệ thống đang giữ ngữ cảnh hồ sơ học viên và mở đúng phần cần thao tác.
+                                    </p>
+                              </div>
+                        </div>
+                  )}
                   <div className={residenceMediumStyle.page}>
                         <span className={residenceMediumStyle.pageAura} />
                         <div className={residenceMediumStyle.pageShell}>
-                        <div className={residenceMediumStyle.topArea}>
-                              <div className={residenceMediumStyle.actionBar}>
-                                    {returnToMembersPath && (
+                              <div className="relative overflow-visible px-1 pb-5 pt-3">
+                                    <div className="absolute right-1 top-2 z-20 flex flex-wrap justify-end gap-2">
+                                          {returnToMembersPath && (
+                                                <button
+                                                      type="button"
+                                                      onClick={returnToMembers}
+                                                      className={residenceMediumStyle.buttonCard}
+                                                >
+                                                      {returnToMembersLabel}
+                                                </button>
+                                          )}
+
                                           <button
                                                 type="button"
-                                                onClick={returnToMembers}
-                                                className={residenceMediumStyle.secondaryButton}
+                                                disabled
+                                                title="Bộ chức vụ mặc định hiện đã đủ dùng. Khi cần mở rộng sẽ bật cấu hình sau."
+                                                className={residenceMediumStyle.buttonCard}
                                           >
-                                                {returnToMembersLabel}
+                                                <Settings className={residenceMediumStyle.buttonCardIcon} />
+                                                Cấu hình chức vụ
                                           </button>
-                                    )}
 
-                                    <button
-                                          type="button"
-                                          disabled
-                                          title="Bộ chức vụ mặc định hiện đã đủ dùng. Khi cần mở rộng sẽ bật cấu hình sau."
-                                          className={residenceMediumStyle.disabledActionButton}
-                                    >
-                                          <Settings className="h-4 w-4" />
-                                          Cấu hình chức vụ
-                                    </button>
+                                          <button
+                                                type="button"
+                                                onClick={() => openAssignmentCreate()}
+                                                className={residenceMediumStyle.buttonCardPrimary}
+                                          >
+                                                <Plus className={residenceMediumStyle.buttonCardIcon} />
+                                                Bổ nhiệm
+                                          </button>
+                                    </div>
 
-                                    <button
-                                          type="button"
-                                          onClick={() => openAssignmentCreate()}
-                                          className={`${residenceMediumStyle.warmPrimaryButton} inline-flex items-center gap-2`}
-                                    >
-                                          <Plus className="h-4 w-4" />
-                                          Bổ nhiệm
-                                    </button>
-                              </div>
+                                    <div className={`${residenceMediumStyle.topInner} mx-auto max-w-4xl pt-9 text-center`}>
+                                          <div className="mb-2 flex flex-wrap items-center justify-center gap-2">
+                                                <span className="rounded-full bg-white/72 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-700 ring-1 ring-amber-100/70 shadow-sm shadow-slate-900/5">
+                                                      Tổ chức lưu xá
+                                                </span>
+                                          </div>
+                                          <h1 className={residenceMediumStyle.topTitle}>
+                                                Cơ cấu tổ chức lưu xá
+                                          </h1>
+                                          <p className={`${residenceMediumStyle.topSubtitle} mx-auto`}>
+                                                Một màn hình để nhìn tổng thể cơ cấu, nhiệm kỳ, Tổ/Ban và các chức vụ đang phụ trách.
+                                          </p>
+                                    </div>
 
-                              <div className={`${residenceMediumStyle.topInner} text-center`}>
-                                    <p className={residenceMediumStyle.modalEyebrow}>Tổ chức lưu xá</p>
-                                    <h1 className={residenceMediumStyle.topTitle}>
-                                          Cơ cấu tổ chức lưu xá
-                                    </h1>
-                                    <p className={`${residenceMediumStyle.topSubtitle} mx-auto`}>
-                                          Một màn hình để nhìn tổng thể cơ cấu, nhiệm kỳ, Tổ/Ban và các chức vụ đang phụ trách.
-                                    </p>
-                              </div>
-
-                              <div className="grid gap-3 md:grid-cols-3">
+                                    <div className="mt-12 grid gap-3 md:grid-cols-3">
                                     <StatCard
                                           label="Nhiệm kỳ hiện tại"
                                           value={activeTerm?.name || 'Chưa có'}
@@ -2625,7 +2688,7 @@ export default function OrganizationSimple() {
                               </div>
                         )}
 
-                        <div className="rounded-[28px] border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff6ee_100%)] p-3 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
+                        <div className="rounded-[28px] border border-amber-100/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.78)_0%,rgba(255,251,235,0.54)_58%,rgba(248,250,252,0.66)_100%)] p-3 shadow-[0_16px_40px_rgba(12,10,9,0.07),inset_0_1px_0_rgba(255,255,255,0.72)]">
                               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                                     <div className="flex flex-wrap gap-2">
                                           {tabs.map((tab) => (
@@ -3494,9 +3557,9 @@ export default function OrganizationSimple() {
                         )}
 
                         {selectedUnitForMembers && (
-                              <div className={residenceMediumStyle.modalOverlay}>
-                                    <div className={`${residenceMediumStyle.modalShell} max-w-4xl`}>
-                                          <div className={residenceMediumStyle.modalHeader}>
+                              <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/45 px-4 py-8 backdrop-blur-sm">
+                                    <div className="mx-auto min-h-fit w-full max-w-5xl overflow-visible rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf9_58%,#fff4e7_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.20)]">
+                                          <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff3e3_100%)] px-5 py-4">
                                                 <div>
                                                       <p className={residenceMediumStyle.modalEyebrow}>
                                                             {getUnitTypeLabel(selectedUnitForMembers.unitType)}
@@ -3523,15 +3586,15 @@ export default function OrganizationSimple() {
                                                       <button
                                                             type="button"
                                                             onClick={closeUnitMembers}
-                                                                                                                        className={residenceMediumStyle.secondaryButton}
+                                                            className={residenceMediumStyle.secondaryButton}
                                                       >
-                                                            Đóng
+                                                            Hủy / Đóng
                                                       </button>
                                                 </div>
                                           </div>
 
-                                          <div className={cx(residenceMediumStyle.premiumNestedSection, 'mx-5 mt-5')}>
-                                                <div className="mb-3 grid gap-3 md:grid-cols-[220px_1fr]">
+                                          <div className={cx(residenceMediumStyle.premiumNestedSection, 'mx-5 mt-5 overflow-visible pb-6')}>
+                                                <div className="mb-5 grid gap-4 md:grid-cols-[260px_1fr] md:items-start">
                                                       <div>
                                                             <Label>
                                                                   {selectedUnitForMembers.unitType === 'team' ? 'Chọn Tổ' : 'Chọn Ban'}
@@ -3551,7 +3614,7 @@ export default function OrganizationSimple() {
                                                                               setTransferConfirm(null);
                                                                         }
                                                                   }}
-                                                                  className="mt-2 h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
+                                                                  className="relative z-10 mt-2 h-11 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                                             >
                                                                   {activeUnits
                                                                         .filter((unit) => unit.unitType === selectedUnitForMembers.unitType)
@@ -3566,7 +3629,7 @@ export default function OrganizationSimple() {
                                                       <div className="rounded-2xl bg-white/85 px-4 py-3 text-sm text-slate-600 ring-1 ring-amber-100">
                                                             Đang thao tác với <span className="font-semibold text-neutral-900">{selectedUnitForMembers.name}</span>.
                                                             {returnToMembersPath && (
-                                                                  <span> Sau khi thêm thành viên, hệ thống sẽ quay lại trang học viên.</span>
+                                                                  <span> Sau khi lưu hoặc hủy, hệ thống sẽ quay lại đúng hồ sơ học viên.</span>
                                                             )}
                                                       </div>
                                                 </div>
@@ -3603,7 +3666,7 @@ export default function OrganizationSimple() {
                                           </div>
 
                                           {selectedUnitForMembers.unitType === 'team' && (
-                                                <div className={cx(residenceMediumStyle.premiumNestedSection, 'mt-4')}>
+                                                <div className={cx(residenceMediumStyle.premiumNestedSection, 'mx-5 mt-6')}>
                                                       <div className="flex flex-col gap-3">
                                                             <div>
                                                                   <p className="text-sm font-bold text-amber-900">Đổi tổ cho học viên</p>
@@ -3707,7 +3770,7 @@ export default function OrganizationSimple() {
                                                 </div>
                                           )}
 
-                                          <div className="mt-5 space-y-3">
+                                          <div className="mx-5 mb-5 mt-5 space-y-3">
                                                 {unitMembersQuery.isLoading || unitMembersQuery.isFetching ? (
                                                       <SectionEmpty
                                                             title="Đang tải thành viên"

@@ -370,6 +370,14 @@ export default function Members() {
       const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
       const [isAssignRoomDialogOpen, setIsAssignRoomDialogOpen] = useState(false);
       const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+      const [detailInitialTab, setDetailInitialTab] = useState<string>('overview');
+      const [isReopeningMemberDetail, setIsReopeningMemberDetail] = useState(() => {
+            try {
+                  return Boolean(sessionStorage.getItem('residencecare.members.reopenDetailResidentId'));
+            } catch {
+                  return false;
+            }
+      });
 
       const [editingMember, setEditingMember] = useState<any>(null);
       const [selectedMember, setSelectedMember] = useState<any>(null);
@@ -611,6 +619,47 @@ export default function Members() {
 
       const sortedMembers = useMemo(() => sortMembersByStatus(members), [members]);
 
+      useEffect(() => {
+            if (membersQuery.isLoading || members.length === 0) return;
+
+            let reopenResidentId = 0;
+            let reopenTab = 'overview';
+
+            try {
+                  reopenResidentId = Number(
+                        sessionStorage.getItem('residencecare.members.reopenDetailResidentId') || 0
+                  );
+                  reopenTab =
+                        sessionStorage.getItem('residencecare.members.reopenDetailTab') || 'overview';
+            } catch {
+                  // Ignore storage errors.
+            }
+
+            if (!reopenResidentId) {
+                  setIsReopeningMemberDetail(false);
+                  return;
+            }
+
+            const member = members.find((item: any) => Number(item.id) === reopenResidentId);
+
+            if (!member) {
+                  setIsReopeningMemberDetail(false);
+                  return;
+            }
+
+            try {
+                  sessionStorage.removeItem('residencecare.members.reopenDetailResidentId');
+                  sessionStorage.removeItem('residencecare.members.reopenDetailTab');
+            } catch {
+                  // Ignore storage errors.
+            }
+
+            setSelectedMember(member);
+            setDetailInitialTab(reopenTab);
+            setIsDetailDialogOpen(true);
+            window.setTimeout(() => setIsReopeningMemberDetail(false), 80);
+      }, [members, membersQuery.isLoading]);
+
       const stats = statsQuery.data || {
             total: 0,
             active: 0,
@@ -685,6 +734,7 @@ export default function Members() {
 
       const handleOpenDetail = (member: any) => {
             setSelectedMember(member);
+            setDetailInitialTab('overview');
             setIsDetailDialogOpen(true);
       };
 
@@ -833,16 +883,73 @@ export default function Members() {
             setIsContactsDialogOpen(true);
       };
 
-      const handleOpenOrganizationForMember = (member: any) => {
+      type OrganizationFocusAction =
+            | 'add_team_member'
+            | 'transfer_team_member'
+            | 'add_committee_member'
+            | 'create_assignment';
+
+      const normalizeOrganizationFocusAction = (action?: string): OrganizationFocusAction => {
+            switch (action) {
+                  case 'add_team_member':
+                  case 'add_team':
+                        return 'add_team_member';
+                  case 'transfer_team_member':
+                  case 'transfer_team':
+                        return 'transfer_team_member';
+                  case 'add_committee_member':
+                  case 'add_committee':
+                        return 'add_committee_member';
+                  case 'create_assignment':
+                  case 'appointment':
+                  default:
+                        return 'create_assignment';
+            }
+      };
+
+      const handleOpenOrganizationForMember = (
+            member: any,
+            action?: string,
+            context?: { unitId?: number | null }
+      ) => {
+            if (!member?.id) return;
+
+            const focusAction = normalizeOrganizationFocusAction(action);
+
             try {
                   sessionStorage.setItem(
                         'residencecare.organization.focusResidentId',
-                        String(member?.id || '')
+                        String(member.id)
+                  );
+                  sessionStorage.setItem(
+                        'residencecare.organization.focusAction',
+                        focusAction
+                  );
+                  sessionStorage.setItem(
+                        'residencecare.organization.focusUnitId',
+                        context?.unitId ? String(context.unitId) : ''
+                  );
+                  sessionStorage.setItem(
+                        'residencecare.organization.returnTo',
+                        '/members'
+                  );
+                  sessionStorage.setItem(
+                        'residencecare.organization.returnLabel',
+                        'Quay lại hồ sơ học viên'
+                  );
+                  sessionStorage.setItem(
+                        'residencecare.members.reopenDetailResidentId',
+                        String(member.id)
+                  );
+                  sessionStorage.setItem(
+                        'residencecare.members.reopenDetailTab',
+                        'organization'
                   );
             } catch {
                   // Ignore storage errors; navigation should still work.
             }
 
+            setIsDetailDialogOpen(false);
             navigate('/organization');
       };
 
@@ -1434,6 +1541,21 @@ export default function Members() {
 
       return (
             <ResidenceCareLayout>
+                  {isReopeningMemberDetail && (
+                        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm">
+                              <div className="max-w-md rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff3e3_100%)] p-5 text-center shadow-[0_30px_80px_rgba(15,23,42,0.22)]">
+                                    <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-700">
+                                          Đang quay lại hồ sơ
+                                    </p>
+                                    <h3 className="mt-2 text-lg font-black text-slate-950">
+                                          Đang mở lại workspace học viên
+                                    </h3>
+                                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                                          Hệ thống đang mở đúng hồ sơ và tab Tổ chức sau khi thao tác.
+                                    </p>
+                              </div>
+                        </div>
+                  )}
                   <div className={residenceMediumStyle.page}>
                         <span className={residenceMediumStyle.pageAura} />
                         <div className="relative mx-auto max-w-[1420px] space-y-4 px-2 pb-8">
@@ -1855,12 +1977,14 @@ export default function Members() {
                         {isDetailDialogOpen && selectedMemberForDetail && (
                               <MemberDetailModal
                                     member={selectedMemberForDetail}
+                                    initialTab={detailInitialTab}
                                     organizationTitles={getOrganizationTitlesForMember(selectedMemberForDetail)}
                                     organizationUnits={getOrganizationUnitsForMember(selectedMemberForDetail)}
                                     onOpenOrganization={handleOpenOrganizationForMember}
                                     onClose={() => {
                                           setIsDetailDialogOpen(false);
                                           setSelectedMember(null);
+                                          setDetailInitialTab('overview');
                                     }}
                                     onEdit={() => {
                                           setIsDetailDialogOpen(false);

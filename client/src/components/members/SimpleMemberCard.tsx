@@ -233,16 +233,10 @@ export function SimpleMemberCard({
                                     Xem
                               </ActionButton>
 
-                              {memberIsClosed ? (
+                              {memberIsClosed && (
                                     <ActionButton onClick={() => onReactivate(member)} disabled={isReactivating} tone="green">
                                           {isReactivating ? 'Đang đăng ký...' : 'Đăng ký lại'}
                                     </ActionButton>
-                              ) : (
-                                    <>
-                                          <ActionButton onClick={() => onRoomAction(member)} disabled={isRoomProcessing} tone="green">
-                                                {memberHasRoom ? 'Chuyển phòng' : 'Gắn phòng'}
-                                          </ActionButton>
-                                    </>
                               )}
                         </div>
                   </div>

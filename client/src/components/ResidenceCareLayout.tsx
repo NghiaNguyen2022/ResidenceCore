@@ -400,11 +400,22 @@ function SidebarItem({
                   ? "border-amber-200/60 bg-[linear-gradient(35deg,rgba(255,255,255,0.94)_0%,rgba(254,243,199,0.82)_38%,rgba(245,158,11,0.32)_78%,rgba(28,25,23,0.14)_100%)] text-slate-950 shadow-[0_14px_28px_rgba(12,10,9,0.10),inset_0_1px_0_rgba(255,255,255,0.78)]"
                   : active && hasChildren
                         ? "border-amber-100/70 bg-white/70 text-slate-900 shadow-sm shadow-slate-900/5"
-                        : "border-transparent text-slate-600 hover:border-amber-100/70 hover:bg-white/68 hover:text-slate-900 hover:shadow-sm hover:shadow-slate-900/5",
-            depth > 0 ? "ml-2" : "",
+                        : isChild
+                              ? "border-amber-100/55 bg-white/38 text-slate-500 hover:border-amber-100/80 hover:bg-white/66 hover:text-slate-800 hover:shadow-sm hover:shadow-slate-900/5"
+                              : isDeepChild
+                                    ? "border-transparent bg-transparent text-slate-500 hover:border-amber-100/60 hover:bg-white/50 hover:text-slate-800"
+                                    : "border-transparent text-slate-600 hover:border-amber-100/70 hover:bg-white/68 hover:text-slate-900 hover:shadow-sm hover:shadow-slate-900/5",
+            "",
       ]
             .filter(Boolean)
             .join(" ");
+
+      const itemStyle =
+            isChild
+                  ? { marginLeft: "1rem", width: "calc(100% - 1rem)" }
+                  : isDeepChild
+                        ? { marginLeft: "1.5rem", width: "calc(100% - 1.5rem)" }
+                        : undefined;
 
       const iconClass = [
             "flex shrink-0 items-center justify-center rounded-xl text-center",
@@ -419,7 +430,7 @@ function SidebarItem({
       const labelClass = [
             "min-w-0 flex-1 truncate text-left",
             isParent ? "tracking-tight" : "",
-            isChild ? "text-slate-700 group-hover:text-slate-900" : "",
+            isChild ? "text-slate-600 group-hover:text-slate-850" : "",
             isDeepChild ? "text-slate-500 group-hover:text-slate-800" : "",
             isDirectActive ? "!text-slate-950" : "",
       ]
@@ -450,7 +461,7 @@ function SidebarItem({
 
       return (
             <div className={depth > 0 ? "relative" : ""}>
-                  {depth > 0 && (
+                  {depth > 1 && (
                         <span
                               className={[
                                     "absolute left-0 top-0 h-full w-px",
@@ -464,11 +475,12 @@ function SidebarItem({
                               type="button"
                               onClick={() => setIsOpen((value) => !value)}
                               className={itemClass}
+                              style={itemStyle}
                         >
                               {content}
                         </button>
                   ) : item.path ? (
-                        <Link href={item.path} className={itemClass}>
+                        <Link href={item.path} className={itemClass} style={itemStyle}>
                               {isDeepChild && (
                                     <span
                                           className={[
@@ -480,15 +492,15 @@ function SidebarItem({
                               {content}
                         </Link>
                   ) : (
-                        <div className={itemClass}>{content}</div>
+                        <div className={itemClass} style={itemStyle}>{content}</div>
                   )}
 
                   {hasChildren && isOpen && (
                         <div
                               className={[
                                     "mt-1 space-y-1",
-                                    depth === 0 ? "ml-3 border-l border-amber-100/70 pl-2" : "",
-                                    depth > 0 ? "ml-4 border-l border-amber-100/55 pl-2" : "",
+                                    depth === 0 ? "relative ml-0 border-l border-amber-100/65 pl-0 pr-0" : "",
+                                    depth > 0 ? "ml-0 border-l border-amber-100/45 pl-0" : "",
                               ].join(" ")}
                         >
                               {item.children?.map((child) => (

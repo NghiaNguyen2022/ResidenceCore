@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarClock, Pencil, Plus, Trash2, X } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { formatTime } from '@/lib/format';
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
 
@@ -220,7 +220,7 @@ function createPayload(
 }
 
 
-type ScheduleViewMode = "list" | "week" | "month";
+type ScheduleViewMode = "day" | "week" | "month";
 
 const STUDY_HOUR_START = 5;
 const STUDY_HOUR_END = 23;
@@ -267,10 +267,42 @@ function getDayOfWeekFromDate(date: Date): DayOfWeek {
       return "monday";
 }
 
-function buildCurrentMonthCells() {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = today.getMonth();
+function startOfWeek(date: Date) {
+      const current = new Date(date);
+      current.setHours(0, 0, 0, 0);
+
+      const day = current.getDay();
+      const mondayOffset = day === 0 ? -6 : 1 - day;
+      current.setDate(current.getDate() + mondayOffset);
+
+      return current;
+}
+
+function addDays(date: Date, days: number) {
+      const next = new Date(date);
+      next.setDate(next.getDate() + days);
+
+      return next;
+}
+
+function addMonths(date: Date, months: number) {
+      return new Date(date.getFullYear(), date.getMonth() + months, 1);
+}
+
+function formatShortDate(date: Date) {
+      return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getWeekTitle(viewDate: Date) {
+      const weekStart = startOfWeek(viewDate);
+      const weekEnd = addDays(weekStart, 6);
+
+      return `${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}/${weekEnd.getFullYear()}`;
+}
+
+function buildMonthCells(viewDate: Date) {
+      const year = viewDate.getFullYear();
+      const month = viewDate.getMonth();
       const firstDate = new Date(year, month, 1);
       const lastDate = new Date(year, month + 1, 0);
       const firstOffset = firstDate.getDay() === 0 ? 6 : firstDate.getDay() - 1;
@@ -295,10 +327,8 @@ function buildCurrentMonthCells() {
       return cells;
 }
 
-function getMonthTitle() {
-      const today = new Date();
-
-      return `Tháng ${today.getMonth() + 1}/${today.getFullYear()}`;
+function getMonthTitle(viewDate: Date) {
+      return `Tháng ${viewDate.getMonth() + 1}/${viewDate.getFullYear()}`;
 }
 
 function getSchedulesByDay(schedules: StudySchedule[]) {
@@ -332,6 +362,7 @@ export function StudyScheduleSection({
 }: StudyScheduleSectionProps) {
       const [isModalOpen, setIsModalOpen] = useState(false);
       const [scheduleViewMode, setScheduleViewMode] = useState<ScheduleViewMode>("week");
+      const [calendarCursorDate, setCalendarCursorDate] = useState(() => new Date());
       const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
       const [editingSchedule, setEditingSchedule] =
             useState<StudySchedule | null>(null);
@@ -365,8 +396,49 @@ export function StudyScheduleSection({
             [sortedSchedules]
       );
 
-      const monthCells = useMemo(() => buildCurrentMonthCells(), []);
-      const monthTitle = useMemo(() => getMonthTitle(), []);
+      const selectedDayOfWeek = useMemo(() => getDayOfWeekFromDate(calendarCursorDate), [calendarCursorDate]);
+      const selectedDaySchedules = useMemo(
+            () => schedulesByDay.get(selectedDayOfWeek) || [],
+            [schedulesByDay, selectedDayOfWeek]
+      );
+      const dayTitle = useMemo(
+            () => `${DAY_LABELS[selectedDayOfWeek]} ${formatShortDate(calendarCursorDate)}/${calendarCursorDate.getFullYear()}`,
+            [calendarCursorDate, selectedDayOfWeek]
+      );
+      const weekTitle = useMemo(() => getWeekTitle(calendarCursorDate), [calendarCursorDate]);
+      const monthCells = useMemo(() => buildMonthCells(calendarCursorDate), [calendarCursorDate]);
+      const monthTitle = useMemo(() => getMonthTitle(calendarCursorDate), [calendarCursorDate]);
+
+      const goToPreviousSchedulePeriod = () => {
+            setCalendarCursorDate((current) =>
+                  scheduleViewMode === "month"
+                        ? addMonths(current, -1)
+                        : scheduleViewMode === "week"
+                              ? addDays(current, -7)
+                              : addDays(current, -1)
+            );
+      };
+
+      const goToNextSchedulePeriod = () => {
+            setCalendarCursorDate((current) =>
+                  scheduleViewMode === "month"
+                        ? addMonths(current, 1)
+                        : scheduleViewMode === "week"
+                              ? addDays(current, 7)
+                              : addDays(current, 1)
+            );
+      };
+
+      const goToCurrentSchedulePeriod = () => {
+            setCalendarCursorDate(new Date());
+      };
+
+      const calendarPeriodTitle =
+            scheduleViewMode === "month"
+                  ? monthTitle
+                  : scheduleViewMode === "week"
+                        ? `Tuần ${weekTitle}`
+                        : dayTitle;
 
       const calendarHourHeight = STUDY_HOUR_HEIGHT;
       const calendarMinWidth = "820px";
@@ -530,7 +602,7 @@ export function StudyScheduleSection({
                         <div className="mb-3 flex flex-col gap-3 border-b border-amber-100/80 pb-3 sm:flex-row sm:items-center sm:justify-between">
                               <div>
                                     <p className="text-sm font-semibold text-slate-900">
-                                          Lịch học theo tuần/tháng
+                                          Lịch học theo ngày/tuần/tháng
                                     </p>
                                     <p className="text-xs text-slate-500">
                                           Dùng để cảnh báo khi phân công công tác trùng giờ.
@@ -540,9 +612,9 @@ export function StudyScheduleSection({
                               <div className="flex flex-wrap items-center justify-end gap-2">
                                     <div className="inline-flex w-fit rounded-2xl bg-amber-50/80 p-1 ring-1 ring-amber-100">
                                           {([
-                                                ["list", "Danh sách"],
-                                                ["week", "Lịch tuần"],
-                                                ["month", "Lịch tháng"],
+                                                ["day", "Ngày"],
+                                                ["week", "Tuần"],
+                                                ["month", "Tháng"],
                                           ] as Array<[ScheduleViewMode, string]>).map(([key, label]) => (
                                                 <button
                                                       key={key}
@@ -560,24 +632,60 @@ export function StudyScheduleSection({
                                           ))}
                                     </div>
 
-                                    {(scheduleViewMode === "week" || scheduleViewMode === "month") && (
-                                          <button
-                                                type="button"
-                                                onClick={isCalendarExpanded ? closeCalendarExpanded : openCalendarExpanded}
-                                                className={[
-                                                      "rounded-2xl border px-3 py-2 text-xs font-semibold transition shadow-sm",
-                                                      isCalendarExpanded
-                                                            ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                                                            : "border-amber-100 bg-white text-slate-600 hover:bg-amber-50",
-                                                ].join(" ")}
-                                                title={
-                                                      isCalendarExpanded
-                                                            ? "Đóng khung lịch mở rộng"
-                                                            : "Mở rộng lịch ra ngoài form hồ sơ"
-                                                }
-                                          >
-                                                {isCalendarExpanded ? "Đang mở rộng" : "Mở rộng"}
-                                          </button>
+                                    {(scheduleViewMode === "day" || scheduleViewMode === "week" || scheduleViewMode === "month") && (
+                                          <>
+                                                <div className="inline-flex items-center overflow-hidden rounded-2xl border border-amber-100 bg-white/75 shadow-sm">
+                                                      <button
+                                                            type="button"
+                                                            onClick={goToPreviousSchedulePeriod}
+                                                            className="px-2.5 py-2 text-slate-500 transition hover:bg-amber-50 hover:text-slate-800"
+                                                            title={scheduleViewMode === "month" ? "Tháng trước" : scheduleViewMode === "week" ? "Tuần trước" : "Ngày trước"}
+                                                      >
+                                                            <ChevronLeft className="h-4 w-4" />
+                                                      </button>
+
+                                                      <button
+                                                            type="button"
+                                                            onClick={goToCurrentSchedulePeriod}
+                                                            className="border-x border-amber-100 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-amber-50 hover:text-slate-900"
+                                                            title="Về kỳ hiện tại"
+                                                      >
+                                                            <RotateCcw className="mr-1 inline h-3.5 w-3.5" />
+                                                            Hiện tại
+                                                      </button>
+
+                                                      <button
+                                                            type="button"
+                                                            onClick={goToNextSchedulePeriod}
+                                                            className="px-2.5 py-2 text-slate-500 transition hover:bg-amber-50 hover:text-slate-800"
+                                                            title={scheduleViewMode === "month" ? "Tháng sau" : scheduleViewMode === "week" ? "Tuần sau" : "Ngày sau"}
+                                                      >
+                                                            <ChevronRight className="h-4 w-4" />
+                                                      </button>
+                                                </div>
+
+                                                <span className="rounded-2xl border border-amber-100 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm">
+                                                      {calendarPeriodTitle}
+                                                </span>
+
+                                                <button
+                                                      type="button"
+                                                      onClick={isCalendarExpanded ? closeCalendarExpanded : openCalendarExpanded}
+                                                      className={[
+                                                            "rounded-2xl border px-3 py-2 text-xs font-semibold transition shadow-sm",
+                                                            isCalendarExpanded
+                                                                  ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                                                                  : "border-amber-100 bg-white text-slate-600 hover:bg-amber-50",
+                                                      ].join(" ")}
+                                                      title={
+                                                            isCalendarExpanded
+                                                                  ? "Đóng khung lịch mở rộng"
+                                                                  : "Mở rộng lịch ra ngoài form hồ sơ"
+                                                      }
+                                                >
+                                                      {isCalendarExpanded ? "Đang mở rộng" : "Mở rộng"}
+                                                </button>
+                                          </>
                                     )}
                               </div>
                         </div>
@@ -589,73 +697,91 @@ export function StudyScheduleSection({
                                     title="Chưa có lịch học"
                                     description="Thêm lịch học để làm dữ liệu cảnh báo khi phân công công tác trùng giờ."
                               />
-                        ) : scheduleViewMode === "list" ? (
-                              <div className="space-y-3">
-                                    {sortedSchedules.map((item) => (
-                                          <div
-                                                key={item.id}
-                                                className="rounded-xl border border-slate-200 bg-white px-4 py-3"
-                                          >
-                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                                      <div>
-                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                  <StatusBadge tone="info">
-                                                                        {DAY_LABELS[item.dayOfWeek]}
-                                                                  </StatusBadge>
-
-                                                                  <span className="text-sm font-semibold text-slate-900">
-                                                                        {formatTime(item.startTime)} -{" "}
-                                                                        {formatTime(item.endTime)}
-                                                                  </span>
-                                                            </div>
-
-                                                            <p className="mt-2 text-sm font-medium text-slate-800">
-                                                                  {item.subjectName ||
-                                                                        "Khung giờ học"}
-                                                            </p>
-
-                                                            {item.location && (
-                                                                  <p className="mt-1 text-sm text-slate-500">
-                                                                        Địa điểm: {item.location}
-                                                                  </p>
-                                                            )}
-
-                                                            {item.notes && (
-                                                                  <p className="mt-1 text-sm text-slate-500">
-                                                                        Ghi chú: {item.notes}
-                                                                  </p>
-                                                            )}
-                                                      </div>
-
-                                                      {!readonly && (
-                                                            <div className="flex shrink-0 gap-2">
-                                                                  <Button
-                                                                        type="button"
-                                                                        size="sm"
-                                                                        variant="outline"
-                                                                        onClick={() =>
-                                                                              handleEdit(item)
-                                                                        }
-                                                                  >
-                                                                        <Pencil className="mr-2 h-4 w-4" />
-                                                                        Sửa
-                                                                  </Button>
-
-                                                                  <Button
-                                                                        type="button"
-                                                                        size="sm"
-                                                                        variant="outline"
-                                                                        disabled={isDeleting}
-                                                                        onClick={() => requestDelete(item)}
-                                                                  >
-                                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                                        Xóa
-                                                                  </Button>
-                                                            </div>
-                                                      )}
+                        ) : scheduleViewMode === "day" ? (
+                              <div className="rounded-2xl border border-slate-200 bg-white">
+                                    <div className="flex flex-col gap-1 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                          <div>
+                                                <div className="font-bold text-slate-900">{dayTitle}</div>
+                                                <div className="text-xs text-slate-500">
+                                                      Lịch ngày được sinh theo lịch học lặp hằng tuần.
                                                 </div>
                                           </div>
-                                    ))}
+
+                                          <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-100">
+                                                {selectedDaySchedules.length} lịch
+                                          </span>
+                                    </div>
+
+                                    {selectedDaySchedules.length === 0 ? (
+                                          <div className="p-4">
+                                                <EmptyState
+                                                      compact
+                                                      icon={<CalendarClock className="h-8 w-8" />}
+                                                      title="Không có lịch trong ngày này"
+                                                      description="Dùng Prev/Next để xem ngày khác hoặc thêm lịch học mới."
+                                                />
+                                          </div>
+                                    ) : (
+                                          <div className="space-y-3 p-4">
+                                                {selectedDaySchedules.map((item) => (
+                                                      <div
+                                                            key={item.id}
+                                                            className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                                                      >
+                                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                                  <div>
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                              <StatusBadge tone="info">
+                                                                                    {formatTime(item.startTime)} - {formatTime(item.endTime)}
+                                                                              </StatusBadge>
+
+                                                                              <span className="text-sm font-semibold text-slate-900">
+                                                                                    {item.subjectName || "Khung giờ học"}
+                                                                              </span>
+                                                                        </div>
+
+                                                                        {item.location && (
+                                                                              <p className="mt-2 text-sm text-slate-500">
+                                                                                    Địa điểm: {item.location}
+                                                                              </p>
+                                                                        )}
+
+                                                                        {item.notes && (
+                                                                              <p className="mt-1 text-sm text-slate-500">
+                                                                                    Ghi chú: {item.notes}
+                                                                              </p>
+                                                                        )}
+                                                                  </div>
+
+                                                                  {!readonly && (
+                                                                        <div className="flex shrink-0 gap-2">
+                                                                              <Button
+                                                                                    type="button"
+                                                                                    size="sm"
+                                                                                    variant="outline"
+                                                                                    onClick={() => handleEdit(item)}
+                                                                              >
+                                                                                    <Pencil className="mr-2 h-4 w-4" />
+                                                                                    Sửa
+                                                                              </Button>
+
+                                                                              <Button
+                                                                                    type="button"
+                                                                                    size="sm"
+                                                                                    variant="outline"
+                                                                                    disabled={isDeleting}
+                                                                                    onClick={() => requestDelete(item)}
+                                                                              >
+                                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                                    Xóa
+                                                                              </Button>
+                                                                        </div>
+                                                                  )}
+                                                            </div>
+                                                      </div>
+                                                ))}
+                                          </div>
+                                    )}
                               </div>
                         ) : scheduleViewMode === "week" ? (
                               <div
@@ -672,14 +798,21 @@ export function StudyScheduleSection({
                                                 <div className="px-3 py-3 text-xs font-bold uppercase text-slate-400">
                                                       Giờ
                                                 </div>
-                                                {WEEK_DAYS.map((dayOfWeek) => (
-                                                      <div
-                                                            key={dayOfWeek}
-                                                            className="border-l border-slate-200 px-3 py-3 text-center text-xs font-bold uppercase text-slate-500"
-                                                      >
-                                                            {DAY_LABELS[dayOfWeek]}
-                                                      </div>
-                                                ))}
+                                                {WEEK_DAYS.map((dayOfWeek, index) => {
+                                                      const date = addDays(startOfWeek(calendarCursorDate), index);
+
+                                                      return (
+                                                            <div
+                                                                  key={dayOfWeek}
+                                                                  className="border-l border-slate-200 px-3 py-3 text-center text-xs font-bold uppercase text-slate-500"
+                                                            >
+                                                                  <div>{DAY_LABELS[dayOfWeek]}</div>
+                                                                  <div className="mt-0.5 text-[11px] font-semibold normal-case text-slate-400">
+                                                                        {formatShortDate(date)}
+                                                                  </div>
+                                                            </div>
+                                                      );
+                                                })}
                                           </div>
                                     </div>
 
@@ -785,7 +918,7 @@ export function StudyScheduleSection({
                                     <div className="flex flex-col gap-1 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                           <div className="font-bold text-slate-900">{monthTitle}</div>
                                           <div className="text-xs text-slate-500">
-                                                Lịch tháng được sinh theo lịch học lặp hằng tuần.
+                                                Lịch tháng được sinh theo lịch học lặp hằng tuần. Dùng Next/Prev để xem các tháng khác. Dùng Next/Prev để xem các tháng khác.
                                           </div>
                                     </div>
 
@@ -890,6 +1023,39 @@ export function StudyScheduleSection({
                                                       </button>
                                                 ))}
                                           </div>
+
+                                          <div className="inline-flex items-center overflow-hidden rounded-2xl border border-amber-100 bg-white/75 shadow-sm">
+                                                <button
+                                                      type="button"
+                                                      onClick={goToPreviousSchedulePeriod}
+                                                      className="px-2.5 py-2 text-slate-500 transition hover:bg-amber-50 hover:text-slate-800"
+                                                      title={scheduleViewMode === "month" ? "Tháng trước" : "Tuần trước"}
+                                                >
+                                                      <ChevronLeft className="h-4 w-4" />
+                                                </button>
+
+                                                <button
+                                                      type="button"
+                                                      onClick={goToCurrentSchedulePeriod}
+                                                      className="border-x border-amber-100 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-amber-50 hover:text-slate-900"
+                                                      title="Về kỳ hiện tại"
+                                                >
+                                                      Hiện tại
+                                                </button>
+
+                                                <button
+                                                      type="button"
+                                                      onClick={goToNextSchedulePeriod}
+                                                      className="px-2.5 py-2 text-slate-500 transition hover:bg-amber-50 hover:text-slate-800"
+                                                      title={scheduleViewMode === "month" ? "Tháng sau" : "Tuần sau"}
+                                                >
+                                                      <ChevronRight className="h-4 w-4" />
+                                                </button>
+                                          </div>
+
+                                          <span className="rounded-2xl border border-amber-100 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm">
+                                                {calendarPeriodTitle}
+                                          </span>
 
                                           <button
                                                 type="button"
@@ -1035,7 +1201,7 @@ export function StudyScheduleSection({
                                                 <div className="flex flex-col gap-1 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                                       <div className="font-bold text-slate-900">{monthTitle}</div>
                                                       <div className="text-xs text-slate-500">
-                                                            Lịch tháng được sinh theo lịch học lặp hằng tuần.
+                                                            Lịch tháng được sinh theo lịch học lặp hằng tuần. Dùng Next/Prev để xem các tháng khác. Dùng Next/Prev để xem các tháng khác.
                                                       </div>
                                                 </div>
 
