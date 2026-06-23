@@ -10,6 +10,7 @@ import {
 import { trpc } from '@/lib/trpc';
 import { useAutoDismissMessage } from '@/hooks/useAutoDismissMessage';
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
+import { residenceMediumStyle } from '@/components/shared/styleMedium';
 import DutyConfigForm from '@/components/DutyConfigForm';
 import TodayOverviewTab from '@/components/daily-routine/today/TodayOverviewTab';
 import DutiesTab from '@/components/daily-routine/duties/DutiesTab';
@@ -851,10 +852,26 @@ export default function DailyRoutine() {
             });
       }, [selectedDateDutyAssignments, dutyStatusFilter, selectedDate]);
 
+      const getAssignmentGroupRows = (assignment: any) =>
+            Array.isArray(assignment?.assignments) && assignment.assignments.length > 0
+                  ? assignment.assignments
+                  : [assignment];
+
       const completeAssignment = async (assignment: any) => {
+            const assignmentRows = getAssignmentGroupRows(assignment);
+
             try {
-                  await completeAssignmentMutation.mutateAsync({ id: assignment.id });
-                  showMessage('success', 'Đã đánh dấu hoàn thành công tác.');
+                  await Promise.all(
+                        assignmentRows.map((row: any) =>
+                              completeAssignmentMutation.mutateAsync({ id: row.id })
+                        )
+                  );
+                  showMessage(
+                        'success',
+                        assignmentRows.length > 1
+                              ? `Đã đánh dấu hoàn thành ${assignmentRows.length} phân công.`
+                              : 'Đã đánh dấu hoàn thành công tác.'
+                  );
                   await dutiesQuery.refetch();
             } catch (err: any) {
                   showMessage('error', err?.message || 'Không thể cập nhật công tác.');
@@ -862,12 +879,23 @@ export default function DailyRoutine() {
       };
 
       const skipAssignment = async (assignment: any) => {
+            const assignmentRows = getAssignmentGroupRows(assignment);
+
             try {
-                  await skipAssignmentMutation.mutateAsync({
-                        id: assignment.id,
-                        reason: 'Vắng / không thực hiện',
-                  });
-                  showMessage('success', 'Đã ghi nhận vắng / không làm công tác.');
+                  await Promise.all(
+                        assignmentRows.map((row: any) =>
+                              skipAssignmentMutation.mutateAsync({
+                                    id: row.id,
+                                    reason: 'Vắng / không thực hiện',
+                              })
+                        )
+                  );
+                  showMessage(
+                        'success',
+                        assignmentRows.length > 1
+                              ? `Đã ghi nhận vắng / không làm cho ${assignmentRows.length} phân công.`
+                              : 'Đã ghi nhận vắng / không làm công tác.'
+                  );
                   await dutiesQuery.refetch();
             } catch (err: any) {
                   showMessage('error', err?.message || 'Không thể cập nhật công tác.');
@@ -884,7 +912,11 @@ export default function DailyRoutine() {
                               assignment.dutyName ||
                               assignment.dutyConfig?.dutyName ||
                               `#${assignment.id}`
-                        }"?\n\n` +
+                        }"${
+                              Array.isArray(assignment.assignments) && assignment.assignments.length > 1
+                                    ? ` cho ${assignment.assignments.length} người/đối tượng`
+                                    : ''
+                        }?\n\n` +
                         'Công tác sẽ chuyển sang trạng thái Đã hủy và không còn được tính là công tác cần thực hiện.',
                   variant: 'warning',
                   selectedValue: 'cancelAssignment',
@@ -907,12 +939,23 @@ export default function DailyRoutine() {
             }
 
             try {
-                  await cancelAssignmentMutation.mutateAsync({
-                        id: pendingCancelAssignment.id,
-                        reason: 'Hủy từ màn hình sinh hoạt hằng ngày',
-                  });
+                  const assignmentRows = getAssignmentGroupRows(pendingCancelAssignment);
 
-                  showMessage('success', 'Đã hủy công tác.');
+                  await Promise.all(
+                        assignmentRows.map((row: any) =>
+                              cancelAssignmentMutation.mutateAsync({
+                                    id: row.id,
+                                    reason: 'Hủy từ màn hình sinh hoạt hằng ngày',
+                              })
+                        )
+                  );
+
+                  showMessage(
+                        'success',
+                        assignmentRows.length > 1
+                              ? `Đã hủy ${assignmentRows.length} phân công.`
+                              : 'Đã hủy công tác.'
+                  );
                   closeMessageBox();
                   await dutiesQuery.refetch();
             } catch (err: any) {
@@ -1483,39 +1526,43 @@ export default function DailyRoutine() {
 
       return (
             <ResidenceCareLayout>
-                  <div className="space-y-6 p-6">
-                        <div className="relative min-h-[118px] rounded-[28px] bg-[radial-gradient(circle_at_8%_10%,rgba(251,191,36,0.20),transparent_34%),linear-gradient(135deg,#fffdf8_0%,#ffffff_52%,#f8fafc_100%)] px-5 py-6 shadow-[0_10px_30px_rgba(120,53,15,0.045)]">
-                              <div className="mx-auto max-w-3xl text-center">
-                                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                                          Sinh hoạt hằng ngày
-                                    </h1>
-                                    <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                                          Theo dõi lịch sinh hoạt, công tác và phân công trong ngày trên một màn hình gọn, dễ nhìn và dễ thực hiện.
-                                    </p>
-                              </div>
+                  <div className={residenceMediumStyle.page}>
+                        <span className={residenceMediumStyle.pageAura} />
+                        <div className="relative mx-auto max-w-[1420px] space-y-4 px-2 pb-8">
+                              <div className="relative overflow-visible px-5 pb-2 pt-3 text-slate-900 sm:px-6">
+                                    <div className="pointer-events-none absolute inset-x-0 top-0 h-32 opacity-70 [background-image:radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.92),transparent_30%),radial-gradient(circle_at_78%_8%,rgba(251,191,36,0.18),transparent_26%)]" />
 
-                              <div className="mt-4 flex flex-wrap justify-center gap-2 xl:absolute xl:right-8 xl:top-5 xl:mt-0">
-                                    <button
-                                          type="button"
-                                          onClick={openCreateDutyConfig}
-                                          className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-white/92 px-4 py-2 text-sm font-semibold text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] transition hover:bg-amber-50"
-                                    >
-                                          <Plus className="h-4 w-4" />
-                                          Thêm công tác
-                                    </button>
-                                    <button
-                                          type="button"
-                                          onClick={() => {
-                                                setActiveView('duties');
-                                                setAssignmentModalSignal((value) => value + 1);
-                                          }}
-                                          className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-[linear-gradient(135deg,#fff8e1_0%,#f7d99a_100%)] px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_10px_22px_rgba(120,53,15,0.10)] transition hover:brightness-[1.02]"
-                                    >
-                                          <Plus className="h-4 w-4" />
-                                          Phân công công tác
-                                    </button>
+                                    <div className="relative min-h-[88px]">
+                                          <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
+                                                <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-[38px]">
+                                                      Sinh hoạt hằng ngày
+                                                </h1>
+
+                                                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500 sm:text-[15px]">
+                                                      Theo dõi lịch sinh hoạt, công tác và phân công trong ngày trên một màn hình gọn, dễ nhìn và dễ thực hiện.
+                                                </p>
+                                          </div>
+
+                                          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:absolute lg:right-0 lg:top-0 lg:mt-0 lg:justify-end">
+                                                <button
+                                                      type="button"
+                                                      onClick={() => {
+                                                            setActiveView('duties');
+                                                            setAssignmentForm((current) => ({
+                                                                  ...current,
+                                                                  assignedDate: selectedDate,
+                                                                  repeatEndDate: selectedDate,
+                                                            }));
+                                                            setAssignmentModalSignal((value) => value + 1);
+                                                      }}
+                                                      className={residenceMediumStyle.buttonCardPrimary}
+                                                >
+                                                      <Plus className={residenceMediumStyle.buttonCardIcon} />
+                                                      Phân công công tác
+                                                </button>
+                                          </div>
+                                    </div>
                               </div>
-                        </div>
 
                         {message && (
                               <div
@@ -1532,8 +1579,8 @@ export default function DailyRoutine() {
                               </div>
                         )}
 
-                        <div className="w-full rounded-2xl border border-amber-100/70 bg-white/72 p-1.5 shadow-[0_6px_16px_rgba(120,53,15,0.035)]">
-                              <div className="grid grid-cols-2 gap-1.5">
+                        <div className="flex flex-wrap items-center justify-center gap-2 rounded-[24px] border border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.62)_0%,rgba(255,251,235,0.42)_62%,rgba(245,158,11,0.08)_100%)] px-4 py-2.5 shadow-[0_14px_30px_rgba(12,10,9,0.045),inset_0_1px_0_rgba(255,255,255,0.70)]">
+                              <div className="flex w-full gap-2">
                                     {[
                                           { key: 'duties', label: 'Công tác' },
                                           { key: 'today', label: 'Sinh hoạt' },
@@ -1543,9 +1590,9 @@ export default function DailyRoutine() {
                                                 type="button"
                                                 onClick={() => setActiveView(view.key as DailyRoutineView)}
                                                 className={[
-                                                      'rounded-xl px-4 py-2.5 text-sm font-semibold transition',
+                                                      'flex-1 rounded-full px-4 py-2 text-sm font-semibold transition',
                                                       activeView === view.key
-                                                            ? 'bg-amber-50 text-amber-900 ring-1 ring-amber-100'
+                                                            ? 'bg-white/84 text-amber-900 ring-1 ring-amber-100/80 shadow-sm shadow-slate-900/5'
                                                             : 'text-slate-500 hover:bg-amber-50/70 hover:text-slate-800',
                                                 ].join(' ')}
                                           >
@@ -1581,8 +1628,8 @@ export default function DailyRoutine() {
                                     selectedDate={selectedDate}
                                     onDateChange={setSelectedDate}
                                     routineItems={items}
-                                    dutyAssignments={selectedDateDutyAssignments}
-                                    timelineItems={todayTimelineItems}
+                                    dutyAssignments={[]}
+                                    timelineItems={todayTimelineItems.filter((item: any) => item.type !== 'duty')}
                                     isLoading={
                                           templatesQuery.isLoading ||
                                           itemsQuery.isLoading ||
@@ -1609,6 +1656,7 @@ export default function DailyRoutine() {
                                     onOpenDutyTemplateDialog={() =>
                                           setIsDutyTemplateDialogOpen(true)
                                     }
+                                    openAssignmentSignal={assignmentModalSignal}
                                     onOpenToday={() => setActiveView('today')}
                                     onOpenRoutine={() => setActiveView('routine')}
                                     selectedDate={selectedDate}
@@ -1724,6 +1772,7 @@ export default function DailyRoutine() {
                               onConfirm={handleMessageBoxConfirm}
                               isProcessing={deleteDutyConfigMutation.isPending || cancelAssignmentMutation.isPending}
                         />
+                        </div>
                   </div>
             </ResidenceCareLayout>
       );

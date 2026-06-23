@@ -6,7 +6,6 @@ import {
       SectionCard,
       formatDateValue,
       getAssignmentDate,
-      getDutyVisualState,
 } from '@/components/daily-routine/shared';
 
 type DutyMonthViewProps = {
@@ -49,10 +48,78 @@ function isSameMonth(dateText: string, selectedDate: string) {
       return dateText.slice(0, 7) === selectedDate.slice(0, 7);
 }
 
-function getMonthTitle(selectedDate: string) {
-      const [year, month] = selectedDate.split('-');
+function normalizeDutyStatus(status?: string | null) {
+      return String(status || 'pending').toLowerCase();
+}
 
-      return `Công tác tháng ${month}/${year}`;
+function isOpenAssignment(assignment: any) {
+      return !['completed', 'cancelled', 'skipped', 'absent'].includes(
+            normalizeDutyStatus(assignment.status)
+      );
+}
+
+function getDutyName(assignment: any) {
+      return (
+            assignment.dutyConfig?.dutyName ||
+            assignment.dutyName ||
+            assignment.dutyConfigName ||
+            `Công tác #${assignment.dutyConfigId || assignment.id}`
+      );
+}
+
+function formatTimeText(value?: string | Date | null) {
+      if (!value) return '--:--';
+
+      if (value instanceof Date) return value.toTimeString().slice(0, 5);
+
+      const text = String(value);
+      if (text.includes('T')) return text.slice(11, 16);
+
+      return text.slice(0, 5);
+}
+
+function getDutyTimeRange(assignment: any) {
+      const start =
+            assignment.dutyConfig?.startTime ||
+            assignment.startTime ||
+            assignment.startDateTime;
+      const end =
+            assignment.dutyConfig?.endTime ||
+            assignment.endTime ||
+            assignment.endDateTime;
+
+      return `${formatTimeText(start)} - ${formatTimeText(end)}`;
+}
+
+function getGroupKey(assignment: any, date: string) {
+      return [
+            date,
+            assignment.dutyConfigId || assignment.dutyConfig?.id || getDutyName(assignment),
+            getDutyName(assignment),
+            getDutyTimeRange(assignment),
+      ].join('|');
+}
+
+function buildDutyGroups(assignments: any[], date: string) {
+      const map = new Map<string, any[]>();
+
+      assignments.forEach((assignment) => {
+            const key = getGroupKey(assignment, date);
+            const current = map.get(key) || [];
+            current.push(assignment);
+            map.set(key, current);
+      });
+
+      return Array.from(map.entries()).map(([key, rows]) => ({
+            id: key,
+            name: getDutyName(rows[0]),
+            timeRange: getDutyTimeRange(rows[0]),
+            count: rows.length,
+            openCount: rows.filter(isOpenAssignment).length,
+            completedCount: rows.filter(
+                  (assignment: any) => normalizeDutyStatus(assignment.status) === 'completed'
+            ).length,
+      }));
 }
 
 const weekLabels = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
@@ -66,10 +133,7 @@ export function DutyMonthView({
       const hasAssignments = assignments.length > 0;
 
       return (
-            <SectionCard
-                  title={getMonthTitle(selectedDate)}
-                  description="Xem tháng dạng lịch. Ngày có việc sẽ hiện số lượng và trạng thái nổi bật."
-            >
+            <SectionCard>
                   <div className="grid grid-cols-7 gap-2">
                         {weekLabels.map((label) => (
                               <div
@@ -84,22 +148,15 @@ export function DutyMonthView({
                               const dayAssignments = assignments.filter(
                                     (assignment: any) => getAssignmentDate(assignment) === date
                               );
-
-                              const completedCount = dayAssignments.filter(
-                                    (assignment: any) => assignment.status === 'completed'
-                              ).length;
-
-                              const overdueCount = dayAssignments.filter(
-                                    (assignment: any) =>
-                                          getDutyVisualState(assignment, date) === 'overdue'
-                              ).length;
-
-                              const openCount = dayAssignments.filter(
-                                    (assignment: any) =>
-                                          assignment.status !== 'completed' &&
-                                          assignment.status !== 'cancelled'
-                              ).length;
-
+                              const dutyGroups = buildDutyGroups(dayAssignments, date);
+                              const openCount = dutyGroups.reduce(
+                                    (total, group) => total + group.openCount,
+                                    0
+                              );
+                              const completedCount = dutyGroups.reduce(
+                                    (total, group) => total + group.completedCount,
+                                    0
+                              );
                               const isCurrentMonth = isSameMonth(date, selectedDate);
                               const isSelected = date === selectedDate;
 
@@ -109,11 +166,11 @@ export function DutyMonthView({
                                           type="button"
                                           onClick={() => onSelectDate(date)}
                                           className={[
-                                                'min-h-[104px] rounded-2xl border p-2.5 text-left transition hover:-translate-y-0.5',
+                                                'min-h-[112px] rounded-[22px] border p-2.5 text-left transition hover:-translate-y-0.5',
                                                 isSelected
-                                                      ? 'border-amber-200 bg-amber-50/75 shadow-[0_8px_18px_rgba(120,53,15,0.055)]'
+                                                      ? 'border-amber-200 bg-amber-50/75 shadow-sm shadow-slate-900/5'
                                                       : isCurrentMonth
-                                                            ? 'border-amber-100 bg-white/82 shadow-[0_4px_12px_rgba(120,53,15,0.03)] hover:bg-amber-50/45'
+                                                            ? 'border-amber-100/70 bg-white/78 hover:bg-amber-50/40'
                                                             : 'border-slate-100 bg-slate-50/70 text-slate-400',
                                           ].join(' ')}
                                     >
@@ -129,30 +186,33 @@ export function DutyMonthView({
                                                       {getDayNumber(date)}
                                                 </span>
 
-                                                {dayAssignments.length > 0 && (
-                                                      <Badge className="border-amber-100 bg-white text-amber-800">
-                                                            {dayAssignments.length}
+                                                {dutyGroups.length > 0 && (
+                                                      <Badge className="border-amber-100 bg-white/82 text-amber-800">
+                                                            {dutyGroups.length}
                                                       </Badge>
                                                 )}
                                           </div>
 
-                                          {dayAssignments.length > 0 && (
+                                          {dutyGroups.length > 0 && (
                                                 <div className="mt-2 space-y-1.5">
                                                       {openCount > 0 && (
                                                             <p className="truncate rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800">
-                                                                  {openCount} chưa xong
+                                                                  {openCount} mở
                                                             </p>
                                                       )}
                                                       {completedCount > 0 && (
                                                             <p className="truncate rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
-                                                                  {completedCount} hoàn thành
+                                                                  {completedCount} xong
                                                             </p>
                                                       )}
-                                                      {overdueCount > 0 && (
-                                                            <p className="truncate rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700">
-                                                                  {overdueCount} quá giờ
+                                                      {dutyGroups.slice(0, 2).map((group) => (
+                                                            <p
+                                                                  key={group.id}
+                                                                  className="truncate rounded-lg bg-white/82 px-2 py-1 text-[11px] font-semibold text-slate-600"
+                                                            >
+                                                                  {group.name} · {group.count}
                                                             </p>
-                                                      )}
+                                                      ))}
                                                 </div>
                                           )}
                                     </button>
@@ -164,7 +224,7 @@ export function DutyMonthView({
                         <div className="mt-4">
                               <EmptyState
                                     title="Chưa có công tác trong tháng"
-                                    description="Khi có phân công, lịch tháng sẽ hiển thị ngày có công tác."
+                                    description="Khi có phân công, lịch tháng sẽ gom theo công tác trong từng ngày."
                               />
                         </div>
                   )}

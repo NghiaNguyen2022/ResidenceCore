@@ -30,10 +30,7 @@ export function TodayTimeline({
             );
 
       return (
-            <SectionCard
-                  title="Sinh hoạt trong ngày"
-                  description="Các khung giờ sinh hoạt cố định, chỉ để theo dõi nhanh."
-            >
+            <SectionCard>
                   {isLoading ? (
                         <EmptyState
                               title="Đang tải lịch sinh hoạt"
@@ -56,7 +53,7 @@ export function TodayTimeline({
                                           <div
                                                 key={item.id || `${item.startTime}-${item.title}`}
                                                 className={[
-                                                      'rounded-xl border p-3 shadow-[0_4px_12px_rgba(120,53,15,0.035)] transition',
+                                                      'rounded-[22px] border border-amber-100/70 bg-white/78 p-3 transition',
                                                       getTimelineCardClass(
                                                             'routine',
                                                             visualState

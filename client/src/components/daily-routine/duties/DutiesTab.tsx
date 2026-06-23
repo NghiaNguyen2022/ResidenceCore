@@ -183,8 +183,8 @@ export function DutiesTab({
 
       return (
             <div className="space-y-4">
-                  <div className="flex flex-col gap-3 rounded-2xl border border-amber-100 bg-white/78 p-2 shadow-[0_4px_12px_rgba(120,53,15,0.025)] lg:flex-row lg:items-center lg:justify-between">
-                        <div className="inline-flex w-full rounded-xl border border-amber-100 bg-white/80 p-1 lg:w-auto">
+                  <div className="flex flex-col gap-3 rounded-[22px] border border-amber-100/70 bg-white/72 p-2 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="inline-flex w-full rounded-xl border border-amber-100/70 bg-white/76 p-1 lg:w-auto">
                               <button
                                     type="button"
                                     onClick={() => shiftDate(-1)}
@@ -245,7 +245,7 @@ export function DutiesTab({
 
                   {isAssignmentModalOpen && (
                         <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/38 px-4 py-6 backdrop-blur-sm">
-                              <div className="mx-auto w-full max-w-6xl overflow-hidden rounded-2xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff8ef_100%)] shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
+                              <div className="mx-auto w-full max-w-6xl overflow-hidden rounded-2xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff8ef_100%)] shadow-[0_16px_40px_rgba(15,23,42,0.14)]">
                                     <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-amber-100/70 bg-white/94 px-5 py-4 backdrop-blur">
                                           <div>
                                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
