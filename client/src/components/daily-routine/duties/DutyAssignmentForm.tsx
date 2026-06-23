@@ -44,7 +44,17 @@ type DutyAssignmentFormProps = {
 
       dutyConfigs: any[];
       selectedDutyConfig?: any | null;
-      assigneeOptions: Array<{ id: number | string; label: string }>;
+      assigneeOptions: Array<{
+            id: number | string;
+            label: string;
+            todayCount?: number;
+            weekCount?: number;
+            monthCount?: number;
+            isBusyToday?: boolean;
+            isOverloaded?: boolean;
+            recommendScore?: number;
+            recommendLabel?: string;
+      }>;
 
       previewEnabled: boolean;
       previewLoading?: boolean;
@@ -67,6 +77,7 @@ type DutyAssignmentFormProps = {
       isSaving?: boolean;
       onSave: () => void;
       onOpenDutyTemplateDialog: () => void;
+      fullScreen?: boolean;
 };
 
 const MONTH_WEEK_OPTIONS: Array<{ value: MonthWeek; label: string }> = [
@@ -160,6 +171,7 @@ export function DutyAssignmentForm({
       isSaving,
       onSave,
       onOpenDutyTemplateDialog,
+      fullScreen = false,
 }: DutyAssignmentFormProps) {
       const [showRepeatOptions, setShowRepeatOptions] = useState(form.repeatType !== 'once');
 
@@ -193,7 +205,12 @@ export function DutyAssignmentForm({
                   : 'Lưu phân công';
 
       return (
-            <div className="rounded-xl border border-amber-100 bg-white/88 p-3 shadow-[0_4px_12px_rgba(120,53,15,0.035)]">
+            <div
+                  className={[
+                        'rounded-xl border border-amber-100 bg-white/88 p-3 shadow-[0_4px_12px_rgba(120,53,15,0.035)]',
+                        fullScreen ? 'border-0 bg-transparent p-0 shadow-none' : '',
+                  ].join(' ')}
+            >
                   <div className="mb-5 flex items-start justify-between gap-3">
                         <div>
                               <h2 className="text-xl font-bold text-slate-900">
@@ -214,6 +231,23 @@ export function DutyAssignmentForm({
                   </div>
 
                   <div className="space-y-4">
+                        {fullScreen && (
+                              <div className="grid gap-3 md:grid-cols-3">
+                                    <div className="rounded-xl border border-amber-100 bg-amber-50/55 px-3 py-2">
+                                          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Gợi ý</p>
+                                          <p className="mt-1 text-sm font-semibold text-slate-800">Ưu tiên người ít việc hơn trong ngày/tuần/tháng.</p>
+                                    </div>
+                                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2">
+                                          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Lịch học</p>
+                                          <p className="mt-1 text-sm font-semibold text-slate-800">Backend vẫn skip học viên trùng lịch học khi preview/lưu.</p>
+                                    </div>
+                                    <div className="rounded-xl border border-rose-100 bg-rose-50/60 px-3 py-2">
+                                          <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">Trùng công tác</p>
+                                          <p className="mt-1 text-sm font-semibold text-slate-800">Cùng công tác/ngày/đối tượng sẽ được skip.</p>
+                                    </div>
+                              </div>
+                        )}
+
                         <label className="space-y-1.5">
                               <Label>Công tác</Label>
                               <select
@@ -326,7 +360,7 @@ export function DutyAssignmentForm({
                                           </span>
                                     </div>
 
-                                    <div className="max-h-48 overflow-y-auto rounded-xl border border-amber-100 bg-white/78 p-2">
+                                    <div className="max-h-72 overflow-y-auto rounded-xl border border-amber-100 bg-white/78 p-2">
                                           {assigneeOptions.map((option) => {
                                                 const value = String(option.id);
                                                 const active = (form.assignedToIds || []).includes(value);
@@ -347,16 +381,40 @@ export function DutyAssignmentForm({
                                                                   });
                                                             }}
                                                             className={[
-                                                                  'mb-2 flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition last:mb-0',
+                                                                  'mb-2 flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm transition last:mb-0',
                                                                   active
                                                                         ? 'border-amber-200 bg-amber-50 text-amber-900'
                                                                         : 'border-amber-100 bg-white/90 text-slate-600 hover:bg-amber-50',
                                                             ].join(' ')}
                                                       >
-                                                            <span className="font-semibold">{option.label}</span>
+                                                            <span className="min-w-0">
+                                                                  <span className="line-clamp-1 font-semibold">
+                                                                        {option.label}
+                                                                  </span>
+                                                                  <span className="mt-1 flex flex-wrap gap-1 text-[11px] font-semibold">
+                                                                        <span className="rounded-full border border-amber-100 bg-white/80 px-2 py-0.5 text-amber-800">
+                                                                              Hôm nay {option.todayCount || 0}
+                                                                        </span>
+                                                                        <span className="rounded-full border border-slate-100 bg-white/80 px-2 py-0.5 text-slate-600">
+                                                                              Tuần {option.weekCount || 0}
+                                                                        </span>
+                                                                        <span className="rounded-full border border-slate-100 bg-white/80 px-2 py-0.5 text-slate-600">
+                                                                              Tháng {option.monthCount || 0}
+                                                                        </span>
+                                                                        {option.isOverloaded ? (
+                                                                              <span className="rounded-full border border-rose-100 bg-rose-50 px-2 py-0.5 text-rose-700">
+                                                                                    Nhiều việc
+                                                                              </span>
+                                                                        ) : (
+                                                                              <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                                                                                    Gợi ý
+                                                                              </span>
+                                                                        )}
+                                                                  </span>
+                                                            </span>
                                                             <span
                                                                   className={[
-                                                                        'h-4 w-4 rounded-full border',
+                                                                        'h-4 w-4 shrink-0 rounded-full border',
                                                                         active
                                                                               ? 'border-amber-500 bg-amber-400'
                                                                               : 'border-slate-300 bg-white',

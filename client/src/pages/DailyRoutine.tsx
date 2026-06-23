@@ -169,6 +169,16 @@ function getWeekRangeValues(dateText: string) {
       };
 }
 
+function getForwardWeekRangeValues(dateText: string) {
+      const startDate = parseDateValue(dateText);
+      const endDate = addDays(startDate, 6);
+
+      return {
+            startDate: formatDateValue(startDate),
+            endDate: formatDateValue(endDate),
+      };
+}
+
 function getMonthRangeForDateValue(dateText: string) {
       const date = parseDateValue(dateText);
       const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -935,32 +945,102 @@ export default function DailyRoutine() {
 
 
       const getAssigneeOptions = () => {
+            const getAssignmentLoad = (type: AssignToType, id: number | string) => {
+                  const normalizedId = Number(id);
+                  const dateRangeWeek = getForwardWeekRangeValues(assignmentForm.assignedDate || selectedDate);
+                  const dateRangeMonth = getMonthRangeForDateValue(assignmentForm.assignedDate || selectedDate);
+
+                  const activeRows = (enrichedDutyAssignments as any[]).filter((assignment: any) => {
+                        if (assignment.status === 'cancelled') return false;
+                        const assignmentType =
+                              assignment.assignedToType || (assignment.residentId ? 'resident' : 'resident');
+                        const assignmentId = Number(assignment.assignedToId || assignment.residentId || 0);
+
+                        return assignmentType === type && assignmentId === normalizedId;
+                  });
+
+                  const todayCount = activeRows.filter(
+                        (assignment: any) => getAssignmentDateText(assignment) === (assignmentForm.assignedDate || selectedDate)
+                  ).length;
+
+                  const weekCount = activeRows.filter((assignment: any) => {
+                        const dateText = getAssignmentDateText(assignment);
+                        return dateText >= dateRangeWeek.startDate && dateText <= dateRangeWeek.endDate;
+                  }).length;
+
+                  const monthCount = activeRows.filter((assignment: any) => {
+                        const dateText = getAssignmentDateText(assignment);
+                        return dateText >= dateRangeMonth.startDate && dateText <= dateRangeMonth.endDate;
+                  }).length;
+
+                  return {
+                        todayCount,
+                        weekCount,
+                        monthCount,
+                        isBusyToday: todayCount > 0,
+                        isOverloaded: todayCount >= 2 || weekCount >= 4 || monthCount >= 10,
+                        recommendScore: todayCount * 100 + weekCount * 10 + monthCount,
+                  };
+            };
+
+            const withLoad = (type: AssignToType, option: { id: number | string; label: string }) => {
+                  const load = getAssignmentLoad(type, option.id);
+
+                  return {
+                        ...option,
+                        ...load,
+                        recommendLabel: load.isOverloaded
+                              ? 'Đang nhiều việc'
+                              : load.isBusyToday
+                                    ? 'Đã có việc hôm nay'
+                                    : 'Gợi ý',
+                  };
+            };
+
+            const sortSmart = (items: Array<{ id: number | string; label: string; recommendScore?: number }>) =>
+                  [...items].sort((a, b) => Number(a.recommendScore || 0) - Number(b.recommendScore || 0));
+
             if (assignmentForm.assignedToType === 'room') {
-                  return rooms.map((room: any) => ({
-                        id: room.id,
-                        label: getRoomName(room),
-                  }));
+                  return sortSmart(
+                        rooms.map((room: any) =>
+                              withLoad('room', {
+                                    id: room.id,
+                                    label: getRoomName(room),
+                              })
+                        )
+                  );
             }
 
             if (assignmentForm.assignedToType === 'team') {
-                  return teams.map((unit: any) => ({
-                        id: unit.id,
-                        label: getUnitName(unit),
-                  }));
+                  return sortSmart(
+                        teams.map((unit: any) =>
+                              withLoad('team', {
+                                    id: unit.id,
+                                    label: getUnitName(unit),
+                              })
+                        )
+                  );
             }
 
             if (assignmentForm.assignedToType === 'committee') {
-                  return committees.map((unit: any) => ({
-                        id: unit.id,
-                        label: getUnitName(unit),
-                  }));
+                  return sortSmart(
+                        committees.map((unit: any) =>
+                              withLoad('committee', {
+                                    id: unit.id,
+                                    label: getUnitName(unit),
+                              })
+                        )
+                  );
             }
 
-            // For 'resident' type - use members or fallback
-            const memberOptions = members.map((member: any) => ({
-                  id: member.id,
-                  label: getMemberName(member),
-            }));
+            const memberOptions = sortSmart(
+                  members.map((member: any) =>
+                        withLoad('resident', {
+                              id: member.id,
+                              label: getMemberName(member),
+                        })
+                  )
+            );
 
             if (memberOptions.length === 0 && membersQuery.isLoading) {
                   return [{ id: 'loading', label: '⏳ Đang tải danh sách...' }];
@@ -973,7 +1053,7 @@ export default function DailyRoutine() {
             return memberOptions;
       };
 
-      const saveAssignment = async () => {
+            const saveAssignment = async () => {
             const dutyConfigId = Number(assignmentForm.dutyConfigId || 0);
             const assignedToIds = (assignmentForm.assignedToIds || [])
                   .map((id) => Number(id || 0))
