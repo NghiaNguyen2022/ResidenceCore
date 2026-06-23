@@ -89,11 +89,11 @@ export function DutyTemplateDialog({
       onDelete,
 }: DutyTemplateDialogProps) {
       return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-amber-700/40 px-4 py-6 backdrop-blur-sm">
-                  <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff7ed_100%)] p-3 shadow-[0_16px_40px_rgba(120,53,15,0.08)]">
-                        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="fixed inset-0 z-[90] overflow-y-auto bg-slate-950/38 px-4 py-6 backdrop-blur-sm">
+                  <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-2xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff8ef_100%)] shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
+                        <div className="sticky top-0 z-10 flex flex-col gap-3 border-b border-amber-100/70 bg-white/94 px-5 py-4 backdrop-blur md:flex-row md:items-start md:justify-between">
                               <div>
-                                    <h2 className="text-xl font-bold text-slate-900">
+                                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">
                                           Mẫu công tác
                                     </h2>
                                     <p className="mt-1 text-sm text-slate-500">
@@ -105,7 +105,7 @@ export function DutyTemplateDialog({
                                     <button
                                           type="button"
                                           onClick={onCreate}
-                                          className="inline-flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-200"
+                                          className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
                                     >
                                           <Plus className="h-4 w-4" />
                                           Thêm mẫu
@@ -114,13 +114,14 @@ export function DutyTemplateDialog({
                                     <button
                                           type="button"
                                           onClick={onClose}
-                                          className="rounded-xl border border-amber-100 bg-white/88 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-amber-50"
+                                          className="rounded-xl border border-amber-100 bg-white/88 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-amber-50"
                                     >
                                           Đóng
                                     </button>
                               </div>
                         </div>
 
+                        <div className="max-h-[calc(100vh-190px)] overflow-y-auto px-5 py-4">
                         {isLoading ? (
                               <EmptyState
                                     title="Đang tải mẫu công tác"
@@ -134,7 +135,7 @@ export function DutyTemplateDialog({
                                           <button
                                                 type="button"
                                                 onClick={onCreate}
-                                                className="rounded-xl bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-200"
+                                                className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
                                           >
                                                 Thêm mẫu
                                           </button>
@@ -148,11 +149,11 @@ export function DutyTemplateDialog({
                                           return (
                                                 <div
                                                       key={duty.id}
-                                                      className="rounded-xl border border-amber-100 bg-amber-50/60/70 p-3 shadow-[0_4px_12px_rgba(120,53,15,0.035)]"
+                                                      className="rounded-3xl border border-amber-100 bg-amber-50/60/70 p-4 shadow-sm"
                                                 >
                                                       <div className="flex items-start justify-between gap-3">
                                                             <div>
-                                                                  <p className="font-bold text-slate-900">
+                                                                  <p className="font-bold text-slate-950">
                                                                         {duty.dutyName}
                                                                   </p>
                                                                   <p className="mt-1 text-xs text-slate-500">
@@ -198,7 +199,7 @@ export function DutyTemplateDialog({
                                                             <button
                                                                   type="button"
                                                                   onClick={() => onEdit(duty)}
-                                                                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-100 bg-white/88 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-amber-50"
+                                                                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-100 bg-white/88 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50"
                                                             >
                                                                   <Edit2 className="h-3.5 w-3.5" />
                                                                   Sửa
@@ -208,7 +209,7 @@ export function DutyTemplateDialog({
                                                                   type="button"
                                                                   onClick={() => onDelete(duty)}
                                                                   disabled={isDeleting}
-                                                                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                                                             >
                                                                   <Trash2 className="h-3.5 w-3.5" />
                                                                   Xóa
@@ -219,6 +220,7 @@ export function DutyTemplateDialog({
                                     })}
                               </div>
                         )}
+                        </div>
                   </div>
             </div>
       );

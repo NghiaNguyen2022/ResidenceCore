@@ -122,157 +122,6 @@ function getWeekEndDate(dateText: string) {
       return `${year}-${month}-${day}`;
 }
 
-function formatDateValue(date: Date) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-
-      return `${year}-${month}-${day}`;
-}
-
-function getEndOfCurrentMonth(dateText: string) {
-      const date = parseDateValue(dateText);
-      return formatDateValue(new Date(date.getFullYear(), date.getMonth() + 1, 0));
-}
-
-function getEndAfterMonths(dateText: string, monthCount: number) {
-      const date = parseDateValue(dateText);
-      return formatDateValue(new Date(date.getFullYear(), date.getMonth() + monthCount, 0));
-}
-
-function normalizeJsonArray<T extends string | number>(value: unknown): T[] {
-      if (Array.isArray(value)) return value as T[];
-
-      if (typeof value === 'string' && value.trim()) {
-            try {
-                  const parsed = JSON.parse(value);
-                  return Array.isArray(parsed) ? (parsed as T[]) : [];
-            } catch {
-                  return [];
-            }
-      }
-
-      return [];
-}
-
-function getDutyConfigType(dutyConfig?: any | null) {
-      return dutyConfig?.dutyType || dutyConfig?.frequency || 'daily';
-}
-
-function getConfigWeeklyDays(dutyConfig?: any | null): DayOfWeek[] {
-      const configured = normalizeJsonArray<DayOfWeek>(dutyConfig?.weeklyDaysJson);
-
-      if (configured.length > 0) return configured;
-
-      if (Number.isInteger(dutyConfig?.dayOfWeek)) {
-            return [DAY_VALUE_BY_INDEX[Number(dutyConfig.dayOfWeek)] || 'monday'];
-      }
-
-      return [];
-}
-
-function getConfigMonthWeeks(dutyConfig?: any | null): MonthWeek[] {
-      const configured = normalizeJsonArray<MonthWeek>(dutyConfig?.monthWeeksJson);
-      return configured.length > 0 ? configured : ['last'];
-}
-
-function getConfigMonthWeekDays(dutyConfig?: any | null): DayOfWeek[] {
-      const configured = normalizeJsonArray<DayOfWeek>(dutyConfig?.monthWeekDaysJson);
-      return configured.length > 0 ? configured : ['saturday'];
-}
-
-function getConfigMonthDays(dutyConfig?: any | null): number[] {
-      return normalizeJsonArray<number>(dutyConfig?.monthDaysJson);
-}
-
-function getDutyTypeLabel(dutyConfig?: any | null) {
-      const type = getDutyConfigType(dutyConfig);
-
-      if (type === 'weekly') return 'Theo tuần';
-      if (type === 'monthly') return 'Theo tháng';
-      if (type === 'event') return 'Sự kiện / bất thường';
-
-      return 'Theo ngày';
-}
-
-function getScheduleSummary(dutyConfig?: any | null) {
-      const type = getDutyConfigType(dutyConfig);
-
-      if (type === 'weekly') {
-            const days = getConfigWeeklyDays(dutyConfig)
-                  .map((value) => DAY_OPTIONS.find((day) => day.value === value)?.label || value)
-                  .join(', ');
-
-            return days ? `Chỉ tạo vào: ${days}` : 'Chưa có thứ thực hiện trong mẫu.';
-      }
-
-      if (type === 'monthly') {
-            const monthDays = getConfigMonthDays(dutyConfig);
-
-            if (monthDays.length > 0) {
-                  return `Chỉ tạo ngày ${monthDays.join(', ')} hằng tháng`;
-            }
-
-            const weeks = getConfigMonthWeeks(dutyConfig)
-                  .map((week) => MONTH_WEEK_OPTIONS.find((item) => item.value === week)?.label || week)
-                  .join(', ');
-            const days = getConfigMonthWeekDays(dutyConfig)
-                  .map((value) => DAY_OPTIONS.find((day) => day.value === value)?.label || value)
-                  .join(', ');
-
-            return `Chỉ tạo vào ${weeks}; ${days}`;
-      }
-
-      if (type === 'event') {
-            return 'Tạo theo ngày hoặc chu kỳ sự kiện được chọn.';
-      }
-
-      return 'Tạo theo ngày hoặc chu kỳ từ ngày tới ngày.';
-}
-
-function buildPatchFromDutyConfig(duty: any, currentForm: AssignmentForm): Partial<AssignmentForm> {
-      const type = getDutyConfigType(duty);
-
-      if (type === 'weekly') {
-            return {
-                  dutyConfigId: String(duty?.id || ''),
-                  startTime: formatTime(duty?.startTime),
-                  endTime: formatTime(duty?.endTime),
-                  assignWholeWeek: false,
-                  repeatType: 'weekly',
-                  repeatEndDate: currentForm.repeatEndDate || getWeekEndDate(currentForm.assignedDate),
-                  weeklyDays: getConfigWeeklyDays(duty),
-            };
-      }
-
-      if (type === 'monthly') {
-            const monthDays = getConfigMonthDays(duty);
-
-            return {
-                  dutyConfigId: String(duty?.id || ''),
-                  startTime: formatTime(duty?.startTime),
-                  endTime: formatTime(duty?.endTime),
-                  assignWholeWeek: false,
-                  repeatType: 'monthly',
-                  repeatEndDate: currentForm.repeatEndDate || currentForm.assignedDate,
-                  monthlyMode: monthDays.length > 0 ? 'day_of_month' : 'week_day',
-                  monthDays: monthDays.length > 0 ? monthDays : currentForm.monthDays,
-                  monthWeeks: getConfigMonthWeeks(duty),
-                  monthWeekDays: getConfigMonthWeekDays(duty),
-            };
-      }
-
-      return {
-            dutyConfigId: String(duty?.id || ''),
-            startTime: formatTime(duty?.startTime),
-            endTime: formatTime(duty?.endTime),
-            assignWholeWeek: false,
-            repeatType: 'once',
-            repeatEndDate: currentForm.assignedDate,
-            weeklyDays: [getDayOfWeekValue(currentForm.assignedDate)],
-      };
-}
-
 function toggleValue<T extends string | number>(list: T[], value: T) {
       return list.includes(value)
             ? list.filter((item) => item !== value)
@@ -335,9 +184,14 @@ export function DutyAssignmentForm({
             if (patch.assignedDate) {
                   const selectedDay = getDayOfWeekValue(patch.assignedDate);
 
-                  if (nextForm.repeatType === 'once') {
+                  if (nextForm.repeatType === 'once' && !nextForm.assignWholeWeek) {
                         nextForm.repeatEndDate = patch.assignedDate;
                         nextForm.weeklyDays = [selectedDay];
+                  }
+
+                  if (nextForm.repeatType === 'once' && nextForm.assignWholeWeek) {
+                        nextForm.repeatEndDate = getWeekEndDate(patch.assignedDate);
+                        nextForm.weeklyDays = DAY_OPTIONS.map((day) => day.value);
                   }
             }
 
@@ -404,7 +258,11 @@ export function DutyAssignmentForm({
                                                       String(item.id) === event.target.value
                                           );
 
-                                          updateForm(buildPatchFromDutyConfig(duty, form));
+                                          updateForm({
+                                                dutyConfigId: event.target.value,
+                                                startTime: formatTime(duty?.startTime),
+                                                endTime: formatTime(duty?.endTime),
+                                          });
                                     }}
                                     className="h-10 w-full rounded-xl border border-amber-100 bg-white/88 px-3 text-sm outline-none focus:ring-2 focus:ring-amber-100/80"
                               >
@@ -424,17 +282,10 @@ export function DutyAssignmentForm({
                         )}
 
                         {selectedDutyConfig && (
-                              <div className="rounded-xl border border-amber-100 bg-amber-50/60 px-3 py-2 text-xs leading-5 text-amber-800">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                          <span className="rounded-full border border-amber-100 bg-white/80 px-2.5 py-1 font-bold text-amber-900">
-                                                {getDutyTypeLabel(selectedDutyConfig)}
-                                          </span>
-                                          <span className="font-semibold text-amber-900">
-                                                {getScheduleSummary(selectedDutyConfig)}
-                                          </span>
-                                    </div>
-                                    <p className="mt-1 text-amber-700">
-                                          Khi phân công, hệ thống chỉ tạo đúng ngày theo lịch đã chọn trong mẫu công tác.
+                              <div className="rounded-xl border border-amber-100 bg-amber-50/60 px-3 py-1.5 text-xs leading-5 text-amber-800">
+                                    <p className="font-bold text-amber-900">Mẫu công tác liên kết</p>
+                                    <p>
+                                          Công tác này có thể có các nhiệm vụ nhỏ/checklist ở phần mẫu. Phần bên dưới chỉ dùng để phân công: ngày, nơi làm và đối tượng thực hiện.
                                     </p>
                               </div>
                         )}
@@ -598,7 +449,7 @@ export function DutyAssignmentForm({
                                     onClick={() => setShowRepeatOptions((current) => !current)}
                                     className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold text-slate-700"
                               >
-                                    <span>Phạm vi phân công</span>
+                                    <span>Tùy chọn ngày phân công</span>
                                     {showRepeatOptions ? (
                                           <ChevronUp className="h-4 w-4" />
                                     ) : (
@@ -608,64 +459,122 @@ export function DutyAssignmentForm({
 
                               {!showRepeatOptions && (
                                     <p className="mt-1 text-xs text-slate-500">
-                                          Mặc định tạo theo đúng lịch của mẫu công tác trên ngày đang chọn.
+                                          Mặc định chỉ tạo công tác cho ngày đang chọn.
                                     </p>
                               )}
 
                               {showRepeatOptions && (
                                     <div className="mt-3 space-y-4">
-                                          <div className="grid gap-2 sm:grid-cols-3">
+                                          <div className="grid gap-2 sm:grid-cols-2">
                                                 {[
                                                       {
-                                                            value: 'once',
-                                                            label: 'Một ngày',
-                                                            description: 'Chỉ tạo nếu ngày đang chọn phù hợp với lịch mẫu.',
+                                                            key: 'single',
+                                                            label: 'Chọn ngày',
+                                                            description: 'Tạo công tác cho ngày đang chọn hoặc các thứ được chọn trong tuần đó.',
                                                       },
                                                       {
-                                                            value: 'weekly',
-                                                            label: 'Chu kỳ từ ngày tới ngày',
-                                                            description: 'Tạo các ngày hợp lệ theo mẫu trong khoảng đã chọn.',
+                                                            key: 'whole_week',
+                                                            label: 'Assign nguyên tuần',
+                                                            description: 'Tạo công tác cho cả tuần của ngày bắt đầu.',
                                                       },
-                                                      {
-                                                            value: 'monthly',
-                                                            label: 'Theo tháng',
-                                                            description: 'Tạo các ngày hợp lệ theo mẫu tháng trong khoảng đã chọn.',
-                                                      },
+                                                ].map((item) => {
+                                                      const active =
+                                                            item.key === 'whole_week'
+                                                                  ? form.repeatType === 'once' && form.assignWholeWeek
+                                                                  : form.repeatType === 'once' && !form.assignWholeWeek;
+
+                                                      return (
+                                                            <button
+                                                                  key={item.key}
+                                                                  type="button"
+                                                                  onClick={() => {
+                                                                        if (item.key === 'whole_week') {
+                                                                              updateForm({
+                                                                                    repeatType: 'once',
+                                                                                    assignWholeWeek: true,
+                                                                                    repeatEndDate: getWeekEndDate(form.assignedDate),
+                                                                                    weeklyDays: DAY_OPTIONS.map((day) => day.value),
+                                                                              });
+                                                                              return;
+                                                                        }
+
+                                                                        updateForm({
+                                                                              repeatType: 'once',
+                                                                              assignWholeWeek: false,
+                                                                              repeatEndDate: form.assignedDate,
+                                                                              weeklyDays: [getDayOfWeekValue(form.assignedDate)],
+                                                                        });
+                                                                  }}
+                                                                  className={[
+                                                                        'rounded-xl border p-3 text-left transition',
+                                                                        active
+                                                                              ? 'border-amber-200 bg-amber-50 text-amber-900 shadow-[0_4px_12px_rgba(120,53,15,0.035)]'
+                                                                              : 'border-amber-100 bg-white/88 text-slate-600 hover:bg-amber-50',
+                                                                  ].join(' ')}
+                                                            >
+                                                                  <p className="text-sm font-semibold">{item.label}</p>
+                                                                  <p className="mt-1 text-xs leading-5 opacity-80">
+                                                                        {item.description}
+                                                                  </p>
+                                                            </button>
+                                                      );
+                                                })}
+                                          </div>
+
+                                          <div className="grid grid-cols-2 gap-2">
+                                                {[
+                                                      { value: 'weekly', label: 'Chu kỳ từ ngày tới ngày' },
+                                                      { value: 'monthly', label: 'Theo tháng' },
                                                 ].map((item) => (
                                                       <button
                                                             key={item.value}
                                                             type="button"
-                                                            onClick={() => {
+                                                            onClick={() =>
                                                                   updateForm({
                                                                         repeatType: item.value as RepeatType,
-                                                                        assignWholeWeek: false,
+                                                                        assignWholeWeek: item.value !== 'monthly',
                                                                         repeatEndDate:
-                                                                              item.value === 'once'
-                                                                                    ? form.assignedDate
+                                                                              item.value === 'weekly'
+                                                                                    ? form.repeatEndDate || getWeekEndDate(form.assignedDate)
                                                                                     : form.repeatEndDate || form.assignedDate,
-                                                                  });
-                                                            }}
+                                                                        weeklyDays:
+                                                                              item.value === 'weekly' && !form.weeklyDays?.length
+                                                                                    ? [getDayOfWeekValue(form.assignedDate)]
+                                                                                    : form.weeklyDays,
+                                                                        monthDays:
+                                                                              item.value === 'monthly' && !form.monthDays?.length
+                                                                                    ? [1]
+                                                                                    : form.monthDays,
+                                                                  })
+                                                            }
                                                             className={[
-                                                                  'rounded-xl border p-3 text-left transition',
+                                                                  'rounded-xl border px-3 py-1.5 text-sm font-semibold transition',
                                                                   form.repeatType === item.value
-                                                                        ? 'border-amber-200 bg-amber-50 text-amber-900 shadow-[0_4px_12px_rgba(120,53,15,0.035)]'
+                                                                        ? 'border-amber-100 bg-amber-100 text-amber-900 shadow-[0_4px_12px_rgba(120,53,15,0.035)]'
                                                                         : 'border-amber-100 bg-white/88 text-slate-600 hover:bg-amber-50',
                                                             ].join(' ')}
                                                       >
-                                                            <p className="text-sm font-semibold">{item.label}</p>
-                                                            <p className="mt-1 text-xs leading-5 opacity-80">
-                                                                  {item.description}
-                                                            </p>
+                                                            {item.label}
                                                       </button>
                                                 ))}
                                           </div>
 
-                                          {form.repeatType !== 'once' && (
+                                          {(form.repeatType !== 'once' ||
+                                                (form.repeatType === 'once' && form.assignWholeWeek)) && (
                                                 <label className="block space-y-1.5">
-                                                      <Label>Đến ngày</Label>
+                                                      <Label>
+                                                            {form.repeatType === 'once' && form.assignWholeWeek
+                                                                  ? 'Đến hết tuần'
+                                                                  : 'Đến ngày'}
+                                                      </Label>
                                                       <DatePickerInput
-                                                            value={form.repeatEndDate || form.assignedDate}
+                                                            value={
+                                                                  form.repeatType === 'once' && form.assignWholeWeek
+                                                                        ? getWeekEndDate(form.assignedDate)
+                                                                        : form.repeatEndDate || form.assignedDate
+                                                            }
                                                             min={form.assignedDate || undefined}
+                                                            disabled={form.repeatType === 'once' && form.assignWholeWeek}
                                                             onChange={(event) =>
                                                                   updateForm({ repeatEndDate: event.target.value })
                                                             }
@@ -674,58 +583,162 @@ export function DutyAssignmentForm({
                                                 </label>
                                           )}
 
-                                          {form.repeatType === 'monthly' && (
-                                                <div className="rounded-xl border border-amber-100 bg-white/70 px-3 py-2">
-                                                      <p className="mb-2 text-xs font-semibold text-slate-800">
-                                                            Phạm vi tháng
-                                                      </p>
+                                          {(form.repeatType === 'once' || form.repeatType === 'weekly') && (
+                                                <div className="space-y-2">
+                                                      <Label>
+                                                            {form.repeatType === 'once' && form.assignWholeWeek
+                                                                  ? 'Ngày thực hiện trong tuần này'
+                                                                  : 'Chọn ngày thực hiện'}
+                                                      </Label>
                                                       <div className="flex flex-wrap gap-2">
-                                                            {[
-                                                                  {
-                                                                        label: 'Tháng hiện tại',
-                                                                        value: getEndOfCurrentMonth(form.assignedDate),
-                                                                        helper: 'Từ ngày phân công đến cuối tháng',
-                                                                  },
-                                                                  {
-                                                                        label: '1 tháng',
-                                                                        value: getEndAfterMonths(form.assignedDate, 1),
-                                                                  },
-                                                                  {
-                                                                        label: '2 tháng',
-                                                                        value: getEndAfterMonths(form.assignedDate, 2),
-                                                                  },
-                                                                  {
-                                                                        label: '3 tháng',
-                                                                        value: getEndAfterMonths(form.assignedDate, 3),
-                                                                  },
-                                                            ].map((item) => (
-                                                                  <button
-                                                                        key={item.label}
-                                                                        type="button"
+                                                            {DAY_OPTIONS.map((day) => (
+                                                                  <SelectionPill
+                                                                        key={day.value}
+                                                                        active={form.weeklyDays.includes(day.value)}
                                                                         onClick={() =>
                                                                               updateForm({
-                                                                                    repeatType: 'monthly',
-                                                                                    repeatEndDate: item.value,
+                                                                                    weeklyDays: toggleValue(
+                                                                                          form.weeklyDays,
+                                                                                          day.value
+                                                                                    ),
                                                                               })
                                                                         }
-                                                                        className={[
-                                                                              'rounded-xl border px-3 py-1.5 text-xs font-semibold transition',
-                                                                              form.repeatEndDate === item.value
-                                                                                    ? 'border-amber-200 bg-amber-50 text-amber-900'
-                                                                                    : 'border-amber-100 bg-white/88 text-slate-600 hover:bg-amber-50',
-                                                                        ].join(' ')}
                                                                   >
-                                                                        {item.label}
-                                                                  </button>
+                                                                        {day.label}
+                                                                  </SelectionPill>
                                                             ))}
                                                       </div>
+                                                      {form.repeatType === 'once' && !form.assignWholeWeek && (
+                                                            <p className="text-xs leading-5 text-slate-500">
+                                                                  Nếu bỏ chọn thứ của ngày đang chọn, preview sẽ không tạo phân công.
+                                                            </p>
+                                                      )}
                                                 </div>
                                           )}
 
-                                          {selectedDutyConfig && (
-                                                <div className="rounded-xl border border-amber-100 bg-white/70 px-3 py-2 text-xs leading-5 text-slate-600">
-                                                      <p className="font-semibold text-slate-800">Lịch áp dụng từ mẫu</p>
-                                                      <p className="mt-1">{getScheduleSummary(selectedDutyConfig)}</p>
+                                          {form.repeatType === 'monthly' && (
+                                                <div className="space-y-4">
+                                                      <label className="space-y-1.5">
+                                                            <Label>Kiểu lặp tháng</Label>
+                                                            <select
+                                                                  value={form.monthlyMode}
+                                                                  onChange={(event) =>
+                                                                        updateForm({
+                                                                              monthlyMode: event.target.value as MonthlyMode,
+                                                                        })
+                                                                  }
+                                                                  className="h-10 w-full rounded-xl border border-amber-100 bg-white/88 px-3 text-sm outline-none focus:ring-2 focus:ring-amber-100/80"
+                                                            >
+                                                                  <option value="month_boundary">
+                                                                        Ngày đầu / cuối tháng
+                                                                  </option>
+                                                                  <option value="day_of_month">
+                                                                        Ngày cố định trong tháng
+                                                                  </option>
+                                                                  <option value="week_day">
+                                                                        Tuần + thứ trong tháng
+                                                                  </option>
+                                                            </select>
+                                                      </label>
+
+                                                      {form.monthlyMode === 'month_boundary' && (
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                  {[
+                                                                        { value: 'first_day', label: 'Ngày đầu tháng' },
+                                                                        { value: 'last_day', label: 'Ngày cuối tháng' },
+                                                                  ].map((item) => (
+                                                                        <button
+                                                                              key={item.value}
+                                                                              type="button"
+                                                                              onClick={() =>
+                                                                                    updateForm({
+                                                                                          monthBoundary: item.value as MonthBoundary,
+                                                                                    })
+                                                                              }
+                                                                              className={[
+                                                                                    'rounded-xl border px-3 py-1.5 text-sm font-semibold transition',
+                                                                                    form.monthBoundary === item.value
+                                                                                          ? 'border-amber-100 bg-amber-100 text-amber-900 shadow-[0_4px_12px_rgba(120,53,15,0.035)]'
+                                                                                          : 'border-amber-100 bg-white/88 text-slate-600 hover:bg-white hover:text-slate-900',
+                                                                              ].join(' ')}
+                                                                        >
+                                                                              {item.label}
+                                                                        </button>
+                                                                  ))}
+                                                            </div>
+                                                      )}
+
+                                                      {form.monthlyMode === 'day_of_month' && (
+                                                            <div className="space-y-2">
+                                                                  <Label>Ngày trong tháng</Label>
+                                                                  <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto rounded-xl border border-amber-100 bg-white/70 p-2">
+                                                                        {MONTH_DAYS.map((day) => (
+                                                                              <SelectionPill
+                                                                                    key={day}
+                                                                                    active={form.monthDays.includes(day)}
+                                                                                    onClick={() =>
+                                                                                          updateForm({
+                                                                                                monthDays: toggleValue(
+                                                                                                      form.monthDays,
+                                                                                                      day
+                                                                                                ),
+                                                                                          })
+                                                                                    }
+                                                                              >
+                                                                                    {day}
+                                                                              </SelectionPill>
+                                                                        ))}
+                                                                  </div>
+                                                            </div>
+                                                      )}
+
+                                                      {form.monthlyMode === 'week_day' && (
+                                                            <div className="space-y-3">
+                                                                  <div className="space-y-2">
+                                                                        <Label>Tuần trong tháng</Label>
+                                                                        <div className="flex flex-wrap gap-2">
+                                                                              {MONTH_WEEK_OPTIONS.map((week) => (
+                                                                                    <SelectionPill
+                                                                                          key={week.value}
+                                                                                          active={form.monthWeeks.includes(week.value)}
+                                                                                          onClick={() =>
+                                                                                                updateForm({
+                                                                                                      monthWeeks: toggleValue(
+                                                                                                            form.monthWeeks,
+                                                                                                            week.value
+                                                                                                      ),
+                                                                                                })
+                                                                                          }
+                                                                                    >
+                                                                                          {week.label}
+                                                                                    </SelectionPill>
+                                                                              ))}
+                                                                        </div>
+                                                                  </div>
+
+                                                                  <div className="space-y-2">
+                                                                        <Label>Thứ trong tuần</Label>
+                                                                        <div className="flex flex-wrap gap-2">
+                                                                              {DAY_OPTIONS.map((day) => (
+                                                                                    <SelectionPill
+                                                                                          key={day.value}
+                                                                                          active={form.monthWeekDays.includes(day.value)}
+                                                                                          onClick={() =>
+                                                                                                updateForm({
+                                                                                                      monthWeekDays: toggleValue(
+                                                                                                            form.monthWeekDays,
+                                                                                                            day.value
+                                                                                                      ),
+                                                                                                })
+                                                                                          }
+                                                                                    >
+                                                                                          {day.label}
+                                                                                    </SelectionPill>
+                                                                              ))}
+                                                                        </div>
+                                                                  </div>
+                                                            </div>
+                                                      )}
                                                 </div>
                                           )}
                                     </div>

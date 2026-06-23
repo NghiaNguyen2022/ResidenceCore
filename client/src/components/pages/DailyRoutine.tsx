@@ -190,70 +190,6 @@ function getMonthRangeForDateValue(dateText: string) {
       };
 }
 
-function normalizeJsonArray<T extends string | number>(value: unknown): T[] {
-      if (Array.isArray(value)) return value as T[];
-
-      if (typeof value === 'string' && value.trim()) {
-            try {
-                  const parsed = JSON.parse(value);
-                  return Array.isArray(parsed) ? (parsed as T[]) : [];
-            } catch {
-                  return [];
-            }
-      }
-
-      return [];
-}
-
-function getDutyConfigType(dutyConfig?: any | null) {
-      return dutyConfig?.dutyType || dutyConfig?.frequency || 'daily';
-}
-
-function getConfigWeeklyDays(dutyConfig?: any | null): DayOfWeek[] {
-      const configured = normalizeJsonArray<DayOfWeek>(dutyConfig?.weeklyDaysJson);
-
-      if (configured.length > 0) return configured;
-
-      if (Number.isInteger(dutyConfig?.dayOfWeek)) {
-            return [DAY_VALUE_BY_INDEX[Number(dutyConfig.dayOfWeek)] || 'monday'];
-      }
-
-      return [];
-}
-
-function getConfigMonthWeeks(dutyConfig?: any | null): MonthWeek[] {
-      const configured = normalizeJsonArray<MonthWeek>(dutyConfig?.monthWeeksJson);
-      return configured.length > 0 ? configured : ['last'];
-}
-
-function getConfigMonthWeekDays(dutyConfig?: any | null): DayOfWeek[] {
-      const configured = normalizeJsonArray<DayOfWeek>(dutyConfig?.monthWeekDaysJson);
-      return configured.length > 0 ? configured : ['saturday'];
-}
-
-function getConfigMonthDays(dutyConfig?: any | null): number[] {
-      return normalizeJsonArray<number>(dutyConfig?.monthDaysJson);
-}
-
-function shouldUseConfigMonthDays(dutyConfig?: any | null) {
-      return getConfigMonthDays(dutyConfig).length > 0;
-}
-
-function getScheduleDateRange(form: AssignmentForm) {
-      const startDate = form.assignedDate;
-      let endDate = form.repeatEndDate || form.assignedDate;
-
-      if (form.repeatType === 'once') {
-            endDate = startDate;
-      }
-
-      if (endDate < startDate) {
-            endDate = startDate;
-      }
-
-      return { startDate, endDate };
-}
-
 function parseDateValue(dateText: string) {
       const [year, month, day] = dateText.split('-').map(Number);
       return new Date(year, month - 1, day);
@@ -310,19 +246,57 @@ function getNthWeekdayOfMonth(input: {
       return formatDateValue(new Date(input.year, input.monthIndex, day));
 }
 
-function generateAssignmentDatesByRule(form: AssignmentForm, dutyConfig?: any | null) {
+function generateAssignmentDatesByRule(form: AssignmentForm) {
       if (!form.assignedDate) return [];
 
-      const dutyType = getDutyConfigType(dutyConfig);
-      const { startDate, endDate } = getScheduleDateRange(form);
+      const startDate = form.assignedDate;
 
-      if (dutyType === 'weekly') {
-            const weeklyDays = getConfigWeeklyDays(dutyConfig);
+      if (form.repeatType === 'once') {
+            if (form.assignWholeWeek) {
+                  const range = getWeekRangeValues(startDate);
+                  const selectedDayIndexes = new Set(
+                        (form.weeklyDays?.length
+                              ? form.weeklyDays
+                              : DAY_OPTIONS.map((day) => day.value)
+                        ).map((day) => DAY_INDEX_BY_VALUE[day])
+                  );
 
-            if (weeklyDays.length === 0) return [];
+                  const dates: string[] = [];
+                  let currentDate = parseDateValue(range.startDate);
+                  const lastDate = parseDateValue(range.endDate);
+
+                  while (currentDate <= lastDate) {
+                        if (selectedDayIndexes.has(currentDate.getDay())) {
+                              dates.push(formatDateValue(currentDate));
+                        }
+
+                        currentDate = addDays(currentDate, 1);
+                  }
+
+                  return uniqueSortedDates(dates);
+            }
+
+            if (form.weeklyDays?.length > 0) {
+                  const selectedDayIndexes = new Set(
+                        form.weeklyDays.map((day) => DAY_INDEX_BY_VALUE[day])
+                  );
+                  const selectedDate = parseDateValue(startDate);
+
+                  return selectedDayIndexes.has(selectedDate.getDay()) ? [startDate] : [];
+            }
+
+            return [startDate];
+      }
+
+      const endDate = form.repeatEndDate || form.assignedDate;
+
+      if (endDate < startDate) return [];
+
+      if (form.repeatType === 'weekly') {
+            if (!form.weeklyDays.length) return [];
 
             const selectedDayIndexes = new Set(
-                  weeklyDays.map((day) => DAY_INDEX_BY_VALUE[day])
+                  form.weeklyDays.map((day) => DAY_INDEX_BY_VALUE[day])
             );
             const dates: string[] = [];
             let currentDate = parseDateValue(startDate);
@@ -339,83 +313,63 @@ function generateAssignmentDatesByRule(form: AssignmentForm, dutyConfig?: any | 
             return uniqueSortedDates(dates);
       }
 
-      if (dutyType === 'monthly') {
-            const dates: string[] = [];
-            const start = parseDateValue(startDate);
-            const end = parseDateValue(endDate);
-            let year = start.getFullYear();
-            let monthIndex = start.getMonth();
+      const dates: string[] = [];
+      const start = parseDateValue(startDate);
+      const end = parseDateValue(endDate);
+      let year = start.getFullYear();
+      let monthIndex = start.getMonth();
 
-            while (
-                  year < end.getFullYear() ||
-                  (year === end.getFullYear() && monthIndex <= end.getMonth())
-            ) {
-                  const monthDays = getConfigMonthDays(dutyConfig);
+      while (
+            year < end.getFullYear() ||
+            (year === end.getFullYear() && monthIndex <= end.getMonth())
+      ) {
+            if (form.monthlyMode === 'month_boundary') {
+                  const day =
+                        form.monthBoundary === 'first_day'
+                              ? 1
+                              : getLastDayOfMonth(year, monthIndex);
+                  const dateText = formatDateValue(new Date(year, monthIndex, day));
 
-                  if (monthDays.length > 0) {
-                        monthDays.forEach((day) => {
-                              if (day > getLastDayOfMonth(year, monthIndex)) return;
+                  if (isDateInRange(dateText, startDate, endDate)) {
+                        dates.push(dateText);
+                  }
+            }
 
-                              const dateText = formatDateValue(new Date(year, monthIndex, day));
+            if (form.monthlyMode === 'day_of_month') {
+                  form.monthDays.forEach((day) => {
+                        if (day > getLastDayOfMonth(year, monthIndex)) return;
 
-                              if (isDateInRange(dateText, startDate, endDate)) {
+                        const dateText = formatDateValue(new Date(year, monthIndex, day));
+
+                        if (isDateInRange(dateText, startDate, endDate)) {
+                              dates.push(dateText);
+                        }
+                  });
+            }
+
+            if (form.monthlyMode === 'week_day') {
+                  form.monthWeeks.forEach((week) => {
+                        form.monthWeekDays.forEach((weekday) => {
+                              const dateText = getNthWeekdayOfMonth({
+                                    year,
+                                    monthIndex,
+                                    week,
+                                    weekday,
+                              });
+
+                              if (dateText && isDateInRange(dateText, startDate, endDate)) {
                                     dates.push(dateText);
                               }
                         });
-                  } else {
-                        getConfigMonthWeeks(dutyConfig).forEach((week) => {
-                              getConfigMonthWeekDays(dutyConfig).forEach((weekday) => {
-                                    const dateText = getNthWeekdayOfMonth({
-                                          year,
-                                          monthIndex,
-                                          week,
-                                          weekday,
-                                    });
-
-                                    if (dateText && isDateInRange(dateText, startDate, endDate)) {
-                                          dates.push(dateText);
-                                    }
-                              });
-                        });
-                  }
-
-                  monthIndex += 1;
-
-                  if (monthIndex > 11) {
-                        monthIndex = 0;
-                        year += 1;
-                  }
+                  });
             }
 
-            return uniqueSortedDates(dates);
-      }
+            monthIndex += 1;
 
-      if (dutyType === 'event') {
-            if (form.repeatType === 'once') return [startDate];
-
-            const dates: string[] = [];
-            let currentDate = parseDateValue(startDate);
-            const lastDate = parseDateValue(endDate);
-
-            while (currentDate <= lastDate) {
-                  dates.push(formatDateValue(currentDate));
-                  currentDate = addDays(currentDate, 1);
+            if (monthIndex > 11) {
+                  monthIndex = 0;
+                  year += 1;
             }
-
-            return uniqueSortedDates(dates);
-      }
-
-      if (form.repeatType === 'once') {
-            return [startDate];
-      }
-
-      const dates: string[] = [];
-      let currentDate = parseDateValue(startDate);
-      const lastDate = parseDateValue(endDate);
-
-      while (currentDate <= lastDate) {
-            dates.push(formatDateValue(currentDate));
-            currentDate = addDays(currentDate, 1);
       }
 
       return uniqueSortedDates(dates);
@@ -591,8 +545,7 @@ function normalizeCode(value: string) {
 
 
 export default function DailyRoutine() {
-      const [activeView, setActiveView] = useState<DailyRoutineView>('duties');
-      const [assignmentModalSignal, setAssignmentModalSignal] = useState(0);
+      const [activeView, setActiveView] = useState<DailyRoutineView>('today');
       const [selectedDate, setSelectedDate] = useState(todayValue());
       const [dutyStatusFilter, setDutyStatusFilter] = useState<DutyStatusFilter>('all');
       const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
@@ -928,8 +881,8 @@ export default function DailyRoutine() {
             : null;
 
       const assignmentPreviewDates = useMemo(
-            () => generateAssignmentDatesByRule(assignmentForm, selectedDutyConfig),
-            [assignmentForm, selectedDutyConfig]
+            () => generateAssignmentDatesByRule(assignmentForm),
+            [assignmentForm]
       );
 
       const isAssignmentPreviewReady = Boolean(
@@ -1202,13 +1155,11 @@ export default function DailyRoutine() {
       };
 
       const openCreateDutyConfig = () => {
-            setIsDutyTemplateDialogOpen(false);
             setSelectedDutyConfigForEdit(null);
             setIsDutyConfigFormOpen(true);
       };
 
       const openEditDutyConfig = (duty: any) => {
-            setIsDutyTemplateDialogOpen(false);
             setSelectedDutyConfigForEdit(duty);
             setIsDutyConfigFormOpen(true);
       };
@@ -1484,35 +1435,36 @@ export default function DailyRoutine() {
       return (
             <ResidenceCareLayout>
                   <div className="space-y-6 p-6">
-                        <div className="relative min-h-[118px] rounded-[28px] bg-[radial-gradient(circle_at_8%_10%,rgba(251,191,36,0.20),transparent_34%),linear-gradient(135deg,#fffdf8_0%,#ffffff_52%,#f8fafc_100%)] px-5 py-6 shadow-[0_10px_30px_rgba(120,53,15,0.045)]">
-                              <div className="mx-auto max-w-3xl text-center">
-                                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                              <div>
+                                    <p className="text-sm font-semibold uppercase tracking-wide text-slate-900">
+                                          Sinh hoạt
+                                    </p>
+                                    <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">
                                           Sinh hoạt hằng ngày
                                     </h1>
-                                    <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                                          Theo dõi lịch sinh hoạt, công tác và phân công trong ngày trên một màn hình gọn, dễ nhìn và dễ thực hiện.
+                                    <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                                          Theo dõi lịch sinh hoạt và công tác trong ngày trên một màn hình gọn,
+                                          dễ nhìn và dễ thực hiện.
                                     </p>
                               </div>
 
-                              <div className="mt-4 flex flex-wrap justify-center gap-2 xl:absolute xl:right-8 xl:top-5 xl:mt-0">
+                              <div className="flex flex-wrap gap-2">
                                     <button
                                           type="button"
-                                          onClick={openCreateDutyConfig}
-                                          className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-white/92 px-4 py-2 text-sm font-semibold text-slate-800 shadow-[0_8px_18px_rgba(120,53,15,0.055)] transition hover:bg-amber-50"
+                                          onClick={openCreateTemplate}
+                                          className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-white/88 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-amber-50"
                                     >
                                           <Plus className="h-4 w-4" />
-                                          Thêm công tác
+                                          Thêm mẫu lịch
                                     </button>
                                     <button
                                           type="button"
-                                          onClick={() => {
-                                                setActiveView('duties');
-                                                setAssignmentModalSignal((value) => value + 1);
-                                          }}
-                                          className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-[linear-gradient(135deg,#fff8e1_0%,#f7d99a_100%)] px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_10px_22px_rgba(120,53,15,0.10)] transition hover:brightness-[1.02]"
+                                          onClick={openCreateItem}
+                                          className="inline-flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-200"
                                     >
-                                          <Plus className="h-4 w-4" />
-                                          Phân công công tác
+                                          <Clock className="h-4 w-4" />
+                                          Thêm khung giờ
                                     </button>
                               </div>
                         </div>
@@ -1532,49 +1484,27 @@ export default function DailyRoutine() {
                               </div>
                         )}
 
-                        <div className="w-full rounded-2xl border border-amber-100/70 bg-white/72 p-1.5 shadow-[0_6px_16px_rgba(120,53,15,0.035)]">
-                              <div className="grid grid-cols-2 gap-1.5">
-                                    {[
-                                          { key: 'duties', label: 'Công tác' },
-                                          { key: 'today', label: 'Sinh hoạt' },
-                                    ].map((view) => (
-                                          <button
-                                                key={view.key}
-                                                type="button"
-                                                onClick={() => setActiveView(view.key as DailyRoutineView)}
-                                                className={[
-                                                      'rounded-xl px-4 py-2.5 text-sm font-semibold transition',
-                                                      activeView === view.key
-                                                            ? 'bg-amber-50 text-amber-900 ring-1 ring-amber-100'
-                                                            : 'text-slate-500 hover:bg-amber-50/70 hover:text-slate-800',
-                                                ].join(' ')}
-                                          >
-                                                {view.label}
-                                          </button>
-                                    ))}
-                              </div>
+                        <div className="flex flex-wrap gap-2 rounded-xl border border-amber-100/80 bg-white/78 p-2 shadow-[0_8px_20px_rgba(120,53,15,0.045)]">
+                              {[
+                                    { key: 'today', label: 'Hôm nay' },
+                                    { key: 'routine', label: 'Lịch sinh hoạt' },
+                                    { key: 'duties', label: 'Công tác' },
+                              ].map((view) => (
+                                    <button
+                                          key={view.key}
+                                          type="button"
+                                          onClick={() => setActiveView(view.key as DailyRoutineView)}
+                                          className={[
+                                                'rounded-xl px-3 py-1.5 text-sm font-semibold transition',
+                                                activeView === view.key
+                                                      ? 'bg-amber-100 text-amber-900 shadow-[0_4px_12px_rgba(120,53,15,0.035)]'
+                                                      : 'text-slate-600 hover:bg-amber-50 hover:text-slate-900',
+                                          ].join(' ')}
+                                    >
+                                          {view.label}
+                                    </button>
+                              ))}
                         </div>
-
-                        {activeView === 'today' && (
-                              <div className="mb-4 flex flex-wrap justify-end gap-2">
-                                    <button
-                                          type="button"
-                                          onClick={openCreateTemplate}
-                                          className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-white/88 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-amber-50"
-                                    >
-                                          <Plus className="h-4 w-4" />
-                                          Thêm mẫu lịch
-                                    </button>
-                                    <button
-                                          type="button"
-                                          onClick={openCreateItem}
-                                          className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
-                                    >
-                                          <Clock className="h-4 w-4" />
-                                          Thêm khung giờ
-                                    </button>
-                              </div>
-                        )}
 
                         {activeView === 'today' && (
                               <TodayOverviewTab
@@ -1677,7 +1607,7 @@ export default function DailyRoutine() {
                         )}
 
                         {isDutyConfigFormOpen && (
-                              <div className="fixed inset-0 z-[92] overflow-y-auto bg-slate-950/38 px-4 py-6 backdrop-blur-sm">
+                              <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/38 px-4 py-6 backdrop-blur-sm">
                                     <div className="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_72%,#fff8ef_100%)] shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
                                           <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-amber-100/70 bg-white/92 px-5 py-4 backdrop-blur">
                                                 <div>

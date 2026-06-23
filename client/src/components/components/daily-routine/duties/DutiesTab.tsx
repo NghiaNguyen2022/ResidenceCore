@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, X } from 'lucide-react';
 
 import DutyAssignmentForm from './DutyAssignmentForm';
 import DutyDayView from './DutyDayView';
@@ -88,7 +88,6 @@ type DutiesTabProps = {
       isSaving?: boolean;
       onSaveAssignment: () => void;
       onOpenDutyTemplateDialog: () => void;
-      openAssignmentSignal?: number;
 
       selectedDate: string;
       onDateChange: (value: string) => void;
@@ -116,7 +115,6 @@ export function DutiesTab({
       isSaving,
       onSaveAssignment,
       onOpenDutyTemplateDialog,
-      openAssignmentSignal,
       selectedDate,
       onDateChange,
       statusFilter,
@@ -131,50 +129,12 @@ export function DutiesTab({
       const [viewMode, setViewMode] = useState<DutyViewMode>('day');
       const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
 
-      useEffect(() => {
-            if (!openAssignmentSignal) return;
-            setIsAssignmentModalOpen(true);
-      }, [openAssignmentSignal]);
-
-      const shiftDate = (amount: number) => {
-            const [year, month, day] = selectedDate.split('-').map(Number);
-            const date = new Date(year, month - 1, day);
-
-            if (viewMode === 'month') {
-                  date.setMonth(date.getMonth() + amount);
-            } else {
-                  date.setDate(date.getDate() + amount * (viewMode === 'week' ? 7 : 1));
-            }
-
-            const nextYear = date.getFullYear();
-            const nextMonth = String(date.getMonth() + 1).padStart(2, '0');
-            const nextDay = String(date.getDate()).padStart(2, '0');
-
-            onDateChange(`${nextYear}-${nextMonth}-${nextDay}`);
-      };
-
-      const goToday = () => {
-            const date = new Date();
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-
-            onDateChange(`${year}-${month}-${day}`);
-      };
-
       const selectDateAndOpenDayView = (date: string) => {
             onDateChange(date);
             setViewMode('day');
       };
 
       const rangeAssignments = allAssignments || assignments;
-
-      const getCurrentLabel = () => {
-            if (viewMode === 'week') return 'Tuần này';
-            if (viewMode === 'month') return 'Tháng này';
-
-            return 'Hôm nay';
-      };
 
       const handleSaveAssignment = async () => {
             await onSaveAssignment();
@@ -183,34 +143,25 @@ export function DutiesTab({
 
       return (
             <div className="space-y-4">
-                  <div className="flex flex-col gap-3 rounded-2xl border border-amber-100 bg-white/78 p-2 shadow-[0_4px_12px_rgba(120,53,15,0.025)] lg:flex-row lg:items-center lg:justify-between">
-                        <div className="inline-flex w-full rounded-xl border border-amber-100 bg-white/80 p-1 lg:w-auto">
-                              <button
-                                    type="button"
-                                    onClick={() => shiftDate(-1)}
-                                    className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-slate-600 transition hover:bg-amber-50"
-                                    aria-label="Kỳ trước"
-                              >
-                                    <ChevronLeft className="h-4 w-4" />
-                              </button>
-                              <button
-                                    type="button"
-                                    onClick={goToday}
-                                    className="min-w-[96px] rounded-lg px-3 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-50"
-                              >
-                                    {getCurrentLabel()}
-                              </button>
-                              <button
-                                    type="button"
-                                    onClick={() => shiftDate(1)}
-                                    className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-slate-600 transition hover:bg-amber-50"
-                                    aria-label="Kỳ sau"
-                              >
-                                    <ChevronRight className="h-4 w-4" />
-                              </button>
+                  <div className="flex flex-col gap-3 rounded-2xl border border-amber-100 bg-white/88 p-4 shadow-[0_6px_18px_rgba(120,53,15,0.035)] lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                              <h2 className="text-xl font-bold text-slate-900">Công tác</h2>
+                              <p className="mt-1 text-sm leading-6 text-slate-500">
+                                    Theo dõi ngày/tuần/tháng. Phân công được mở riêng để đủ không gian xem tải việc, lịch học và preview.
+                              </p>
                         </div>
 
-                        <DutyViewSwitcher value={viewMode} onChange={setViewMode} />
+                        <div className="flex flex-wrap items-center gap-2">
+                              <DutyViewSwitcher value={viewMode} onChange={setViewMode} />
+                              <button
+                                    type="button"
+                                    onClick={() => setIsAssignmentModalOpen(true)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
+                              >
+                                    <Plus className="h-4 w-4" />
+                                    Phân công công tác
+                              </button>
+                        </div>
                   </div>
 
                   {viewMode === 'day' && (

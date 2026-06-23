@@ -1045,7 +1045,7 @@ function PremiumUnitColumn({
                                                 isTeam ? 'bg-emerald-400' : 'bg-violet-400',
                                           ].join(' ')}
                                     />
-                                    <h3 className="truncate text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                                    <h3 className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                                           {title}
                                     </h3>
                                     <span className="text-[12px] font-medium text-slate-400">
@@ -1239,13 +1239,13 @@ function PremiumOrganizationChart({
 
       return (
             <div className={residenceMediumStyle.orgChartPanel}>
-                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mb-1.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                              <span className="text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                                     Cơ cấu hiện tại
                               </span>
                               <span className="text-slate-300">·</span>
-                              <span className="text-[13px] font-semibold text-slate-700">
+                              <span className="text-[11px] font-semibold text-slate-500">
                                     Sơ đồ tổ chức lưu xá
                               </span>
                         </div>
@@ -1255,13 +1255,13 @@ function PremiumOrganizationChart({
                   </div>
 
                   <div className={residenceMediumStyle.orgExecutivePanel}>
-                        <div className="mb-2 flex items-center justify-between gap-3">
+                        <div className="mb-1.5 flex items-center justify-between gap-3">
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                    <span className="text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                                           Ban điều hành
                                     </span>
                                     <span className="text-slate-300">·</span>
-                                    <span className="text-[13px] font-semibold text-slate-700">
+                                    <span className="text-[11px] font-semibold text-slate-500">
                                           Chức vụ chính
                                     </span>
                               </div>
@@ -1296,12 +1296,12 @@ function PremiumOrganizationChart({
                   </div>
 
                   <div className="mt-2">
-                        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                              <span className="text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                        <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                                     Tổ / Ban
                               </span>
                               <span className="text-slate-300">·</span>
-                              <span className="text-[13px] font-semibold text-slate-700">
+                              <span className="text-[11px] font-semibold text-slate-500">
                                     Đơn vị đang hoạt động
                               </span>
                         </div>
@@ -2656,16 +2656,11 @@ export default function OrganizationSimple() {
                                     </div>
 
                                     <div className={`${residenceMediumStyle.topInner} mx-auto max-w-4xl pt-9 text-center`}>
-                                          <div className="mb-2 flex flex-wrap items-center justify-center gap-2">
-                                                <span className="rounded-full bg-white/72 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-700 ring-1 ring-amber-100/70 shadow-sm shadow-slate-900/5">
-                                                      Tổ chức lưu xá
-                                                </span>
-                                          </div>
                                           <h1 className={residenceMediumStyle.topTitle}>
                                                 Cơ cấu tổ chức lưu xá
                                           </h1>
                                           <p className={`${residenceMediumStyle.topSubtitle} mx-auto`}>
-                                                Một màn hình để nhìn tổng thể cơ cấu, nhiệm kỳ, Tổ/Ban và các chức vụ đang phụ trách.
+                                                Nhìn tổng thể cơ cấu, nhiệm kỳ, Tổ/Ban và các chức vụ đang phụ trách.
                                           </p>
                                     </div>
 
@@ -2706,8 +2701,8 @@ export default function OrganizationSimple() {
                               </div>
                         )}
 
-                        <div className="rounded-[28px] border border-amber-100/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.78)_0%,rgba(255,251,235,0.54)_58%,rgba(248,250,252,0.66)_100%)] p-3 shadow-[0_16px_40px_rgba(12,10,9,0.07),inset_0_1px_0_rgba(255,255,255,0.72)]">
-                              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                        <div className="rounded-2xl border border-amber-100/60 bg-white/72 p-2 shadow-[0_6px_16px_rgba(120,53,15,0.035)]">
+                              <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
                                     <div className="flex flex-wrap gap-2">
                                           {tabs.map((tab) => (
                                                 <button
@@ -2731,7 +2726,7 @@ export default function OrganizationSimple() {
                                           <select
                                                 value={selectedTermId}
                                                 onChange={(event) => setSelectedTermId(event.target.value)}
-                                                className="h-10 rounded-xl border border-amber-100 bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-[0_8px_18px_rgba(120,53,15,0.055)] outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
+                                                className="h-9 rounded-xl border border-amber-100 bg-white/88 px-3 py-1.5 text-sm font-semibold text-slate-700 outline-none focus:border-amber-200 focus:ring-2 focus:ring-amber-100"
                                           >
                                                 <option value="active">Nhiệm kỳ hiện tại</option>
                                                 <option value="all">Tất cả nhiệm kỳ</option>
@@ -2748,7 +2743,7 @@ export default function OrganizationSimple() {
                                                       value={searchTerm}
                                                       onChange={(event) => setSearchTerm(event.target.value)}
                                                       placeholder="Tìm học viên, chức vụ, Tổ/Ban..."
-                                                      className="h-10 min-w-[260px] rounded-xl border-amber-100 bg-white/90 pl-9 text-sm shadow-[0_8px_18px_rgba(120,53,15,0.055)]"
+                                                      className="h-9 min-w-[240px] rounded-xl border-amber-100 bg-white/88 pl-9 text-sm"
                                                 />
                                           </div>
                                     </div>
@@ -2854,13 +2849,13 @@ export default function OrganizationSimple() {
 
                         {!isLoading && activeTab === 'units' && (
                               <div className={residenceMediumStyle.premiumSection}>
-                                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="mb-1.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                <span className="text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                                                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                                                       Tổ / Ban
                                                 </span>
                                                 <span className="text-slate-300">·</span>
-                                                <span className="text-[13px] font-semibold text-slate-700">
+                                                <span className="text-[11px] font-semibold text-slate-500">
                                                       Quản lý đơn vị
                                                 </span>
                                           </div>
@@ -2909,7 +2904,7 @@ export default function OrganizationSimple() {
                                                                   <div className="flex items-center justify-between gap-3">
                                                                         <div className="flex min-w-0 items-center gap-2">
                                                                               <span className={`h-2.5 w-2.5 rounded-full ${laneDot}`} />
-                                                                              <h3 className="truncate text-[13px] font-semibold tracking-[0.08em] text-slate-700">
+                                                                              <h3 className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                                                                                     {laneTitle}
                                                                               </h3>
                                                                               <span className="text-[12px] font-medium text-slate-400">
@@ -3005,7 +3000,7 @@ export default function OrganizationSimple() {
 
                         {!isLoading && activeTab === 'terms' && (
                               <div className={residenceMediumStyle.premiumSection}>
-                                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="mb-1.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                                           <div>
                                                 <h2 className="text-lg font-bold text-slate-950">Nhiệm kỳ</h2>
                                                 <p className="mt-1 text-sm text-slate-500">
