@@ -26,7 +26,9 @@ type DutyDayViewProps = {
       statusFilter: DutyStatusFilter;
       onStatusFilterChange: (value: DutyStatusFilter) => void;
       assignments: any[];
+      dutyConfigs?: any[];
       isLoading?: boolean;
+      onAssignDutyConfig?: (dutyConfig: any) => void;
       onCompleteDuty: (assignment: any) => void;
       onSkipDuty: (assignment: any) => void;
       onCancelDuty: (assignment: any) => void;
@@ -102,6 +104,45 @@ function getDutyTimeRange(assignment: any) {
       return `${formatTimeText(start)} - ${formatTimeText(end)}`;
 }
 
+function getDutyConfigType(dutyConfig?: any | null) {
+      return dutyConfig?.dutyType || dutyConfig?.frequency || 'daily';
+}
+
+function isDailyDutyConfig(dutyConfig: any) {
+      const type = getDutyConfigType(dutyConfig);
+      return type === 'daily' && dutyConfig?.isActive !== false;
+}
+
+function getDutyConfigName(dutyConfig: any) {
+      return dutyConfig?.dutyName || dutyConfig?.name || `Công tác #${dutyConfig?.id}`;
+}
+
+function getDutyConfigPlace(dutyConfig: any) {
+      return dutyConfig?.place || dutyConfig?.location || dutyConfig?.description || 'Chưa ghi nơi làm';
+}
+
+function getDutyConfigTimeRange(dutyConfig: any) {
+      return `${formatTimeText(dutyConfig?.startTime)} - ${formatTimeText(dutyConfig?.endTime)}`;
+}
+
+function getDutyConfigKey(dutyConfig: any, selectedDate: string) {
+      return [
+            selectedDate,
+            dutyConfig?.id || getDutyConfigName(dutyConfig),
+            getDutyConfigName(dutyConfig),
+            getDutyConfigTimeRange(dutyConfig),
+            getDutyConfigPlace(dutyConfig),
+      ].join('|');
+}
+
+function getAssignmentDutyConfigId(assignment: any) {
+      return String(
+            assignment.dutyConfigId ||
+                  assignment.dutyConfig?.id ||
+                  ''
+      );
+}
+
 function getAssigneeName(assignment: any) {
       return (
             assignment.assigneeName ||
@@ -153,6 +194,7 @@ function getGroupStatus(assignments: any[]) {
 }
 
 function getGroupStatusLabel(status: string) {
+      if (status === 'unassigned') return 'Chưa phân công';
       if (status === 'completed') return 'Đã hoàn thành';
       if (status === 'cancelled') return 'Đã hủy';
       if (status === 'skipped') return 'Đã xử lý';
@@ -161,6 +203,7 @@ function getGroupStatusLabel(status: string) {
 }
 
 function getGroupStatusClass(status: string) {
+      if (status === 'unassigned') return 'border-violet-100 bg-violet-50 text-violet-700';
       if (status === 'completed') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
       if (status === 'cancelled') return 'border-slate-200 bg-slate-100 text-slate-500';
       if (status === 'skipped') return 'border-amber-100 bg-amber-50 text-amber-700';
@@ -168,7 +211,7 @@ function getGroupStatusClass(status: string) {
       return 'border-amber-100 bg-white/80 text-amber-800';
 }
 
-function buildDutyGroups(assignments: any[], selectedDate: string): DutyGroup[] {
+function buildDutyGroups(assignments: any[], selectedDate: string, dutyConfigs: any[] = []): DutyGroup[] {
       const groupMap = new Map<string, any[]>();
 
       assignments.forEach((assignment) => {
@@ -178,20 +221,50 @@ function buildDutyGroups(assignments: any[], selectedDate: string): DutyGroup[] 
             groupMap.set(key, current);
       });
 
+      const assignedDutyConfigIds = new Set(
+            assignments
+                  .map(getAssignmentDutyConfigId)
+                  .filter(Boolean)
+      );
+
+      dutyConfigs
+            .filter(isDailyDutyConfig)
+            .forEach((dutyConfig) => {
+                  const dutyConfigId = String(dutyConfig?.id || '');
+
+                  if (dutyConfigId && assignedDutyConfigIds.has(dutyConfigId)) {
+                        return;
+                  }
+
+                  const key = getDutyConfigKey(dutyConfig, selectedDate);
+                  if (groupMap.has(key)) return;
+
+                  groupMap.set(key, [
+                        {
+                              id: `unassigned-${dutyConfig?.id}`,
+                              dutyConfigId: dutyConfig?.id,
+                              dutyConfig,
+                              status: 'unassigned',
+                              isUnassignedDuty: true,
+                        },
+                  ]);
+            });
+
       return Array.from(groupMap.entries())
             .map(([key, rows]) => {
                   const representative = rows[0];
-                  const status = getGroupStatus(rows);
+                  const isUnassignedDuty = Boolean(representative.isUnassignedDuty);
+                  const status = isUnassignedDuty ? 'unassigned' : getGroupStatus(rows);
 
                   return {
                         id: key,
                         representative: {
                               ...representative,
-                              assignments: rows,
+                              assignments: isUnassignedDuty ? [] : rows,
                               status,
                               dutyName: getDutyName(representative),
                         },
-                        assignments: rows,
+                        assignments: isUnassignedDuty ? [] : rows,
                         dutyName: getDutyName(representative),
                         date: selectedDate,
                         timeRange: getDutyTimeRange(representative),
@@ -234,12 +307,14 @@ export function DutyDayView({
       statusFilter,
       onStatusFilterChange,
       assignments,
+      dutyConfigs = [],
       isLoading,
+      onAssignDutyConfig,
       onCompleteDuty,
       onSkipDuty,
       onCancelDuty,
 }: DutyDayViewProps) {
-      const dutyGroups = buildDutyGroups(assignments, selectedDate);
+      const dutyGroups = buildDutyGroups(assignments, selectedDate, dutyConfigs);
 
       return (
             <SectionCard
@@ -285,13 +360,15 @@ export function DutyDayView({
                                                 <span
                                                       className={[
                                                             'absolute inset-x-0 top-0 h-1',
-                                                            group.status === 'completed'
-                                                                  ? 'bg-emerald-400'
-                                                                  : group.status === 'cancelled'
-                                                                        ? 'bg-slate-300'
-                                                                        : isOverdue
-                                                                              ? 'bg-rose-300'
-                                                                              : 'bg-amber-300',
+                                                            group.status === 'unassigned'
+                                                                  ? 'bg-violet-300'
+                                                                  : group.status === 'completed'
+                                                                        ? 'bg-emerald-400'
+                                                                        : group.status === 'cancelled'
+                                                                              ? 'bg-slate-300'
+                                                                              : isOverdue
+                                                                                    ? 'bg-rose-300'
+                                                                                    : 'bg-amber-300',
                                                       ].join(' ')}
                                                 />
 
@@ -321,32 +398,44 @@ export function DutyDayView({
                                                                   </div>
                                                             </div>
 
-                                                            <div className="flex flex-wrap gap-2">
-                                                                  <button
-                                                                        type="button"
-                                                                        onClick={() => onCompleteDuty(group.representative)}
-                                                                        className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                                                                  >
-                                                                        <CheckCircle2 className="h-4 w-4" />
-                                                                        Đã hoàn thành
-                                                                  </button>
-                                                                  <button
-                                                                        type="button"
-                                                                        onClick={() => onSkipDuty(group.representative)}
-                                                                        className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
-                                                                  >
-                                                                        <SkipForward className="h-4 w-4" />
-                                                                        Chưa hoàn thành
-                                                                  </button>
-                                                                  <button
-                                                                        type="button"
-                                                                        onClick={() => onCancelDuty(group.representative)}
-                                                                        className="inline-flex items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
-                                                                  >
-                                                                        <X className="h-4 w-4" />
-                                                                        Hủy
-                                                                  </button>
-                                                            </div>
+                                                            {group.status === 'unassigned' ? (
+                                                                  <div className="flex flex-wrap gap-2">
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => onAssignDutyConfig?.(group.representative.dutyConfig)}
+                                                                              className="inline-flex items-center gap-2 rounded-xl border border-violet-100 bg-violet-50 px-3 py-1.5 text-sm font-semibold text-violet-700 transition hover:bg-violet-100"
+                                                                        >
+                                                                              Phân công
+                                                                        </button>
+                                                                  </div>
+                                                            ) : (
+                                                                  <div className="flex flex-wrap gap-2">
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => onCompleteDuty(group.representative)}
+                                                                              className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                                                                        >
+                                                                              <CheckCircle2 className="h-4 w-4" />
+                                                                              Đã hoàn thành
+                                                                        </button>
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => onSkipDuty(group.representative)}
+                                                                              className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
+                                                                        >
+                                                                              <SkipForward className="h-4 w-4" />
+                                                                              Chưa hoàn thành
+                                                                        </button>
+                                                                        <button
+                                                                              type="button"
+                                                                              onClick={() => onCancelDuty(group.representative)}
+                                                                              className="inline-flex items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+                                                                        >
+                                                                              <X className="h-4 w-4" />
+                                                                              Hủy
+                                                                        </button>
+                                                                  </div>
+                                                            )}
                                                       </div>
 
                                                       <div className="grid gap-2 md:grid-cols-[120px_120px_1fr_1.25fr]">
@@ -357,16 +446,22 @@ export function DutyDayView({
                                                                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                                                                         Phân công
                                                                   </p>
-                                                                  <div className="mt-1 flex flex-wrap gap-1.5">
-                                                                        {group.assignments.map((assignment: any) => (
-                                                                              <span
-                                                                                    key={getAssigneeKey(assignment)}
-                                                                                    className="rounded-full border border-amber-100 bg-white/86 px-2.5 py-1 text-xs font-semibold text-slate-700"
-                                                                              >
-                                                                                    {getAssigneeTypeLabel(assignment.assignedToType)}: {getAssigneeName(assignment)}
-                                                                              </span>
-                                                                        ))}
-                                                                  </div>
+                                                                  {group.status === 'unassigned' ? (
+                                                                        <p className="mt-1 text-sm font-semibold text-violet-700">
+                                                                              Công tác daily chưa có người được phân công.
+                                                                        </p>
+                                                                  ) : (
+                                                                        <div className="mt-1 flex flex-wrap gap-1.5">
+                                                                              {group.assignments.map((assignment: any) => (
+                                                                                    <span
+                                                                                          key={getAssigneeKey(assignment)}
+                                                                                          className="rounded-full border border-amber-100 bg-white/86 px-2.5 py-1 text-xs font-semibold text-slate-700"
+                                                                                    >
+                                                                                          {getAssigneeTypeLabel(assignment.assignedToType)}: {getAssigneeName(assignment)}
+                                                                                    </span>
+                                                                              ))}
+                                                                        </div>
+                                                                  )}
                                                             </div>
                                                       </div>
                                                 </div>

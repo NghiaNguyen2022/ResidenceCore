@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 import DutyAssignmentForm from './DutyAssignmentForm';
@@ -130,9 +130,16 @@ export function DutiesTab({
 }: DutiesTabProps) {
       const [viewMode, setViewMode] = useState<DutyViewMode>('day');
       const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+      const lastOpenAssignmentSignalRef = useRef(openAssignmentSignal || 0);
 
       useEffect(() => {
-            if (!openAssignmentSignal) return;
+            const nextSignal = openAssignmentSignal || 0;
+
+            if (nextSignal <= lastOpenAssignmentSignalRef.current) {
+                  return;
+            }
+
+            lastOpenAssignmentSignalRef.current = nextSignal;
             setIsAssignmentModalOpen(true);
       }, [openAssignmentSignal]);
 
@@ -174,6 +181,35 @@ export function DutiesTab({
             if (viewMode === 'month') return 'Tháng này';
 
             return 'Hôm nay';
+      };
+
+      const formatDutyTime = (value?: string | Date | null) => {
+            if (!value) return '';
+
+            if (value instanceof Date) {
+                  return value.toTimeString().slice(0, 5);
+            }
+
+            const text = String(value);
+            if (text.includes('T')) return text.slice(11, 16);
+
+            return text.slice(0, 5);
+      };
+
+      const handleAssignDutyConfig = (dutyConfig: any) => {
+            onAssignmentFormChange({
+                  ...assignmentForm,
+                  dutyConfigId: String(dutyConfig?.id || ''),
+                  assignedDate: selectedDate,
+                  startTime: formatDutyTime(dutyConfig?.startTime),
+                  endTime: formatDutyTime(dutyConfig?.endTime),
+                  assignedToId: '',
+                  assignedToIds: [],
+                  repeatType: 'once',
+                  repeatEndDate: selectedDate,
+                  assignWholeWeek: false,
+            });
+            setIsAssignmentModalOpen(true);
       };
 
       const handleSaveAssignment = async () => {
@@ -220,7 +256,9 @@ export function DutiesTab({
                               statusFilter={statusFilter}
                               onStatusFilterChange={onStatusFilterChange}
                               assignments={assignments}
+                              dutyConfigs={dutyConfigs}
                               isLoading={isLoadingAssignments}
+                              onAssignDutyConfig={handleAssignDutyConfig}
                               onCompleteDuty={onCompleteDuty}
                               onSkipDuty={onSkipDuty}
                               onCancelDuty={onCancelDuty}

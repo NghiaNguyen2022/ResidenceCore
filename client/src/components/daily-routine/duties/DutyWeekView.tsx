@@ -127,8 +127,11 @@ export function DutyWeekView({
                                     (assignment: any) => getAssignmentDate(assignment) === date
                               );
                               const dutyGroups = buildDutyGroups(dayAssignments, date);
-                              const openCount = dutyGroups.reduce(
-                                    (total, group) => total + group.openCount,
+                              const openDutyCount = dutyGroups.filter(
+                                    (group) => group.openCount > 0
+                              ).length;
+                              const assignedPeopleCount = dutyGroups.reduce(
+                                    (total, group) => total + group.count,
                                     0
                               );
                               const isSelected = date === selectedDate;
@@ -168,13 +171,19 @@ export function DutyWeekView({
                                                 </p>
                                           ) : (
                                                 <div className="mt-3 space-y-2">
-                                                      {openCount > 0 && (
+                                                      {openDutyCount > 0 && (
                                                             <Badge className="border-amber-100 bg-amber-50 text-amber-800">
-                                                                  {openCount} phân công mở
+                                                                  {openDutyCount} công tác mở
                                                             </Badge>
                                                       )}
 
-                                                      {dutyGroups.slice(0, 3).map((group) => (
+                                                      {assignedPeopleCount > 0 && (
+                                                            <Badge className="border-slate-100 bg-white/82 text-slate-600">
+                                                                  {assignedPeopleCount} người
+                                                            </Badge>
+                                                      )}
+
+                                                      {dutyGroups.map((group) => (
                                                             <div
                                                                   key={group.id}
                                                                   className="rounded-xl border border-amber-100/70 bg-white/84 px-2.5 py-2"
@@ -184,7 +193,7 @@ export function DutyWeekView({
                                                                               {group.name}
                                                                         </p>
                                                                         <span className="shrink-0 text-[11px] font-semibold text-amber-700">
-                                                                              {group.count}
+                                                                              {group.count} người
                                                                         </span>
                                                                   </div>
                                                                   <p className="mt-0.5 truncate text-[11px] text-slate-500">
@@ -192,12 +201,6 @@ export function DutyWeekView({
                                                                   </p>
                                                             </div>
                                                       ))}
-
-                                                      {dutyGroups.length > 3 && (
-                                                            <p className="text-xs font-semibold text-amber-700">
-                                                                  +{dutyGroups.length - 3} công tác khác
-                                                            </p>
-                                                      )}
                                                 </div>
                                           )}
                                     </button>

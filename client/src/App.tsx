@@ -31,6 +31,7 @@ import ResidentTeamMembers from "@/pages/ResidentTeamMembers";
 import ResidentTeamDuties from "@/pages/ResidentTeamDuties";
 import ResidentCommitteeMembers from "@/pages/ResidentCommitteeMembers";
 import ResidentCommitteeDuties from "@/pages/ResidentCommitteeDuties";
+import FinanceLite from '@/pages/FinanceLite';
 
 function Router() {
       return (
@@ -66,7 +67,8 @@ function Router() {
                   <Route path="/resident/my-committee" component={ResidentCommitteeMembers} />
                   <Route path="/resident/committee-duties" component={ResidentCommitteeDuties} />
 
-                  <Route component={NotFound} />
+                        <Route path="/finance" component={FinanceLite} />
+<Route component={NotFound} />
             </Switch>
       );
 }

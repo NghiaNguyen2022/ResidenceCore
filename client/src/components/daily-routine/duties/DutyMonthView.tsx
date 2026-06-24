@@ -52,6 +52,63 @@ function normalizeDutyStatus(status?: string | null) {
       return String(status || 'pending').toLowerCase();
 }
 
+function getLocalTodayText(date = new Date()) {
+      return formatDateValue(date);
+}
+
+function extractWallTimeText(timeValue?: string | Date | null) {
+      if (!timeValue) return '';
+
+      if (timeValue instanceof Date) {
+            return `${String(timeValue.getHours()).padStart(2, '0')}:${String(
+                  timeValue.getMinutes()
+            ).padStart(2, '0')}:${String(timeValue.getSeconds()).padStart(2, '0')}`;
+      }
+
+      const text = String(timeValue).trim();
+      const timePart = text.includes(' ')
+            ? text.split(' ')[1]
+            : text.includes('T')
+                  ? text.split('T')[1]
+                  : text;
+
+      return timePart.length === 5 ? `${timePart}:00` : timePart.slice(0, 8);
+}
+
+function getTimeValue(dateText: string, timeValue?: string | Date | null) {
+      if (!dateText || !timeValue) return null;
+
+      const timeText = extractWallTimeText(timeValue);
+      if (!timeText) return null;
+
+      const [year, month, day] = dateText.split('-').map(Number);
+      const [hour = 0, minute = 0, second = 0] = timeText.split(':').map(Number);
+
+      return new Date(year, month - 1, day, hour, minute, second).getTime();
+}
+
+function isOverdueAssignment(assignment: any, dateText: string) {
+      const status = normalizeDutyStatus(assignment.status);
+
+      if (['completed', 'cancelled', 'skipped', 'absent'].includes(status)) {
+            return false;
+      }
+
+      if (dateText !== getLocalTodayText()) return false;
+
+      const endTime =
+            assignment.dutyConfig?.endTime ||
+            assignment.endTime ||
+            assignment.endDateTime ||
+            assignment.dutyConfig?.startTime ||
+            assignment.startTime ||
+            assignment.startDateTime;
+
+      const value = getTimeValue(dateText, endTime);
+
+      return Boolean(value && value < Date.now());
+}
+
 function isOpenAssignment(assignment: any) {
       return !['completed', 'cancelled', 'skipped', 'absent'].includes(
             normalizeDutyStatus(assignment.status)
@@ -119,6 +176,9 @@ function buildDutyGroups(assignments: any[], date: string) {
             completedCount: rows.filter(
                   (assignment: any) => normalizeDutyStatus(assignment.status) === 'completed'
             ).length,
+            overdueCount: rows.filter((assignment: any) =>
+                  isOverdueAssignment(assignment, getAssignmentDate(assignment))
+            ).length,
       }));
 }
 
@@ -149,12 +209,17 @@ export function DutyMonthView({
                                     (assignment: any) => getAssignmentDate(assignment) === date
                               );
                               const dutyGroups = buildDutyGroups(dayAssignments, date);
-                              const openCount = dutyGroups.reduce(
-                                    (total, group) => total + group.openCount,
-                                    0
-                              );
-                              const completedCount = dutyGroups.reduce(
-                                    (total, group) => total + group.completedCount,
+                              const openDutyCount = dutyGroups.filter(
+                                    (group) => group.openCount > 0
+                              ).length;
+                              const completedDutyCount = dutyGroups.filter(
+                                    (group) => group.completedCount === group.count && group.count > 0
+                              ).length;
+                              const overdueDutyCount = dutyGroups.filter(
+                                    (group) => (group.overdueCount || 0) > 0
+                              ).length;
+                              const assignedPeopleCount = dutyGroups.reduce(
+                                    (total, group) => total + group.count,
                                     0
                               );
                               const isCurrentMonth = isSameMonth(date, selectedDate);
@@ -195,24 +260,26 @@ export function DutyMonthView({
 
                                           {dutyGroups.length > 0 && (
                                                 <div className="mt-2 space-y-1.5">
-                                                      {openCount > 0 && (
+                                                      {openDutyCount > 0 && (
                                                             <p className="truncate rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800">
-                                                                  {openCount} mở
+                                                                  {openDutyCount} công tác mở
                                                             </p>
                                                       )}
-                                                      {completedCount > 0 && (
+                                                      {completedDutyCount > 0 && (
                                                             <p className="truncate rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
-                                                                  {completedCount} xong
+                                                                  {completedDutyCount} công tác xong
                                                             </p>
                                                       )}
-                                                      {dutyGroups.slice(0, 2).map((group) => (
-                                                            <p
-                                                                  key={group.id}
-                                                                  className="truncate rounded-lg bg-white/82 px-2 py-1 text-[11px] font-semibold text-slate-600"
-                                                            >
-                                                                  {group.name} · {group.count}
+                                                      {overdueDutyCount > 0 && (
+                                                            <p className="truncate rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700">
+                                                                  {overdueDutyCount} công tác quá giờ
                                                             </p>
-                                                      ))}
+                                                      )}
+                                                      {assignedPeopleCount > 0 && (
+                                                            <p className="truncate rounded-lg bg-white/82 px-2 py-1 text-[11px] font-semibold text-slate-600">
+                                                                  {assignedPeopleCount} người
+                                                            </p>
+                                                      )}
                                                 </div>
                                           )}
                                     </button>

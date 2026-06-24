@@ -462,27 +462,39 @@ function getMonthRangeValues(dateText: string) {
       };
 }
 
-function getTimeValue(dateText: string, timeValue?: string | Date | null) {
-      if (!dateText || !timeValue) return null;
+function getLocalTodayText(date = new Date()) {
+      return formatDateValue(date);
+}
+
+function extractWallTimeText(timeValue?: string | Date | null) {
+      if (!timeValue) return '';
 
       if (timeValue instanceof Date) {
-            return createWallClockDate(
-                  dateText,
-                  `${String(timeValue.getHours()).padStart(2, '0')}:${String(
-                        timeValue.getMinutes()
-                  ).padStart(2, '0')}:${String(timeValue.getSeconds()).padStart(2, '0')}`
-            ).getTime();
+            return `${String(timeValue.getHours()).padStart(2, '0')}:${String(
+                  timeValue.getMinutes()
+            ).padStart(2, '0')}:${String(timeValue.getSeconds()).padStart(2, '0')}`;
       }
 
-      const text = String(timeValue);
+      const text = String(timeValue).trim();
       const timePart = text.includes(' ')
             ? text.split(' ')[1]
             : text.includes('T')
                   ? text.split('T')[1]
                   : text;
 
-      const timeText = timePart.length === 5 ? `${timePart}:00` : timePart.slice(0, 8);
-      return new Date(`${dateText}T${timeText}`).getTime();
+      return timePart.length === 5 ? `${timePart}:00` : timePart.slice(0, 8);
+}
+
+function getTimeValue(dateText: string, timeValue?: string | Date | null) {
+      if (!dateText || !timeValue) return null;
+
+      const timeText = extractWallTimeText(timeValue);
+      if (!timeText) return null;
+
+      const [year, month, day] = dateText.split('-').map(Number);
+      const [hour = 0, minute = 0, second = 0] = timeText.split(':').map(Number);
+
+      return new Date(year, month - 1, day, hour, minute, second).getTime();
 }
 
 function isPastTime(dateText: string, timeValue?: string | Date | null) {
@@ -494,7 +506,7 @@ function isPastTime(dateText: string, timeValue?: string | Date | null) {
 }
 
 function isSameDateAsToday(dateText: string) {
-      return dateText === new Date().toISOString().slice(0, 10);
+      return dateText === getLocalTodayText();
 }
 
 function getRoutineVisualState(entry: any, selectedDate: string) {
@@ -513,12 +525,12 @@ function getDutyVisualState(entryOrAssignment: any, selectedDate: string) {
       if (!isSameDateAsToday(selectedDate)) return 'normal';
 
       const endTime =
+            entryOrAssignment.dutyConfig?.endTime ||
             entryOrAssignment.endTime ||
             entryOrAssignment.endDateTime ||
-            entryOrAssignment.dutyConfig?.endTime ||
+            entryOrAssignment.dutyConfig?.startTime ||
             entryOrAssignment.startTime ||
-            entryOrAssignment.startDateTime ||
-            entryOrAssignment.dutyConfig?.startTime;
+            entryOrAssignment.startDateTime;
 
       return isPastTime(selectedDate, endTime) ? 'overdue' : 'normal';
 }
