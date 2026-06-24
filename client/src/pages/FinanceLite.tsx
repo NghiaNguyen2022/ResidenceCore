@@ -20,7 +20,7 @@ import { trpc } from '@/lib/trpc';
 
 type FinanceTab = 'overview' | 'charges' | 'cashbook';
 type ChargeStatus = 'all' | 'open' | 'partial' | 'paid' | 'cancelled';
-type ChargeSource = 'student_fee' | 'other_income' | 'donation' | 'business';
+type ChargeSource = 'student_fee' | 'other_income' | 'donation' | 'expense' | 'business';
 type StudentFeeMode = 'fixed' | 'common' | 'composite';
 type TransactionDirection = 'in' | 'out';
 
@@ -56,6 +56,7 @@ function getStatusClass(status?: string | null) {
 function getSourceLabel(source?: string | null) {
       if (source === 'student_fee') return 'Phí học viên';
       if (source === 'donation') return 'Tài trợ / ủng hộ';
+      if (source === 'expense') return 'Khoản chi';
       if (source === 'business') return 'Kinh doanh';
       if (source === 'other_income') return 'Thu khác';
 
@@ -65,6 +66,7 @@ function getSourceLabel(source?: string | null) {
 function getSourceClass(source?: string | null) {
       if (source === 'student_fee') return 'border-amber-100 bg-amber-50 text-amber-800';
       if (source === 'donation') return 'border-violet-100 bg-violet-50 text-violet-700';
+      if (source === 'expense') return 'border-rose-100 bg-rose-50 text-rose-700';
       if (source === 'business') return 'border-sky-100 bg-sky-50 text-sky-700';
 
       return 'border-slate-100 bg-white text-slate-600';
@@ -93,6 +95,8 @@ export default function FinanceLite() {
             targetType: '',
             targetName: '',
             donorName: '',
+            expenseCategory: '',
+            expenseTarget: '',
             businessDirection: 'in' as TransactionDirection,
             businessCategory: '',
             description: '',
@@ -219,6 +223,8 @@ export default function FinanceLite() {
                   targetType: '',
                   targetName: '',
                   donorName: '',
+                  expenseCategory: '',
+                  expenseTarget: '',
                   businessDirection: 'in',
                   businessCategory: '',
                   description: '',
@@ -330,25 +336,38 @@ export default function FinanceLite() {
                   return;
             }
 
+            if (chargeForm.source === 'expense' && !chargeForm.expenseTarget) {
+                  return;
+            }
+
             createTransactionMutation?.mutate?.({
                   source: chargeForm.source,
                   direction:
                         chargeForm.source === 'business'
                               ? chargeForm.businessDirection
-                              : 'in',
+                              : chargeForm.source === 'expense'
+                                    ? 'out'
+                                    : 'in',
                   amount: resolvedAmount,
                   transactionDate: chargeForm.dueDate || null,
                   targetType:
                         chargeForm.source === 'business'
                               ? 'business'
-                              : chargeForm.targetType || chargeForm.source,
+                              : chargeForm.source === 'expense'
+                                    ? chargeForm.expenseCategory || 'expense'
+                                    : chargeForm.targetType || chargeForm.source,
                   targetName:
                         chargeForm.source === 'donation'
                               ? chargeForm.donorName
-                              : chargeForm.targetName || chargeForm.businessCategory || getSourceLabel(chargeForm.source),
+                              : chargeForm.source === 'expense'
+                                    ? chargeForm.expenseTarget
+                                    : chargeForm.targetName || chargeForm.businessCategory || getSourceLabel(chargeForm.source),
                   description: toDescription([
                         chargeForm.source === 'business'
                               ? `Hạng mục kinh doanh: ${chargeForm.businessCategory || 'Chưa phân loại'}`
+                              : null,
+                        chargeForm.source === 'expense'
+                              ? `Khoản chi: ${chargeForm.expenseCategory || 'Chưa phân loại'}`
                               : null,
                         chargeForm.description,
                   ]),
@@ -373,6 +392,7 @@ export default function FinanceLite() {
       const isStudentFee = chargeForm.source === 'student_fee';
       const isOtherIncome = chargeForm.source === 'other_income';
       const isDonation = chargeForm.source === 'donation';
+      const isExpense = chargeForm.source === 'expense';
       const isBusiness = chargeForm.source === 'business';
 
       return (
@@ -459,9 +479,9 @@ export default function FinanceLite() {
                                                       icon: ArrowDownCircle,
                                                 },
                                                 {
-                                                      label: 'Tiền ra kinh doanh',
+                                                      label: 'Tổng tiền ra',
                                                       value: formatMoney(summary.totalCashOut),
-                                                      helper: 'chi kinh doanh cơ bản',
+                                                      helper: 'khoản chi / chi kinh doanh',
                                                       icon: ArrowUpCircle,
                                                 },
                                           ].map((item) => {
@@ -686,7 +706,7 @@ export default function FinanceLite() {
                                                 </div>
 
                                                 <div className="max-h-[calc(100vh-190px)] space-y-5 overflow-y-auto p-5">
-                                                      <div className="grid gap-3 md:grid-cols-4">
+                                                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                                                             {[
                                                                   {
                                                                         key: 'student_fee',
@@ -705,6 +725,12 @@ export default function FinanceLite() {
                                                                         label: 'Tài trợ / ủng hộ',
                                                                         icon: Gift,
                                                                         hint: 'Người/đơn vị tài trợ',
+                                                                  },
+                                                                  {
+                                                                        key: 'expense',
+                                                                        label: 'Khoản chi',
+                                                                        icon: ArrowUpCircle,
+                                                                        hint: 'Chi sinh hoạt, sửa chữa, vận hành...',
                                                                   },
                                                                   {
                                                                         key: 'business',
@@ -956,8 +982,44 @@ export default function FinanceLite() {
                                                             </div>
                                                       )}
 
-                                                      {(isOtherIncome || isDonation || isBusiness) && (
+                                                      {(isOtherIncome || isDonation || isExpense || isBusiness) && (
                                                             <div className="grid gap-4 rounded-2xl border border-amber-100 bg-white/70 p-4 md:grid-cols-2">
+                                                                  {isExpense && (
+                                                                        <>
+                                                                              <label className="space-y-1.5">
+                                                                                    <span className="text-sm font-semibold text-slate-700">
+                                                                                          Nhóm khoản chi
+                                                                                    </span>
+                                                                                    <input
+                                                                                          value={chargeForm.expenseCategory}
+                                                                                          onChange={(event) =>
+                                                                                                updateChargeForm({
+                                                                                                      expenseCategory: event.target.value,
+                                                                                                })
+                                                                                          }
+                                                                                          placeholder="VD: sinh hoạt, sửa chữa, văn phòng phẩm..."
+                                                                                          className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                                    />
+                                                                              </label>
+
+                                                                              <label className="space-y-1.5">
+                                                                                    <span className="text-sm font-semibold text-slate-700">
+                                                                                          Mục tiêu chi
+                                                                                    </span>
+                                                                                    <input
+                                                                                          value={chargeForm.expenseTarget}
+                                                                                          onChange={(event) =>
+                                                                                                updateChargeForm({
+                                                                                                      expenseTarget: event.target.value,
+                                                                                                })
+                                                                                          }
+                                                                                          placeholder="Bắt buộc nhập mục tiêu chi"
+                                                                                          className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                                    />
+                                                                              </label>
+                                                                        </>
+                                                                  )}
+
                                                                   {isBusiness && (
                                                                         <>
                                                                               <label className="space-y-1.5">
@@ -1071,7 +1133,7 @@ export default function FinanceLite() {
 
                                                                   <label className="space-y-1.5">
                                                                         <span className="text-sm font-semibold text-slate-700">
-                                                                              Số tiền
+                                                                              {isExpense ? 'Số tiền chi' : 'Số tiền'}
                                                                         </span>
                                                                         <input
                                                                               value={chargeForm.amount}
