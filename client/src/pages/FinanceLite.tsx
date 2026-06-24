@@ -22,6 +22,7 @@ type FinanceTab = 'overview' | 'charges' | 'cashbook';
 type ChargeStatus = 'all' | 'open' | 'partial' | 'paid' | 'cancelled';
 type ChargeSource = 'student_fee' | 'other_income' | 'donation' | 'expense' | 'business';
 type StudentFeeMode = 'fixed' | 'common' | 'composite';
+type PeriodChargeMode = 'full_month' | 'half_month' | 'custom_amount' | 'prepaid_months';
 type TransactionDirection = 'in' | 'out';
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
@@ -76,6 +77,33 @@ function toDescription(parts: Array<string | null | undefined | false>) {
       return parts.filter(Boolean).join(' | ');
 }
 
+function getMonthStart(monthValue?: string) {
+      if (!monthValue) return '';
+
+      return `${monthValue}-01`;
+}
+
+function getMonthEnd(monthValue?: string) {
+      if (!monthValue) return '';
+
+      const [yearText, monthText] = monthValue.split('-');
+      const year = Number(yearText);
+      const month = Number(monthText);
+
+      if (!year || !month) return '';
+
+      return new Date(year, month, 0).toISOString().slice(0, 10);
+}
+
+function getPeriodLabel(mode: PeriodChargeMode, prepaidMonths?: string) {
+      if (mode === 'half_month') return 'Thu 1/2 tháng';
+      if (mode === 'custom_amount') return 'Thu theo số tiền tùy chỉnh';
+      if (mode === 'prepaid_months') return `Thu trước ${prepaidMonths || 1} tháng`;
+
+      return 'Thu trọn tháng';
+}
+
+
 export default function FinanceLite() {
       const financeApi = (trpc as any).finance;
       const [activeTab, setActiveTab] = useState<FinanceTab>('overview');
@@ -90,6 +118,12 @@ export default function FinanceLite() {
             feeTypeId: '',
             residentIds: [] as number[],
             applyAll: false,
+            billingMonth: new Date().toISOString().slice(0, 7),
+            periodStartDate: '',
+            periodEndDate: '',
+            periodChargeMode: 'full_month' as PeriodChargeMode,
+            prepaidMonths: '1',
+            customAmount: '',
             amount: '',
             dueDate: '',
             targetType: '',
@@ -206,10 +240,27 @@ export default function FinanceLite() {
             [chargeForm.components]
       );
 
-      const resolvedAmount =
+      const baseStudentFeeAmount =
             chargeForm.studentFeeMode === 'composite'
                   ? componentTotal
                   : Number(chargeForm.amount || 0);
+
+      const resolvedStudentFeeAmount =
+            chargeForm.periodChargeMode === 'half_month'
+                  ? Math.round(baseStudentFeeAmount / 2)
+                  : chargeForm.periodChargeMode === 'custom_amount'
+                        ? Number(chargeForm.customAmount || 0)
+                        : chargeForm.periodChargeMode === 'prepaid_months'
+                              ? baseStudentFeeAmount * Number(chargeForm.prepaidMonths || 1)
+                              : baseStudentFeeAmount;
+
+      const resolvedAmount =
+            chargeForm.source === 'student_fee'
+                  ? resolvedStudentFeeAmount
+                  : Number(chargeForm.amount || 0);
+
+      const resolvedPeriodStartDate = chargeForm.periodStartDate || getMonthStart(chargeForm.billingMonth);
+      const resolvedPeriodEndDate = chargeForm.periodEndDate || getMonthEnd(chargeForm.billingMonth);
 
       function resetChargeForm() {
             setChargeForm({
@@ -218,6 +269,12 @@ export default function FinanceLite() {
                   feeTypeId: '',
                   residentIds: [],
                   applyAll: false,
+                  billingMonth: new Date().toISOString().slice(0, 7),
+                  periodStartDate: '',
+                  periodEndDate: '',
+                  periodChargeMode: 'full_month',
+                  prepaidMonths: '1',
+                  customAmount: '',
                   amount: '',
                   dueDate: '',
                   targetType: '',
@@ -313,9 +370,20 @@ export default function FinanceLite() {
                         dueDate: chargeForm.dueDate || null,
                         source: 'student_fee',
                         feeMode: chargeForm.studentFeeMode,
+                        billingMonth: chargeForm.billingMonth || null,
+                        periodStartDate: resolvedPeriodStartDate || null,
+                        periodEndDate: resolvedPeriodEndDate || null,
+                        periodChargeMode: chargeForm.periodChargeMode,
+                        periodMultiplier:
+                              chargeForm.periodChargeMode === 'half_month'
+                                    ? 0.5
+                                    : chargeForm.periodChargeMode === 'prepaid_months'
+                                          ? Number(chargeForm.prepaidMonths || 1)
+                                          : 1,
                         targetType: chargeForm.applyAll ? 'all_students' : 'selected_students',
                         targetName: chargeForm.applyAll ? 'Tất cả học viên' : `${selectedResidentIds.length} học viên`,
                         description: toDescription([
+                              `Kỳ: ${chargeForm.billingMonth || 'chưa chọn'} (${getPeriodLabel(chargeForm.periodChargeMode, chargeForm.prepaidMonths)})`,
                               chargeForm.description,
                               chargeForm.studentFeeMode === 'composite'
                                     ? `Gồm: ${chargeForm.components
@@ -580,7 +648,7 @@ export default function FinanceLite() {
                                                                                           </span>
                                                                                     </div>
                                                                                     <p className="mt-1 text-sm text-slate-500">
-                                                                                          {charge.residentName || charge.fullName || 'Học viên'} · Hạn thu {formatDate(charge.dueDate)}
+                                                                                          {charge.residentName || charge.fullName || 'Học viên'} · Kỳ {charge.billingMonth || 'chưa rõ'} · Hạn thu {formatDate(charge.dueDate)}
                                                                                     </p>
                                                                               </div>
 
@@ -778,6 +846,130 @@ export default function FinanceLite() {
                                                                         </p>
                                                                         <p className="mt-1 text-sm text-slate-500">
                                                                               Dùng cho phí cố định, khoản thu chung hoặc gói gồm nhiều khoản nhỏ.
+                                                                        </p>
+                                                                  </div>
+
+                                                                  <div className="grid gap-4 md:grid-cols-4">
+                                                                        <label className="space-y-1.5">
+                                                                              <span className="text-sm font-semibold text-slate-700">
+                                                                                    Kỳ thu
+                                                                              </span>
+                                                                              <input
+                                                                                    value={chargeForm.billingMonth}
+                                                                                    onChange={(event) =>
+                                                                                          updateChargeForm({
+                                                                                                billingMonth: event.target.value,
+                                                                                                periodStartDate: getMonthStart(event.target.value),
+                                                                                                periodEndDate: getMonthEnd(event.target.value),
+                                                                                          })
+                                                                                    }
+                                                                                    type="month"
+                                                                                    className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                              />
+                                                                        </label>
+
+                                                                        <label className="space-y-1.5">
+                                                                              <span className="text-sm font-semibold text-slate-700">
+                                                                                    Từ ngày
+                                                                              </span>
+                                                                              <input
+                                                                                    value={chargeForm.periodStartDate}
+                                                                                    onChange={(event) =>
+                                                                                          updateChargeForm({
+                                                                                                periodStartDate: event.target.value,
+                                                                                          })
+                                                                                    }
+                                                                                    type="date"
+                                                                                    className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                              />
+                                                                        </label>
+
+                                                                        <label className="space-y-1.5">
+                                                                              <span className="text-sm font-semibold text-slate-700">
+                                                                                    Đến ngày
+                                                                              </span>
+                                                                              <input
+                                                                                    value={chargeForm.periodEndDate}
+                                                                                    onChange={(event) =>
+                                                                                          updateChargeForm({
+                                                                                                periodEndDate: event.target.value,
+                                                                                          })
+                                                                                    }
+                                                                                    type="date"
+                                                                                    className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                              />
+                                                                        </label>
+
+                                                                        <label className="space-y-1.5">
+                                                                              <span className="text-sm font-semibold text-slate-700">
+                                                                                    Cách thu
+                                                                              </span>
+                                                                              <select
+                                                                                    value={chargeForm.periodChargeMode}
+                                                                                    onChange={(event) =>
+                                                                                          updateChargeForm({
+                                                                                                periodChargeMode: event.target.value as PeriodChargeMode,
+                                                                                          })
+                                                                                    }
+                                                                                    className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                              >
+                                                                                    <option value="full_month">Thu trọn tháng</option>
+                                                                                    <option value="half_month">Thu 1/2 tháng</option>
+                                                                                    <option value="custom_amount">Thu số tiền tùy chỉnh</option>
+                                                                                    <option value="prepaid_months">Thu trước nhiều tháng</option>
+                                                                              </select>
+                                                                        </label>
+                                                                  </div>
+
+                                                                  {(chargeForm.periodChargeMode === 'custom_amount' ||
+                                                                        chargeForm.periodChargeMode === 'prepaid_months') && (
+                                                                        <div className="grid gap-4 md:grid-cols-2">
+                                                                              {chargeForm.periodChargeMode === 'custom_amount' && (
+                                                                                    <label className="space-y-1.5">
+                                                                                          <span className="text-sm font-semibold text-slate-700">
+                                                                                                Số tiền tùy chỉnh
+                                                                                          </span>
+                                                                                          <input
+                                                                                                value={chargeForm.customAmount}
+                                                                                                onChange={(event) =>
+                                                                                                      updateChargeForm({
+                                                                                                            customAmount: event.target.value,
+                                                                                                      })
+                                                                                                }
+                                                                                                type="number"
+                                                                                                min="0"
+                                                                                                className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                                          />
+                                                                                    </label>
+                                                                              )}
+
+                                                                              {chargeForm.periodChargeMode === 'prepaid_months' && (
+                                                                                    <label className="space-y-1.5">
+                                                                                          <span className="text-sm font-semibold text-slate-700">
+                                                                                                Số tháng thu trước
+                                                                                          </span>
+                                                                                          <input
+                                                                                                value={chargeForm.prepaidMonths}
+                                                                                                onChange={(event) =>
+                                                                                                      updateChargeForm({
+                                                                                                            prepaidMonths: event.target.value,
+                                                                                                      })
+                                                                                                }
+                                                                                                type="number"
+                                                                                                min="1"
+                                                                                                className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                                          />
+                                                                                    </label>
+                                                                              )}
+                                                                        </div>
+                                                                  )}
+
+                                                                  <div className="rounded-2xl border border-amber-100 bg-amber-50/50 px-4 py-3 text-sm text-amber-900">
+                                                                        <p className="font-bold">
+                                                                              Số tiền tính cho mỗi học viên: {formatMoney(resolvedStudentFeeAmount)}
+                                                                        </p>
+                                                                        <p className="mt-1 text-xs font-semibold text-amber-800">
+                                                                              Kỳ {chargeForm.billingMonth || 'chưa chọn'} · {formatDate(resolvedPeriodStartDate)} - {formatDate(resolvedPeriodEndDate)} · {getPeriodLabel(chargeForm.periodChargeMode, chargeForm.prepaidMonths)}
                                                                         </p>
                                                                   </div>
 

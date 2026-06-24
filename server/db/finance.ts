@@ -14,6 +14,11 @@ type CreateChargeBatchInput = {
       residentIds: number[];
       amount: number;
       dueDate?: string | null;
+      billingMonth?: string | null;
+      periodStartDate?: string | null;
+      periodEndDate?: string | null;
+      periodChargeMode?: string | null;
+      periodMultiplier?: number | null;
       description?: string | null;
       createdBy?: number | null;
 };
@@ -143,6 +148,11 @@ export async function listFinanceCharges(input: ListChargesInput = {}) {
                   c.fee_mode AS feeMode,
                   c.target_type AS targetType,
                   c.target_name AS targetName,
+                  c.billing_month AS billingMonth,
+                  c.period_start_date AS periodStartDate,
+                  c.period_end_date AS periodEndDate,
+                  c.period_charge_mode AS periodChargeMode,
+                  c.period_multiplier AS periodMultiplier,
                   c.description,
                   c.created_at AS createdAt,
                   r.full_name AS residentName,
@@ -187,6 +197,11 @@ export async function createFinanceChargeBatch(input: CreateChargeBatchInput) {
                         fee_mode,
                         target_type,
                         target_name,
+                        billing_month,
+                        period_start_date,
+                        period_end_date,
+                        period_charge_mode,
+                        period_multiplier,
                         description,
                         created_by,
                         created_at,
@@ -205,6 +220,11 @@ export async function createFinanceChargeBatch(input: CreateChargeBatchInput) {
                         ${(input as any).feeMode || null},
                         ${(input as any).targetType || null},
                         ${(input as any).targetName || null},
+                        ${input.billingMonth || null},
+                        ${input.periodStartDate || null},
+                        ${input.periodEndDate || null},
+                        ${input.periodChargeMode || null},
+                        ${Number(input.periodMultiplier || 1)},
                         ${input.description || null},
                         ${input.createdBy || null},
                         NOW(),
