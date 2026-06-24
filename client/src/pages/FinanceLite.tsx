@@ -16,6 +16,7 @@ import {
 
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
 import { residenceMediumStyle } from '@/components/shared/styleMedium';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 import { trpc } from '@/lib/trpc';
 
 type FinanceTab = 'overview' | 'charges' | 'cashbook';
@@ -101,6 +102,50 @@ function getPeriodLabel(mode: PeriodChargeMode, prepaidMonths?: string) {
       if (mode === 'prepaid_months') return `Thu trước ${prepaidMonths || 1} tháng`;
 
       return 'Thu trọn tháng';
+}
+
+
+const VIETNAMESE_MONTHS = [
+      'Tháng 01',
+      'Tháng 02',
+      'Tháng 03',
+      'Tháng 04',
+      'Tháng 05',
+      'Tháng 06',
+      'Tháng 07',
+      'Tháng 08',
+      'Tháng 09',
+      'Tháng 10',
+      'Tháng 11',
+      'Tháng 12',
+];
+
+function getBillingMonthOptions(baseMonthValue?: string) {
+      const now = baseMonthValue ? new Date(`${baseMonthValue}-01T00:00:00`) : new Date();
+      const options: Array<{ value: string; label: string }> = [];
+
+      for (let index = -3; index <= 12; index += 1) {
+            const date = new Date(now.getFullYear(), now.getMonth() + index, 1);
+            const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+            options.push({
+                  value,
+                  label: `${VIETNAMESE_MONTHS[date.getMonth()]} / ${date.getFullYear()}`,
+            });
+      }
+
+      return options;
+}
+
+function getBillingMonthLabel(value?: string) {
+      if (!value) return 'Chưa chọn kỳ';
+
+      const [yearText, monthText] = value.split('-');
+      const monthIndex = Number(monthText) - 1;
+
+      if (!yearText || monthIndex < 0 || monthIndex > 11) return value;
+
+      return `${VIETNAMESE_MONTHS[monthIndex]} / ${yearText}`;
 }
 
 
@@ -214,6 +259,11 @@ export default function FinanceLite() {
             openChargeCount: 0,
             paidChargeCount: 0,
       };
+
+      const billingMonthOptions = useMemo(
+            () => getBillingMonthOptions(chargeForm.billingMonth),
+            [chargeForm.billingMonth]
+      );
 
       const openCharges = useMemo(
             () =>
@@ -648,7 +698,7 @@ export default function FinanceLite() {
                                                                                           </span>
                                                                                     </div>
                                                                                     <p className="mt-1 text-sm text-slate-500">
-                                                                                          {charge.residentName || charge.fullName || 'Học viên'} · Kỳ {charge.billingMonth || 'chưa rõ'} · Hạn thu {formatDate(charge.dueDate)}
+                                                                                          {charge.residentName || charge.fullName || 'Học viên'} · Kỳ {getBillingMonthLabel(charge.billingMonth)} · Hạn thu {formatDate(charge.dueDate)}
                                                                                     </p>
                                                                               </div>
 
@@ -854,7 +904,7 @@ export default function FinanceLite() {
                                                                               <span className="text-sm font-semibold text-slate-700">
                                                                                     Kỳ thu
                                                                               </span>
-                                                                              <input
+                                                                              <select
                                                                                     value={chargeForm.billingMonth}
                                                                                     onChange={(event) =>
                                                                                           updateChargeForm({
@@ -863,24 +913,27 @@ export default function FinanceLite() {
                                                                                                 periodEndDate: getMonthEnd(event.target.value),
                                                                                           })
                                                                                     }
-                                                                                    type="month"
-                                                                                    className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
-                                                                              />
+                                                                                    className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm font-semibold text-slate-700"
+                                                                              >
+                                                                                    {billingMonthOptions.map((option) => (
+                                                                                          <option key={option.value} value={option.value}>
+                                                                                                {option.label}
+                                                                                          </option>
+                                                                                    ))}
+                                                                              </select>
                                                                         </label>
 
                                                                         <label className="space-y-1.5">
                                                                               <span className="text-sm font-semibold text-slate-700">
                                                                                     Từ ngày
                                                                               </span>
-                                                                              <input
+                                                                              <DatePickerInput
                                                                                     value={chargeForm.periodStartDate}
                                                                                     onChange={(event) =>
                                                                                           updateChargeForm({
                                                                                                 periodStartDate: event.target.value,
                                                                                           })
                                                                                     }
-                                                                                    type="date"
-                                                                                    className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                               />
                                                                         </label>
 
@@ -888,15 +941,13 @@ export default function FinanceLite() {
                                                                               <span className="text-sm font-semibold text-slate-700">
                                                                                     Đến ngày
                                                                               </span>
-                                                                              <input
+                                                                              <DatePickerInput
                                                                                     value={chargeForm.periodEndDate}
                                                                                     onChange={(event) =>
                                                                                           updateChargeForm({
                                                                                                 periodEndDate: event.target.value,
                                                                                           })
                                                                                     }
-                                                                                    type="date"
-                                                                                    className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                               />
                                                                         </label>
 
@@ -969,7 +1020,7 @@ export default function FinanceLite() {
                                                                               Số tiền tính cho mỗi học viên: {formatMoney(resolvedStudentFeeAmount)}
                                                                         </p>
                                                                         <p className="mt-1 text-xs font-semibold text-amber-800">
-                                                                              Kỳ {chargeForm.billingMonth || 'chưa chọn'} · {formatDate(resolvedPeriodStartDate)} - {formatDate(resolvedPeriodEndDate)} · {getPeriodLabel(chargeForm.periodChargeMode, chargeForm.prepaidMonths)}
+                                                                              {getBillingMonthLabel(chargeForm.billingMonth)} · {formatDate(resolvedPeriodStartDate)} - {formatDate(resolvedPeriodEndDate)} · {getPeriodLabel(chargeForm.periodChargeMode, chargeForm.prepaidMonths)}
                                                                         </p>
                                                                   </div>
 
@@ -1054,15 +1105,13 @@ export default function FinanceLite() {
                                                                               <span className="text-sm font-semibold text-slate-700">
                                                                                     Hạn thu
                                                                               </span>
-                                                                              <input
+                                                                              <DatePickerInput
                                                                                     value={chargeForm.dueDate}
                                                                                     onChange={(event) =>
                                                                                           updateChargeForm({
                                                                                                 dueDate: event.target.value,
                                                                                           })
                                                                                     }
-                                                                                    type="date"
-                                                                                    className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                               />
                                                                         </label>
                                                                   </div>
@@ -1344,15 +1393,13 @@ export default function FinanceLite() {
                                                                         <span className="text-sm font-semibold text-slate-700">
                                                                               Ngày ghi nhận
                                                                         </span>
-                                                                        <input
+                                                                        <DatePickerInput
                                                                               value={chargeForm.dueDate}
                                                                               onChange={(event) =>
                                                                                     updateChargeForm({
                                                                                           dueDate: event.target.value,
                                                                                     })
                                                                               }
-                                                                              type="date"
-                                                                              className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                         />
                                                                   </label>
                                                             </div>
@@ -1466,15 +1513,13 @@ export default function FinanceLite() {
                                                                   <span className="text-sm font-semibold text-slate-700">
                                                                         Ngày thu
                                                                   </span>
-                                                                  <input
+                                                                  <DatePickerInput
                                                                         value={paymentForm.paymentDate}
                                                                         onChange={(event) =>
                                                                               updatePaymentForm({
                                                                                     paymentDate: event.target.value,
                                                                               })
                                                                         }
-                                                                        type="date"
-                                                                        className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                   />
                                                             </label>
                                                       </div>
