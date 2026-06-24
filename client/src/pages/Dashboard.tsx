@@ -90,7 +90,7 @@ function DashboardPanel({
   return (
     <section className="rounded-[26px] border border-amber-100/80 bg-white/90 p-5 shadow-[0_16px_36px_rgba(120,53,15,0.06)]">
       <div className="mb-5 flex items-center justify-between gap-4">
-        <h3 className={residenceMediumStyle.subsectionTitle}>{title}</h3>
+        <h3 className={residenceMediumStyle.sectionTitle}>{title}</h3>
       </div>
       {children}
     </section>

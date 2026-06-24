@@ -1257,7 +1257,7 @@ export default function Members() {
                                                 value: 'closeMessageBox',
                                                 description:
                                                       'Hủy thao tác rời lưu xá, giữ nguyên hồ sơ và tài khoản học viên.',
-                                                variant: 'secondary',
+                                                variant: 'info',
                                           },
                                     ],
                               });

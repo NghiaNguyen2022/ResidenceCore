@@ -1,6 +1,6 @@
 import { getDb } from "./connection";
 
-import { and, count, desc, eq, isNull, like } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, like } from "drizzle-orm";
 
 import {
   InsertRoom,
@@ -123,17 +123,27 @@ export async function getRoomsWithDetails(filters?: {
   offset?: number;
 }) {
   const roomsList = await getRooms(filters);
+  if (roomsList.length === 0) return [];
 
-  return await Promise.all(
-    roomsList.map(async (room: any) => {
-      const residentsCount = await getRoomCurrentOccupancy(room.id);
-
-      return {
-        ...room,
-        residentsCount,
-      };
-    })
+  const db = getDb();
+  const occupancyRows = await db
+    .select({ roomId: roomAssignments.roomId, total: count() })
+    .from(roomAssignments)
+    .where(
+      and(
+        inArray(roomAssignments.roomId, roomsList.map((room: any) => room.id)),
+        isNull(roomAssignments.unassignedDate)
+      )
+    )
+    .groupBy(roomAssignments.roomId);
+  const occupancyByRoomId = new Map(
+    occupancyRows.map((item) => [Number(item.roomId), Number(item.total)])
   );
+
+  return roomsList.map((room: any) => ({
+    ...room,
+    residentsCount: occupancyByRoomId.get(Number(room.id)) || 0,
+  }));
 }
 
 export async function assignResidentToRoom(data: InsertRoomAssignment) {

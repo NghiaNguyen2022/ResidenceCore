@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 import { trpc } from '@/lib/trpc';
-import TemplateSelector from './TemplateSelector';
+import TemplateSelector, { type DutyTemplate } from './TemplateSelector';
 import { DEFAULT_TIME } from '@/lib/formDefaults';
 import { DAY_OPTIONS, type DayOfWeek } from '@/lib/days';
 
@@ -22,19 +22,6 @@ interface ChecklistItem {
       minPersons?: number;
       maxPersons?: number;
       estimatedTimeMinutes?: number;
-}
-
-interface DutyTemplate {
-      id: number;
-      templateCode: string;
-      templateName: string;
-      dutyType: DutyType;
-      startTime: string;
-      endTime: string;
-      minPersons: number;
-      maxPersons: number;
-      description: string;
-      isActive: boolean;
 }
 
 interface DutyConfigFormProps {
@@ -81,7 +68,7 @@ const STAGE_OPTIONS: Array<{ value: StageType; label: string }> = [
       { value: 'after', label: 'Sau khi diễn ra' },
 ];
 
-function normalizeArrayValue<T extends string>(value: unknown): T[] {
+function normalizeArrayValue<T>(value: unknown): T[] {
       if (Array.isArray(value)) return value as T[];
 
       if (typeof value === 'string' && value.trim()) {
@@ -225,9 +212,9 @@ export default function DutyConfigForm({ duty, onSave, onCancel }: DutyConfigFor
                   ...current,
                   dutyCode: `${template.templateCode}_${Date.now()}`,
                   dutyName: template.templateName,
-                  description: template.description,
-                  startTime: template.startTime,
-                  endTime: template.endTime,
+                  description: template.description || '',
+                  startTime: template.startTime || DEFAULT_TIME,
+                  endTime: template.endTime || DEFAULT_TIME,
                   minPersons: template.minPersons,
                   maxPersons: template.maxPersons,
                   dutyType: template.dutyType || 'daily',

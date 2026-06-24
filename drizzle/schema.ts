@@ -280,7 +280,20 @@ export const dutyAssignments = mysqlTable("dutyAssignments", {
       reason: varchar("reason", { length: 255 }), // Lý do nếu bỏ
       createdAt: timestamp("createdAt").defaultNow().notNull(),
       updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+      residentDateStatusIdx: index("idx_duty_assignments_resident_date_status").on(
+            table.residentId,
+            table.assignedDate,
+            table.status
+      ),
+      configDateTargetStatusIdx: index("idx_duty_assignments_config_date_target_status").on(
+            table.dutyConfigId,
+            table.assignedDate,
+            table.assignedToType,
+            table.assignedToId,
+            table.status
+      ),
+}));
 
 export type DutyAssignment = typeof dutyAssignments.$inferSelect;
 export type InsertDutyAssignment = typeof dutyAssignments.$inferInsert;

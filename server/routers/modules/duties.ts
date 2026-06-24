@@ -169,8 +169,11 @@ export const dutiesRouter = router({
                               });
                         }
 
-                        const result = await db.createDutyConfig(input);
-                        const config = await db.getDutyConfig(result.insertId);
+                        const result = await db.createDutyConfig({
+                              ...input,
+                              frequency: input.frequency ?? input.dutyType,
+                        });
+                        const config = await db.getDutyConfig((result as any)[0]?.insertId);
                         return config;
                   } catch (error) {
                         if (error instanceof TRPCError) throw error;
@@ -294,7 +297,10 @@ export const dutiesRouter = router({
             )
             .mutation(async ({ input }) => {
                   try {
-                        const result = await db.addChecklistItem(input);
+                        const result = await db.addChecklistItem({
+                              ...input,
+                              itemOrder: input.itemOrder ?? 1,
+                        });
                         return result;
                   } catch (error) {
                         console.error("[duties.addChecklistItem] Error:", error);
@@ -409,8 +415,7 @@ export const dutiesRouter = router({
             )
             .query(async ({ input }) => {
                   try {
-                        const assignments = await db.getAssignmentsByResident({
-                              residentId: input.residentId,
+                        const assignments = await db.getAssignmentsByResident(input.residentId, {
                               status: input.status,
                               limit: input.limit,
                               offset: input.offset,
@@ -1043,4 +1048,3 @@ export const dutiesRouter = router({
                   }
             }),
 });
-

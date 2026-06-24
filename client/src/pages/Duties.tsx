@@ -659,7 +659,7 @@ export default function Duties() {
                               <div className={dutiesPanelClass}>
                                     <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                           <div>
-                                                <h3 className={residenceMediumStyle.subsectionTitle}>
+                                                <h3 className={residenceMediumStyle.sectionTitle}>
                                                       Công tác trong ngày
                                                 </h3>
                                                 <p className="mt-1 text-sm text-slate-500">
@@ -822,7 +822,7 @@ export default function Duties() {
                         {activeTab === 'create' && (
                               <div className={dutiesPanelClass}>
                                     <div className="mb-5">
-                                          <h3 className={residenceMediumStyle.subsectionTitle}>
+                                          <h3 className={residenceMediumStyle.sectionTitle}>
                                                 Tạo phân công
                                           </h3>
                                           <p className="mt-1 text-sm text-slate-500">
@@ -1002,7 +1002,7 @@ export default function Duties() {
                               <div className={dutiesPanelClass}>
                                     <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                           <div>
-                                                <h3 className={residenceMediumStyle.subsectionTitle}>
+                                                <h3 className={residenceMediumStyle.sectionTitle}>
                                                       Mẫu công tác
                                                 </h3>
                                                 <p className="mt-1 text-sm text-slate-500">

@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar, text, date, mysqlEnum, timestamp, boolean, time, json } from "drizzle-orm/mysql-core";
+import { mysqlTable, int, varchar, text, date, mysqlEnum, timestamp, boolean, time, json, index } from "drizzle-orm/mysql-core";
 import { users, schools, programs } from "./core";
 
 /**
@@ -25,7 +25,9 @@ export const residents = mysqlTable("residents", {
       notes: text("notes"),
       createdAt: timestamp("createdAt").defaultNow().notNull(),
       updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+      statusRoomIdx: index("idx_residents_status_current_room").on(table.status, table.currentRoomId),
+}));
 
 export type Resident = typeof residents.$inferSelect;
 export type InsertResident = typeof residents.$inferInsert;
@@ -147,7 +149,13 @@ export const residentStudySchedules = mysqlTable("residentStudySchedules", {
 
       createdAt: timestamp("createdAt").defaultNow().notNull(),
       updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+      residentDayActiveIdx: index("idx_study_schedules_resident_day_active").on(
+            table.residentId,
+            table.dayOfWeek,
+            table.isActive
+      ),
+}));
 
 export type ResidentStudySchedule =
       typeof residentStudySchedules.$inferSelect;
@@ -216,7 +224,16 @@ export const roomAssignments = mysqlTable("roomAssignments", {
       notes: text("notes"),
       createdAt: timestamp("createdAt").defaultNow(),
       updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
-});
+}, (table) => ({
+      roomUnassignedIdx: index("idx_room_assignments_room_unassigned").on(
+            table.roomId,
+            table.unassignedDate
+      ),
+      residentUnassignedIdx: index("idx_room_assignments_resident_unassigned").on(
+            table.residentId,
+            table.unassignedDate
+      ),
+}));
 
 export type RoomAssignment = typeof roomAssignments.$inferSelect;
 export type InsertRoomAssignment = typeof roomAssignments.$inferInsert;
@@ -271,7 +288,9 @@ export const attendance = mysqlTable("attendance", {
       recordedBy: int("recordedBy").references(() => users.id, { onDelete: "set null" }),
       createdAt: timestamp("createdAt").defaultNow().notNull(),
       updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+      residentDateIdx: index("idx_attendance_resident_date").on(table.residentId, table.attendanceDate),
+}));
 
 export type Attendance = typeof attendance.$inferSelect;
 export type InsertAttendance = typeof attendance.$inferInsert;

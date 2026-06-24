@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { and, asc, count, desc, eq, like, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, ne, or } from "drizzle-orm";
 import { normalizeText } from '../lib/utils';
 
 import { getDb } from "./connection";
@@ -404,12 +404,19 @@ export async function listOrganizationRoles(
 
       const rows = await query;
 
-      return await Promise.all(
-            rows.map(async (role: any) => ({
-                  ...role,
-                  assignedCount: await countOrganizationRoleAssignments(role.id),
-            }))
-      );
+      if (rows.length === 0) return [];
+
+      const counts = await db
+            .select({ roleId: organizationAssignments.roleId, total: count() })
+            .from(organizationAssignments)
+            .where(inArray(organizationAssignments.roleId, rows.map((role: any) => role.id)))
+            .groupBy(organizationAssignments.roleId);
+      const countsByRoleId = new Map(counts.map((item: any) => [Number(item.roleId), Number(item.total)]));
+
+      return rows.map((role: any) => ({
+            ...role,
+            assignedCount: countsByRoleId.get(Number(role.id)) || 0,
+      }));
 }
 
 export async function getOrganizationRoleById(id: number) {
@@ -691,12 +698,19 @@ export async function listOrganizationUnits(
 
       const rows = await query;
 
-      return await Promise.all(
-            rows.map(async (unit: any) => ({
-                  ...unit,
-                  assignedCount: await countOrganizationUnitAssignments(unit.id),
-            }))
-      );
+      if (rows.length === 0) return [];
+
+      const counts = await db
+            .select({ unitId: organizationAssignments.unitId, total: count() })
+            .from(organizationAssignments)
+            .where(inArray(organizationAssignments.unitId, rows.map((unit: any) => unit.id)))
+            .groupBy(organizationAssignments.unitId);
+      const countsByUnitId = new Map(counts.map((item: any) => [Number(item.unitId), Number(item.total)]));
+
+      return rows.map((unit: any) => ({
+            ...unit,
+            assignedCount: countsByUnitId.get(Number(unit.id)) || 0,
+      }));
 }
 
 export async function getOrganizationUnitById(id: number) {

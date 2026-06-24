@@ -599,7 +599,7 @@ export async function updateAssignment(id: number, data: Partial<InsertDutyAssig
 /**
  * Hủy assignment
  */
-export async function cancelAssignment(id: number, reason: string) {
+export async function cancelAssignment(id: number, reason?: string) {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
@@ -620,7 +620,7 @@ export async function cancelAssignment(id: number, reason: string) {
  */
 export async function getAssignmentsByResident(
       residentId: number,
-      filters?: { status?: string; startDate?: Date; endDate?: Date }
+      filters?: { status?: string; startDate?: Date; endDate?: Date; limit?: number; offset?: number }
 ) {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
@@ -643,7 +643,10 @@ export async function getAssignmentsByResident(
                   query = query.where(and(...conditions));
             }
 
-            const result = await query.orderBy(dutyAssignments.assignedDate);
+            query = query.orderBy(dutyAssignments.assignedDate);
+            if (filters?.limit) query = query.limit(filters.limit);
+            if (filters?.offset) query = query.offset(filters.offset);
+            const result = await query;
             return result;
       } catch (error) {
             console.error("[Database] Failed to get assignments by resident:", error);
@@ -1174,7 +1177,7 @@ export async function getResidentDutyStats(residentId: number, filters?: { start
 
             const assignments = await query;
             const total = assignments.length;
-            const completed = assignments.filter((a) => a.status === "completed").length;
+            const completed = assignments.filter((a: { status: string }) => a.status === "completed").length;
 
             const evaluations = await db
                   .select()
@@ -1252,7 +1255,7 @@ export async function getDutyTemplates() {
             .orderBy(dutyTemplates.dutyType, dutyTemplates.templateCode);
 }
 
-export async function getDutyTemplatesByType(dutyType: "daily" | "weekly" | "monthly") {
+export async function getDutyTemplatesByType(dutyType: "daily" | "weekly" | "monthly" | "event") {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
@@ -1407,8 +1410,29 @@ async function getResidentStudyScheduleConflict(
             endTime?: string | null;
             travelMinutes?: number;
       }
-) {
+): Promise<{ reason: string; detail?: string } | null> {
       return null;
+}
+
+export async function checkResidentStudyScheduleConflict(input: {
+      residentId: number;
+      assignmentDate: string;
+      startTime?: string | null;
+      endTime?: string | null;
+      travelMinutes?: number;
+}) {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const conflict = await getResidentStudyScheduleConflict(db, {
+            residentId: input.residentId,
+            assignedDate: input.assignmentDate,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            travelMinutes: input.travelMinutes,
+      });
+      return conflict
+            ? { hasConflict: true, conflicts: [conflict] }
+            : { hasConflict: false, conflicts: [] };
 }
 
 async function getDutyAssignmentExistingRows(

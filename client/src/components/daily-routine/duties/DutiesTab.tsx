@@ -102,6 +102,8 @@ type DutiesTabProps = {
       onCompleteDuty: (assignment: any) => void;
       onSkipDuty: (assignment: any) => void;
       onCancelDuty: (assignment: any) => void;
+      onOpenToday?: () => void;
+      onOpenRoutine?: () => void;
 };
 
 export function DutiesTab({

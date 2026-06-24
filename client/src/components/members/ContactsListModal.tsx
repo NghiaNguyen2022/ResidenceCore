@@ -231,9 +231,12 @@ export function ContactsListModal({
       const isSavingContact =
             createParentMutation.isPending || updateParentMutation.isPending;
 
+      const selectedResident = activeResidents.find(
+            (resident) => String(resident.id) === selectedResidentId
+      ) as any;
       const selectedResidentName =
-            activeResidents.find((resident: any) => String(resident.id) === selectedResidentId)?.fullName ||
-            activeResidents.find((resident: any) => String(resident.id) === selectedResidentId)?.name ||
+            selectedResident?.fullName ||
+            selectedResident?.name ||
             initialSearchTerm ||
             '';
 
@@ -272,7 +275,7 @@ export function ContactsListModal({
 
                   {formMode === 'create' && initialResidentId && (
                         <div className="rounded-2xl border border-amber-100/60 bg-white/58 px-4 py-3 shadow-sm shadow-slate-900/5">
-                              <p className={residenceMediumStyle.memberLabel}>Học viên</p>
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Học viên</p>
                               <p className="mt-1 text-sm font-semibold text-slate-800">
                                     {selectedResidentName || `Học viên ${initialResidentId}`}
                               </p>
@@ -452,10 +455,10 @@ export function ContactsListModal({
                                     </p>
 
                                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                                          <span className={residenceMediumStyle.statDetailPill}>
+                                          <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
                                                 Tổng liên hệ: <span className="font-semibold text-slate-800">{summary.total}</span>
                                           </span>
-                                          <span className={residenceMediumStyle.statDetailPill}>
+                                          <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
                                                 Có số điện thoại: <span className="font-semibold text-slate-800">{summary.withPhone}</span>
                                           </span>
                                     </div>

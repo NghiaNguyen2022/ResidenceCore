@@ -1,41 +1,62 @@
+import { lazy, Suspense, useDeferredValue } from "react";
+import { LoaderCircle } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Members from "./pages/Members";
-import Rooms from "./pages/Rooms";
-import OrganizationSimple from "@/pages/OrganizationSimple";
-import DailyRoutine from "@/pages/DailyRoutine";
-import DutiesPage from "./pages/Duties";
-import MyDuties from "./pages/MyDuties";
-import Activities from "./pages/Activities";
-import DisciplineRules from "./pages/DisciplineRules";
-import UserManagement from "@/pages/UserManagement";
-import MyProfile from "./pages/MyProfile";
+const Home = lazy(() => import("./pages/Home"));
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Members = lazy(() => import("./pages/Members"));
+const Rooms = lazy(() => import("./pages/Rooms"));
+const OrganizationSimple = lazy(() => import("@/pages/OrganizationSimple"));
+const DailyRoutine = lazy(() => import("@/pages/DailyRoutine"));
+const DutiesPage = lazy(() => import("./pages/Duties"));
+const MyDuties = lazy(() => import("./pages/MyDuties"));
+const Activities = lazy(() => import("./pages/Activities"));
+const DisciplineRules = lazy(() => import("./pages/DisciplineRules"));
+const UserManagement = lazy(() => import("@/pages/UserManagement"));
+const MyProfile = lazy(() => import("./pages/MyProfile"));
+const ResidentToday = lazy(() => import("@/pages/ResidentToday"));
+const ResidentInformation = lazy(() => import("@/pages/ResidentInformation"));
+const ResidentFinance = lazy(() => import("@/pages/ResidentFinance"));
+const ResidentRules = lazy(() => import("@/pages/ResidentRules"));
+const ResidentRoleOverview = lazy(() => import("@/pages/ResidentRoleOverview"));
+const ResidentLeadershipOrganization = lazy(() => import("@/pages/ResidentLeadershipOrganization"));
+const ResidentLeadershipDuties = lazy(() => import("@/pages/ResidentLeadershipDuties"));
+const ResidentTeamMembers = lazy(() => import("@/pages/ResidentTeamMembers"));
+const ResidentTeamDuties = lazy(() => import("@/pages/ResidentTeamDuties"));
+const ResidentCommitteeMembers = lazy(() => import("@/pages/ResidentCommitteeMembers"));
+const ResidentCommitteeDuties = lazy(() => import("@/pages/ResidentCommitteeDuties"));
+const FinanceLite = lazy(() => import("@/pages/FinanceLite"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
 
-import ResidentToday from "@/pages/ResidentToday";
-import ResidentInformation from "@/pages/ResidentInformation";
-import ResidentFinance from "@/pages/ResidentFinance";
-import ResidentRules from "@/pages/ResidentRules";
-import ResidentRoleOverview from "@/pages/ResidentRoleOverview";
-import ResidentLeadershipOrganization from "@/pages/ResidentLeadershipOrganization";
-import ResidentLeadershipDuties from "@/pages/ResidentLeadershipDuties";
-import ResidentTeamMembers from "@/pages/ResidentTeamMembers";
-import ResidentTeamDuties from "@/pages/ResidentTeamDuties";
-import ResidentCommitteeMembers from "@/pages/ResidentCommitteeMembers";
-import ResidentCommitteeDuties from "@/pages/ResidentCommitteeDuties";
-import FinanceLite from '@/pages/FinanceLite';
+function RouteFallback() {
+      return (
+            <div
+                  className="flex min-h-screen items-center justify-center bg-[linear-gradient(135deg,#fffdf8_0%,#ffffff_55%,#fff7ed_100%)]"
+                  aria-busy="true"
+                  aria-label="Đang tải nội dung"
+            >
+                  <div className="flex items-center gap-3 rounded-2xl border border-amber-100 bg-white/90 px-5 py-3 text-sm font-semibold text-slate-700 shadow-lg shadow-amber-950/5">
+                        <LoaderCircle className="h-5 w-5 animate-spin text-amber-600" />
+                        Đang tải...
+                  </div>
+            </div>
+      );
+}
 
 function Router() {
+      const [location] = useLocation();
+      const deferredLocation = useDeferredValue(location);
+      const isNavigating = location !== deferredLocation;
+
       return (
-            <Switch>
+            <>
+            <Switch location={deferredLocation}>
                   <Route path="/" component={Home} />
                   <Route path="/login" component={Login} />
 
@@ -70,6 +91,23 @@ function Router() {
                         <Route path="/finance" component={FinanceLite} />
 <Route component={NotFound} />
             </Switch>
+            {isNavigating && (
+                  <div
+                        className="fixed inset-0 z-[9998] cursor-progress bg-white/10 backdrop-blur-[1px]"
+                        aria-busy="true"
+                        aria-live="polite"
+                        aria-label="Đang chuyển trang"
+                  >
+                        <div className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-amber-100/80">
+                              <div className="h-full w-1/3 animate-pulse rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.7)]" />
+                        </div>
+                        <div className="absolute right-5 top-5 flex items-center gap-2 rounded-full border border-amber-100 bg-white/95 px-3 py-2 text-xs font-bold text-slate-700 shadow-lg shadow-slate-900/10">
+                              <LoaderCircle className="h-4 w-4 animate-spin text-amber-600" />
+                              Đang tải
+                        </div>
+                  </div>
+            )}
+            </>
       );
 }
 
@@ -78,7 +116,9 @@ function App() {
             <ErrorBoundary>
                   <ThemeProvider>
                         <TooltipProvider>
-                              <Router />
+                              <Suspense fallback={<RouteFallback />}>
+                                    <Router />
+                              </Suspense>
                               <Toaster />
                         </TooltipProvider>
                   </ThemeProvider>

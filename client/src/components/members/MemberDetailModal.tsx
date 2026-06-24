@@ -146,10 +146,8 @@ function getAccountStatus(member: any) {
 
 type EducationInfoPayload = {
       residentId: number;
-      educationLevel?: string | null;
-      schoolName?: string | null;
-      schoolAddress?: string | null;
-      major?: string | null;
+      educationLevel?: 'high_school' | 'vocational' | 'college' | 'university' | 'other' | null;
+      schoolName: string;
       classOrMajor?: string | null;
       academicYear?: string | null;
       notes?: string | null;

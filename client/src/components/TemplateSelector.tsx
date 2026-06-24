@@ -5,16 +5,16 @@ import { X } from 'lucide-react';
 
 import { trpc } from '@/lib/trpc';
 
-interface DutyTemplate {
+export interface DutyTemplate {
       id: number;
       templateCode: string;
       templateName: string;
-      dutyType: string;
-      startTime: string;
-      endTime: string;
+      dutyType: 'daily' | 'weekly' | 'monthly' | 'event';
+      startTime: string | null;
+      endTime: string | null;
       minPersons: number;
       maxPersons: number;
-      description: string;
+      description: string | null;
       isActive: boolean;
 }
 
