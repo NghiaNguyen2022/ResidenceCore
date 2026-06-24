@@ -232,6 +232,7 @@ function patchMenu() {
 
 function patchTrpcRouter() {
   const files = [
+    path.join(root, 'server/routers.ts'),
     path.join(root, 'server/routers/index.ts'),
     path.join(root, 'server/routers/_app.ts'),
     path.join(root, 'server/router.ts'),
@@ -253,7 +254,10 @@ function patchTrpcRouter() {
     return true;
   }
 
-  content = ensureImport(content, "import { financeRouter } from './modules/finance';");
+  const importLine = rel(file) === 'server/routers.ts'
+    ? "import { financeRouter } from './routers/modules/finance';"
+    : "import { financeRouter } from './modules/finance';";
+  content = ensureImport(content, importLine);
 
   const match = content.match(/router\(\s*\{/m);
   if (!match || match.index === undefined) {

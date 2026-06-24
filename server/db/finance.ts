@@ -50,9 +50,143 @@ function getRows(result: any) {
       return result?.rows || [];
 }
 
-export async function listFinanceFeeTypes(filters?: { isActive?: boolean }) {
+let financeSchemaReady = false;
+
+async function columnExists(db: any, tableName: string, columnName: string) {
+      const result = await db.execute(sql`
+            SELECT COUNT(*) AS countValue
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ${tableName}
+                  AND COLUMN_NAME = ${columnName}
+      `);
+      const rows = getRows(result);
+      return Number(rows?.[0]?.countValue || rows?.[0]?.COUNT_VALUE || rows?.[0]?.['COUNT(*)'] || 0) > 0;
+}
+
+async function ensureFinanceSchema(db: any) {
+      if (financeSchemaReady) return;
+
+      await db.execute(sql`
+            CREATE TABLE IF NOT EXISTS finance_fee_types (
+                  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                  fee_code VARCHAR(50) NOT NULL UNIQUE,
+                  fee_name VARCHAR(255) NOT NULL,
+                  default_amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
+                  cycle VARCHAR(40) NOT NULL DEFAULT 'monthly',
+                  is_active TINYINT(1) NOT NULL DEFAULT 1,
+                  sort_order INT NOT NULL DEFAULT 10,
+                  description TEXT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+      `);
+
+      await db.execute(sql`
+            CREATE TABLE IF NOT EXISTS finance_charges (
+                  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                  charge_code VARCHAR(100) NOT NULL UNIQUE,
+                  resident_id INT NOT NULL,
+                  fee_type_id INT NULL,
+                  amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
+                  paid_amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
+                  remaining_amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
+                  due_date DATE NULL,
+                  status VARCHAR(40) NOT NULL DEFAULT 'open',
+                  source VARCHAR(60) NOT NULL DEFAULT 'student_fee',
+                  fee_mode VARCHAR(60) NULL,
+                  target_type VARCHAR(60) NULL,
+                  target_name VARCHAR(255) NULL,
+                  billing_month VARCHAR(7) NULL,
+                  period_start_date DATE NULL,
+                  period_end_date DATE NULL,
+                  period_charge_mode VARCHAR(40) NULL,
+                  period_multiplier DECIMAL(10, 2) NOT NULL DEFAULT 1,
+                  description TEXT NULL,
+                  created_by INT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  INDEX idx_finance_charges_resident (resident_id),
+                  INDEX idx_finance_charges_status (status),
+                  INDEX idx_finance_charges_period (resident_id, fee_type_id, billing_month, period_start_date, period_end_date)
+            )
+      `);
+
+      await db.execute(sql`
+            CREATE TABLE IF NOT EXISTS finance_payments (
+                  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                  charge_id INT NOT NULL,
+                  resident_id INT NOT NULL,
+                  amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
+                  payment_date DATE NOT NULL,
+                  method VARCHAR(40) NOT NULL DEFAULT 'cash',
+                  note TEXT NULL,
+                  created_by INT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  INDEX idx_finance_payments_charge (charge_id),
+                  INDEX idx_finance_payments_resident (resident_id)
+            )
+      `);
+
+      await db.execute(sql`
+            CREATE TABLE IF NOT EXISTS finance_transactions (
+                  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                  source VARCHAR(60) NOT NULL,
+                  direction VARCHAR(20) NOT NULL,
+                  amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
+                  transaction_date DATE NOT NULL,
+                  target_type VARCHAR(60) NULL,
+                  target_name VARCHAR(255) NULL,
+                  description TEXT NULL,
+                  created_by INT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  INDEX idx_finance_transactions_date (transaction_date),
+                  INDEX idx_finance_transactions_source (source, direction)
+            )
+      `);
+
+      const chargeColumns = [
+            ['billing_month', "ALTER TABLE finance_charges ADD COLUMN billing_month VARCHAR(7) NULL AFTER target_name"],
+            ['period_start_date', "ALTER TABLE finance_charges ADD COLUMN period_start_date DATE NULL AFTER billing_month"],
+            ['period_end_date', "ALTER TABLE finance_charges ADD COLUMN period_end_date DATE NULL AFTER period_start_date"],
+            ['period_charge_mode', "ALTER TABLE finance_charges ADD COLUMN period_charge_mode VARCHAR(40) NULL AFTER period_end_date"],
+            ['period_multiplier', "ALTER TABLE finance_charges ADD COLUMN period_multiplier DECIMAL(10, 2) NOT NULL DEFAULT 1 AFTER period_charge_mode"],
+      ] as const;
+
+      for (const [columnName, alterSql] of chargeColumns) {
+            if (!(await columnExists(db, 'finance_charges', columnName))) {
+                  await db.execute(sql.raw(alterSql));
+            }
+      }
+
+      const feeTypesResult = await db.execute(sql`SELECT COUNT(*) AS countValue FROM finance_fee_types`);
+      const feeTypeRows = getRows(feeTypesResult);
+      const feeTypeCount = Number(feeTypeRows?.[0]?.countValue || 0);
+
+      if (feeTypeCount === 0) {
+            await db.execute(sql`
+                  INSERT INTO finance_fee_types (fee_code, fee_name, default_amount, cycle, is_active, sort_order, description)
+                  VALUES
+                        ('monthly_boarding_fee', 'Phí lưu trú hằng tháng', 0, 'monthly', 1, 10, 'Khoản phí lưu trú theo tháng'),
+                        ('electric_water_fee', 'Điện nước', 0, 'monthly', 1, 20, 'Khoản thu điện nước'),
+                        ('activity_fee', 'Sinh hoạt chung', 0, 'monthly', 1, 30, 'Khoản thu sinh hoạt chung'),
+                        ('other_student_fee', 'Khoản thu khác của học viên', 0, 'once', 1, 90, 'Khoản thu phát sinh')
+            `);
+      }
+
+      financeSchemaReady = true;
+}
+
+async function getFinanceDb() {
       const db = await getDb();
-      if (!db) throw new Error('Database not available');
+      await ensureFinanceSchema(db);
+      return db;
+}
+
+export async function listFinanceFeeTypes(filters?: { isActive?: boolean }) {
+      const db = await getFinanceDb();
 
       const activeClause = filters?.isActive === undefined
             ? sql`1 = 1`
@@ -83,8 +217,7 @@ export async function createFinanceFeeType(data: {
       cycle?: string | null;
       description?: string | null;
 }) {
-      const db = await getDb();
-      if (!db) throw new Error('Database not available');
+      const db = await getFinanceDb();
 
       await db.execute(sql`
             INSERT INTO finance_fee_types (
@@ -115,8 +248,7 @@ export async function createFinanceFeeType(data: {
 }
 
 export async function listFinanceCharges(input: ListChargesInput = {}) {
-      const db = await getDb();
-      if (!db) throw new Error('Database not available');
+      const db = await getFinanceDb();
 
       const searchValue = `%${input.search || ''}%`;
       const limit = Number(input.limit || 100);
@@ -126,8 +258,8 @@ export async function listFinanceCharges(input: ListChargesInput = {}) {
       const residentClause = input.residentId ? sql`AND c.resident_id = ${input.residentId}` : sql``;
       const searchClause = input.search
             ? sql`AND (
-                  r.full_name LIKE ${searchValue}
-                  OR r.resident_code LIKE ${searchValue}
+                  r.fullName LIKE ${searchValue}
+                  OR r.residentCode LIKE ${searchValue}
                   OR ft.fee_name LIKE ${searchValue}
                   OR c.charge_code LIKE ${searchValue}
             )`
@@ -155,8 +287,8 @@ export async function listFinanceCharges(input: ListChargesInput = {}) {
                   c.period_multiplier AS periodMultiplier,
                   c.description,
                   c.created_at AS createdAt,
-                  r.full_name AS residentName,
-                  r.resident_code AS residentCode,
+                  r.fullName AS residentName,
+                  r.residentCode AS residentCode,
                   ft.fee_name AS feeName,
                   ft.fee_name AS feeTypeName
             FROM finance_charges c
@@ -175,8 +307,7 @@ export async function listFinanceCharges(input: ListChargesInput = {}) {
 }
 
 export async function createFinanceChargeBatch(input: CreateChargeBatchInput) {
-      const db = await getDb();
-      if (!db) throw new Error('Database not available');
+      const db = await getFinanceDb();
 
       const created: number[] = [];
 
@@ -239,8 +370,7 @@ export async function createFinanceChargeBatch(input: CreateChargeBatchInput) {
 }
 
 export async function recordFinancePayment(input: RecordPaymentInput) {
-      const db = await getDb();
-      if (!db) throw new Error('Database not available');
+      const db = await getFinanceDb();
 
       const paymentDate = input.paymentDate || todayText();
       const amount = Number(input.amount || 0);
@@ -274,9 +404,9 @@ export async function recordFinancePayment(input: RecordPaymentInput) {
             UPDATE finance_charges
             SET
                   paid_amount = paid_amount + ${amount},
-                  remaining_amount = GREATEST(amount - (paid_amount + ${amount}), 0),
+                  remaining_amount = GREATEST(finance_charges.amount - (paid_amount + ${amount}), 0),
                   status = CASE
-                        WHEN GREATEST(amount - (paid_amount + ${amount}), 0) <= 0 THEN 'paid'
+                        WHEN GREATEST(finance_charges.amount - (paid_amount + ${amount}), 0) <= 0 THEN 'paid'
                         WHEN (paid_amount + ${amount}) > 0 THEN 'partial'
                         ELSE 'open'
                   END,
@@ -295,8 +425,7 @@ export async function listFinanceTransactions(input: {
       limit?: number;
       offset?: number;
 } = {}) {
-      const db = await getDb();
-      if (!db) throw new Error('Database not available');
+      const db = await getFinanceDb();
 
       const searchValue = `%${input.search || ''}%`;
       const limit = Number(input.limit || 100);
@@ -346,8 +475,7 @@ export async function createFinanceTransaction(input: {
       description?: string | null;
       createdBy?: number | null;
 }) {
-      const db = await getDb();
-      if (!db) throw new Error('Database not available');
+      const db = await getFinanceDb();
 
       await db.execute(sql`
             INSERT INTO finance_transactions (
@@ -381,8 +509,7 @@ export async function createFinanceTransaction(input: {
 
 
 export async function getFinanceSummary() {
-      const db = await getDb();
-      if (!db) throw new Error('Database not available');
+      const db = await getFinanceDb();
 
       const result = await db.execute(sql`
             SELECT

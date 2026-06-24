@@ -29,8 +29,23 @@ type TransactionDirection = 'in' | 'out';
 const moneyFormatter = new Intl.NumberFormat('vi-VN');
 
 function formatMoney(value?: number | string | null) {
-      const numberValue = Number(value || 0);
+      const numberValue = toMoneyNumber(value);
       return `${moneyFormatter.format(numberValue)}đ`;
+}
+
+function normalizeMoneyInput(value?: string | number | null) {
+      return String(value ?? '').replace(/[^0-9]/g, '');
+}
+
+function toMoneyNumber(value?: string | number | null) {
+      const normalized = normalizeMoneyInput(value);
+      return normalized ? Number(normalized) : 0;
+}
+
+function formatMoneyInput(value?: string | number | null) {
+      const normalized = normalizeMoneyInput(value);
+      if (!normalized) return '';
+      return moneyFormatter.format(Number(normalized));
 }
 
 function formatDate(value?: string | Date | null) {
@@ -156,6 +171,8 @@ export default function FinanceLite() {
       const [statusFilter, setStatusFilter] = useState<ChargeStatus>('all');
       const [chargeFormOpen, setChargeFormOpen] = useState(false);
       const [paymentFormOpen, setPaymentFormOpen] = useState(false);
+      const [chargeFormMessage, setChargeFormMessage] = useState('');
+      const [paymentFormMessage, setPaymentFormMessage] = useState('');
 
       const [chargeForm, setChargeForm] = useState({
             source: 'student_fee' as ChargeSource,
@@ -214,25 +231,34 @@ export default function FinanceLite() {
 
       const createChargeBatchMutation = financeApi?.createChargeBatch?.useMutation?.({
             onSuccess: () => {
+                  setChargeFormMessage('');
                   setChargeFormOpen(false);
                   resetChargeForm();
                   chargesQuery?.refetch?.();
                   transactionsQuery?.refetch?.();
                   summaryQuery?.refetch?.();
             },
+            onError: (error: any) => {
+                  setChargeFormMessage(error?.message || 'Không thể lưu nghiệp vụ. Vui lòng kiểm tra lại dữ liệu.');
+            },
       });
 
       const createTransactionMutation = financeApi?.createTransaction?.useMutation?.({
             onSuccess: () => {
+                  setChargeFormMessage('');
                   setChargeFormOpen(false);
                   resetChargeForm();
                   transactionsQuery?.refetch?.();
                   summaryQuery?.refetch?.();
             },
+            onError: (error: any) => {
+                  setChargeFormMessage(error?.message || 'Không thể lưu nghiệp vụ. Vui lòng kiểm tra lại dữ liệu.');
+            },
       });
 
       const recordPaymentMutation = financeApi?.recordPayment?.useMutation?.({
             onSuccess: () => {
+                  setPaymentFormMessage('');
                   setPaymentFormOpen(false);
                   setPaymentForm({
                         chargeId: '',
@@ -244,6 +270,9 @@ export default function FinanceLite() {
                   });
                   chargesQuery?.refetch?.();
                   summaryQuery?.refetch?.();
+            },
+            onError: (error: any) => {
+                  setPaymentFormMessage(error?.message || 'Không thể ghi nhận thanh toán. Vui lòng kiểm tra lại dữ liệu.');
             },
       });
 
@@ -284,7 +313,7 @@ export default function FinanceLite() {
       const componentTotal = useMemo(
             () =>
                   chargeForm.components.reduce(
-                        (total, item) => total + Number(item.amount || 0),
+                        (total, item) => total + toMoneyNumber(item.amount),
                         0
                   ),
             [chargeForm.components]
@@ -293,13 +322,13 @@ export default function FinanceLite() {
       const baseStudentFeeAmount =
             chargeForm.studentFeeMode === 'composite'
                   ? componentTotal
-                  : Number(chargeForm.amount || 0);
+                  : toMoneyNumber(chargeForm.amount);
 
       const resolvedStudentFeeAmount =
             chargeForm.periodChargeMode === 'half_month'
                   ? Math.round(baseStudentFeeAmount / 2)
                   : chargeForm.periodChargeMode === 'custom_amount'
-                        ? Number(chargeForm.customAmount || 0)
+                        ? toMoneyNumber(chargeForm.customAmount)
                         : chargeForm.periodChargeMode === 'prepaid_months'
                               ? baseStudentFeeAmount * Number(chargeForm.prepaidMonths || 1)
                               : baseStudentFeeAmount;
@@ -307,7 +336,7 @@ export default function FinanceLite() {
       const resolvedAmount =
             chargeForm.source === 'student_fee'
                   ? resolvedStudentFeeAmount
-                  : Number(chargeForm.amount || 0);
+                  : toMoneyNumber(chargeForm.amount);
 
       const resolvedPeriodStartDate = chargeForm.periodStartDate || getMonthStart(chargeForm.billingMonth);
       const resolvedPeriodEndDate = chargeForm.periodEndDate || getMonthEnd(chargeForm.billingMonth);
@@ -345,10 +374,12 @@ export default function FinanceLite() {
       }
 
       const updateChargeForm = (patch: Partial<typeof chargeForm>) => {
+            setChargeFormMessage('');
             setChargeForm((current) => ({ ...current, ...patch }));
       };
 
       const updatePaymentForm = (patch: Partial<typeof paymentForm>) => {
+            setPaymentFormMessage('');
             setPaymentForm((current) => ({ ...current, ...patch }));
       };
 
@@ -409,11 +440,27 @@ export default function FinanceLite() {
             if (chargeForm.source === 'student_fee') {
                   const selectedResidentIds = getSelectedResidentIds();
 
-                  if (!chargeForm.feeTypeId || selectedResidentIds.length === 0 || resolvedAmount <= 0) {
+                  if (!chargeForm.feeTypeId) {
+                        setChargeFormMessage('Vui lòng chọn loại khoản thu.');
                         return;
                   }
 
-                  createChargeBatchMutation?.mutate?.({
+                  if (selectedResidentIds.length === 0) {
+                        setChargeFormMessage('Vui lòng chọn học viên hoặc tick áp dụng cho tất cả học viên đang lưu trú.');
+                        return;
+                  }
+
+                  if (resolvedAmount <= 0) {
+                        setChargeFormMessage('Vui lòng nhập số tiền lớn hơn 0.');
+                        return;
+                  }
+
+                  if (!createChargeBatchMutation?.mutate) {
+                        setChargeFormMessage('Chưa kết nối được API tạo khoản thu. Vui lòng kiểm tra finance router.');
+                        return;
+                  }
+
+                  createChargeBatchMutation.mutate({
                         feeTypeId: Number(chargeForm.feeTypeId),
                         residentIds: selectedResidentIds,
                         amount: resolvedAmount,
@@ -446,19 +493,32 @@ export default function FinanceLite() {
                   return;
             }
 
+            if (resolvedAmount <= 0) {
+                  setChargeFormMessage('Vui lòng nhập số tiền lớn hơn 0.');
+                  return;
+            }
+
             if (chargeForm.source === 'other_income' && !chargeForm.targetName) {
+                  setChargeFormMessage('Vui lòng nhập mục tiêu/mục đích thu.');
                   return;
             }
 
             if (chargeForm.source === 'donation' && !chargeForm.donorName) {
+                  setChargeFormMessage('Vui lòng nhập người hoặc đơn vị tài trợ.');
                   return;
             }
 
             if (chargeForm.source === 'expense' && !chargeForm.expenseTarget) {
+                  setChargeFormMessage('Vui lòng nhập nội dung/khoản chi.');
                   return;
             }
 
-            createTransactionMutation?.mutate?.({
+            if (!createTransactionMutation?.mutate) {
+                  setChargeFormMessage('Chưa kết nối được API lưu nghiệp vụ. Vui lòng kiểm tra finance router.');
+                  return;
+            }
+
+            createTransactionMutation.mutate({
                   source: chargeForm.source,
                   direction:
                         chargeForm.source === 'business'
@@ -495,12 +555,25 @@ export default function FinanceLite() {
       const savePayment = () => {
             const charge = selectedCharge;
 
-            if (!paymentForm.chargeId || !paymentForm.amount) return;
+            if (!paymentForm.chargeId) {
+                  setPaymentFormMessage('Vui lòng chọn khoản phải thu.');
+                  return;
+            }
 
-            recordPaymentMutation?.mutate?.({
+            if (toMoneyNumber(paymentForm.amount) <= 0) {
+                  setPaymentFormMessage('Vui lòng nhập số tiền thu lớn hơn 0.');
+                  return;
+            }
+
+            if (!recordPaymentMutation?.mutate) {
+                  setPaymentFormMessage('Chưa kết nối được API ghi nhận thanh toán. Vui lòng kiểm tra finance router.');
+                  return;
+            }
+
+            recordPaymentMutation.mutate({
                   chargeId: Number(paymentForm.chargeId),
                   residentId: Number(paymentForm.residentId || charge?.residentId || 0),
-                  amount: Number(paymentForm.amount),
+                  amount: toMoneyNumber(paymentForm.amount),
                   paymentDate: paymentForm.paymentDate || null,
                   method: paymentForm.method,
                   note: paymentForm.note || null,
@@ -533,7 +606,7 @@ export default function FinanceLite() {
                                           <div className={residenceMediumStyle.standardHeaderActions}>
                                                 <button
                                                       type="button"
-                                                      onClick={() => setPaymentFormOpen(true)}
+                                                      onClick={() => { setPaymentFormMessage(''); setPaymentFormOpen(true); }}
                                                       className={residenceMediumStyle.buttonCard}
                                                 >
                                                       <CreditCard className={residenceMediumStyle.buttonCardIcon} />
@@ -541,7 +614,7 @@ export default function FinanceLite() {
                                                 </button>
                                                 <button
                                                       type="button"
-                                                      onClick={() => setChargeFormOpen(true)}
+                                                      onClick={() => { setChargeFormMessage(''); setChargeFormOpen(true); }}
                                                       className={residenceMediumStyle.buttonCardPrimary}
                                                 >
                                                       <Plus className={residenceMediumStyle.buttonCardIcon} />
@@ -816,7 +889,7 @@ export default function FinanceLite() {
                                                       </div>
                                                       <button
                                                             type="button"
-                                                            onClick={() => setChargeFormOpen(false)}
+                                                            onClick={() => { setChargeFormMessage(''); setChargeFormOpen(false); }}
                                                             className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-amber-50"
                                                       >
                                                             Đóng
@@ -981,14 +1054,14 @@ export default function FinanceLite() {
                                                                                                 Số tiền tùy chỉnh
                                                                                           </span>
                                                                                           <input
-                                                                                                value={chargeForm.customAmount}
+                                                                                                value={formatMoneyInput(chargeForm.customAmount)}
                                                                                                 onChange={(event) =>
                                                                                                       updateChargeForm({
-                                                                                                            customAmount: event.target.value,
+                                                                                                            customAmount: normalizeMoneyInput(event.target.value),
                                                                                                       })
                                                                                                 }
-                                                                                                type="number"
-                                                                                                min="0"
+                                                                                                type="text"
+                                                                                                inputMode="numeric"
                                                                                                 className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                                           />
                                                                                     </label>
@@ -1088,14 +1161,14 @@ export default function FinanceLite() {
                                                                                           Số tiền
                                                                                     </span>
                                                                                     <input
-                                                                                          value={chargeForm.amount}
+                                                                                          value={formatMoneyInput(chargeForm.amount)}
                                                                                           onChange={(event) =>
                                                                                                 updateChargeForm({
-                                                                                                      amount: event.target.value,
+                                                                                                      amount: normalizeMoneyInput(event.target.value),
                                                                                                 })
                                                                                           }
-                                                                                          type="number"
-                                                                                          min="0"
+                                                                                          type="text"
+                                                                                          inputMode="numeric"
                                                                                           className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                                     />
                                                                               </label>
@@ -1149,16 +1222,16 @@ export default function FinanceLite() {
                                                                                                 className="h-10 rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                                           />
                                                                                           <input
-                                                                                                value={component.amount}
+                                                                                                value={formatMoneyInput(component.amount)}
                                                                                                 onChange={(event) =>
                                                                                                       setComponentValue(
                                                                                                             index,
                                                                                                             'amount',
-                                                                                                            event.target.value
+                                                                                                            normalizeMoneyInput(event.target.value)
                                                                                                       )
                                                                                                 }
-                                                                                                type="number"
-                                                                                                min="0"
+                                                                                                type="text"
+                                                                                                inputMode="numeric"
                                                                                                 placeholder="Số tiền"
                                                                                                 className="h-10 rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                                           />
@@ -1377,14 +1450,14 @@ export default function FinanceLite() {
                                                                               {isExpense ? 'Số tiền chi' : 'Số tiền'}
                                                                         </span>
                                                                         <input
-                                                                              value={chargeForm.amount}
+                                                                              value={formatMoneyInput(chargeForm.amount)}
                                                                               onChange={(event) =>
                                                                                     updateChargeForm({
-                                                                                          amount: event.target.value,
+                                                                                          amount: normalizeMoneyInput(event.target.value),
                                                                                     })
                                                                               }
-                                                                              type="number"
-                                                                              min="0"
+                                                                              type="text"
+                                                                              inputMode="numeric"
                                                                               className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                         />
                                                                   </label>
@@ -1420,10 +1493,16 @@ export default function FinanceLite() {
                                                             />
                                                       </label>
 
+                                                      {chargeFormMessage && (
+                                                            <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                                                                  {chargeFormMessage}
+                                                            </div>
+                                                      )}
+
                                                       <div className="flex justify-end gap-2">
                                                             <button
                                                                   type="button"
-                                                                  onClick={() => setChargeFormOpen(false)}
+                                                                  onClick={() => { setChargeFormMessage(''); setChargeFormOpen(false); }}
                                                                   className="rounded-xl border border-amber-100 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-amber-50"
                                                             >
                                                                   Hủy
@@ -1455,7 +1534,7 @@ export default function FinanceLite() {
                                                       </div>
                                                       <button
                                                             type="button"
-                                                            onClick={() => setPaymentFormOpen(false)}
+                                                            onClick={() => { setPaymentFormMessage(''); setPaymentFormOpen(false); }}
                                                             className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-amber-50"
                                                       >
                                                             Đóng
@@ -1497,14 +1576,14 @@ export default function FinanceLite() {
                                                                         Số tiền thu
                                                                   </span>
                                                                   <input
-                                                                        value={paymentForm.amount}
+                                                                        value={formatMoneyInput(paymentForm.amount)}
                                                                         onChange={(event) =>
                                                                               updatePaymentForm({
-                                                                                    amount: event.target.value,
+                                                                                    amount: normalizeMoneyInput(event.target.value),
                                                                               })
                                                                         }
-                                                                        type="number"
-                                                                        min="0"
+                                                                        type="text"
+                                                                        inputMode="numeric"
                                                                         className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
                                                                   />
                                                             </label>
@@ -1537,10 +1616,16 @@ export default function FinanceLite() {
                                                             />
                                                       </label>
 
+                                                      {paymentFormMessage && (
+                                                            <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                                                                  {paymentFormMessage}
+                                                            </div>
+                                                      )}
+
                                                       <div className="flex justify-end gap-2">
                                                             <button
                                                                   type="button"
-                                                                  onClick={() => setPaymentFormOpen(false)}
+                                                                  onClick={() => { setPaymentFormMessage(''); setPaymentFormOpen(false); }}
                                                                   className="rounded-xl border border-amber-100 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-amber-50"
                                                             >
                                                                   Hủy
