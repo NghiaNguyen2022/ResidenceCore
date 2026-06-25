@@ -99,6 +99,22 @@ function getBillingMonthLabel(value?: string | null) {
       return `${monthNames[monthIndex]} / ${yearText}`;
 }
 
+function getCurrentBillingMonth() {
+      const today = new Date();
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function periodContainsBillingMonth(period: any, billingMonth: string) {
+      if (!period || !billingMonth) return false;
+      const [yearText, monthText] = billingMonth.split('-');
+      const year = Number(yearText);
+      const month = Number(monthText);
+      const periodYear = Number(period?.year || 0);
+      const fromMonth = Number(period?.fromMonth || 1);
+      const toMonth = Number(period?.toMonth || 12);
+      return periodYear === year && month >= fromMonth && month <= toMonth;
+}
+
 function getStatusLabel(status?: string | null) {
       if (status === 'paid') return 'Đã thu';
       if (status === 'partial') return 'Thu một phần';
@@ -213,7 +229,19 @@ export default function FinanceLite() {
       });
       const transactionsQuery = financeApi?.listTransactions?.useQuery?.({ search: searchTerm || undefined, limit: 200 });
 
-      const periods = periodsQuery?.data || [];
+      const rawPeriods = periodsQuery?.data || [];
+      const currentBillingMonth = useMemo(() => getCurrentBillingMonth(), []);
+      const periods = useMemo(() => {
+            return [...rawPeriods].sort((left: any, right: any) => {
+                  const yearDiff = Number(right?.year || 0) - Number(left?.year || 0);
+                  if (yearDiff !== 0) return yearDiff;
+                  const fromDiff = Number(right?.fromMonth || 0) - Number(left?.fromMonth || 0);
+                  if (fromDiff !== 0) return fromDiff;
+                  return Number(right?.id || 0) - Number(left?.id || 0);
+            });
+      }, [rawPeriods]);
+      const selectedPeriod = useMemo(() => periods.find((period: any) => Number(period.id) === Number(selectedPeriodId || 0)) || null, [periods, selectedPeriodId]);
+      const selectedPeriodMonths = useMemo(() => selectedPeriod ? getPeriodMonthsFromPeriod(selectedPeriod) : [], [selectedPeriod]);
       const detail = periodDetailQuery?.data || null;
       const periodItems = detail?.items || [];
       const periodMonths = detail?.months || [];
@@ -231,17 +259,26 @@ export default function FinanceLite() {
       };
 
       useEffect(() => {
-            if (!selectedPeriodId && periods.length > 0) setSelectedPeriodId(Number(periods[0].id));
-      }, [periods, selectedPeriodId]);
+            if (selectedPeriodId || periods.length === 0) return;
+            const defaultPeriod = periods.find((period: any) => periodContainsBillingMonth(period, currentBillingMonth)) || periods[0];
+            const months = getPeriodMonthsFromPeriod(defaultPeriod);
+            const defaultMonth = months.find((month: any) => month.value === currentBillingMonth)?.value || months[0]?.value || '';
+            setSelectedPeriodId(Number(defaultPeriod.id));
+            setSelectedBillingMonth(defaultMonth);
+      }, [periods, selectedPeriodId, currentBillingMonth]);
 
       useEffect(() => {
-            if (periodMonths.length > 0 && !periodMonths.some((month: any) => month.value === selectedBillingMonth)) {
-                  setSelectedBillingMonth(periodMonths[0].value);
+            if (selectedPeriodMonths.length > 0 && !selectedPeriodMonths.some((month: any) => month.value === selectedBillingMonth)) {
+                  const defaultMonth = selectedPeriodMonths.find((month: any) => month.value === currentBillingMonth)?.value || selectedPeriodMonths[0].value;
+                  setSelectedBillingMonth(defaultMonth);
             }
-      }, [periodMonths, selectedBillingMonth]);
+      }, [selectedPeriodMonths, selectedBillingMonth, currentBillingMonth]);
 
       useEffect(() => {
-            const nextKey = `${selectedPeriodId || ''}:${selectedBillingMonth}:${previewResidents.map((resident: any) => resident.id).join(',')}:${periodItems.map((item: any) => item.id).join(',')}`;
+            const residentApplySignature = previewResidents
+                  .map((resident: any) => `${resident.id}:${Array.isArray(resident?.existingPeriodItemIds) ? resident.existingPeriodItemIds.join('|') : ''}:${resident?.eligible ? '1' : '0'}`)
+                  .join(',');
+            const nextKey = `${selectedPeriodId || ''}:${selectedBillingMonth}:${residentApplySignature}:${periodItems.map((item: any) => item.id).join(',')}`;
             if (!selectedPeriodId || !selectedBillingMonth || !previewResidents.length || !periodItems.length || selectionKey === nextKey) return;
 
             const nextSelections: Record<string, Record<string, { selected: boolean; amount: string }>> = {};
@@ -249,7 +286,7 @@ export default function FinanceLite() {
                   nextSelections[String(resident.id)] = {};
                   for (const item of periodItems) {
                         nextSelections[String(resident.id)][String(item.id)] = {
-                              selected: Boolean(resident.eligible && Number(item.isDefaultChecked || 0) === 1),
+                              selected: Boolean(isResidentItemSelectable(resident, item) && Number(item.isDefaultChecked || 0) === 1),
                               amount: formatMoneyInput(item.amount),
                         };
                   }
@@ -275,6 +312,8 @@ export default function FinanceLite() {
                   setSelectionMessage(`Đã tạo ${result?.createdCount || 0} khoản phải thu.${skippedText}`);
                   chargesQuery?.refetch?.();
                   periodsQuery?.refetch?.();
+                  previewQuery?.refetch?.();
+                  periodDetailQuery?.refetch?.();
                   summaryQuery?.refetch?.();
             },
             onError: (error: any) => setSelectionMessage(error?.message || 'Không thể áp dụng kỳ thu.'),
@@ -327,6 +366,50 @@ export default function FinanceLite() {
       const openCharges = useMemo(() => charges.filter((charge: any) => ['open', 'partial'].includes(String(charge.status || 'open'))), [charges]);
       const selectedCharge = useMemo(() => charges.find((charge: any) => Number(charge.id) === Number(paymentForm.chargeId || 0)), [charges, paymentForm.chargeId]);
 
+
+      function getPeriodMonthsFromPeriod(period: any) {
+            const year = Number(period?.year || new Date().getFullYear());
+            const fromMonth = Math.max(1, Number(period?.fromMonth || 1));
+            const toMonth = Math.min(12, Number(period?.toMonth || 12));
+            const months = [];
+            for (let month = fromMonth; month <= toMonth; month += 1) {
+                  const value = `${year}-${String(month).padStart(2, '0')}`;
+                  months.push({ value, label: `${monthNames[month - 1]} / ${year}` });
+            }
+            return months;
+      }
+
+      function getMonthChargeStats(period: any, billingMonth: string) {
+            const periodId = Number(period?.id || 0);
+            const relatedCharges = charges.filter((charge: any) => {
+                  const samePeriod = Number(charge?.periodId || 0) === periodId;
+                  const sameMonth = String(charge?.billingMonth || '') === String(billingMonth || '');
+                  const notCancelled = String(charge?.status || '') !== 'cancelled';
+                  return samePeriod && sameMonth && notCancelled;
+            });
+            const residentIds = new Set<number>();
+            let paidAmount = 0;
+            let remainingAmount = 0;
+            for (const charge of relatedCharges) {
+                  if (charge?.residentId) residentIds.add(Number(charge.residentId));
+                  paidAmount += toMoneyNumber(charge?.paidAmount || 0);
+                  remainingAmount += toMoneyNumber(charge?.remainingAmount || 0);
+            }
+            return {
+                  chargeCount: relatedCharges.length,
+                  residentCount: residentIds.size,
+                  paidAmount,
+                  remainingAmount,
+            };
+      }
+
+      function selectPeriodMonth(period: any, billingMonth?: string) {
+            const months = getPeriodMonthsFromPeriod(period);
+            setSelectedPeriodId(Number(period.id));
+            setSelectedBillingMonth(billingMonth || months[0]?.value || '');
+            setSelectionMessage('');
+      }
+
       function submitCreatePeriod() {
             setPeriodFormMessage('');
             if (!periodForm.periodName.trim()) {
@@ -378,13 +461,76 @@ export default function FinanceLite() {
             }));
       }
 
+      function isResidentItemAlreadyApplied(resident: any, item: any) {
+            const existingIds = Array.isArray(resident?.existingPeriodItemIds) ? resident.existingPeriodItemIds.map((value: any) => Number(value)) : [];
+            return existingIds.includes(Number(item?.id));
+      }
+
+      function isResidentItemSelectable(resident: any, item: any) {
+            return Boolean(resident?.eligible && !isResidentItemAlreadyApplied(resident, item));
+      }
+
+      function getSelectableResidentsForItem(itemId: number) {
+            const item = periodItems.find((periodItem: any) => Number(periodItem.id) === Number(itemId));
+            return previewResidents.filter((resident: any) => isResidentItemSelectable(resident, item));
+      }
+
+      const hasSelectedApplicableItems = previewResidents.some((resident: any) =>
+            periodItems.some((item: any) => {
+                  if (!isResidentItemSelectable(resident, item)) return false;
+                  const selectedItem = residentSelections[String(resident.id)]?.[String(item.id)];
+                  return Boolean(selectedItem?.selected && toMoneyNumber(selectedItem?.amount ?? item.amount) > 0);
+            })
+      );
+
+      const projectedApplySummary = useMemo(() => {
+            const itemMap = new Map<number, { id: number; name: string; count: number; amount: number }>();
+            const residentIds = new Set<number>();
+            let totalAmount = 0;
+            let totalItems = 0;
+
+            for (const item of periodItems) {
+                  itemMap.set(Number(item.id), {
+                        id: Number(item.id),
+                        name: String(item.feeTypeName || item.feeName || 'Khoản phí'),
+                        count: 0,
+                        amount: 0,
+                  });
+            }
+
+            for (const resident of previewResidents) {
+                  for (const item of periodItems) {
+                        if (!isResidentItemSelectable(resident, item)) continue;
+                        const selectedItem = residentSelections[String(resident.id)]?.[String(item.id)];
+                        const amount = toMoneyNumber(selectedItem?.amount ?? item.amount);
+                        if (!selectedItem?.selected || amount <= 0) continue;
+
+                        const itemSummary = itemMap.get(Number(item.id));
+                        if (itemSummary) {
+                              itemSummary.count += 1;
+                              itemSummary.amount += amount;
+                        }
+                        residentIds.add(Number(resident.id));
+                        totalAmount += amount;
+                        totalItems += 1;
+                  }
+            }
+
+            return {
+                  totalAmount,
+                  totalItems,
+                  residentCount: residentIds.size,
+                  items: Array.from(itemMap.values()),
+            };
+      }, [previewResidents, periodItems, residentSelections]);
+
       function applyDefaultForAllEligible() {
             const nextSelections: Record<string, Record<string, { selected: boolean; amount: string }>> = {};
             for (const resident of previewResidents) {
                   nextSelections[String(resident.id)] = {};
                   for (const item of periodItems) {
                         nextSelections[String(resident.id)][String(item.id)] = {
-                              selected: Boolean(resident.eligible && Number(item.isDefaultChecked || 0) === 1),
+                              selected: Boolean(isResidentItemSelectable(resident, item) && Number(item.isDefaultChecked || 0) === 1),
                               amount: formatMoneyInput(item.amount),
                         };
                   }
@@ -406,17 +552,27 @@ export default function FinanceLite() {
             });
       }
 
+      function getPeriodItemEligibleResidents(itemId: number) {
+            return previewResidents.filter((resident: any) => Boolean(resident?.eligible));
+      }
+
       function getPeriodItemSelectedCount(itemId: number) {
-            return previewResidents.filter((resident: any) => {
-                  if (!resident.eligible) return false;
+            const item = periodItems.find((periodItem: any) => Number(periodItem.id) === Number(itemId));
+            return getPeriodItemEligibleResidents(itemId).filter((resident: any) => {
+                  if (isResidentItemAlreadyApplied(resident, item)) return true;
+                  if (!isResidentItemSelectable(resident, item)) return false;
                   return Boolean(residentSelections[String(resident.id)]?.[String(itemId)]?.selected);
             }).length;
       }
 
       function isPeriodItemSelectedForAllEligible(itemId: number) {
-            const eligibleResidents = previewResidents.filter((resident: any) => resident.eligible);
+            const eligibleResidents = getPeriodItemEligibleResidents(itemId);
             if (!eligibleResidents.length) return false;
-            return eligibleResidents.every((resident: any) => Boolean(residentSelections[String(resident.id)]?.[String(itemId)]?.selected));
+            const item = periodItems.find((periodItem: any) => Number(periodItem.id) === Number(itemId));
+            return eligibleResidents.every((resident: any) => {
+                  if (isResidentItemAlreadyApplied(resident, item)) return true;
+                  return Boolean(isResidentItemSelectable(resident, item) && residentSelections[String(resident.id)]?.[String(itemId)]?.selected);
+            });
       }
 
       function togglePeriodItemForAllEligible(itemId: number, checked: boolean, amount: string | number) {
@@ -429,7 +585,7 @@ export default function FinanceLite() {
                         const currentItem = next[residentKey][itemKey] || { selected: false, amount: formatMoneyInput(amount) };
                         next[residentKey][itemKey] = {
                               ...currentItem,
-                              selected: Boolean(resident.eligible && checked),
+                              selected: Boolean(isResidentItemSelectable(resident, { id: itemId }) && checked),
                               amount: currentItem.amount || formatMoneyInput(amount),
                         };
                   }
@@ -453,7 +609,7 @@ export default function FinanceLite() {
                               const selectedItem = residentSelections[String(resident.id)]?.[String(item.id)];
                               return {
                                     periodItemId: Number(item.id),
-                                    selected: Boolean(selectedItem?.selected),
+                                    selected: Boolean(isResidentItemSelectable(resident, item) && selectedItem?.selected),
                                     amount: toMoneyNumber(selectedItem?.amount ?? item.amount),
                               };
                         }),
@@ -557,6 +713,41 @@ export default function FinanceLite() {
             });
       }
 
+
+      const topSummaryIsPeriodScoped = activeTab === 'periods' && Boolean(selectedPeriod);
+      const selectedPeriodCharges = selectedPeriod
+            ? charges.filter((charge: any) => Number(charge?.periodId || 0) === Number(selectedPeriod.id) && String(charge?.status || '') !== 'cancelled')
+            : [];
+      const selectedPeriodChargeCount = selectedPeriodCharges.length;
+      const selectedPeriodPaidAmount = selectedPeriodCharges.reduce((total: number, charge: any) => total + toMoneyNumber(charge?.paidAmount || 0), 0);
+      const selectedPeriodOpenAmount = selectedPeriodCharges.reduce((total: number, charge: any) => total + toMoneyNumber(charge?.remainingAmount || 0), 0);
+      const selectedPeriodTotalAmount = selectedPeriodCharges.reduce((total: number, charge: any) => total + toMoneyNumber(charge?.amount || 0), 0);
+      const scopedOpenAmount = selectedPeriod
+            ? (Object.prototype.hasOwnProperty.call(selectedPeriod, 'openAmount') ? toMoneyNumber(selectedPeriod.openAmount) : selectedPeriodOpenAmount)
+            : 0;
+      const scopedPaidAmount = selectedPeriod
+            ? (Object.prototype.hasOwnProperty.call(selectedPeriod, 'paidAmount') ? toMoneyNumber(selectedPeriod.paidAmount) : selectedPeriodPaidAmount)
+            : 0;
+      const scopedTotalAmount = selectedPeriod
+            ? (Object.prototype.hasOwnProperty.call(selectedPeriod, 'totalAmount') ? toMoneyNumber(selectedPeriod.totalAmount) : selectedPeriodTotalAmount)
+            : 0;
+      const scopedChargeCount = selectedPeriod
+            ? Number(selectedPeriod.chargeCount ?? selectedPeriodChargeCount ?? 0)
+            : 0;
+      const topSummaryCards = topSummaryIsPeriodScoped
+            ? [
+                  { label: 'Còn phải thu kỳ', value: formatMoney(scopedOpenAmount), hint: selectedPeriod?.periodName || '' },
+                  { label: 'Đã thu trong kỳ', value: formatMoney(scopedPaidAmount), hint: selectedPeriod?.periodName || '' },
+                  { label: 'Tổng phải thu kỳ', value: formatMoney(scopedTotalAmount || scopedOpenAmount + scopedPaidAmount), hint: selectedPeriod?.periodName || '' },
+                  { label: 'Khoản trong kỳ', value: String(scopedChargeCount || 0), hint: selectedPeriod?.periodName || '' },
+            ]
+            : [
+                  { label: 'Còn phải thu', value: formatMoney(summary.totalOpenAmount), hint: 'Toàn hệ thống' },
+                  { label: 'Đã thu học viên', value: formatMoney(summary.totalPaidAmount), hint: 'Toàn hệ thống' },
+                  { label: 'Thu khác', value: formatMoney(summary.totalCashIn), hint: 'Toàn hệ thống' },
+                  { label: 'Khoản đang mở', value: String(summary.openChargeCount || 0), hint: 'Toàn hệ thống' },
+            ];
+
       return (
             <ResidenceCareLayout>
                   <div className={residenceMediumStyle.page}>
@@ -581,22 +772,13 @@ export default function FinanceLite() {
                               </div>
 
                               <div className="grid gap-3 md:grid-cols-4">
-                                    <div className="rounded-2xl border border-white/70 bg-white/85 p-4 shadow-sm">
-                                          <p className="text-xs text-slate-500">Còn phải thu</p>
-                                          <p className="mt-1 text-xl font-semibold text-slate-900">{formatMoney(summary.totalOpenAmount)}</p>
-                                    </div>
-                                    <div className="rounded-2xl border border-white/70 bg-white/85 p-4 shadow-sm">
-                                          <p className="text-xs text-slate-500">Đã thu học viên</p>
-                                          <p className="mt-1 text-xl font-semibold text-slate-900">{formatMoney(summary.totalPaidAmount)}</p>
-                                    </div>
-                                    <div className="rounded-2xl border border-white/70 bg-white/85 p-4 shadow-sm">
-                                          <p className="text-xs text-slate-500">Thu khác</p>
-                                          <p className="mt-1 text-xl font-semibold text-slate-900">{formatMoney(summary.totalCashIn)}</p>
-                                    </div>
-                                    <div className="rounded-2xl border border-white/70 bg-white/85 p-4 shadow-sm">
-                                          <p className="text-xs text-slate-500">Khoản đang mở</p>
-                                          <p className="mt-1 text-xl font-semibold text-slate-900">{summary.openChargeCount || 0}</p>
-                                    </div>
+                                    {topSummaryCards.map((card) => (
+                                          <div key={card.label} className="rounded-2xl border border-white/70 bg-white/85 p-4 shadow-sm">
+                                                <p className="text-xs text-slate-500">{card.label}</p>
+                                                <p className="mt-1 text-xl font-semibold text-slate-900">{card.value}</p>
+                                                <p className="mt-1 truncate text-[11px] text-slate-400">{card.hint}</p>
+                                          </div>
+                                    ))}
                               </div>
 
                               <div className={residenceMediumStyle.standardTabRail}>
@@ -619,8 +801,8 @@ export default function FinanceLite() {
                               </div>
 
                               {activeTab === 'periods' ? (
-                                    <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-                                          <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
+                                    <div className="grid gap-4 xl:h-[calc(100vh-250px)] xl:min-h-[620px] xl:grid-cols-[360px_minmax(0,1fr)] xl:items-start">
+                                          <section className="flex min-h-0 flex-col rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm xl:h-full">
                                                 <div className="mb-4 flex items-center justify-between gap-3">
                                                       <div>
                                                             <h2 className="text-base font-semibold text-slate-900">Danh sách kỳ thu</h2>
@@ -630,45 +812,95 @@ export default function FinanceLite() {
                                                             <Plus className="mr-1 inline h-3.5 w-3.5" /> Tạo
                                                       </button>
                                                 </div>
-                                                <div className="space-y-2">
-                                                      {periods.map((period: any) => (
-                                                            <button
-                                                                  key={period.id}
-                                                                  type="button"
-                                                                  onClick={() => {
-                                                                        setSelectedPeriodId(Number(period.id));
-                                                                        setSelectionMessage('');
-                                                                  }}
-                                                                  className={`w-full rounded-2xl border p-3 text-left transition ${Number(selectedPeriodId) === Number(period.id) ? 'border-amber-300 bg-amber-50/80' : 'border-slate-100 bg-white hover:border-amber-200'}`}
-                                                            >
-                                                                  <div className="flex items-start justify-between gap-3">
-                                                                        <div>
-                                                                              <p className="font-semibold text-slate-900">{period.periodName}</p>
-                                                                              <p className="mt-1 text-xs text-slate-500">Tháng {String(period.fromMonth).padStart(2, '0')} - {String(period.toMonth).padStart(2, '0')} / {period.year}</p>
-                                                                        </div>
-                                                                        <SmallBadge className="border-slate-200 bg-white text-slate-600">{period.chargeCount || 0} khoản</SmallBadge>
+                                                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+                                                      {periods.length ? (
+                                                            <>
+                                                                  <div>
+                                                                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chọn kỳ thu</label>
+                                                                        <select
+                                                                              value={selectedPeriodId || ''}
+                                                                              onChange={(event) => {
+                                                                                    const nextPeriod = periods.find((period: any) => Number(period.id) === Number(event.target.value));
+                                                                                    if (!nextPeriod) return;
+                                                                                    const months = getPeriodMonthsFromPeriod(nextPeriod);
+                                                                                    const defaultMonth = months.find((month: any) => month.value === currentBillingMonth)?.value || months[0]?.value || '';
+                                                                                    selectPeriodMonth(nextPeriod, defaultMonth);
+                                                                              }}
+                                                                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                                                                        >
+                                                                              {periods.map((period: any) => (
+                                                                                    <option key={period.id} value={period.id}>
+                                                                                          {period.periodName} · Tháng {String(period.fromMonth).padStart(2, '0')}-{String(period.toMonth).padStart(2, '0')} / {period.year}
+                                                                                    </option>
+                                                                              ))}
+                                                                        </select>
                                                                   </div>
-                                                                  <p className="mt-2 text-xs text-slate-500">Còn phải thu: {formatMoney(period.openAmount)}</p>
-                                                            </button>
-                                                      ))}
-                                                      {!periods.length ? <p className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">Chưa có kỳ thu. Bấm “Tạo kỳ thu” để bắt đầu.</p> : null}
+
+                                                                  {selectedPeriod ? (
+                                                                        <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-3">
+                                                                              <div className="flex items-start justify-between gap-3">
+                                                                                    <div>
+                                                                                          <p className="text-sm font-semibold text-slate-900">{selectedPeriod.periodName}</p>
+                                                                                          <p className="mt-1 text-xs text-slate-500">Tháng {String(selectedPeriod.fromMonth).padStart(2, '0')} - {String(selectedPeriod.toMonth).padStart(2, '0')} / {selectedPeriod.year}</p>
+                                                                                    </div>
+                                                                                    <SmallBadge className="border-slate-200 bg-white text-slate-600">{selectedPeriod.chargeCount || 0} khoản</SmallBadge>
+                                                                              </div>
+                                                                              <p className="mt-2 text-xs text-slate-500">Còn phải thu: {formatMoney(selectedPeriod.openAmount)}</p>
+                                                                        </div>
+                                                                  ) : null}
+
+                                                                  <div>
+                                                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                                                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tháng trong kỳ</p>
+                                                                              {periodContainsBillingMonth(selectedPeriod, currentBillingMonth) ? <SmallBadge className="border-amber-200 bg-amber-50 text-amber-700">Tháng hiện tại</SmallBadge> : null}
+                                                                        </div>
+                                                                        <div className="space-y-2">
+                                                                              {selectedPeriodMonths.map((month: any) => {
+                                                                                    const stats = getMonthChargeStats(selectedPeriod, month.value);
+                                                                                    const selectedMonth = selectedBillingMonth === month.value;
+                                                                                    const isCurrentMonth = currentBillingMonth === month.value;
+
+                                                                                    return (
+                                                                                          <button
+                                                                                                key={month.value}
+                                                                                                type="button"
+                                                                                                onClick={() => selectPeriodMonth(selectedPeriod, month.value)}
+                                                                                                className={`w-full rounded-2xl border px-3 py-3 text-left transition ${selectedMonth ? 'border-amber-300 bg-white text-amber-900 shadow-sm' : 'border-slate-100 bg-white/70 text-slate-600 hover:border-amber-200 hover:bg-white'}`}
+                                                                                          >
+                                                                                                <div className="flex items-center justify-between gap-2">
+                                                                                                      <span className="text-sm font-semibold">{month.label}</span>
+                                                                                                      <div className="flex items-center gap-1.5">
+                                                                                                            {isCurrentMonth ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Hiện tại</span> : null}
+                                                                                                            <span className="text-[11px] text-slate-500">{stats.residentCount} người</span>
+                                                                                                      </div>
+                                                                                                </div>
+                                                                                                <div className="mt-2 grid gap-1 text-[11px] text-slate-500">
+                                                                                                      <span>Đã thu: {formatMoney(stats.paidAmount)}</span>
+                                                                                                      <span>Còn lại: {formatMoney(stats.remainingAmount)}</span>
+                                                                                                </div>
+                                                                                          </button>
+                                                                                    );
+                                                                              })}
+                                                                        </div>
+                                                                  </div>
+                                                            </>
+                                                      ) : (
+                                                            <p className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">Chưa có kỳ thu. Bấm “Tạo kỳ thu” để bắt đầu.</p>
+                                                      )}
                                                 </div>
                                           </section>
 
-                                          <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
+                                          <section className="min-h-0 overflow-y-auto rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm xl:h-full">
                                                 {detail ? (
                                                       <>
                                                             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                                                   <div>
                                                                         <h2 className="text-lg font-semibold text-slate-900">{detail.period.periodName}</h2>
-                                                                        <p className="text-sm text-slate-500">Chọn tháng và học viên để sinh khoản phải thu thật.</p>
+                                                                        <p className="text-sm text-slate-500">
+                                                                              Đang áp dụng cho {getBillingMonthLabel(selectedBillingMonth)}. Chọn kỳ thu và tháng ở panel bên trái.
+                                                                        </p>
                                                                   </div>
                                                                   <div className="flex flex-wrap gap-2">
-                                                                        <select value={selectedBillingMonth} onChange={(event) => setSelectedBillingMonth(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
-                                                                              {periodMonths.map((month: any) => (
-                                                                                    <option key={month.value} value={month.value}>{month.label}</option>
-                                                                              ))}
-                                                                        </select>
                                                                         <button type="button" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800" onClick={applyDefaultForAllEligible}>Apply all đủ điều kiện</button>
                                                                         <button type="button" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600" onClick={clearAllSelections}>Bỏ chọn tất cả</button>
                                                                   </div>
@@ -691,7 +923,7 @@ export default function FinanceLite() {
                                                                                           <div>
                                                                                                 <p className="text-sm font-semibold text-slate-900">{item.feeTypeName}</p>
                                                                                                 <p className="mt-1 text-sm text-slate-500">{formatMoney(item.amount)} · {Number(item.isDefaultChecked) === 1 ? 'Mặc định chọn' : 'Không mặc định'}</p>
-                                                                                                <p className="mt-2 text-xs text-slate-500">Đã chọn {selectedCount}/{previewResidents.filter((resident: any) => resident.eligible).length || 0} học viên</p>
+                                                                                                <p className="mt-2 text-xs text-slate-500">Đã chọn {selectedCount}/{getPeriodItemEligibleResidents(itemId).length || 0} học viên</p>
                                                                                           </div>
                                                                                           <span className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-md border text-xs ${allSelected ? 'border-amber-400 bg-amber-500 text-white' : 'border-slate-300 bg-white text-transparent'}`}>✓</span>
                                                                                     </div>
@@ -702,20 +934,53 @@ export default function FinanceLite() {
 
                                                             {selectionMessage ? <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">{selectionMessage}</div> : null}
 
-                                                            <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-100">
-                                                                  <table className="min-w-[1120px] divide-y divide-slate-100 text-sm">
+                                                            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+                                                                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                                                        <div>
+                                                                              <p className="text-sm font-semibold text-slate-900">Dự kiến áp dụng</p>
+                                                                              <p className="mt-1 text-xs text-slate-500">Tính theo các ô đang được chọn, chưa tạo khoản phải thu thật.</p>
+                                                                        </div>
+                                                                        <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
+                                                                              <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2">
+                                                                                    <p className="text-[11px] text-slate-500">Học viên</p>
+                                                                                    <p className="text-sm font-semibold text-slate-900">{projectedApplySummary.residentCount}</p>
+                                                                              </div>
+                                                                              <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2">
+                                                                                    <p className="text-[11px] text-slate-500">Khoản phí</p>
+                                                                                    <p className="text-sm font-semibold text-slate-900">{projectedApplySummary.totalItems}</p>
+                                                                              </div>
+                                                                              <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2">
+                                                                                    <p className="text-[11px] text-slate-500">Tổng tiền</p>
+                                                                                    <p className="text-sm font-semibold text-slate-900">{formatMoney(projectedApplySummary.totalAmount)}</p>
+                                                                              </div>
+                                                                        </div>
+                                                                  </div>
+                                                                  <div className="mt-3 grid gap-2 md:grid-cols-3">
+                                                                        {projectedApplySummary.items.map((item) => (
+                                                                              <div key={item.id} className="rounded-xl border border-white/70 bg-white/70 px-3 py-2">
+                                                                                    <p className="truncate text-xs font-semibold text-slate-700">{item.name}</p>
+                                                                                    <p className="mt-1 text-xs text-slate-500">{item.count} khoản · {formatMoney(item.amount)}</p>
+                                                                              </div>
+                                                                        ))}
+                                                                  </div>
+                                                            </div>
+
+                                                            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-100">
+                                                                  <table className="w-full table-fixed divide-y divide-slate-100 text-sm">
+                                                                        <colgroup>
+                                                                              <col className="w-[24%]" />
+                                                                              {periodItems.map((item: any) => <col key={item.id} className="w-[25.33%]" />)}
+                                                                        </colgroup>
                                                                         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                                                               <tr>
                                                                                     <th className="px-3 py-3 text-left">Học viên</th>
-                                                                                    <th className="px-3 py-3 text-left">Phòng</th>
-                                                                                    {periodItems.map((item: any) => <th key={item.id} className="min-w-[220px] px-3 py-3 text-left">{item.feeTypeName}</th>)}
-                                                                                    <th className="px-3 py-3 text-left">Ghi chú</th>
+                                                                                    {periodItems.map((item: any) => <th key={item.id} className="px-2 py-3 text-left">{item.feeTypeName}</th>)}
                                                                               </tr>
                                                                         </thead>
                                                                         <tbody className="divide-y divide-slate-100 bg-white">
                                                                               {!previewResidents.length ? (
                                                                                     <tr>
-                                                                                          <td colSpan={periodItems.length + 3} className="px-4 py-8 text-center text-sm text-slate-500">
+                                                                                          <td colSpan={periodItems.length + 1} className="px-4 py-8 text-center text-sm text-slate-500">
                                                                                                 {previewQuery?.isError
                                                                                                       ? `Không tải được danh sách học viên: ${(previewQuery.error as any)?.message || 'Vui lòng kiểm tra log server.'}`
                                                                                                       : 'Chưa có học viên trong danh sách áp dụng cho tháng này.'}
@@ -727,40 +992,48 @@ export default function FinanceLite() {
                                                                                           <td className="px-3 py-3">
                                                                                                 <p className="font-medium text-slate-900">{resident.fullName}</p>
                                                                                                 <p className="text-xs text-slate-500">{resident.residentCode || 'Chưa có mã'}</p>
+                                                                                                {!resident.eligible ? <p className="mt-1 text-[11px] text-amber-700">{resident.reason || 'Không đủ điều kiện'}</p> : null}
                                                                                           </td>
-                                                                                          <td className="px-3 py-3 text-slate-600">{resident.roomName || resident.roomCode || '-'}</td>
                                                                                           {periodItems.map((item: any) => {
                                                                                                 const selected = residentSelections[String(resident.id)]?.[String(item.id)];
+                                                                                                const alreadyApplied = isResidentItemAlreadyApplied(resident, item);
+                                                                                                const selectable = isResidentItemSelectable(resident, item);
                                                                                                 return (
-                                                                                                      <td key={item.id} className="min-w-[220px] px-3 py-3">
-                                                                                                            <label className="flex items-center gap-3">
+                                                                                                      <td key={item.id} className={`px-1.5 py-3 ${alreadyApplied ? 'bg-slate-50 text-slate-400' : ''}`}>
+                                                                                                            <label className="grid min-w-0 grid-cols-[18px_minmax(132px,1fr)] items-center gap-1.5">
                                                                                                                   <input
                                                                                                                         type="checkbox"
-                                                                                                                        disabled={!resident.eligible}
-                                                                                                                        checked={Boolean(selected?.selected)}
+                                                                                                                        className="h-3.5 w-3.5 justify-self-center"
+                                                                                                                        disabled={!selectable}
+                                                                                                                        checked={Boolean(alreadyApplied || (selected?.selected && selectable))}
                                                                                                                         onChange={(event) => toggleResidentItem(Number(resident.id), Number(item.id), event.target.checked)}
                                                                                                                   />
                                                                                                                   <input
                                                                                                                         type="text"
                                                                                                                         inputMode="numeric"
-                                                                                                                        disabled={!resident.eligible || !selected?.selected}
-                                                                                                                        value={selected?.amount || ''}
+                                                                                                                        disabled={!selectable || !selected?.selected}
+                                                                                                                        value={selected?.amount || formatMoneyInput(item.amount)}
                                                                                                                         onChange={(event) => updateResidentItemAmount(Number(resident.id), Number(item.id), event.target.value)}
-                                                                                                                        className="w-40 min-w-[160px] rounded-lg border border-slate-200 px-3 py-2 text-right text-sm font-medium text-slate-800 disabled:bg-slate-50 disabled:text-slate-400"
+                                                                                                                        className="w-full min-w-[132px] rounded-lg border border-slate-200 px-2 py-2 text-right text-[12px] font-semibold text-slate-800 disabled:bg-slate-50 disabled:text-slate-400"
                                                                                                                   />
                                                                                                             </label>
                                                                                                       </td>
                                                                                                 );
                                                                                           })}
-                                                                                          <td className="px-3 py-3 text-xs text-slate-500">{resident.eligible ? 'Đủ điều kiện' : resident.reason || 'Không đủ điều kiện'}</td>
+                                                                                          
                                                                                     </tr>
                                                                               ))}
                                                                         </tbody>
                                                                   </table>
                                                             </div>
 
-                                                            <div className="mt-4 flex justify-end">
-                                                                  <button type="button" className={residenceMediumStyle.buttonCardPrimary} onClick={submitApplyPeriod} disabled={applyPeriodMutation?.isPending}>
+                                                            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                                                  <p className="text-xs text-slate-500">
+                                                                        {hasSelectedApplicableItems
+                                                                              ? `Sẽ tạo ${projectedApplySummary.totalItems} khoản cho ${projectedApplySummary.residentCount} học viên, tổng ${formatMoney(projectedApplySummary.totalAmount)}.`
+                                                                              : 'Chưa có khoản nào được chọn để tạo.'}
+                                                                  </p>
+                                                                  <button type="button" className={`${residenceMediumStyle.buttonCardPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={submitApplyPeriod} disabled={applyPeriodMutation?.isPending || !hasSelectedApplicableItems}>
                                                                         {applyPeriodMutation?.isPending ? 'Đang áp dụng...' : 'Lưu áp dụng khoản thu'}
                                                                   </button>
                                                             </div>
@@ -794,8 +1067,8 @@ export default function FinanceLite() {
                                                 </div>
                                           </div>
 
-                                          <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-100">
-                                                <table className="min-w-[1120px] divide-y divide-slate-100 text-sm">
+                                          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-100">
+                                                <table className="w-full table-fixed divide-y divide-slate-100 text-sm">
                                                       <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                                             <tr>
                                                                   <th className="px-3 py-3 text-left">Học viên / Đối tượng</th>

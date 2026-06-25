@@ -145,6 +145,21 @@ async function columnExists(db: any, tableName: string, columnName: string) {
       return Number(rows?.[0]?.countValue || rows?.[0]?.COUNT_VALUE || rows?.[0]?.['COUNT(*)'] || 0) > 0;
 }
 
+async function tableExists(db: any, tableName: string) {
+      const result = await db.execute(sql`
+            SELECT COUNT(*) AS countValue
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ${tableName}
+      `);
+      const rows = getRows(result);
+      return Number(rows?.[0]?.countValue || rows?.[0]?.COUNT_VALUE || rows?.[0]?.['COUNT(*)'] || 0) > 0;
+}
+
+function ident(name: string) {
+      return `\`${String(name).replace(/`/g, '``')}\``;
+}
+
 async function ensureColumn(db: any, tableName: string, columnName: string, alterSql: string) {
       if (!(await columnExists(db, tableName, columnName))) {
             await db.execute(sql.raw(alterSql));
@@ -659,11 +674,87 @@ export async function updateFinanceChargePeriod(input: UpdateChargePeriodInput) 
       return { success: true };
 }
 
-// Finance Simple currently should not fail if the resident start/end-date
-// column is different between local databases. The start/end-date rule will be
-// re-enabled after the resident residence-date field is standardized.
-async function getResidentDateColumns(_db: any) {
-      return { startColumn: '', leftColumn: '' };
+async function firstExistingColumn(db: any, tableName: string, candidates: string[]) {
+      for (const column of candidates) {
+            if (await columnExists(db, tableName, column)) return column;
+      }
+
+      return '';
+}
+
+async function getResidentDateSelects(db: any) {
+      const residentStartCandidates = [
+            'residenceStartDate',
+            'residence_start_date',
+            'moveInDate',
+            'move_in_date',
+            'admissionDate',
+            'admission_date',
+            'joinDate',
+            'join_date',
+            'entryDate',
+            'entry_date',
+            'checkInDate',
+            'check_in_date',
+            'startDate',
+            'start_date',
+      ];
+      const residentEndCandidates = [
+            'residenceEndDate',
+            'residence_end_date',
+            'moveOutDate',
+            'move_out_date',
+            'leftDate',
+            'left_date',
+            'transferredOutDate',
+            'transferred_out_date',
+            'leaveDate',
+            'leave_date',
+            'endDate',
+            'end_date',
+      ];
+
+      const residentStartColumn = await firstExistingColumn(db, 'residents', residentStartCandidates);
+      const residentEndColumn = await firstExistingColumn(db, 'residents', residentEndCandidates);
+
+      let startSql = residentStartColumn ? `r.${ident(residentStartColumn)}` : 'NULL';
+      let endSql = residentEndColumn ? `r.${ident(residentEndColumn)}` : 'NULL';
+
+      // Fallback: if the resident table does not have a standardized move-in date,
+      // derive it from room assignment history/current assignment when those tables exist.
+      if (startSql === 'NULL') {
+            const historyTables = ['roomAssignmentHistory', 'room_assignment_history', 'roomAssignments', 'room_assignments'];
+            const residentColumns = ['residentId', 'resident_id'];
+            const startColumns = ['assignedDate', 'assignmentDate', 'startDate', 'assigned_at', 'assignedAt', 'createdAt', 'created_at'];
+
+            for (const tableName of historyTables) {
+                  if (startSql !== 'NULL') break;
+                  if (!(await tableExists(db, tableName))) continue;
+                  const residentColumn = await firstExistingColumn(db, tableName, residentColumns);
+                  const startColumn = await firstExistingColumn(db, tableName, startColumns);
+                  if (residentColumn && startColumn) {
+                        startSql = `(SELECT MIN(${ident(startColumn)}) FROM ${ident(tableName)} rah WHERE rah.${ident(residentColumn)} = r.id)`;
+                  }
+            }
+      }
+
+      if (endSql === 'NULL') {
+            const historyTables = ['roomAssignmentHistory', 'room_assignment_history', 'roomAssignments', 'room_assignments'];
+            const residentColumns = ['residentId', 'resident_id'];
+            const endColumns = ['endDate', 'end_date', 'leftDate', 'left_date', 'moveOutDate', 'move_out_date'];
+
+            for (const tableName of historyTables) {
+                  if (endSql !== 'NULL') break;
+                  if (!(await tableExists(db, tableName))) continue;
+                  const residentColumn = await firstExistingColumn(db, tableName, residentColumns);
+                  const endColumn = await firstExistingColumn(db, tableName, endColumns);
+                  if (residentColumn && endColumn) {
+                        endSql = `(SELECT MAX(${ident(endColumn)}) FROM ${ident(tableName)} rah WHERE rah.${ident(residentColumn)} = r.id)`;
+                  }
+            }
+      }
+
+      return { startSql, endSql };
 }
 
 export async function previewFinanceChargePeriodResidents(input: { periodId: number; billingMonth: string }) {
@@ -675,11 +766,8 @@ export async function previewFinanceChargePeriodResidents(input: { periodId: num
 
       const startDate = monthStart(input.billingMonth);
       const endDate = monthEnd(input.billingMonth);
-      const { startColumn, leftColumn } = await getResidentDateColumns(db);
+      const { startSql, endSql } = await getResidentDateSelects(db);
 
-      // Important: do not select optional resident date columns directly here.
-      // Some DBs do not have admissionDate/residenceStartDate yet; selecting a
-      // missing column makes the whole preview fail and hides all residents.
       const result = await db.execute(sql`
             SELECT
                   r.id,
@@ -687,8 +775,8 @@ export async function previewFinanceChargePeriodResidents(input: { periodId: num
                   r.residentCode,
                   r.status,
                   r.currentRoomId,
-                  NULL AS residenceStartDate,
-                  NULL AS residenceEndDate,
+                  ${sql.raw(startSql)} AS residenceStartDate,
+                  ${sql.raw(endSql)} AS residenceEndDate,
                   NULL AS roomName,
                   NULL AS roomCode
             FROM residents r
@@ -696,6 +784,41 @@ export async function previewFinanceChargePeriodResidents(input: { periodId: num
       `);
 
       const rows = getRows(result);
+
+      const existingChargeResult = await db.execute(sql`
+            SELECT
+                  resident_id AS residentId,
+                  period_item_id AS periodItemId,
+                  fee_type_id AS feeTypeId,
+                  status
+            FROM finance_charges
+            WHERE billing_month = ${input.billingMonth}
+                  AND resident_id IS NOT NULL
+                  AND status <> 'cancelled'
+      `);
+      const existingMap = new Map<string, any>();
+      for (const charge of getRows(existingChargeResult)) {
+            const residentId = Number(charge.residentId || 0);
+            const periodItemId = Number(charge.periodItemId || 0);
+            const feeTypeId = Number(charge.feeTypeId || 0);
+            if (residentId && periodItemId) existingMap.set(`${residentId}:${periodItemId}`, charge);
+            if (residentId && feeTypeId) existingMap.set(`${residentId}:fee:${feeTypeId}`, charge);
+      }
+
+      const items = await readPeriodItems(db, input.periodId);
+      const existingItemIdsByResident = new Map<number, number[]>();
+      for (const resident of rows) {
+            const residentId = Number(resident.id || 0);
+            const existingItemIds = items
+                  .filter((item: any) => {
+                        const periodItemId = Number(item.id || 0);
+                        const feeTypeId = Number(item.feeTypeId || 0);
+                        return Boolean(existingMap.get(`${residentId}:${periodItemId}`) || existingMap.get(`${residentId}:fee:${feeTypeId}`));
+                  })
+                  .map((item: any) => Number(item.id));
+            existingItemIdsByResident.set(residentId, existingItemIds);
+      }
+
       const inactiveStatuses = new Set([
             'left',
             'transferred_out',
@@ -752,6 +875,7 @@ export async function previewFinanceChargePeriodResidents(input: { periodId: num
                   roomCode: resident.roomCode,
                   residenceStartDate: residentStart,
                   residenceEndDate: residentEnd,
+                  existingPeriodItemIds: existingItemIdsByResident.get(Number(resident.id)) || [],
                   eligible,
                   reason,
             };
@@ -784,6 +908,8 @@ export async function applyFinanceChargePeriod(input: ApplyChargePeriodInput) {
       const itemMap = new Map(items.map((item: any) => [Number(item.id), item]));
       const startDate = monthStart(input.billingMonth);
       const endDate = monthEnd(input.billingMonth);
+      const previewResidents = await previewFinanceChargePeriodResidents({ periodId: input.periodId, billingMonth: input.billingMonth });
+      const residentEligibility = new Map(previewResidents.map((resident: any) => [Number(resident.id), resident]));
 
       let createdCount = 0;
       let skippedCount = 0;
@@ -801,6 +927,13 @@ export async function applyFinanceChargePeriod(input: ApplyChargePeriodInput) {
             `);
             const resident = getRows(residentResult)?.[0];
             if (!resident) continue;
+
+            const eligibility = residentEligibility.get(residentId);
+            if (eligibility && !eligibility.eligible) {
+                  skippedCount += 1;
+                  duplicated.push(`${resident.fullName || resident.residentCode || residentId} - ${eligibility.reason || 'Không đủ điều kiện trong tháng này'}`);
+                  continue;
+            }
 
             for (const requestedItem of line.items || []) {
                   if (!requestedItem.selected) continue;
