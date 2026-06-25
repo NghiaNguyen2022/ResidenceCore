@@ -6,6 +6,7 @@ import {
       ArrowUpCircle,
       CreditCard,
       Gift,
+      Pencil,
       Plus,
       ReceiptText,
       Search,
@@ -37,13 +38,28 @@ function normalizeMoneyInput(value?: string | number | null) {
       return String(value ?? '').replace(/[^0-9]/g, '');
 }
 
+function normalizeStoredMoneyValue(value?: string | number | null) {
+      if (typeof value === 'number') return Number.isFinite(value) ? String(Math.round(value)) : '';
+
+      const raw = String(value ?? '').trim();
+      if (!raw) return '';
+
+      // DB DECIMAL values usually come back as strings like "2700000.00".
+      // Do not strip the decimal point as a thousand separator, otherwise it becomes "270000000".
+      if (/^-?\d+\.\d{1,2}$/.test(raw)) {
+            return String(Math.round(Number(raw)));
+      }
+
+      return normalizeMoneyInput(raw);
+}
+
 function toMoneyNumber(value?: string | number | null) {
-      const normalized = normalizeMoneyInput(value);
+      const normalized = normalizeStoredMoneyValue(value);
       return normalized ? Number(normalized) : 0;
 }
 
 function formatMoneyInput(value?: string | number | null) {
-      const normalized = normalizeMoneyInput(value);
+      const normalized = normalizeStoredMoneyValue(value);
       if (!normalized) return '';
       return moneyFormatter.format(Number(normalized));
 }
@@ -171,8 +187,11 @@ export default function FinanceLite() {
       const [statusFilter, setStatusFilter] = useState<ChargeStatus>('all');
       const [chargeFormOpen, setChargeFormOpen] = useState(false);
       const [paymentFormOpen, setPaymentFormOpen] = useState(false);
+      const [editChargeOpen, setEditChargeOpen] = useState(false);
       const [chargeFormMessage, setChargeFormMessage] = useState('');
       const [paymentFormMessage, setPaymentFormMessage] = useState('');
+      const [editChargeMessage, setEditChargeMessage] = useState('');
+      const [editChargeSaving, setEditChargeSaving] = useState(false);
 
       const [chargeForm, setChargeForm] = useState({
             source: 'student_fee' as ChargeSource,
@@ -202,6 +221,20 @@ export default function FinanceLite() {
                         amount: '',
                   },
             ],
+      });
+
+      const [editChargeForm, setEditChargeForm] = useState({
+            id: '',
+            feeTypeId: '',
+            amount: '',
+            dueDate: '',
+            billingMonth: '',
+            periodStartDate: '',
+            periodEndDate: '',
+            periodChargeMode: 'full_month' as PeriodChargeMode,
+            status: 'open',
+            targetName: '',
+            description: '',
       });
 
       const [paymentForm, setPaymentForm] = useState({
@@ -240,6 +273,15 @@ export default function FinanceLite() {
             },
             onError: (error: any) => {
                   setChargeFormMessage(error?.message || 'Không thể lưu nghiệp vụ. Vui lòng kiểm tra lại dữ liệu.');
+            },
+      });
+
+      const updateChargeMutation = financeApi?.updateCharge?.useMutation?.({
+            onSuccess: () => {
+                  setEditChargeMessage('Đã cập nhật khoản phải thu.');
+            },
+            onError: (error: any) => {
+                  setEditChargeMessage(error?.message || 'Không thể cập nhật khoản phải thu. Vui lòng kiểm tra lại dữ liệu.');
             },
       });
 
@@ -381,6 +423,97 @@ export default function FinanceLite() {
       const updatePaymentForm = (patch: Partial<typeof paymentForm>) => {
             setPaymentFormMessage('');
             setPaymentForm((current) => ({ ...current, ...patch }));
+      };
+
+      const updateEditChargeForm = (patch: Partial<typeof editChargeForm>) => {
+            setEditChargeMessage('');
+            setEditChargeForm((current) => ({ ...current, ...patch }));
+      };
+
+      const openEditCharge = (charge: any) => {
+            setEditChargeMessage('');
+            setEditChargeForm({
+                  id: String(charge.id || ''),
+                  feeTypeId: charge.feeTypeId ? String(charge.feeTypeId) : '',
+                  amount: normalizeStoredMoneyValue(charge.amount),
+                  dueDate: String(charge.dueDate || '').slice(0, 10),
+                  billingMonth: charge.billingMonth || '',
+                  periodStartDate: String(charge.periodStartDate || '').slice(0, 10),
+                  periodEndDate: String(charge.periodEndDate || '').slice(0, 10),
+                  periodChargeMode: (charge.periodChargeMode || 'full_month') as PeriodChargeMode,
+                  status: charge.status || 'open',
+                  targetName: charge.targetName || '',
+                  description: charge.description || '',
+            });
+            setEditChargeOpen(true);
+      };
+
+      const saveEditCharge = async () => {
+            if (editChargeSaving) return;
+
+            if (!editChargeForm.id) {
+                  setEditChargeMessage('Không tìm thấy khoản phải thu cần sửa.');
+                  return;
+            }
+
+            if (!editChargeForm.feeTypeId) {
+                  setEditChargeMessage('Vui lòng chọn loại khoản thu.');
+                  return;
+            }
+
+            if (toMoneyNumber(editChargeForm.amount) <= 0) {
+                  setEditChargeMessage('Vui lòng nhập số tiền lớn hơn 0.');
+                  return;
+            }
+
+            const updatePayload = {
+                  id: Number(editChargeForm.id),
+                  feeTypeId: Number(editChargeForm.feeTypeId),
+                  amount: toMoneyNumber(editChargeForm.amount),
+                  dueDate: editChargeForm.dueDate || null,
+                  billingMonth: editChargeForm.billingMonth || null,
+                  periodStartDate: editChargeForm.periodStartDate || null,
+                  periodEndDate: editChargeForm.periodEndDate || null,
+                  periodChargeMode: editChargeForm.periodChargeMode || null,
+                  periodMultiplier: editChargeForm.periodChargeMode === 'half_month' ? 0.5 : 1,
+                  status: editChargeForm.status || null,
+                  targetName: editChargeForm.targetName || null,
+                  description: editChargeForm.description || null,
+            };
+
+            if (!updateChargeMutation?.mutateAsync) {
+                  setEditChargeMessage('Chưa kết nối được API finance.updateCharge. Vui lòng kiểm tra server/routers/modules/finance.ts và restart server.');
+                  console.warn('[finance.updateCharge] mutation is not available', updatePayload);
+                  return;
+            }
+
+            try {
+                  setEditChargeSaving(true);
+                  setEditChargeMessage('Đang lưu thay đổi...');
+                  console.info('[finance.updateCharge] submit', updatePayload);
+                  const updateResult = await updateChargeMutation.mutateAsync(updatePayload);
+                  console.info('[finance.updateCharge] success', updateResult);
+
+                  if (!updateResult?.success) {
+                        throw new Error('Backend đã phản hồi nhưng chưa xác nhận cập nhật thành công.');
+                  }
+
+                  await Promise.all([
+                        chargesQuery?.refetch?.(),
+                        summaryQuery?.refetch?.(),
+                        transactionsQuery?.refetch?.(),
+                  ]);
+                  setEditChargeMessage('Đã cập nhật khoản phải thu. Đang tải lại danh sách...');
+                  window.setTimeout(() => {
+                        setEditChargeOpen(false);
+                        setEditChargeMessage('');
+                  }, 900);
+            } catch (error: any) {
+                  console.error('[finance.updateCharge] submit failed', error);
+                  setEditChargeMessage(error?.message || error?.data?.message || 'Không thể cập nhật khoản phải thu. Vui lòng kiểm tra log server.');
+            } finally {
+                  setEditChargeSaving(false);
+            }
       };
 
       const toggleResident = (residentId: number) => {
@@ -775,30 +908,42 @@ export default function FinanceLite() {
                                                                                     </p>
                                                                               </div>
 
-                                                                              <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[420px]">
-                                                                                    <div className={residenceMediumStyle.standardInfoBox}>
-                                                                                          <p className={residenceMediumStyle.standardInfoLabel}>
-                                                                                                Phải thu
-                                                                                          </p>
-                                                                                          <p className={residenceMediumStyle.standardInfoText}>
-                                                                                                {formatMoney(charge.amount)}
-                                                                                          </p>
+                                                                              <div className="space-y-2 lg:min-w-[520px]">
+                                                                                    <div className="grid gap-2 sm:grid-cols-3">
+                                                                                          <div className={residenceMediumStyle.standardInfoBox}>
+                                                                                                <p className={residenceMediumStyle.standardInfoLabel}>
+                                                                                                      Phải thu
+                                                                                                </p>
+                                                                                                <p className={residenceMediumStyle.standardInfoText}>
+                                                                                                      {formatMoney(charge.amount)}
+                                                                                                </p>
+                                                                                          </div>
+                                                                                          <div className={residenceMediumStyle.standardInfoBox}>
+                                                                                                <p className={residenceMediumStyle.standardInfoLabel}>
+                                                                                                      Đã thu
+                                                                                                </p>
+                                                                                                <p className={residenceMediumStyle.standardInfoText}>
+                                                                                                      {formatMoney(charge.paidAmount)}
+                                                                                                </p>
+                                                                                          </div>
+                                                                                          <div className={residenceMediumStyle.standardInfoBox}>
+                                                                                                <p className={residenceMediumStyle.standardInfoLabel}>
+                                                                                                      Còn lại
+                                                                                                </p>
+                                                                                                <p className={residenceMediumStyle.standardInfoText}>
+                                                                                                      {formatMoney(charge.remainingAmount)}
+                                                                                                </p>
+                                                                                          </div>
                                                                                     </div>
-                                                                                    <div className={residenceMediumStyle.standardInfoBox}>
-                                                                                          <p className={residenceMediumStyle.standardInfoLabel}>
-                                                                                                Đã thu
-                                                                                          </p>
-                                                                                          <p className={residenceMediumStyle.standardInfoText}>
-                                                                                                {formatMoney(charge.paidAmount)}
-                                                                                          </p>
-                                                                                    </div>
-                                                                                    <div className={residenceMediumStyle.standardInfoBox}>
-                                                                                          <p className={residenceMediumStyle.standardInfoLabel}>
-                                                                                                Còn lại
-                                                                                          </p>
-                                                                                          <p className={residenceMediumStyle.standardInfoText}>
-                                                                                                {formatMoney(charge.remainingAmount)}
-                                                                                          </p>
+                                                                                    <div className="flex justify-end">
+                                                                                          <button
+                                                                                                type="button"
+                                                                                                onClick={() => openEditCharge(charge)}
+                                                                                                className="inline-flex items-center gap-2 rounded-xl border border-amber-100 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-amber-50"
+                                                                                          >
+                                                                                                <Pencil className="h-3.5 w-3.5" />
+                                                                                                Sửa khoản thu
+                                                                                          </button>
                                                                                     </div>
                                                                               </div>
                                                                         </div>
@@ -1513,6 +1658,171 @@ export default function FinanceLite() {
                                                                   className={residenceMediumStyle.buttonCardPrimary}
                                                             >
                                                                   Lưu nghiệp vụ
+                                                            </button>
+                                                      </div>
+                                                </div>
+                                          </div>
+                                    </div>
+                              )}
+
+                              {editChargeOpen && (
+                                    <div className={residenceMediumStyle.standardModalOverlay}>
+                                          <div className={`${residenceMediumStyle.standardModalShell} max-w-3xl`}>
+                                                <div className={residenceMediumStyle.standardModalHeader}>
+                                                      <div>
+                                                            <h2 className="text-xl font-bold text-slate-900">
+                                                                  Sửa khoản phải thu
+                                                            </h2>
+                                                            <p className="mt-1 text-sm text-slate-500">
+                                                                  Cập nhật loại khoản thu, số tiền, hạn thu và trạng thái của khoản phải thu.
+                                                            </p>
+                                                      </div>
+                                                      <button
+                                                            type="button"
+                                                            onClick={() => { setEditChargeMessage(''); setEditChargeOpen(false); }}
+                                                            className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-amber-50"
+                                                      >
+                                                            Đóng
+                                                      </button>
+                                                </div>
+
+                                                <div className="space-y-4 p-5">
+                                                      <div className="grid gap-4 md:grid-cols-2">
+                                                            <label className="space-y-1.5">
+                                                                  <span className="text-sm font-semibold text-slate-700">
+                                                                        Loại khoản thu
+                                                                  </span>
+                                                                  <select
+                                                                        value={editChargeForm.feeTypeId}
+                                                                        onChange={(event) => updateEditChargeForm({ feeTypeId: event.target.value })}
+                                                                        className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                  >
+                                                                        <option value="">Chọn loại khoản thu</option>
+                                                                        {feeTypes.map((feeType: any) => (
+                                                                              <option key={feeType.id} value={feeType.id}>
+                                                                                    {feeType.feeName || feeType.name}
+                                                                              </option>
+                                                                        ))}
+                                                                  </select>
+                                                            </label>
+
+                                                            <label className="space-y-1.5">
+                                                                  <span className="text-sm font-semibold text-slate-700">
+                                                                        Trạng thái
+                                                                  </span>
+                                                                  <select
+                                                                        value={editChargeForm.status}
+                                                                        onChange={(event) => updateEditChargeForm({ status: event.target.value })}
+                                                                        className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                  >
+                                                                        <option value="open">Chưa thu</option>
+                                                                        <option value="partial">Thu một phần</option>
+                                                                        <option value="paid">Đã thu</option>
+                                                                        <option value="cancelled">Đã hủy</option>
+                                                                  </select>
+                                                            </label>
+                                                      </div>
+
+                                                      <div className="grid gap-4 md:grid-cols-2">
+                                                            <label className="space-y-1.5">
+                                                                  <span className="text-sm font-semibold text-slate-700">
+                                                                        Số tiền phải thu
+                                                                  </span>
+                                                                  <input
+                                                                        value={formatMoneyInput(editChargeForm.amount)}
+                                                                        onChange={(event) => updateEditChargeForm({ amount: normalizeMoneyInput(event.target.value) })}
+                                                                        type="text"
+                                                                        inputMode="numeric"
+                                                                        className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                  />
+                                                            </label>
+
+                                                            <label className="space-y-1.5">
+                                                                  <span className="text-sm font-semibold text-slate-700">
+                                                                        Hạn thu
+                                                                  </span>
+                                                                  <DatePickerInput
+                                                                        value={editChargeForm.dueDate}
+                                                                        onChange={(event) => updateEditChargeForm({ dueDate: event.target.value })}
+                                                                  />
+                                                            </label>
+                                                      </div>
+
+                                                      <div className="grid gap-4 md:grid-cols-3">
+                                                            <label className="space-y-1.5">
+                                                                  <span className="text-sm font-semibold text-slate-700">
+                                                                        Kỳ thu
+                                                                  </span>
+                                                                  <select
+                                                                        value={editChargeForm.billingMonth}
+                                                                        onChange={(event) => updateEditChargeForm({ billingMonth: event.target.value })}
+                                                                        className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                                  >
+                                                                        <option value="">Chưa chọn kỳ</option>
+                                                                        {billingMonthOptions.map((option) => (
+                                                                              <option key={option.value} value={option.value}>
+                                                                                    {option.label}
+                                                                              </option>
+                                                                        ))}
+                                                                  </select>
+                                                            </label>
+
+                                                            <label className="space-y-1.5">
+                                                                  <span className="text-sm font-semibold text-slate-700">
+                                                                        Từ ngày
+                                                                  </span>
+                                                                  <DatePickerInput
+                                                                        value={editChargeForm.periodStartDate}
+                                                                        onChange={(event) => updateEditChargeForm({ periodStartDate: event.target.value })}
+                                                                  />
+                                                            </label>
+
+                                                            <label className="space-y-1.5">
+                                                                  <span className="text-sm font-semibold text-slate-700">
+                                                                        Đến ngày
+                                                                  </span>
+                                                                  <DatePickerInput
+                                                                        value={editChargeForm.periodEndDate}
+                                                                        onChange={(event) => updateEditChargeForm({ periodEndDate: event.target.value })}
+                                                                  />
+                                                            </label>
+                                                      </div>
+
+                                                      <label className="space-y-1.5">
+                                                            <span className="text-sm font-semibold text-slate-700">
+                                                                  Ghi chú
+                                                            </span>
+                                                            <input
+                                                                  value={editChargeForm.description}
+                                                                  onChange={(event) => updateEditChargeForm({ description: event.target.value })}
+                                                                  className="h-10 w-full rounded-xl border border-amber-100 bg-white/90 px-3 text-sm"
+                                                            />
+                                                      </label>
+
+                                                      {editChargeMessage && (
+                                                            <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                                                                  {editChargeMessage}
+                                                            </div>
+                                                      )}
+
+                                                      <div className="flex justify-end gap-2">
+                                                            <button
+                                                                  type="button"
+                                                                  onClick={() => { setEditChargeMessage(''); setEditChargeOpen(false); }}
+                                                                  className="rounded-xl border border-amber-100 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-amber-50"
+                                                            >
+                                                                  Hủy
+                                                            </button>
+                                                            <button
+                                                                  type="button"
+                                                                  disabled={editChargeSaving}
+                                                                  onClick={(event) => {
+                                                                        event.preventDefault();
+                                                                        void saveEditCharge();
+                                                                  }}
+                                                                  className={residenceMediumStyle.buttonCardPrimary}
+                                                            >
+                                                                  {editChargeSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
                                                             </button>
                                                       </div>
                                                 </div>

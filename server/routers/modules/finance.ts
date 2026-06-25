@@ -112,7 +112,43 @@ export const financeRouter = router({
                         console.error('[finance.createChargeBatch] Error:', error);
                         throw new TRPCError({
                               code: 'BAD_REQUEST',
-                              message: 'Không thể tạo khoản thu.',
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : 'Không thể tạo khoản thu.',
+                        });
+                  }
+            }),
+
+
+      updateCharge: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number(),
+                        feeTypeId: z.number().optional().nullable(),
+                        amount: z.number().min(0),
+                        dueDate: z.string().optional().nullable(),
+                        billingMonth: z.string().optional().nullable(),
+                        periodStartDate: z.string().optional().nullable(),
+                        periodEndDate: z.string().optional().nullable(),
+                        periodChargeMode: z.string().optional().nullable(),
+                        periodMultiplier: z.number().optional().nullable(),
+                        status: z.string().optional().nullable(),
+                        targetName: z.string().optional().nullable(),
+                        description: z.string().optional().nullable(),
+                  })
+            )
+            .mutation(async ({ input }) => {
+                  try {
+                        return await financeDb.updateFinanceCharge(input);
+                  } catch (error) {
+                        console.error('[finance.updateCharge] Error:', error);
+                        throw new TRPCError({
+                              code: 'BAD_REQUEST',
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : 'Không thể cập nhật khoản phải thu.',
                         });
                   }
             }),
@@ -191,7 +227,32 @@ export const financeRouter = router({
                         console.error('[finance.recordPayment] Error:', error);
                         throw new TRPCError({
                               code: 'BAD_REQUEST',
-                              message: 'Không thể ghi nhận thanh toán.',
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : 'Không thể ghi nhận thanh toán.',
+                        });
+                  }
+            }),
+
+      cancelCharge: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number(),
+                        reason: z.string().optional().nullable(),
+                  })
+            )
+            .mutation(async ({ input }) => {
+                  try {
+                        return await financeDb.cancelFinanceCharge(input);
+                  } catch (error) {
+                        console.error('[finance.cancelCharge] Error:', error);
+                        throw new TRPCError({
+                              code: 'BAD_REQUEST',
+                              message:
+                                    error instanceof Error
+                                          ? error.message
+                                          : 'Không thể hủy khoản phải thu.',
                         });
                   }
             }),

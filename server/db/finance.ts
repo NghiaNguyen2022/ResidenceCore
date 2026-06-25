@@ -23,6 +23,21 @@ type CreateChargeBatchInput = {
       createdBy?: number | null;
 };
 
+type UpdateChargeInput = {
+      id: number;
+      feeTypeId?: number | null;
+      amount?: number | null;
+      dueDate?: string | null;
+      billingMonth?: string | null;
+      periodStartDate?: string | null;
+      periodEndDate?: string | null;
+      periodChargeMode?: string | null;
+      periodMultiplier?: number | null;
+      status?: string | null;
+      targetName?: string | null;
+      description?: string | null;
+};
+
 type RecordPaymentInput = {
       chargeId: number;
       residentId: number;
@@ -48,6 +63,84 @@ function getRows(result: any) {
       }
 
       return result?.rows || [];
+}
+
+function normalizeNullableText(value?: string | null) {
+      const text = String(value || '').trim();
+      return text.length > 0 ? text : null;
+}
+
+function formatDuplicateChargeMessage(rows: any[]) {
+      const names = rows
+            .map((item) => item.residentName || item.residentCode || `Học viên #${item.residentId}`)
+            .filter(Boolean);
+      const preview = names.slice(0, 5).join(', ');
+      const moreText = names.length > 5 ? ` và ${names.length - 5} học viên khác` : '';
+
+      return `Khoản thu này đã tồn tại cùng loại phí, cùng kỳ thu cho ${preview}${moreText}. Vui lòng sửa khoản đã có hoặc hủy khoản cũ trước khi tạo lại.`;
+}
+
+async function findDuplicateFinanceCharges(
+      db: any,
+      input: {
+            residentIds: number[];
+            feeTypeId?: number | null;
+            billingMonth?: string | null;
+            periodStartDate?: string | null;
+            periodEndDate?: string | null;
+            excludeId?: number | null;
+      }
+) {
+      const residentIds = input.residentIds.map((id) => Number(id)).filter(Boolean);
+      const feeTypeId = Number(input.feeTypeId || 0);
+      const billingMonth = normalizeNullableText(input.billingMonth);
+      const periodStartDate = normalizeNullableText(input.periodStartDate);
+      const periodEndDate = normalizeNullableText(input.periodEndDate);
+
+      if (residentIds.length === 0 || !feeTypeId) {
+            return [];
+      }
+
+      const duplicates: any[] = [];
+
+      for (const residentId of residentIds) {
+            const periodClause = billingMonth
+                  ? sql`c.billing_month = ${billingMonth}`
+                  : sql`(
+                              (c.billing_month IS NULL OR c.billing_month = '')
+                              AND (c.period_start_date <=> ${periodStartDate})
+                              AND (c.period_end_date <=> ${periodEndDate})
+                        )`;
+            const excludeClause = input.excludeId ? sql`AND c.id <> ${Number(input.excludeId)}` : sql``;
+
+            const result = await db.execute(sql`
+                  SELECT
+                        c.id,
+                        c.resident_id AS residentId,
+                        c.fee_type_id AS feeTypeId,
+                        c.billing_month AS billingMonth,
+                        c.period_start_date AS periodStartDate,
+                        c.period_end_date AS periodEndDate,
+                        c.status,
+                        r.fullName AS residentName,
+                        r.residentCode AS residentCode
+                  FROM finance_charges c
+                  LEFT JOIN residents r ON r.id = c.resident_id
+                  WHERE c.resident_id = ${residentId}
+                        AND c.fee_type_id = ${feeTypeId}
+                        AND c.status <> 'cancelled'
+                        AND ${periodClause}
+                        ${excludeClause}
+                  LIMIT 1
+            `);
+
+            const rows = getRows(result);
+            if (rows?.[0]) {
+                  duplicates.push(rows[0]);
+            }
+      }
+
+      return duplicates;
 }
 
 let financeSchemaReady = false;
@@ -309,9 +402,22 @@ export async function listFinanceCharges(input: ListChargesInput = {}) {
 export async function createFinanceChargeBatch(input: CreateChargeBatchInput) {
       const db = await getFinanceDb();
 
+      const residentIds = input.residentIds.map((id) => Number(id)).filter(Boolean);
+      const duplicateRows = await findDuplicateFinanceCharges(db, {
+            residentIds,
+            feeTypeId: input.feeTypeId,
+            billingMonth: input.billingMonth,
+            periodStartDate: input.periodStartDate,
+            periodEndDate: input.periodEndDate,
+      });
+
+      if (duplicateRows.length > 0) {
+            throw new Error(formatDuplicateChargeMessage(duplicateRows));
+      }
+
       const created: number[] = [];
 
-      for (const residentId of input.residentIds) {
+      for (const residentId of residentIds) {
             const chargeCode = `RC-FEE-${residentId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
             await db.execute(sql`
@@ -369,11 +475,155 @@ export async function createFinanceChargeBatch(input: CreateChargeBatchInput) {
       return { success: true, createdCount: created.length };
 }
 
+
+export async function updateFinanceCharge(input: UpdateChargeInput) {
+      const db = await getFinanceDb();
+      const amount = Number(input.amount || 0);
+
+      if (!input.id) {
+            throw new Error('Thiếu mã khoản phải thu.');
+      }
+
+      if (amount <= 0) {
+            throw new Error('Số tiền khoản thu phải lớn hơn 0.');
+      }
+
+      const currentResult = await db.execute(sql`
+            SELECT
+                  id,
+                  resident_id AS residentId,
+                  fee_type_id AS feeTypeId,
+                  billing_month AS billingMonth,
+                  period_start_date AS periodStartDate,
+                  period_end_date AS periodEndDate,
+                  paid_amount AS paidAmount
+            FROM finance_charges
+            WHERE id = ${input.id}
+            LIMIT 1
+      `);
+      const currentRows = getRows(currentResult);
+      const currentCharge = currentRows?.[0];
+
+      if (!currentCharge) {
+            throw new Error('Không tìm thấy khoản phải thu.');
+      }
+
+      const nextFeeTypeId = input.feeTypeId === undefined ? currentCharge.feeTypeId : input.feeTypeId;
+      const nextBillingMonth = input.billingMonth === undefined ? currentCharge.billingMonth : input.billingMonth;
+      const nextPeriodStartDate = input.periodStartDate === undefined ? currentCharge.periodStartDate : input.periodStartDate;
+      const nextPeriodEndDate = input.periodEndDate === undefined ? currentCharge.periodEndDate : input.periodEndDate;
+      const duplicateRows = await findDuplicateFinanceCharges(db, {
+            residentIds: [Number(currentCharge.residentId)],
+            feeTypeId: Number(nextFeeTypeId || 0),
+            billingMonth: nextBillingMonth || null,
+            periodStartDate: nextPeriodStartDate || null,
+            periodEndDate: nextPeriodEndDate || null,
+            excludeId: input.id,
+      });
+
+      if (duplicateRows.length > 0) {
+            throw new Error(formatDuplicateChargeMessage(duplicateRows));
+      }
+
+      const paidAmount = Number(currentCharge.paidAmount || 0);
+      const baseRemainingAmount = Math.max(amount - paidAmount, 0);
+      const resolvedStatus = input.status === 'cancelled'
+            ? 'cancelled'
+            : input.status === 'paid'
+                  ? 'paid'
+                  : paidAmount <= 0
+                        ? 'open'
+                        : baseRemainingAmount <= 0
+                              ? 'paid'
+                              : 'partial';
+      const remainingAmount = resolvedStatus === 'cancelled' || resolvedStatus === 'paid'
+            ? 0
+            : baseRemainingAmount;
+
+      await db.execute(sql`
+            UPDATE finance_charges
+            SET
+                  fee_type_id = ${input.feeTypeId || null},
+                  amount = ${amount},
+                  remaining_amount = ${remainingAmount},
+                  due_date = ${input.dueDate || null},
+                  status = ${resolvedStatus},
+                  target_name = ${input.targetName || null},
+                  billing_month = ${input.billingMonth || null},
+                  period_start_date = ${input.periodStartDate || null},
+                  period_end_date = ${input.periodEndDate || null},
+                  period_charge_mode = ${input.periodChargeMode || null},
+                  period_multiplier = ${Number(input.periodMultiplier || 1)},
+                  description = ${input.description || null},
+                  updated_at = NOW()
+            WHERE id = ${input.id}
+      `);
+
+      return { success: true };
+}
+
+
 export async function recordFinancePayment(input: RecordPaymentInput) {
       const db = await getFinanceDb();
 
       const paymentDate = input.paymentDate || todayText();
       const amount = Number(input.amount || 0);
+
+      if (!input.chargeId) {
+            throw new Error('Vui lòng chọn khoản phải thu.');
+      }
+
+      if (amount <= 0) {
+            throw new Error('Số tiền thu phải lớn hơn 0.');
+      }
+
+      const chargeResult = await db.execute(sql`
+            SELECT
+                  c.id,
+                  c.resident_id AS residentId,
+                  c.amount,
+                  c.paid_amount AS paidAmount,
+                  c.remaining_amount AS remainingAmount,
+                  c.status,
+                  c.target_name AS targetName,
+                  r.fullName AS residentName,
+                  ft.fee_name AS feeName
+            FROM finance_charges c
+            LEFT JOIN residents r ON r.id = c.resident_id
+            LEFT JOIN finance_fee_types ft ON ft.id = c.fee_type_id
+            WHERE c.id = ${input.chargeId}
+            LIMIT 1
+      `);
+      const chargeRows = getRows(chargeResult);
+      const charge = chargeRows?.[0];
+
+      if (!charge) {
+            throw new Error('Không tìm thấy khoản phải thu.');
+      }
+
+      if (charge.status === 'cancelled') {
+            throw new Error('Khoản thu đã hủy, không thể ghi nhận thanh toán.');
+      }
+
+      if (charge.status === 'paid') {
+            throw new Error('Khoản thu đã thu đủ.');
+      }
+
+      const remainingAmount = Number(charge.remainingAmount || 0);
+
+      if (remainingAmount <= 0) {
+            throw new Error('Khoản thu không còn số tiền phải thu.');
+      }
+
+      if (amount > remainingAmount) {
+            throw new Error(`Số tiền thu không được lớn hơn số tiền còn lại (${remainingAmount}).`);
+      }
+
+      const residentId = Number(input.residentId || charge.residentId || 0);
+
+      if (!residentId) {
+            throw new Error('Khoản thu chưa có học viên hợp lệ.');
+      }
 
       await db.execute(sql`
             INSERT INTO finance_payments (
@@ -389,7 +639,7 @@ export async function recordFinancePayment(input: RecordPaymentInput) {
             )
             VALUES (
                   ${input.chargeId},
-                  ${input.residentId},
+                  ${residentId},
                   ${amount},
                   ${paymentDate},
                   ${input.method || 'cash'},
@@ -412,6 +662,82 @@ export async function recordFinancePayment(input: RecordPaymentInput) {
                   END,
                   updated_at = NOW()
             WHERE id = ${input.chargeId}
+      `);
+
+      await db.execute(sql`
+            INSERT INTO finance_transactions (
+                  source,
+                  direction,
+                  amount,
+                  transaction_date,
+                  target_type,
+                  target_name,
+                  description,
+                  created_by,
+                  created_at,
+                  updated_at
+            )
+            VALUES (
+                  'student_fee_payment',
+                  'in',
+                  ${amount},
+                  ${paymentDate},
+                  'resident',
+                  ${charge.residentName || charge.targetName || 'Học viên'},
+                  ${input.note || `Thu ${charge.feeName || 'khoản học viên'}`},
+                  ${input.createdBy || null},
+                  NOW(),
+                  NOW()
+            )
+      `);
+
+      return { success: true };
+}
+
+
+export async function cancelFinanceCharge(input: { id: number; reason?: string | null }) {
+      const db = await getFinanceDb();
+
+      if (!input.id) {
+            throw new Error('Thiếu mã khoản phải thu cần hủy.');
+      }
+
+      const currentResult = await db.execute(sql`
+            SELECT
+                  id,
+                  paid_amount AS paidAmount,
+                  status
+            FROM finance_charges
+            WHERE id = ${input.id}
+            LIMIT 1
+      `);
+      const currentRows = getRows(currentResult);
+      const currentCharge = currentRows?.[0];
+
+      if (!currentCharge) {
+            throw new Error('Không tìm thấy khoản phải thu.');
+      }
+
+      if (currentCharge.status === 'cancelled') {
+            throw new Error('Khoản thu này đã được hủy trước đó.');
+      }
+
+      if (Number(currentCharge.paidAmount || 0) > 0) {
+            throw new Error('Khoản thu đã phát sinh thanh toán, không nên hủy trực tiếp.');
+      }
+
+      await db.execute(sql`
+            UPDATE finance_charges
+            SET
+                  remaining_amount = 0,
+                  status = 'cancelled',
+                  description = CASE
+                        WHEN ${input.reason || null} IS NULL OR ${input.reason || null} = '' THEN description
+                        WHEN description IS NULL OR description = '' THEN ${input.reason || null}
+                        ELSE CONCAT(description, ' | Hủy: ', ${input.reason || null})
+                  END,
+                  updated_at = NOW()
+            WHERE id = ${input.id}
       `);
 
       return { success: true };
