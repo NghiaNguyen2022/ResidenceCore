@@ -4,6 +4,17 @@ import { z } from 'zod';
 import { protectedProcedure, router } from '../../_core/trpc';
 import * as financeDb from '../../db/finance';
 
+const periodInputSchema = z.object({
+      periodName: z.string().min(1),
+      year: z.number().int().min(2000).max(2100),
+      fromMonth: z.number().int().min(1).max(12),
+      toMonth: z.number().int().min(1).max(12),
+      lodgingAmount: z.number().min(0),
+      mealLivingAmount: z.number().min(0),
+      otherAmount: z.number().min(0),
+      description: z.string().optional().nullable(),
+});
+
 export const financeRouter = router({
       summary: protectedProcedure.query(async () => {
             try {
@@ -18,13 +29,7 @@ export const financeRouter = router({
       }),
 
       listFeeTypes: protectedProcedure
-            .input(
-                  z
-                        .object({
-                              isActive: z.boolean().optional(),
-                        })
-                        .optional()
-            )
+            .input(z.object({ isActive: z.boolean().optional() }).optional())
             .query(async ({ input }) => {
                   try {
                         return await financeDb.listFinanceFeeTypes(input || {});
@@ -54,7 +59,115 @@ export const financeRouter = router({
                         console.error('[finance.createFeeType] Error:', error);
                         throw new TRPCError({
                               code: 'BAD_REQUEST',
-                              message: 'Không thể tạo loại khoản thu.',
+                              message: error instanceof Error ? error.message : 'Không thể tạo loại khoản thu.',
+                        });
+                  }
+            }),
+
+      listChargePeriods: protectedProcedure.query(async () => {
+            try {
+                  return await financeDb.listFinanceChargePeriods();
+            } catch (error) {
+                  console.error('[finance.listChargePeriods] Error:', error);
+                  throw new TRPCError({
+                        code: 'INTERNAL_SERVER_ERROR',
+                        message: 'Không thể tải danh sách kỳ thu.',
+                  });
+            }
+      }),
+
+      getChargePeriodDetail: protectedProcedure
+            .input(z.object({ periodId: z.number() }))
+            .query(async ({ input }) => {
+                  try {
+                        return await financeDb.getFinanceChargePeriodDetail(input.periodId);
+                  } catch (error) {
+                        console.error('[finance.getChargePeriodDetail] Error:', error);
+                        throw new TRPCError({
+                              code: 'BAD_REQUEST',
+                              message: error instanceof Error ? error.message : 'Không thể tải chi tiết kỳ thu.',
+                        });
+                  }
+            }),
+
+      createChargePeriod: protectedProcedure
+            .input(periodInputSchema)
+            .mutation(async ({ input, ctx }: any) => {
+                  try {
+                        return await financeDb.createFinanceChargePeriod({
+                              ...input,
+                              createdBy: ctx?.user?.id || null,
+                        });
+                  } catch (error) {
+                        console.error('[finance.createChargePeriod] Error:', error);
+                        throw new TRPCError({
+                              code: 'BAD_REQUEST',
+                              message: error instanceof Error ? error.message : 'Không thể tạo kỳ thu.',
+                        });
+                  }
+            }),
+
+      updateChargePeriod: protectedProcedure
+            .input(periodInputSchema.extend({ id: z.number(), status: z.string().optional().nullable() }))
+            .mutation(async ({ input, ctx }: any) => {
+                  try {
+                        return await financeDb.updateFinanceChargePeriod({
+                              ...input,
+                              createdBy: ctx?.user?.id || null,
+                        });
+                  } catch (error) {
+                        console.error('[finance.updateChargePeriod] Error:', error);
+                        throw new TRPCError({
+                              code: 'BAD_REQUEST',
+                              message: error instanceof Error ? error.message : 'Không thể cập nhật kỳ thu.',
+                        });
+                  }
+            }),
+
+      previewChargePeriodResidents: protectedProcedure
+            .input(z.object({ periodId: z.number(), billingMonth: z.string().min(7) }))
+            .query(async ({ input }) => {
+                  try {
+                        return await financeDb.previewFinanceChargePeriodResidents(input);
+                  } catch (error) {
+                        console.error('[finance.previewChargePeriodResidents] Error:', error);
+                        throw new TRPCError({
+                              code: 'BAD_REQUEST',
+                              message: error instanceof Error ? error.message : 'Không thể tải danh sách học viên áp dụng.',
+                        });
+                  }
+            }),
+
+      applyChargePeriod: protectedProcedure
+            .input(
+                  z.object({
+                        periodId: z.number(),
+                        billingMonth: z.string().min(7),
+                        lines: z.array(
+                              z.object({
+                                    residentId: z.number(),
+                                    items: z.array(
+                                          z.object({
+                                                periodItemId: z.number(),
+                                                selected: z.boolean(),
+                                                amount: z.number().optional().nullable(),
+                                          })
+                                    ),
+                              })
+                        ),
+                  })
+            )
+            .mutation(async ({ input, ctx }: any) => {
+                  try {
+                        return await financeDb.applyFinanceChargePeriod({
+                              ...input,
+                              createdBy: ctx?.user?.id || null,
+                        });
+                  } catch (error) {
+                        console.error('[finance.applyChargePeriod] Error:', error);
+                        throw new TRPCError({
+                              code: 'BAD_REQUEST',
+                              message: error instanceof Error ? error.message : 'Không thể áp dụng kỳ thu.',
                         });
                   }
             }),
@@ -66,6 +179,8 @@ export const financeRouter = router({
                               search: z.string().optional(),
                               status: z.string().optional(),
                               residentId: z.number().optional(),
+                              periodId: z.number().optional(),
+                              billingMonth: z.string().optional(),
                               limit: z.number().optional(),
                               offset: z.number().optional(),
                         })
@@ -104,22 +219,15 @@ export const financeRouter = router({
             )
             .mutation(async ({ input, ctx }: any) => {
                   try {
-                        return await financeDb.createFinanceChargeBatch({
-                              ...input,
-                              createdBy: ctx?.user?.id || null,
-                        });
+                        return await financeDb.createFinanceChargeBatch({ ...input, createdBy: ctx?.user?.id || null });
                   } catch (error) {
                         console.error('[finance.createChargeBatch] Error:', error);
                         throw new TRPCError({
                               code: 'BAD_REQUEST',
-                              message:
-                                    error instanceof Error
-                                          ? error.message
-                                          : 'Không thể tạo khoản thu.',
+                              message: error instanceof Error ? error.message : 'Không thể tạo khoản thu.',
                         });
                   }
             }),
-
 
       updateCharge: protectedProcedure
             .input(
@@ -145,14 +253,10 @@ export const financeRouter = router({
                         console.error('[finance.updateCharge] Error:', error);
                         throw new TRPCError({
                               code: 'BAD_REQUEST',
-                              message:
-                                    error instanceof Error
-                                          ? error.message
-                                          : 'Không thể cập nhật khoản phải thu.',
+                              message: error instanceof Error ? error.message : 'Không thể cập nhật khoản phải thu.',
                         });
                   }
             }),
-
 
       listTransactions: protectedProcedure
             .input(
@@ -192,25 +296,21 @@ export const financeRouter = router({
             )
             .mutation(async ({ input, ctx }: any) => {
                   try {
-                        return await financeDb.createFinanceTransaction({
-                              ...input,
-                              createdBy: ctx?.user?.id || null,
-                        });
+                        return await financeDb.createFinanceTransaction({ ...input, createdBy: ctx?.user?.id || null });
                   } catch (error) {
                         console.error('[finance.createTransaction] Error:', error);
                         throw new TRPCError({
                               code: 'BAD_REQUEST',
-                              message: 'Không thể lưu nghiệp vụ thu chi.',
+                              message: error instanceof Error ? error.message : 'Không thể lưu nghiệp vụ thu chi.',
                         });
                   }
             }),
-
 
       recordPayment: protectedProcedure
             .input(
                   z.object({
                         chargeId: z.number(),
-                        residentId: z.number(),
+                        residentId: z.number().optional().nullable(),
                         amount: z.number().min(0),
                         paymentDate: z.string().optional().nullable(),
                         method: z.string().optional().nullable(),
@@ -219,29 +319,18 @@ export const financeRouter = router({
             )
             .mutation(async ({ input, ctx }: any) => {
                   try {
-                        return await financeDb.recordFinancePayment({
-                              ...input,
-                              createdBy: ctx?.user?.id || null,
-                        });
+                        return await financeDb.recordFinancePayment({ ...input, createdBy: ctx?.user?.id || null });
                   } catch (error) {
                         console.error('[finance.recordPayment] Error:', error);
                         throw new TRPCError({
                               code: 'BAD_REQUEST',
-                              message:
-                                    error instanceof Error
-                                          ? error.message
-                                          : 'Không thể ghi nhận thanh toán.',
+                              message: error instanceof Error ? error.message : 'Không thể ghi nhận thanh toán.',
                         });
                   }
             }),
 
       cancelCharge: protectedProcedure
-            .input(
-                  z.object({
-                        id: z.number(),
-                        reason: z.string().optional().nullable(),
-                  })
-            )
+            .input(z.object({ id: z.number(), reason: z.string().optional().nullable() }))
             .mutation(async ({ input }) => {
                   try {
                         return await financeDb.cancelFinanceCharge(input);
@@ -249,10 +338,7 @@ export const financeRouter = router({
                         console.error('[finance.cancelCharge] Error:', error);
                         throw new TRPCError({
                               code: 'BAD_REQUEST',
-                              message:
-                                    error instanceof Error
-                                          ? error.message
-                                          : 'Không thể hủy khoản phải thu.',
+                              message: error instanceof Error ? error.message : 'Không thể hủy khoản phải thu.',
                         });
                   }
             }),
