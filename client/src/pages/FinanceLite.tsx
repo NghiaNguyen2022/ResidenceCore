@@ -192,6 +192,10 @@ export default function FinanceLite() {
       const [paymentFormOpen, setPaymentFormOpen] = useState(false);
       const [paymentFormMessage, setPaymentFormMessage] = useState('');
       const [paymentForm, setPaymentForm] = useState({ chargeId: '', residentId: '', amount: '', paymentDate: '', method: 'cash', note: '' });
+      const [groupPaymentOpen, setGroupPaymentOpen] = useState(false);
+      const [groupPaymentMessage, setGroupPaymentMessage] = useState('');
+      const [groupPaymentForm, setGroupPaymentForm] = useState({ periodId: '', billingMonth: '', residentId: '', amount: '', paymentDate: '', method: 'cash', note: '' });
+      const [groupPaymentSelectedChargeIds, setGroupPaymentSelectedChargeIds] = useState<Record<string, boolean>>({});
       const [editChargeOpen, setEditChargeOpen] = useState(false);
       const [editChargeMessage, setEditChargeMessage] = useState('');
       const [editChargeForm, setEditChargeForm] = useState<EditChargeState>({
@@ -343,6 +347,16 @@ export default function FinanceLite() {
             onError: (error: any) => setPaymentFormMessage(error?.message || 'Không thể ghi nhận thanh toán.'),
       });
 
+      const recordGroupedPaymentMutation = financeApi?.recordPayment?.useMutation?.({
+            onSuccess: () => {
+                  chargesQuery?.refetch?.();
+                  transactionsQuery?.refetch?.();
+                  periodsQuery?.refetch?.();
+                  summaryQuery?.refetch?.();
+            },
+            onError: (error: any) => setGroupPaymentMessage(error?.message || 'Không thể ghi nhận thanh toán theo học viên.'),
+      });
+
       const cancelChargeMutation = financeApi?.cancelCharge?.useMutation?.({
             onSuccess: () => {
                   chargesQuery?.refetch?.();
@@ -365,6 +379,81 @@ export default function FinanceLite() {
 
       const openCharges = useMemo(() => charges.filter((charge: any) => ['open', 'partial'].includes(String(charge.status || 'open'))), [charges]);
       const selectedCharge = useMemo(() => charges.find((charge: any) => Number(charge.id) === Number(paymentForm.chargeId || 0)), [charges, paymentForm.chargeId]);
+      const groupSelectedPeriod = useMemo(() => periods.find((period: any) => Number(period.id) === Number(groupPaymentForm.periodId || 0)) || null, [periods, groupPaymentForm.periodId]);
+      const groupPaymentMonths = useMemo(() => groupSelectedPeriod ? getPeriodMonthsFromPeriod(groupSelectedPeriod) : [], [groupSelectedPeriod]);
+      const groupPaymentCandidateCharges = useMemo(() => {
+            return openCharges.filter((charge: any) => {
+                  if (groupPaymentForm.periodId && Number(charge?.periodId || 0) !== Number(groupPaymentForm.periodId)) return false;
+                  if (groupPaymentForm.billingMonth && String(charge?.billingMonth || '') !== String(groupPaymentForm.billingMonth)) return false;
+                  return Boolean(charge?.residentId && toMoneyNumber(charge?.remainingAmount || 0) > 0);
+            });
+      }, [openCharges, groupPaymentForm.periodId, groupPaymentForm.billingMonth]);
+      const groupPaymentResidents = useMemo(() => {
+            const residentMap = new Map<number, { id: number; name: string; code: string; totalRemaining: number; chargeCount: number }>();
+            for (const charge of groupPaymentCandidateCharges) {
+                  const residentId = Number(charge?.residentId || 0);
+                  if (!residentId) continue;
+                  const current = residentMap.get(residentId) || {
+                        id: residentId,
+                        name: String(charge?.residentName || charge?.targetName || 'Học viên'),
+                        code: String(charge?.residentCode || ''),
+                        totalRemaining: 0,
+                        chargeCount: 0,
+                  };
+                  current.totalRemaining += toMoneyNumber(charge?.remainingAmount || 0);
+                  current.chargeCount += 1;
+                  residentMap.set(residentId, current);
+            }
+            return Array.from(residentMap.values()).sort((left, right) => left.name.localeCompare(right.name, 'vi'));
+      }, [groupPaymentCandidateCharges]);
+      const groupPaymentResidentCharges = useMemo(() => {
+            return groupPaymentCandidateCharges
+                  .filter((charge: any) => Number(charge?.residentId || 0) === Number(groupPaymentForm.residentId || 0))
+                  .sort((left: any, right: any) => Number(left?.periodItemId || left?.feeTypeId || left?.id || 0) - Number(right?.periodItemId || right?.feeTypeId || right?.id || 0));
+      }, [groupPaymentCandidateCharges, groupPaymentForm.residentId]);
+      const groupPaymentSelectedCharges = useMemo(() => {
+            return groupPaymentResidentCharges.filter((charge: any) => Boolean(groupPaymentSelectedChargeIds[String(charge.id)]));
+      }, [groupPaymentResidentCharges, groupPaymentSelectedChargeIds]);
+      const groupPaymentSelectedTotal = useMemo(() => {
+            return groupPaymentSelectedCharges.reduce((total: number, charge: any) => total + toMoneyNumber(charge?.remainingAmount || 0), 0);
+      }, [groupPaymentSelectedCharges]);
+
+      useEffect(() => {
+            if (!groupPaymentOpen) return;
+            if (!groupPaymentForm.periodId && selectedPeriodId) {
+                  const months = selectedPeriodMonths.length ? selectedPeriodMonths : (selectedPeriod ? getPeriodMonthsFromPeriod(selectedPeriod) : []);
+                  const defaultMonth = selectedBillingMonth || months.find((month: any) => month.value === currentBillingMonth)?.value || months[0]?.value || '';
+                  setGroupPaymentForm((current) => ({
+                        ...current,
+                        periodId: String(selectedPeriodId),
+                        billingMonth: defaultMonth,
+                        paymentDate: current.paymentDate || new Date().toISOString().slice(0, 10),
+                  }));
+            }
+      }, [groupPaymentOpen, groupPaymentForm.periodId, selectedPeriodId, selectedPeriod, selectedPeriodMonths, selectedBillingMonth, currentBillingMonth]);
+
+      useEffect(() => {
+            if (!groupPaymentOpen) return;
+            const currentResidentStillAvailable = groupPaymentResidents.some((resident) => Number(resident.id) === Number(groupPaymentForm.residentId || 0));
+            if (currentResidentStillAvailable) return;
+            const firstResident = groupPaymentResidents[0];
+            setGroupPaymentForm((current) => ({
+                  ...current,
+                  residentId: firstResident ? String(firstResident.id) : '',
+                  amount: firstResident ? formatMoneyInput(firstResident.totalRemaining) : '',
+            }));
+      }, [groupPaymentOpen, groupPaymentResidents, groupPaymentForm.residentId]);
+
+      useEffect(() => {
+            if (!groupPaymentOpen) return;
+            const nextSelected: Record<string, boolean> = {};
+            for (const charge of groupPaymentResidentCharges) {
+                  nextSelected[String(charge.id)] = true;
+            }
+            setGroupPaymentSelectedChargeIds(nextSelected);
+            const totalRemaining = groupPaymentResidentCharges.reduce((total: number, charge: any) => total + toMoneyNumber(charge?.remainingAmount || 0), 0);
+            setGroupPaymentForm((current) => ({ ...current, amount: totalRemaining > 0 ? formatMoneyInput(totalRemaining) : current.amount }));
+      }, [groupPaymentOpen, groupPaymentForm.residentId, groupPaymentResidentCharges]);
 
 
       function getPeriodMonthsFromPeriod(period: any) {
@@ -654,6 +743,111 @@ export default function FinanceLite() {
             });
       }
 
+
+      function openGroupedPayment() {
+            const defaultPeriod = selectedPeriod || periods.find((period: any) => periodContainsBillingMonth(period, currentBillingMonth)) || periods[0];
+            const defaultMonths = defaultPeriod ? getPeriodMonthsFromPeriod(defaultPeriod) : [];
+            const defaultMonth = (defaultPeriod && periodContainsBillingMonth(defaultPeriod, selectedBillingMonth))
+                  ? selectedBillingMonth
+                  : defaultMonths.find((month: any) => month.value === currentBillingMonth)?.value || defaultMonths[0]?.value || '';
+            setGroupPaymentMessage('');
+            setGroupPaymentSelectedChargeIds({});
+            setGroupPaymentForm({
+                  periodId: defaultPeriod ? String(defaultPeriod.id) : '',
+                  billingMonth: defaultMonth,
+                  residentId: '',
+                  amount: '',
+                  paymentDate: new Date().toISOString().slice(0, 10),
+                  method: 'cash',
+                  note: '',
+            });
+            setGroupPaymentOpen(true);
+      }
+
+      function handleGroupPaymentPeriodChange(periodId: string) {
+            const nextPeriod = periods.find((period: any) => Number(period.id) === Number(periodId));
+            const months = nextPeriod ? getPeriodMonthsFromPeriod(nextPeriod) : [];
+            const nextMonth = months.find((month: any) => month.value === currentBillingMonth)?.value || months[0]?.value || '';
+            setGroupPaymentMessage('');
+            setGroupPaymentSelectedChargeIds({});
+            setGroupPaymentForm((current) => ({ ...current, periodId, billingMonth: nextMonth, residentId: '', amount: '' }));
+      }
+
+      function handleGroupPaymentMonthChange(billingMonth: string) {
+            setGroupPaymentMessage('');
+            setGroupPaymentSelectedChargeIds({});
+            setGroupPaymentForm((current) => ({ ...current, billingMonth, residentId: '', amount: '' }));
+      }
+
+      function handleGroupPaymentResidentChange(residentId: string) {
+            setGroupPaymentMessage('');
+            setGroupPaymentSelectedChargeIds({});
+            const resident = groupPaymentResidents.find((item) => Number(item.id) === Number(residentId));
+            setGroupPaymentForm((current) => ({ ...current, residentId, amount: resident ? formatMoneyInput(resident.totalRemaining) : '' }));
+      }
+
+      function toggleGroupPaymentCharge(chargeId: number, checked: boolean) {
+            setGroupPaymentSelectedChargeIds((current) => ({ ...current, [String(chargeId)]: checked }));
+      }
+
+      function syncGroupPaymentAmountToSelected() {
+            setGroupPaymentForm((current) => ({ ...current, amount: formatMoneyInput(groupPaymentSelectedTotal) }));
+      }
+
+      async function submitGroupedPayment() {
+            setGroupPaymentMessage('');
+            const amount = toMoneyNumber(groupPaymentForm.amount);
+            if (!groupPaymentForm.periodId || !groupPaymentForm.billingMonth || !groupPaymentForm.residentId) {
+                  setGroupPaymentMessage('Vui lòng chọn kỳ thu, tháng và học viên.');
+                  return;
+            }
+            if (!groupPaymentSelectedCharges.length) {
+                  setGroupPaymentMessage('Vui lòng chọn ít nhất một khoản còn phải thu.');
+                  return;
+            }
+            if (amount <= 0) {
+                  setGroupPaymentMessage('Vui lòng nhập số tiền thu hợp lệ.');
+                  return;
+            }
+            if (amount > groupPaymentSelectedTotal) {
+                  setGroupPaymentMessage('Số tiền thu không được lớn hơn tổng còn lại của các khoản đang chọn.');
+                  return;
+            }
+            if (!recordGroupedPaymentMutation?.mutateAsync) {
+                  setGroupPaymentMessage('API ghi nhận thanh toán chưa sẵn sàng.');
+                  return;
+            }
+
+            let remainingAmount = amount;
+            try {
+                  for (const charge of groupPaymentSelectedCharges) {
+                        if (remainingAmount <= 0) break;
+                        const chargeRemaining = toMoneyNumber(charge?.remainingAmount || 0);
+                        if (chargeRemaining <= 0) continue;
+                        const payAmount = Math.min(remainingAmount, chargeRemaining);
+                        await recordGroupedPaymentMutation.mutateAsync({
+                              chargeId: Number(charge.id),
+                              residentId: Number(groupPaymentForm.residentId),
+                              amount: payAmount,
+                              paymentDate: groupPaymentForm.paymentDate || null,
+                              method: groupPaymentForm.method || 'cash',
+                              note: groupPaymentForm.note || `Thu theo học viên - ${getBillingMonthLabel(groupPaymentForm.billingMonth)}`,
+                        });
+                        remainingAmount -= payAmount;
+                  }
+                  setGroupPaymentMessage('Đã ghi nhận thanh toán theo học viên.');
+                  setGroupPaymentOpen(false);
+                  setGroupPaymentForm({ periodId: '', billingMonth: '', residentId: '', amount: '', paymentDate: '', method: 'cash', note: '' });
+                  setGroupPaymentSelectedChargeIds({});
+                  chargesQuery?.refetch?.();
+                  transactionsQuery?.refetch?.();
+                  periodsQuery?.refetch?.();
+                  summaryQuery?.refetch?.();
+            } catch (error: any) {
+                  setGroupPaymentMessage(error?.message || 'Không thể ghi nhận thanh toán theo học viên.');
+            }
+      }
+
       function openEditCharge(charge: any) {
             setEditChargeMessage('');
             setEditChargeForm({
@@ -801,8 +995,8 @@ export default function FinanceLite() {
                               </div>
 
                               {activeTab === 'periods' ? (
-                                    <div className="grid gap-4 xl:h-[calc(100vh-250px)] xl:min-h-[620px] xl:grid-cols-[360px_minmax(0,1fr)] xl:items-start">
-                                          <section className="flex min-h-0 flex-col rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm xl:h-full">
+                                    <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)] xl:items-start">
+                                          <section className="flex min-h-0 flex-col rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm xl:sticky xl:top-4 xl:max-h-[calc(100vh-120px)]">
                                                 <div className="mb-4 flex items-center justify-between gap-3">
                                                       <div>
                                                             <h2 className="text-base font-semibold text-slate-900">Danh sách kỳ thu</h2>
@@ -890,7 +1084,7 @@ export default function FinanceLite() {
                                                 </div>
                                           </section>
 
-                                          <section className="min-h-0 overflow-y-auto rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm xl:h-full">
+                                          <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
                                                 {detail ? (
                                                       <>
                                                             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -1053,6 +1247,7 @@ export default function FinanceLite() {
                                                       <p className="text-sm text-slate-500">Danh sách được sinh từ kỳ thu hoặc chỉnh riêng từng học viên.</p>
                                                 </div>
                                                 <div className="flex flex-wrap gap-2">
+                                                      <button type="button" className={residenceMediumStyle.buttonCardPrimary} onClick={openGroupedPayment}>Thu theo học viên</button>
                                                       <div className="relative">
                                                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                                             <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm học viên, loại phí..." className="w-64 rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm" />
@@ -1235,6 +1430,100 @@ export default function FinanceLite() {
                                     <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
                                           <button type="button" className={residenceMediumStyle.buttonCard} onClick={() => setPaymentFormOpen(false)}>Đóng</button>
                                           <button type="button" className={residenceMediumStyle.buttonCardPrimary} onClick={submitPayment} disabled={recordPaymentMutation?.isPending}>{recordPaymentMutation?.isPending ? 'Đang lưu...' : 'Lưu thanh toán'}</button>
+                                    </div>
+                              </div>
+                        </ModalShell>
+                  ) : null}
+
+                  {groupPaymentOpen ? (
+                        <ModalShell title="Thu theo học viên" subtitle="Chọn kỳ, tháng và học viên để thu nhiều khoản trong một lần." onClose={() => setGroupPaymentOpen(false)}>
+                              <div className="space-y-4 p-5">
+                                    {groupPaymentMessage ? <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">{groupPaymentMessage}</div> : null}
+
+                                    <div className="grid gap-3 md:grid-cols-3">
+                                          <div>
+                                                <label className="text-sm font-medium text-slate-700">Kỳ thu</label>
+                                                <select value={groupPaymentForm.periodId} onChange={(event) => handleGroupPaymentPeriodChange(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                                                      <option value="">Chọn kỳ thu</option>
+                                                      {periods.map((period: any) => <option key={period.id} value={period.id}>{period.periodName}</option>)}
+                                                </select>
+                                          </div>
+                                          <div>
+                                                <label className="text-sm font-medium text-slate-700">Tháng</label>
+                                                <select value={groupPaymentForm.billingMonth} onChange={(event) => handleGroupPaymentMonthChange(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                                                      <option value="">Chọn tháng</option>
+                                                      {groupPaymentMonths.map((month: any) => <option key={month.value} value={month.value}>{month.label}</option>)}
+                                                </select>
+                                          </div>
+                                          <div>
+                                                <label className="text-sm font-medium text-slate-700">Học viên</label>
+                                                <select value={groupPaymentForm.residentId} onChange={(event) => handleGroupPaymentResidentChange(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                                                      <option value="">Chọn học viên</option>
+                                                      {groupPaymentResidents.map((resident) => (
+                                                            <option key={resident.id} value={resident.id}>
+                                                                  {resident.name} {resident.code ? `(${resident.code})` : ''} - còn {formatMoney(resident.totalRemaining)}
+                                                            </option>
+                                                      ))}
+                                                </select>
+                                          </div>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+                                          <div className="mb-2 flex items-center justify-between gap-3">
+                                                <div>
+                                                      <p className="text-sm font-semibold text-slate-800">Các khoản còn phải thu</p>
+                                                      <p className="text-xs text-slate-500">Mặc định chọn toàn bộ khoản còn mở của học viên trong tháng.</p>
+                                                </div>
+                                                <button type="button" className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600" onClick={syncGroupPaymentAmountToSelected}>Thu đúng khoản chọn</button>
+                                          </div>
+                                          <div className="space-y-2">
+                                                {groupPaymentResidentCharges.length ? groupPaymentResidentCharges.map((charge: any) => {
+                                                      const checked = Boolean(groupPaymentSelectedChargeIds[String(charge.id)]);
+                                                      return (
+                                                            <label key={charge.id} className="flex items-center justify-between gap-3 rounded-xl border border-white bg-white px-3 py-2 text-sm">
+                                                                  <span className="flex min-w-0 items-center gap-2">
+                                                                        <input type="checkbox" checked={checked} onChange={(event) => toggleGroupPaymentCharge(Number(charge.id), event.target.checked)} className="h-4 w-4 shrink-0" />
+                                                                        <span className="min-w-0">
+                                                                              <span className="block truncate font-medium text-slate-800">{charge.periodItemName || charge.feeTypeName || charge.feeName || 'Khoản thu'}</span>
+                                                                              <span className="text-xs text-slate-500">Đã thu {formatMoney(charge.paidAmount)} / {formatMoney(charge.amount)}</span>
+                                                                        </span>
+                                                                  </span>
+                                                                  <span className="shrink-0 text-right font-semibold text-slate-900">{formatMoney(charge.remainingAmount)}</span>
+                                                            </label>
+                                                      );
+                                                }) : (
+                                                      <div className="rounded-xl border border-dashed border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
+                                                            Không có khoản còn phải thu cho học viên trong tháng này.
+                                                      </div>
+                                                )}
+                                          </div>
+                                    </div>
+
+                                    <div className="grid gap-3 md:grid-cols-3">
+                                          <div>
+                                                <label className="text-sm font-medium text-slate-700">Tổng khoản đang chọn</label>
+                                                <div className="mt-1 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-right text-sm font-semibold text-slate-800">{formatMoney(groupPaymentSelectedTotal)}</div>
+                                          </div>
+                                          <div>
+                                                <label className="text-sm font-medium text-slate-700">Số tiền thực thu</label>
+                                                <input type="text" inputMode="numeric" value={groupPaymentForm.amount} onChange={(event) => setGroupPaymentForm({ ...groupPaymentForm, amount: formatMoneyInput(event.target.value) })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-right text-sm" />
+                                          </div>
+                                          <div>
+                                                <label className="text-sm font-medium text-slate-700">Ngày thu</label>
+                                                <input type="date" value={groupPaymentForm.paymentDate} onChange={(event) => setGroupPaymentForm({ ...groupPaymentForm, paymentDate: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                                          </div>
+                                    </div>
+
+                                    <div>
+                                          <label className="text-sm font-medium text-slate-700">Ghi chú</label>
+                                          <textarea value={groupPaymentForm.note} onChange={(event) => setGroupPaymentForm({ ...groupPaymentForm, note: event.target.value })} className="mt-1 min-h-[70px] w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Ví dụ: Thu tiền tháng này, phụ huynh chuyển khoản..." />
+                                    </div>
+
+                                    <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+                                          <button type="button" className={residenceMediumStyle.buttonCard} onClick={() => setGroupPaymentOpen(false)}>Đóng</button>
+                                          <button type="button" className={`${residenceMediumStyle.buttonCardPrimary} disabled:cursor-not-allowed disabled:opacity-50`} onClick={submitGroupedPayment} disabled={recordGroupedPaymentMutation?.isPending || !groupPaymentSelectedCharges.length}>
+                                                {recordGroupedPaymentMutation?.isPending ? 'Đang lưu...' : 'Lưu thanh toán'}
+                                          </button>
                                     </div>
                               </div>
                         </ModalShell>
