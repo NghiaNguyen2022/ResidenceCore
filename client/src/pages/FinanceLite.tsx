@@ -1,203 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CalendarDays, CheckCircle2, CreditCard, Pencil, Plus, Search, Users, WalletCards, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, CheckCircle2, CreditCard, Pencil, Plus, Search, Users, WalletCards } from "lucide-react";
 
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
 import { DatePickerInput } from "@/components/shared/form/DatePickerInput";
+import { ModalShell, SmallBadge } from "@/components/finance-lite/FinanceLitePrimitives";
+import {
+  FinanceCreatePeriodModal,
+  FinanceEditChargeModal,
+  FinancePaymentModal,
+  FinanceTransactionModal,
+} from "@/components/finance-lite/FinanceLiteModals";
+import { FinanceSummaryCards } from "@/components/finance-lite/FinanceSummaryCards";
+import { FinanceTabRail } from "@/components/finance-lite/FinanceTabRail";
+import type {
+  ChargeStatus,
+  EditChargeState,
+  FinanceTab,
+  PeriodFormState,
+} from "@/components/finance-lite/financeLiteTypes";
+import {
+  emptyPeriodForm,
+  formatDate,
+  formatMoney,
+  formatMoneyInput,
+  getBillingMonthLabel,
+  getCurrentBillingMonth,
+  getStatusClass,
+  getStatusLabel,
+  monthNames,
+  periodContainsBillingMonth,
+  toMoneyNumber,
+} from "@/components/finance-lite/financeLiteUtils";
 import { trpc } from "@/lib/trpc";
-
-type FinanceTab = "studentLedger" | "expenses" | "cashbook";
-type ChargeStatus = "all" | "open" | "partial" | "paid" | "cancelled";
-
-type PeriodFormState = {
-  periodName: string;
-  year: string;
-  fromMonth: string;
-  toMonth: string;
-  lodgingAmount: string;
-  mealLivingAmount: string;
-  otherAmount: string;
-  description: string;
-};
-
-type EditChargeState = {
-  id: string;
-  feeTypeId: string;
-  amount: string;
-  dueDate: string;
-  billingMonth: string;
-  periodStartDate: string;
-  periodEndDate: string;
-  periodChargeMode: string;
-  status: string;
-  targetName: string;
-  description: string;
-};
-
-const moneyFormatter = new Intl.NumberFormat("vi-VN");
-const monthNames = [
-  "Tháng 01",
-  "Tháng 02",
-  "Tháng 03",
-  "Tháng 04",
-  "Tháng 05",
-  "Tháng 06",
-  "Tháng 07",
-  "Tháng 08",
-  "Tháng 09",
-  "Tháng 10",
-  "Tháng 11",
-  "Tháng 12",
-];
-
-function normalizeStoredMoneyValue(value?: string | number | null) {
-  if (typeof value === "number")
-    return Number.isFinite(value) ? String(Math.round(value)) : "";
-  const raw = String(value ?? "").trim();
-  if (!raw) return "";
-  if (/^-?\d+\.\d{1,2}$/.test(raw)) return String(Math.round(Number(raw)));
-  return raw.replace(/[^0-9]/g, "");
-}
-
-function toMoneyNumber(value?: string | number | null) {
-  const normalized = normalizeStoredMoneyValue(value);
-  return normalized ? Number(normalized) : 0;
-}
-
-function formatMoney(value?: number | string | null) {
-  return `${moneyFormatter.format(toMoneyNumber(value))}đ`;
-}
-
-function formatMoneyInput(value?: string | number | null) {
-  const normalized = normalizeStoredMoneyValue(value);
-  return normalized ? moneyFormatter.format(Number(normalized)) : "";
-}
-
-function formatDate(value?: string | Date | null) {
-  if (!value) return "Chưa có ngày";
-  return String(value).slice(0, 10);
-}
-
-function getMonthStart(monthValue?: string) {
-  return monthValue ? `${monthValue}-01` : "";
-}
-
-function getMonthEnd(monthValue?: string) {
-  if (!monthValue) return "";
-  const [yearText, monthText] = monthValue.split("-");
-  const year = Number(yearText);
-  const month = Number(monthText);
-  if (!year || !month) return "";
-  return new Date(year, month, 0).toISOString().slice(0, 10);
-}
-
-function getBillingMonthLabel(value?: string | null) {
-  if (!value) return "Chưa chọn kỳ";
-  const [yearText, monthText] = value.split("-");
-  const monthIndex = Number(monthText) - 1;
-  if (!yearText || monthIndex < 0 || monthIndex > 11) return value;
-  return `${monthNames[monthIndex]} / ${yearText}`;
-}
-
-function getCurrentBillingMonth() {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function periodContainsBillingMonth(period: any, billingMonth: string) {
-  if (!period || !billingMonth) return false;
-  const [yearText, monthText] = billingMonth.split("-");
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const periodYear = Number(period?.year || 0);
-  const fromMonth = Number(period?.fromMonth || 1);
-  const toMonth = Number(period?.toMonth || 12);
-  return periodYear === year && month >= fromMonth && month <= toMonth;
-}
-
-function getStatusLabel(status?: string | null) {
-  if (status === "paid") return "Đã thu";
-  if (status === "partial") return "Thu một phần";
-  if (status === "cancelled") return "Đã hủy";
-  return "Chưa thu";
-}
-
-function getStatusClass(status?: string | null) {
-  if (status === "paid")
-    return "border-emerald-100 bg-emerald-50 text-emerald-700";
-  if (status === "partial")
-    return "border-amber-100 bg-amber-50 text-amber-800";
-  if (status === "cancelled")
-    return "border-slate-200 bg-slate-100 text-slate-500";
-  return "border-rose-100 bg-rose-50 text-rose-700";
-}
-
-function emptyPeriodForm(): PeriodFormState {
-  const year = String(new Date().getFullYear());
-  return {
-    periodName: `Phí lưu xá năm ${year}`,
-    year,
-    fromMonth: "1",
-    toMonth: "12",
-    lodgingAmount: "1.200.000",
-    mealLivingAmount: "1.800.000",
-    otherAmount: "500.000",
-    description: "",
-  };
-}
-
-function SmallBadge({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function ModalShell({
-  title,
-  subtitle,
-  children,
-  onClose,
-}: {
-  title: string;
-  subtitle?: string;
-  children: ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div className={residenceMediumStyle.standardModalOverlay}>
-      <div className={residenceMediumStyle.standardModalShell}>
-        <div className={residenceMediumStyle.standardModalHeader}>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-            {subtitle ? (
-              <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 hover:text-slate-900"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export default function FinanceLite() {
   const financeApi = (trpc as any).finance;
@@ -1680,40 +1517,7 @@ export default function FinanceLite() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {topSummaryCards.map((card) => {
-              const Icon = card.icon;
-              return (
-                <div
-                  key={card.label}
-                  className="group relative overflow-hidden rounded-[26px] border border-white/85 bg-gradient-to-br from-[#fff8e5] via-white/96 to-[#f2c76b]/80 p-5 shadow-[0_14px_38px_rgba(15,23,42,0.08)] ring-1 ring-amber-100/70"
-                >
-                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.9),transparent_36%),linear-gradient(135deg,rgba(245,158,11,0.08),transparent_46%)]" />
-                  <div className="relative flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                        {card.label}
-                      </p>
-                      <p className="mt-4 text-[2rem] font-semibold leading-none tracking-tight text-slate-800">
-                        {card.value}
-                      </p>
-                      <p className="mt-4 truncate text-sm font-medium text-slate-600">
-                        {card.hint}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500/90">
-                        {card.subhint}
-                      </p>
-                    </div>
-                    <div
-                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border shadow-sm ${card.iconWrap}`}
-                    >
-                      <Icon className={`h-6 w-6 ${card.iconTone}`} />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <FinanceSummaryCards cards={topSummaryCards} />
 
           {periods.length ? (
             <section className="relative overflow-hidden rounded-[30px] border border-white/85 bg-gradient-to-r from-[#fff7e0] via-white/95 to-[#efd08a]/75 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] ring-1 ring-amber-100/70 md:p-5">
@@ -1763,24 +1567,7 @@ export default function FinanceLite() {
             </section>
           ) : null}
 
-          <div className={residenceMediumStyle.standardTabRail}>
-            <div className={residenceMediumStyle.standardTabGrid}>
-              {[
-                ["studentLedger", "Kỳ thu học viên"],
-                ["expenses", "Khoản chi"],
-                ["cashbook", "Sổ thu chi"],
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={`${residenceMediumStyle.standardTabButton} ${activeTab === key ? residenceMediumStyle.standardTabButtonActive : residenceMediumStyle.standardTabButtonIdle}`}
-                  onClick={() => setActiveTab(key as FinanceTab)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <FinanceTabRail activeTab={activeTab} onTabChange={setActiveTab} />
 
           {activeTab === "studentLedger" ? (
             <>
@@ -2626,294 +2413,27 @@ export default function FinanceLite() {
       </div>
 
       {periodFormOpen ? (
-        <ModalShell
-          title="Tạo kỳ thu"
-          subtitle="Tạo khoản thu chung, chưa gắn học viên ở bước này."
+        <FinanceCreatePeriodModal
+          message={periodFormMessage}
+          form={periodForm}
+          setForm={setPeriodForm}
+          isSubmitting={createPeriodMutation?.isPending}
           onClose={() => setPeriodFormOpen(false)}
-        >
-          <div className="space-y-4 p-5">
-            {periodFormMessage ? (
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                {periodFormMessage}
-              </div>
-            ) : null}
-            <div>
-              <label className="text-sm font-medium text-slate-700">
-                Tên kỳ thu
-              </label>
-              <input
-                value={periodForm.periodName}
-                onChange={(event) =>
-                  setPeriodForm({
-                    ...periodForm,
-                    periodName: event.target.value,
-                  })
-                }
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Năm
-                </label>
-                <input
-                  type="number"
-                  value={periodForm.year}
-                  onChange={(event) =>
-                    setPeriodForm({ ...periodForm, year: event.target.value })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Từ tháng
-                </label>
-                <select
-                  value={periodForm.fromMonth}
-                  onChange={(event) =>
-                    setPeriodForm({
-                      ...periodForm,
-                      fromMonth: event.target.value,
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  {Array.from({ length: 12 }, (_, index) => index + 1).map(
-                    (month) => (
-                      <option key={month} value={month}>
-                        {String(month).padStart(2, "0")}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Đến tháng
-                </label>
-                <select
-                  value={periodForm.toMonth}
-                  onChange={(event) =>
-                    setPeriodForm({
-                      ...periodForm,
-                      toMonth: event.target.value,
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  {Array.from({ length: 12 }, (_, index) => index + 1).map(
-                    (month) => (
-                      <option key={month} value={month}>
-                        {String(month).padStart(2, "0")}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Phí lưu trú
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={periodForm.lodgingAmount}
-                  onChange={(event) =>
-                    setPeriodForm({
-                      ...periodForm,
-                      lodgingAmount: formatMoneyInput(event.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-right text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Ăn uống sinh hoạt
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={periodForm.mealLivingAmount}
-                  onChange={(event) =>
-                    setPeriodForm({
-                      ...periodForm,
-                      mealLivingAmount: formatMoneyInput(event.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-right text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Khoản thu khác
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={periodForm.otherAmount}
-                  onChange={(event) =>
-                    setPeriodForm({
-                      ...periodForm,
-                      otherAmount: formatMoneyInput(event.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-right text-sm"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">
-                Ghi chú
-              </label>
-              <textarea
-                value={periodForm.description}
-                onChange={(event) =>
-                  setPeriodForm({
-                    ...periodForm,
-                    description: event.target.value,
-                  })
-                }
-                className="mt-1 min-h-[80px] w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-              <button
-                type="button"
-                className={residenceMediumStyle.buttonCard}
-                onClick={() => setPeriodFormOpen(false)}
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                className={residenceMediumStyle.buttonCardPrimary}
-                onClick={submitCreatePeriod}
-                disabled={createPeriodMutation?.isPending}
-              >
-                {createPeriodMutation?.isPending ? "Đang lưu..." : "Lưu kỳ thu"}
-              </button>
-            </div>
-          </div>
-        </ModalShell>
+          onSubmit={submitCreatePeriod}
+        />
       ) : null}
-
       {paymentFormOpen ? (
-        <ModalShell
-          title="Ghi nhận thanh toán"
-          subtitle="Ghi nhận số tiền học viên đã nộp cho khoản phải thu."
+        <FinancePaymentModal
+          message={paymentFormMessage}
+          form={paymentForm}
+          setForm={setPaymentForm}
+          charges={charges}
+          openCharges={openCharges}
+          isSubmitting={recordPaymentMutation?.isPending}
           onClose={() => setPaymentFormOpen(false)}
-        >
-          <div className="space-y-4 p-5">
-            {paymentFormMessage ? (
-              <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {paymentFormMessage}
-              </div>
-            ) : null}
-            <div>
-              <label className="text-sm font-medium text-slate-700">
-                Khoản phải thu
-              </label>
-              <select
-                value={paymentForm.chargeId}
-                onChange={(event) => {
-                  const charge = charges.find(
-                    (item: any) =>
-                      Number(item.id) === Number(event.target.value),
-                  );
-                  setPaymentForm({
-                    ...paymentForm,
-                    chargeId: event.target.value,
-                    residentId: String(charge?.residentId || ""),
-                    amount: formatMoneyInput(
-                      charge?.remainingAmount || charge?.amount || "",
-                    ),
-                  });
-                }}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              >
-                <option value="">Chọn khoản phải thu</option>
-                {openCharges.map((charge: any) => (
-                  <option key={charge.id} value={charge.id}>
-                    {charge.residentName || charge.targetName} -{" "}
-                    {charge.feeTypeName || charge.periodItemName} - còn{" "}
-                    {formatMoney(charge.remainingAmount)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Số tiền thu
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={paymentForm.amount}
-                  onChange={(event) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      amount: formatMoneyInput(event.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-right text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Ngày thu
-                </label>
-                <DatePickerInput
-                  value={paymentForm.paymentDate}
-                  onChange={(event) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      paymentDate: event.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">
-                Ghi chú
-              </label>
-              <textarea
-                value={paymentForm.note}
-                onChange={(event) =>
-                  setPaymentForm({ ...paymentForm, note: event.target.value })
-                }
-                className="mt-1 min-h-[70px] w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-              <button
-                type="button"
-                className={residenceMediumStyle.buttonCard}
-                onClick={() => setPaymentFormOpen(false)}
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                className={residenceMediumStyle.buttonCardPrimary}
-                onClick={submitPayment}
-                disabled={recordPaymentMutation?.isPending}
-              >
-                {recordPaymentMutation?.isPending
-                  ? "Đang lưu..."
-                  : "Lưu thanh toán"}
-              </button>
-            </div>
-          </div>
-        </ModalShell>
+          onSubmit={submitPayment}
+        />
       ) : null}
-
       {groupPaymentOpen ? (
         <ModalShell
           title="Thu theo học viên"
@@ -3229,281 +2749,25 @@ export default function FinanceLite() {
       ) : null}
 
       {editChargeOpen ? (
-        <ModalShell
-          title="Sửa khoản phải thu"
-          subtitle="Chỉ sửa khoản chưa khóa nghiệp vụ. Khoản đã thu đủ nên hạn chế chỉnh."
+        <FinanceEditChargeModal
+          message={editChargeMessage}
+          form={editChargeForm}
+          setForm={setEditChargeForm}
+          feeTypes={feeTypes}
+          isSubmitting={updateChargeMutation?.isPending}
           onClose={() => setEditChargeOpen(false)}
-        >
-          <div className="space-y-4 p-5">
-            {editChargeMessage ? (
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                {editChargeMessage}
-              </div>
-            ) : null}
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Loại khoản
-                </label>
-                <select
-                  value={editChargeForm.feeTypeId}
-                  onChange={(event) =>
-                    setEditChargeForm({
-                      ...editChargeForm,
-                      feeTypeId: event.target.value,
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="">Không chọn</option>
-                  {feeTypes.map((fee: any) => (
-                    <option key={fee.id} value={fee.id}>
-                      {fee.feeName || fee.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Số tiền
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={editChargeForm.amount}
-                  onChange={(event) =>
-                    setEditChargeForm({
-                      ...editChargeForm,
-                      amount: formatMoneyInput(event.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-right text-sm"
-                />
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Kỳ thu
-                </label>
-                <input
-                  type="month"
-                  value={editChargeForm.billingMonth}
-                  onChange={(event) =>
-                    setEditChargeForm({
-                      ...editChargeForm,
-                      billingMonth: event.target.value,
-                      periodStartDate: getMonthStart(event.target.value),
-                      periodEndDate: getMonthEnd(event.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Từ ngày
-                </label>
-                <DatePickerInput
-                  value={editChargeForm.periodStartDate}
-                  onChange={(event) =>
-                    setEditChargeForm({
-                      ...editChargeForm,
-                      periodStartDate: event.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Đến ngày
-                </label>
-                <DatePickerInput
-                  value={editChargeForm.periodEndDate}
-                  onChange={(event) =>
-                    setEditChargeForm({
-                      ...editChargeForm,
-                      periodEndDate: event.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">
-                Ghi chú
-              </label>
-              <textarea
-                value={editChargeForm.description}
-                onChange={(event) =>
-                  setEditChargeForm({
-                    ...editChargeForm,
-                    description: event.target.value,
-                  })
-                }
-                className="mt-1 min-h-[80px] w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-              <button
-                type="button"
-                className={residenceMediumStyle.buttonCard}
-                onClick={() => setEditChargeOpen(false)}
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                className={residenceMediumStyle.buttonCardPrimary}
-                onClick={submitEditCharge}
-                disabled={updateChargeMutation?.isPending}
-              >
-                {updateChargeMutation?.isPending
-                  ? "Đang lưu..."
-                  : "Lưu thay đổi"}
-              </button>
-            </div>
-          </div>
-        </ModalShell>
+          onSubmit={submitEditCharge}
+        />
       ) : null}
-
       {transactionFormOpen ? (
-        <ModalShell
-          title="Thu / chi khác"
-          subtitle="Ghi nhận khoản thu khác, tài trợ, ủng hộ, khoản chi hoặc kinh doanh."
+        <FinanceTransactionModal
+          message={transactionFormMessage}
+          form={transactionForm}
+          setForm={setTransactionForm}
+          isSubmitting={createTransactionMutation?.isPending}
           onClose={() => setTransactionFormOpen(false)}
-        >
-          <div className="space-y-4 p-5">
-            {transactionFormMessage ? (
-              <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {transactionFormMessage}
-              </div>
-            ) : null}
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Loại nghiệp vụ
-                </label>
-                <select
-                  value={transactionForm.source}
-                  onChange={(event) =>
-                    setTransactionForm({
-                      ...transactionForm,
-                      source: event.target.value,
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="other_income">Khoản thu khác</option>
-                  <option value="donation">Tài trợ / ủng hộ</option>
-                  <option value="expense">Khoản chi</option>
-                  <option value="business">Thu / chi kinh doanh</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Thu / chi
-                </label>
-                <select
-                  value={transactionForm.direction}
-                  onChange={(event) =>
-                    setTransactionForm({
-                      ...transactionForm,
-                      direction: event.target.value,
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="in">Thu</option>
-                  <option value="out">Chi</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Số tiền
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={transactionForm.amount}
-                  onChange={(event) =>
-                    setTransactionForm({
-                      ...transactionForm,
-                      amount: formatMoneyInput(event.target.value),
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-right text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Ngày
-                </label>
-                <DatePickerInput
-                  value={transactionForm.transactionDate}
-                  onChange={(event) =>
-                    setTransactionForm({
-                      ...transactionForm,
-                      transactionDate: event.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">
-                Người/đơn vị/mục tiêu
-              </label>
-              <input
-                value={transactionForm.targetName}
-                onChange={(event) =>
-                  setTransactionForm({
-                    ...transactionForm,
-                    targetName: event.target.value,
-                  })
-                }
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">
-                Mục đích / ghi chú
-              </label>
-              <textarea
-                value={transactionForm.description}
-                onChange={(event) =>
-                  setTransactionForm({
-                    ...transactionForm,
-                    description: event.target.value,
-                  })
-                }
-                className="mt-1 min-h-[80px] w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-              <button
-                type="button"
-                className={residenceMediumStyle.buttonCard}
-                onClick={() => setTransactionFormOpen(false)}
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                className={residenceMediumStyle.buttonCardPrimary}
-                onClick={submitTransaction}
-                disabled={createTransactionMutation?.isPending}
-              >
-                {createTransactionMutation?.isPending
-                  ? "Đang lưu..."
-                  : "Lưu nghiệp vụ"}
-              </button>
-            </div>
-          </div>
-        </ModalShell>
-      ) : null}
-    </ResidenceCareLayout>
+          onSubmit={submitTransaction}
+        />
+      ) : null}    </ResidenceCareLayout>
   );
 }
