@@ -1,20 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CheckCircle2, CreditCard, Pencil, Plus, Search, Users, WalletCards } from "lucide-react";
+import { CalendarDays, CheckCircle2, Pencil, Plus, Search, Users, WalletCards, CreditCard } from "lucide-react";
 
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
-import { DatePickerInput } from "@/components/shared/form/DatePickerInput";
-import { ModalShell, SmallBadge } from "@/components/finance-lite/FinanceLitePrimitives";
+import { InlineBadge } from "@/components/shared/display/InlineBadge";
 import {
   FinanceCreatePeriodModal,
   FinanceEditChargeModal,
+  FinanceGroupPaymentModal,
   FinancePaymentModal,
   FinanceTransactionModal,
 } from "@/components/finance-lite/FinanceLiteModals";
 import { FinanceSummaryCards } from "@/components/finance-lite/FinanceSummaryCards";
 import { FinanceTabRail } from "@/components/finance-lite/FinanceTabRail";
+import {
+  FinanceCashbookPanel,
+  FinanceExpensesPanel,
+  FinancePeriodSelector,
+} from "@/components/finance-lite/FinanceLitePanels";
 import type {
   ChargeStatus,
   EditChargeState,
@@ -23,7 +28,6 @@ import type {
 } from "@/components/finance-lite/financeLiteTypes";
 import {
   emptyPeriodForm,
-  formatDate,
   formatMoney,
   formatMoneyInput,
   getBillingMonthLabel,
@@ -1519,54 +1523,14 @@ export default function FinanceLite() {
 
           <FinanceSummaryCards cards={topSummaryCards} />
 
-          {periods.length ? (
-            <section className="relative overflow-hidden rounded-[30px] border border-white/85 bg-gradient-to-r from-[#fff7e0] via-white/95 to-[#efd08a]/75 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] ring-1 ring-amber-100/70 md:p-5">
-              <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.88),transparent_33%),linear-gradient(120deg,rgba(245,158,11,0.08),transparent_45%)]" />
-              <div className="relative grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_290px] lg:items-center">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                    Kỳ thu đang xem
-                  </p>
-                  <p className="mt-2 text-base font-semibold text-slate-800">
-                    Áp dụng cho sổ kỳ thu học viên và các báo cáo theo kỳ.
-                  </p>
-                </div>
-                <select
-                  value={selectedPeriodId || ""}
-                  onChange={(event) => {
-                    const nextPeriod = periods.find(
-                      (period: any) =>
-                        Number(period.id) === Number(event.target.value),
-                    );
-                    if (!nextPeriod) return;
-                    const months = getPeriodMonthsFromPeriod(nextPeriod);
-                    const defaultMonth =
-                      months.find(
-                        (month: any) => month.value === currentBillingMonth,
-                      )?.value ||
-                      months[0]?.value ||
-                      "";
-                    selectPeriodMonth(nextPeriod, defaultMonth);
-                  }}
-                  className="w-full rounded-2xl border border-slate-200/90 bg-white/95 px-5 py-3 text-base font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                >
-                  {periods.map((period: any) => (
-                    <option key={period.id} value={period.id}>
-                      {period.periodName} · Tháng {String(period.fromMonth).padStart(2, "0")}-{String(period.toMonth).padStart(2, "0")} / {period.year}
-                    </option>
-                  ))}
-                </select>
-                <div className="inline-flex items-center justify-start rounded-2xl border border-amber-200/80 bg-white/82 px-5 py-3 text-base text-slate-600 shadow-sm lg:justify-center">
-                  <span className="font-semibold text-slate-900">
-                    {selectedPeriod?.chargeCount || 0} khoản
-                  </span>
-                  <span className="mx-2 text-slate-300">·</span>
-                  <span>Còn lại {formatMoney(selectedPeriod?.openAmount || 0)}</span>
-                </div>
-              </div>
-            </section>
-          ) : null}
-
+          <FinancePeriodSelector
+            periods={periods}
+            selectedPeriodId={selectedPeriodId}
+            selectedPeriod={selectedPeriod}
+            currentBillingMonth={currentBillingMonth}
+            getPeriodMonthsFromPeriod={getPeriodMonthsFromPeriod}
+            onSelectPeriodMonth={selectPeriodMonth}
+          />
           <FinanceTabRail activeTab={activeTab} onTabChange={setActiveTab} />
 
           {activeTab === "studentLedger" ? (
@@ -1833,11 +1797,11 @@ export default function FinanceLite() {
                                               Đã thu
                                             </span>
                                           ) : status === "partial" || status === "cancelled" ? (
-                                            <SmallBadge
+                                            <InlineBadge
                                               className={getStatusClass(charge.status)}
                                             >
                                               {getStatusLabel(charge.status)}
-                                            </SmallBadge>
+                                            </InlineBadge>
                                           ) : null}
                                         </div>
                                         <p className="mt-1 text-[12px] leading-5 text-slate-500">
@@ -2271,143 +2235,22 @@ export default function FinanceLite() {
           ) : null}
 
           {activeTab === "expenses" ? (
-            <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900">
-                    Khoản chi
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    Quản lý khoản chi theo kỳ như điện, nước, internet và các khoản chi phát sinh không theo kỳ.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={residenceMediumStyle.buttonCardPrimary}
-                  onClick={() => {
-                    setTransactionForm((prev) => ({
-                      ...prev,
-                      source: "expense",
-                      direction: "out",
-                    }));
-                    setTransactionFormOpen(true);
-                  }}
-                >
-                  Ghi nhận khoản chi
-                </button>
-              </div>
-
-              <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">
-                        Chi theo kỳ
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Dùng cho các khoản vận hành lặp lại theo tháng/kỳ.
-                      </p>
-                    </div>
-                    <SmallBadge className="border-amber-200 bg-white text-amber-700">
-                      Theo tháng
-                    </SmallBadge>
-                  </div>
-                  <div className="mt-4 grid gap-2 text-sm text-slate-600">
-                    <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2">
-                      Điện, nước, internet, vệ sinh, bảo trì định kỳ
-                    </div>
-                    <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2">
-                      Có thể gắn với kỳ/tháng đang xem để lên báo cáo vận hành
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-100 bg-white p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">
-                        Chi không theo kỳ
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Dùng cho sự kiện, sửa chữa, mua sắm, hỗ trợ học viên hoặc khoản phát sinh.
-                      </p>
-                    </div>
-                    <SmallBadge className="border-slate-200 bg-slate-50 text-slate-600">
-                      Phát sinh
-                    </SmallBadge>
-                  </div>
-                  <div className="mt-4 grid gap-2 text-sm text-slate-600">
-                    <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
-                      Ghi nhận trực tiếp vào sổ thu chi, không cần chọn kỳ
-                    </div>
-                    <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
-                      Bắt buộc có mục đích/người nhận hoặc ghi chú rõ ràng
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-4 text-sm text-slate-500">
-                Bước này đang tổ chức lại sổ sách. Trước mắt, các khoản chi được ghi nhận vào <span className="font-semibold text-slate-700">Sổ thu chi</span>. Sau đó có thể mở rộng thêm mẫu chi định kỳ điện, nước, internet theo từng tháng.
-              </div>
-            </section>
+            <FinanceExpensesPanel
+              onCreateExpense={() => {
+                setTransactionForm((prev) => ({
+                  ...prev,
+                  source: "expense",
+                  direction: "out",
+                }));
+                setTransactionFormOpen(true);
+              }}
+            />
           ) : null}
-
           {activeTab === "cashbook" ? (
-            <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900">
-                    Sổ thu chi
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    Ghi nhận thu khác, chi phí và dòng tiền phát sinh.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={residenceMediumStyle.buttonCardPrimary}
-                  onClick={() => setTransactionFormOpen(true)}
-                >
-                  Thêm thu / chi
-                </button>
-              </div>
-              <div className="space-y-2">
-                {transactions.map((transaction: any) => (
-                  <div
-                    key={transaction.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-xl bg-amber-50 p-2 text-amber-700">
-                        {transaction.direction === "out" ? (
-                          <CreditCard className="h-4 w-4" />
-                        ) : (
-                          <WalletCards className="h-4 w-4" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900">
-                          {transaction.targetName ||
-                            transaction.description ||
-                            "Nghiệp vụ thu chi"}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {formatDate(transaction.transactionDate)} ·{" "}
-                          {transaction.source}
-                        </p>
-                      </div>
-                    </div>
-                    <p
-                      className={`font-semibold ${transaction.direction === "out" ? "text-rose-700" : "text-emerald-700"}`}
-                    >
-                      {transaction.direction === "out" ? "-" : "+"}
-                      {formatMoney(transaction.amount)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <FinanceCashbookPanel
+              transactions={transactions}
+              onCreateTransaction={() => setTransactionFormOpen(true)}
+            />
           ) : null}
         </div>
       </div>
@@ -2435,319 +2278,35 @@ export default function FinanceLite() {
         />
       ) : null}
       {groupPaymentOpen ? (
-        <ModalShell
-          title="Thu theo học viên"
-          subtitle="Chọn kỳ, tháng và học viên để thu nhiều khoản trong một lần."
+        <FinanceGroupPaymentModal
+          message={groupPaymentMessage}
+          form={groupPaymentForm}
+          setForm={setGroupPaymentForm}
+          periods={periods}
+          months={groupPaymentMonths}
+          residents={groupPaymentResidents}
+          residentCharges={groupPaymentResidentCharges}
+          selectedChargeIds={groupPaymentSelectedChargeIds}
+          lineAmounts={groupPaymentLineAmounts}
+          selectedCharges={groupPaymentSelectedCharges}
+          allSelected={groupPaymentAllSelected}
+          selectedRemainingTotal={groupPaymentSelectedRemainingTotal}
+          inputTotal={groupPaymentInputTotal}
+          afterRemainingTotal={groupPaymentAfterRemainingTotal}
+          hasInvalidLineAmount={groupPaymentHasInvalidLineAmount}
+          isSubmitting={recordGroupedPaymentMutation?.isPending}
+          onPeriodChange={handleGroupPaymentPeriodChange}
+          onMonthChange={handleGroupPaymentMonthChange}
+          onResidentChange={handleGroupPaymentResidentChange}
+          onToggleCharge={toggleGroupPaymentCharge}
+          onUpdateLineAmount={updateGroupPaymentLineAmount}
+          onToggleAllCharges={setAllGroupPaymentCharges}
+          onSyncSelectedAmounts={syncGroupPaymentAmountToSelected}
+          onClearLineAmounts={clearGroupPaymentLineAmounts}
           onClose={() => setGroupPaymentOpen(false)}
-        >
-          <div className="space-y-4 p-5">
-            {groupPaymentMessage ? (
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                {groupPaymentMessage}
-              </div>
-            ) : null}
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Kỳ thu
-                </label>
-                <select
-                  value={groupPaymentForm.periodId}
-                  onChange={(event) =>
-                    handleGroupPaymentPeriodChange(event.target.value)
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="">Chọn kỳ thu</option>
-                  {periods.map((period: any) => (
-                    <option key={period.id} value={period.id}>
-                      {period.periodName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Tháng
-                </label>
-                <select
-                  value={groupPaymentForm.billingMonth}
-                  onChange={(event) =>
-                    handleGroupPaymentMonthChange(event.target.value)
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="">Chọn tháng</option>
-                  {groupPaymentMonths.map((month: any) => (
-                    <option key={month.value} value={month.value}>
-                      {month.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Học viên
-                </label>
-                <select
-                  value={groupPaymentForm.residentId}
-                  onChange={(event) =>
-                    handleGroupPaymentResidentChange(event.target.value)
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="">Chọn học viên</option>
-                  {groupPaymentResidents.map((resident) => (
-                    <option key={resident.id} value={resident.id}>
-                      {resident.name}{" "}
-                      {resident.code ? `(${resident.code})` : ""} - còn{" "}
-                      {formatMoney(resident.totalRemaining)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">
-                    Chọn khoản và nhập số tiền thu từng khoản
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Có thể thu đủ, thu một phần hoặc bỏ chọn từng khoản nhỏ.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600"
-                    onClick={() =>
-                      setAllGroupPaymentCharges(!groupPaymentAllSelected)
-                    }
-                  >
-                    {groupPaymentAllSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-xl border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700"
-                    onClick={syncGroupPaymentAmountToSelected}
-                  >
-                    Thu đủ khoản chọn
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600"
-                    onClick={clearGroupPaymentLineAmounts}
-                  >
-                    Xóa số thu
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {groupPaymentResidentCharges.length ? (
-                  groupPaymentResidentCharges.map((charge: any) => {
-                    const chargeId = String(charge.id);
-                    const checked = Boolean(
-                      groupPaymentSelectedChargeIds[chargeId],
-                    );
-                    const remaining = toMoneyNumber(
-                      charge?.remainingAmount || 0,
-                    );
-                    const lineAmount = groupPaymentLineAmounts[chargeId] || "";
-                    const lineAmountNumber = toMoneyNumber(lineAmount || 0);
-                    const invalidAmount =
-                      checked && lineAmountNumber > remaining;
-                    return (
-                      <div
-                        key={charge.id}
-                        className={`rounded-2xl border bg-white p-3 ${checked ? "border-amber-100 shadow-sm" : "border-slate-100 opacity-75"}`}
-                      >
-                        <div className="grid items-center gap-3 lg:grid-cols-[28px_1.3fr_0.9fr_0.9fr_1fr]">
-                          <div className="flex justify-center">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(event) =>
-                                toggleGroupPaymentCharge(
-                                  Number(charge.id),
-                                  event.target.checked,
-                                )
-                              }
-                              className="h-4 w-4"
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900">
-                              {charge.periodItemName ||
-                                charge.feeTypeName ||
-                                charge.feeName ||
-                                "Khoản thu"}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              Tổng {formatMoney(charge.amount)}
-                            </p>
-                          </div>
-                          <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm">
-                            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                              Đã thu
-                            </p>
-                            <p className="font-semibold text-slate-700">
-                              {formatMoney(charge.paidAmount)}
-                            </p>
-                          </div>
-                          <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm">
-                            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                              Còn lại
-                            </p>
-                            <p className="font-semibold text-slate-900">
-                              {formatMoney(charge.remainingAmount)}
-                            </p>
-                          </div>
-                          <div>
-                            <label className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                              Thu lần này
-                            </label>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={lineAmount}
-                              disabled={!checked}
-                              onChange={(event) =>
-                                updateGroupPaymentLineAmount(
-                                  Number(charge.id),
-                                  event.target.value,
-                                )
-                              }
-                              className={`mt-1 w-full rounded-xl border px-3 py-2 text-right text-sm font-semibold disabled:bg-slate-50 disabled:text-slate-400 ${invalidAmount ? "border-rose-300 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-900"}`}
-                            />
-                            {invalidAmount ? (
-                              <p className="mt-1 text-xs text-rose-600">
-                                Không được vượt còn lại
-                              </p>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="rounded-xl border border-dashed border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
-                    Không có khoản còn phải thu cho học viên trong tháng này.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  Tổng còn lại khoản chọn
-                </p>
-                <p className="mt-1 text-lg font-semibold text-slate-900">
-                  {formatMoney(groupPaymentSelectedRemainingTotal)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-amber-600">
-                  Tổng thu lần này
-                </p>
-                <p className="mt-1 text-lg font-semibold text-amber-900">
-                  {formatMoney(groupPaymentInputTotal)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  Còn lại sau thu
-                </p>
-                <p className="mt-1 text-lg font-semibold text-slate-900">
-                  {formatMoney(groupPaymentAfterRemainingTotal)}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Ngày thu
-                </label>
-                <DatePickerInput
-                  value={groupPaymentForm.paymentDate}
-                  onChange={(event) =>
-                    setGroupPaymentForm({
-                      ...groupPaymentForm,
-                      paymentDate: event.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  Phương thức thu
-                </label>
-                <select
-                  value={groupPaymentForm.method}
-                  onChange={(event) =>
-                    setGroupPaymentForm({
-                      ...groupPaymentForm,
-                      method: event.target.value,
-                    })
-                  }
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="cash">Tiền mặt</option>
-                  <option value="bank_transfer">Chuyển khoản</option>
-                  <option value="other">Khác</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-slate-700">
-                Ghi chú
-              </label>
-              <textarea
-                value={groupPaymentForm.note}
-                onChange={(event) =>
-                  setGroupPaymentForm({
-                    ...groupPaymentForm,
-                    note: event.target.value,
-                  })
-                }
-                className="mt-1 min-h-[70px] w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                placeholder="Ví dụ: Thu tiền tháng này, phụ huynh chuyển khoản..."
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-              <button
-                type="button"
-                className={residenceMediumStyle.buttonCard}
-                onClick={() => setGroupPaymentOpen(false)}
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                className={`${residenceMediumStyle.buttonCardPrimary} disabled:cursor-not-allowed disabled:opacity-50`}
-                onClick={submitGroupedPayment}
-                disabled={
-                  recordGroupedPaymentMutation?.isPending ||
-                  !groupPaymentSelectedCharges.length ||
-                  groupPaymentInputTotal <= 0 ||
-                  groupPaymentHasInvalidLineAmount
-                }
-              >
-                {recordGroupedPaymentMutation?.isPending
-                  ? "Đang lưu..."
-                  : "Lưu thanh toán"}
-              </button>
-            </div>
-          </div>
-        </ModalShell>
+          onSubmit={submitGroupedPayment}
+        />
       ) : null}
-
       {editChargeOpen ? (
         <FinanceEditChargeModal
           message={editChargeMessage}
@@ -2768,6 +2327,7 @@ export default function FinanceLite() {
           onClose={() => setTransactionFormOpen(false)}
           onSubmit={submitTransaction}
         />
-      ) : null}    </ResidenceCareLayout>
+      ) : null}
+    </ResidenceCareLayout>
   );
 }

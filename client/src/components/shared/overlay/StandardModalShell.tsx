@@ -3,23 +3,7 @@ import { X } from "lucide-react";
 
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
 
-export function SmallBadge({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-export function ModalShell({
+export function StandardModalShell({
   title,
   subtitle,
   children,

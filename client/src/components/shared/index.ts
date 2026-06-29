@@ -5,9 +5,11 @@ export * from "./layout/AppSection";
 // Overlay / Modal
 export * from "./overlay/AppModal";
 export * from "./overlay/ConfirmDialog";
+export * from "./overlay/StandardModalShell";
 
 // Display
 export * from "./display/StatusBadge";
+export * from "./display/InlineBadge";
 export * from "./display/InfoRow";
 export * from "./display/DataTable";
 
