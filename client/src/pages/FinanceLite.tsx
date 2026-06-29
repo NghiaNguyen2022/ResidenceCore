@@ -5,6 +5,7 @@ import { CreditCard, Plus, Search, WalletCards, X } from 'lucide-react';
 
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
 import { residenceMediumStyle } from '@/components/shared/styleMedium';
+import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
 import { trpc } from '@/lib/trpc';
 
 type FinanceTab = 'periods' | 'charges' | 'cashbook';
@@ -379,6 +380,50 @@ export default function FinanceLite() {
 
       const openCharges = useMemo(() => charges.filter((charge: any) => ['open', 'partial'].includes(String(charge.status || 'open'))), [charges]);
       const selectedCharge = useMemo(() => charges.find((charge: any) => Number(charge.id) === Number(paymentForm.chargeId || 0)), [charges, paymentForm.chargeId]);
+      const groupedCharges = useMemo(() => {
+            const groupMap = new Map<string, any>();
+            for (const charge of charges) {
+                  const residentKey = charge?.residentId ? `resident-${charge.residentId}` : `target-${charge?.targetType || 'other'}-${charge?.targetName || charge?.id}`;
+                  const periodKey = charge?.periodId ? `period-${charge.periodId}` : `period-name-${charge?.periodName || 'other'}`;
+                  const monthKey = String(charge?.billingMonth || 'no-month');
+                  const key = `${residentKey}|${periodKey}|${monthKey}`;
+                  const current = groupMap.get(key) || {
+                        key,
+                        residentId: charge?.residentId || null,
+                        residentName: charge?.residentName || charge?.targetName || 'Học viên / đối tượng',
+                        residentCode: charge?.residentCode || charge?.targetType || '',
+                        periodId: charge?.periodId || null,
+                        periodName: charge?.periodName || '',
+                        billingMonth: charge?.billingMonth || '',
+                        charges: [],
+                        amount: 0,
+                        paidAmount: 0,
+                        remainingAmount: 0,
+                  };
+                  current.charges.push(charge);
+                  current.amount += toMoneyNumber(charge?.amount || 0);
+                  current.paidAmount += toMoneyNumber(charge?.paidAmount || 0);
+                  current.remainingAmount += toMoneyNumber(charge?.remainingAmount || 0);
+                  groupMap.set(key, current);
+            }
+            return Array.from(groupMap.values()).map((group: any) => {
+                  const activeCharges = group.charges.filter((charge: any) => String(charge?.status || '') !== 'cancelled');
+                  const hasOpen = activeCharges.some((charge: any) => String(charge?.status || 'open') === 'open');
+                  const hasPartial = activeCharges.some((charge: any) => String(charge?.status || '') === 'partial');
+                  const hasPaid = activeCharges.some((charge: any) => String(charge?.status || '') === 'paid' || toMoneyNumber(charge?.paidAmount || 0) > 0);
+                  const allCancelled = group.charges.length > 0 && group.charges.every((charge: any) => String(charge?.status || '') === 'cancelled');
+                  const status = allCancelled
+                        ? 'cancelled'
+                        : group.remainingAmount <= 0 && activeCharges.length
+                              ? 'paid'
+                              : hasPartial || (hasPaid && group.remainingAmount > 0)
+                                    ? 'partial'
+                                    : hasOpen
+                                          ? 'open'
+                                          : String(group.charges[0]?.status || 'open');
+                  return { ...group, status, chargeCount: group.charges.length };
+            });
+      }, [charges]);
       const groupSelectedPeriod = useMemo(() => periods.find((period: any) => Number(period.id) === Number(groupPaymentForm.periodId || 0)) || null, [periods, groupPaymentForm.periodId]);
       const groupPaymentMonths = useMemo(() => groupSelectedPeriod ? getPeriodMonthsFromPeriod(groupSelectedPeriod) : [], [groupSelectedPeriod]);
       const groupPaymentCandidateCharges = useMemo(() => {
@@ -784,6 +829,35 @@ export default function FinanceLite() {
             setGroupPaymentSelectedChargeIds({});
             const resident = groupPaymentResidents.find((item) => Number(item.id) === Number(residentId));
             setGroupPaymentForm((current) => ({ ...current, residentId, amount: resident ? formatMoneyInput(resident.totalRemaining) : '' }));
+      }
+
+      function openGroupPaymentForChargeGroup(group: any) {
+            if (!group?.residentId) {
+                  setGroupPaymentMessage('Chỉ hỗ trợ thu gộp cho khoản phải thu gắn với học viên.');
+                  setGroupPaymentOpen(true);
+                  return;
+            }
+            const selected: Record<string, boolean> = {};
+            let totalRemaining = 0;
+            for (const charge of group.charges || []) {
+                  const remaining = toMoneyNumber(charge?.remainingAmount || 0);
+                  if (['open', 'partial'].includes(String(charge?.status || 'open')) && remaining > 0) {
+                        selected[String(charge.id)] = true;
+                        totalRemaining += remaining;
+                  }
+            }
+            setGroupPaymentSelectedChargeIds(selected);
+            setGroupPaymentForm({
+                  periodId: group?.periodId ? String(group.periodId) : '',
+                  billingMonth: String(group?.billingMonth || ''),
+                  residentId: String(group?.residentId || ''),
+                  amount: totalRemaining > 0 ? formatMoneyInput(totalRemaining) : '',
+                  paymentDate: new Date().toISOString().slice(0, 10),
+                  method: 'cash',
+                  note: `Thu ${group?.residentName || 'học viên'} - ${getBillingMonthLabel(group?.billingMonth)}`,
+            });
+            setGroupPaymentMessage(totalRemaining > 0 ? '' : 'Học viên này không còn khoản nào có thể thu trong tháng đã chọn.');
+            setGroupPaymentOpen(true);
       }
 
       function toggleGroupPaymentCharge(chargeId: number, checked: boolean) {
@@ -1266,53 +1340,82 @@ export default function FinanceLite() {
                                                 <table className="w-full table-fixed divide-y divide-slate-100 text-sm">
                                                       <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                                             <tr>
-                                                                  <th className="px-3 py-3 text-left">Học viên / Đối tượng</th>
-                                                                  <th className="px-3 py-3 text-left">Loại khoản</th>
-                                                                  <th className="px-3 py-3 text-left">Kỳ</th>
-                                                                  <th className="px-3 py-3 text-right">Số tiền</th>
-                                                                  <th className="px-3 py-3 text-right">Đã thu</th>
-                                                                  <th className="px-3 py-3 text-right">Còn lại</th>
-                                                                  <th className="px-3 py-3 text-left">Trạng thái</th>
-                                                                  <th className="px-3 py-3 text-right">Tác vụ</th>
+                                                                  <th className="w-[22%] px-3 py-3 text-left">Học viên / Kỳ</th>
+                                                                  <th className="w-[36%] px-3 py-3 text-left">Các khoản trong kỳ</th>
+                                                                  <th className="w-[11%] px-3 py-3 text-right">Tổng</th>
+                                                                  <th className="w-[11%] px-3 py-3 text-right">Đã thu</th>
+                                                                  <th className="w-[11%] px-3 py-3 text-right">Còn lại</th>
+                                                                  <th className="w-[10%] px-3 py-3 text-left">Trạng thái</th>
+                                                                  <th className="w-[10%] px-3 py-3 text-right">Tác vụ</th>
                                                             </tr>
                                                       </thead>
                                                       <tbody className="divide-y divide-slate-100 bg-white">
-                                                            {charges.map((charge: any) => (
-                                                                  <tr key={charge.id}>
-                                                                        <td className="px-3 py-3">
-                                                                              <p className="font-medium text-slate-900">{charge.residentName || charge.targetName || 'Học viên'}</p>
-                                                                              <p className="text-xs text-slate-500">{charge.residentCode || charge.targetType || '-'}</p>
-                                                                        </td>
-                                                                        <td className="px-3 py-3 text-slate-700">{charge.periodItemName || charge.feeTypeName || charge.feeName || 'Khoản thu'}</td>
-                                                                        <td className="px-3 py-3 text-slate-600">
-                                                                              <p>{getBillingMonthLabel(charge.billingMonth)}</p>
-                                                                              <p className="text-xs text-slate-400">{charge.periodName || ''}</p>
-                                                                        </td>
-                                                                        <td className="px-3 py-3 text-right font-medium text-slate-900">{formatMoney(charge.amount)}</td>
-                                                                        <td className="px-3 py-3 text-right text-slate-600">{formatMoney(charge.paidAmount)}</td>
-                                                                        <td className="px-3 py-3 text-right text-slate-600">{formatMoney(charge.remainingAmount)}</td>
-                                                                        <td className="px-3 py-3"><SmallBadge className={getStatusClass(charge.status)}>{getStatusLabel(charge.status)}</SmallBadge></td>
-                                                                        <td className="px-3 py-3 text-right">
-                                                                              <div className="flex justify-end gap-2">
-                                                                                    {['open', 'partial'].includes(String(charge.status || 'open')) ? (
-                                                                                          <button type="button" className="rounded-lg border border-emerald-100 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700" onClick={() => openPayment(charge)}>
+                                                            {groupedCharges.map((group: any) => {
+                                                                  const canCollect = Boolean(group.residentId) && group.charges.some((charge: any) => ['open', 'partial'].includes(String(charge.status || 'open')) && toMoneyNumber(charge.remainingAmount || 0) > 0);
+                                                                  return (
+                                                                        <tr key={group.key} className="align-top">
+                                                                              <td className="px-3 py-4">
+                                                                                    <p className="font-semibold text-slate-900">{group.residentName}</p>
+                                                                                    <p className="text-xs text-slate-500">{group.residentCode || '-'}</p>
+                                                                                    <p className="mt-2 text-xs font-medium text-slate-600">{getBillingMonthLabel(group.billingMonth)}</p>
+                                                                                    <p className="text-xs text-slate-400">{group.periodName || 'Khoản riêng'}</p>
+                                                                              </td>
+                                                                              <td className="px-3 py-4">
+                                                                                    <div className="space-y-2">
+                                                                                          {group.charges.map((charge: any) => {
+                                                                                                const canEdit = String(charge.status || '') !== 'cancelled';
+                                                                                                const canCancel = toMoneyNumber(charge.paidAmount || 0) <= 0 && String(charge.status || '') !== 'cancelled';
+                                                                                                return (
+                                                                                                      <div key={charge.id} className="rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2">
+                                                                                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                                                                  <div>
+                                                                                                                        <p className="text-sm font-semibold text-slate-800">{charge.periodItemName || charge.feeTypeName || charge.feeName || 'Khoản thu'}</p>
+                                                                                                                        <p className="text-xs text-slate-500">
+                                                                                                                              {formatMoney(charge.amount)} · Đã thu {formatMoney(charge.paidAmount)} · Còn {formatMoney(charge.remainingAmount)}
+                                                                                                                        </p>
+                                                                                                                  </div>
+                                                                                                                  <div className="flex items-center gap-2">
+                                                                                                                        <SmallBadge className={getStatusClass(charge.status)}>{getStatusLabel(charge.status)}</SmallBadge>
+                                                                                                                        {canEdit ? (
+                                                                                                                              <button type="button" className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600" onClick={() => openEditCharge(charge)}>
+                                                                                                                                    Sửa
+                                                                                                                              </button>
+                                                                                                                        ) : null}
+                                                                                                                        {canCancel ? (
+                                                                                                                              <button type="button" className="rounded-lg border border-rose-100 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700" onClick={() => {
+                                                                                                                                    if (window.confirm('Hủy khoản thu này?')) cancelChargeMutation?.mutate?.({ id: Number(charge.id), reason: 'Hủy từ màn tài chính' });
+                                                                                                                              }}>
+                                                                                                                                    Hủy
+                                                                                                                              </button>
+                                                                                                                        ) : null}
+                                                                                                                  </div>
+                                                                                                            </div>
+                                                                                                      </div>
+                                                                                                );
+                                                                                          })}
+                                                                                    </div>
+                                                                              </td>
+                                                                              <td className="px-3 py-4 text-right font-semibold text-slate-900">{formatMoney(group.amount)}</td>
+                                                                              <td className="px-3 py-4 text-right text-slate-600">{formatMoney(group.paidAmount)}</td>
+                                                                              <td className="px-3 py-4 text-right font-semibold text-slate-800">{formatMoney(group.remainingAmount)}</td>
+                                                                              <td className="px-3 py-4"><SmallBadge className={getStatusClass(group.status)}>{getStatusLabel(group.status)}</SmallBadge></td>
+                                                                              <td className="px-3 py-4 text-right">
+                                                                                    {canCollect ? (
+                                                                                          <button type="button" className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700" onClick={() => openGroupPaymentForChargeGroup(group)}>
                                                                                                 Thu
                                                                                           </button>
-                                                                                    ) : null}
-                                                                                    <button type="button" className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600" onClick={() => openEditCharge(charge)}>
-                                                                                          Sửa
-                                                                                    </button>
-                                                                                    {Number(charge.paidAmount || 0) <= 0 && charge.status !== 'cancelled' ? (
-                                                                                          <button type="button" className="rounded-lg border border-rose-100 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700" onClick={() => {
-                                                                                                if (window.confirm('Hủy khoản thu này?')) cancelChargeMutation?.mutate?.({ id: Number(charge.id), reason: 'Hủy từ màn tài chính' });
-                                                                                          }}>
-                                                                                                Hủy
-                                                                                          </button>
-                                                                                    ) : null}
-                                                                              </div>
-                                                                        </td>
+                                                                                    ) : (
+                                                                                          <span className="text-xs text-slate-400">-</span>
+                                                                                    )}
+                                                                              </td>
+                                                                        </tr>
+                                                                  );
+                                                            })}
+                                                            {!groupedCharges.length ? (
+                                                                  <tr>
+                                                                        <td colSpan={7} className="px-3 py-8 text-center text-sm text-slate-500">Chưa có khoản phải thu phù hợp.</td>
                                                                   </tr>
-                                                            ))}
+                                                            ) : null}
                                                       </tbody>
                                                 </table>
                                           </div>
@@ -1420,7 +1523,7 @@ export default function FinanceLite() {
                                           </div>
                                           <div>
                                                 <label className="text-sm font-medium text-slate-700">Ngày thu</label>
-                                                <input type="date" value={paymentForm.paymentDate} onChange={(event) => setPaymentForm({ ...paymentForm, paymentDate: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                                                <DatePickerInput value={paymentForm.paymentDate} onChange={(event) => setPaymentForm({ ...paymentForm, paymentDate: event.target.value })} />
                                           </div>
                                     </div>
                                     <div>
@@ -1510,7 +1613,7 @@ export default function FinanceLite() {
                                           </div>
                                           <div>
                                                 <label className="text-sm font-medium text-slate-700">Ngày thu</label>
-                                                <input type="date" value={groupPaymentForm.paymentDate} onChange={(event) => setGroupPaymentForm({ ...groupPaymentForm, paymentDate: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                                                <DatePickerInput value={groupPaymentForm.paymentDate} onChange={(event) => setGroupPaymentForm({ ...groupPaymentForm, paymentDate: event.target.value })} />
                                           </div>
                                     </div>
 
@@ -1553,11 +1656,11 @@ export default function FinanceLite() {
                                           </div>
                                           <div>
                                                 <label className="text-sm font-medium text-slate-700">Từ ngày</label>
-                                                <input type="date" value={editChargeForm.periodStartDate} onChange={(event) => setEditChargeForm({ ...editChargeForm, periodStartDate: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                                                <DatePickerInput value={editChargeForm.periodStartDate} onChange={(event) => setEditChargeForm({ ...editChargeForm, periodStartDate: event.target.value })} />
                                           </div>
                                           <div>
                                                 <label className="text-sm font-medium text-slate-700">Đến ngày</label>
-                                                <input type="date" value={editChargeForm.periodEndDate} onChange={(event) => setEditChargeForm({ ...editChargeForm, periodEndDate: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                                                <DatePickerInput value={editChargeForm.periodEndDate} onChange={(event) => setEditChargeForm({ ...editChargeForm, periodEndDate: event.target.value })} />
                                           </div>
                                     </div>
                                     <div>
@@ -1601,7 +1704,7 @@ export default function FinanceLite() {
                                           </div>
                                           <div>
                                                 <label className="text-sm font-medium text-slate-700">Ngày</label>
-                                                <input type="date" value={transactionForm.transactionDate} onChange={(event) => setTransactionForm({ ...transactionForm, transactionDate: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                                                <DatePickerInput value={transactionForm.transactionDate} onChange={(event) => setTransactionForm({ ...transactionForm, transactionDate: event.target.value })} />
                                           </div>
                                     </div>
                                     <div>

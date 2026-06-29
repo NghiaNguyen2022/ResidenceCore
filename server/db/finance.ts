@@ -1250,9 +1250,15 @@ export async function recordFinancePayment(input: RecordPaymentInput) {
       if (charge.status === 'cancelled') throw new Error('Khoản thu đã hủy, không thể ghi nhận thanh toán.');
       if (charge.status === 'paid') throw new Error('Khoản thu đã thu đủ.');
 
+      const chargeAmount = Number(charge.amount || 0);
+      const currentPaidAmount = Number(charge.paidAmount || 0);
       const remainingAmount = Number(charge.remainingAmount || 0);
       if (remainingAmount <= 0) throw new Error('Khoản thu không còn số tiền phải thu.');
       if (amount > remainingAmount) throw new Error(`Số tiền thu không được lớn hơn số tiền còn lại (${remainingAmount}).`);
+
+      const newPaidAmount = currentPaidAmount + amount;
+      const newRemainingAmount = Math.max(chargeAmount - newPaidAmount, 0);
+      const newStatus = newRemainingAmount <= 0 ? 'paid' : newPaidAmount > 0 ? 'partial' : 'open';
 
       const residentId = Number(input.residentId || charge.residentId || 0);
       if (!residentId) throw new Error('Khoản thu chưa có học viên hợp lệ.');
@@ -1285,13 +1291,9 @@ export async function recordFinancePayment(input: RecordPaymentInput) {
       await db.execute(sql`
             UPDATE finance_charges
             SET
-                  paid_amount = paid_amount + ${amount},
-                  remaining_amount = GREATEST(finance_charges.amount - (paid_amount + ${amount}), 0),
-                  status = CASE
-                        WHEN GREATEST(finance_charges.amount - (paid_amount + ${amount}), 0) <= 0 THEN 'paid'
-                        WHEN (paid_amount + ${amount}) > 0 THEN 'partial'
-                        ELSE 'open'
-                  END,
+                  paid_amount = ${newPaidAmount},
+                  remaining_amount = ${newRemainingAmount},
+                  status = ${newStatus},
                   updated_at = NOW()
             WHERE id = ${input.chargeId}
       `);
