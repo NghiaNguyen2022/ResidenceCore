@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { CreditCard, Plus, Search, WalletCards, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { CalendarDays, CheckCircle2, CreditCard, Pencil, Plus, Search, Users, WalletCards, X } from "lucide-react";
 
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
 import { DatePickerInput } from "@/components/shared/form/DatePickerInput";
 import { trpc } from "@/lib/trpc";
 
-type FinanceTab = "periods" | "charges" | "cashbook";
+type FinanceTab = "studentLedger" | "expenses" | "cashbook";
 type ChargeStatus = "all" | "open" | "partial" | "paid" | "cancelled";
 
 type PeriodFormState = {
@@ -201,9 +201,11 @@ function ModalShell({
 
 export default function FinanceLite() {
   const financeApi = (trpc as any).finance;
-  const [activeTab, setActiveTab] = useState<FinanceTab>("periods");
+  const [activeTab, setActiveTab] = useState<FinanceTab>("studentLedger");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<ChargeStatus>("all");
+  const [studentLedgerPage, setStudentLedgerPage] = useState(1);
+  const [studentLedgerPageSize, setStudentLedgerPageSize] = useState(7);
   const [periodFormOpen, setPeriodFormOpen] = useState(false);
   const [periodFormMessage, setPeriodFormMessage] = useState("");
   const [periodForm, setPeriodForm] = useState<PeriodFormState>(() =>
@@ -211,8 +213,10 @@ export default function FinanceLite() {
   );
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
   const [selectedBillingMonth, setSelectedBillingMonth] = useState("");
+  const monthCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [selectionMessage, setSelectionMessage] = useState("");
   const [selectionKey, setSelectionKey] = useState("");
+  const [applyPanelOpen, setApplyPanelOpen] = useState(false);
   const [residentSelections, setResidentSelections] = useState<
     Record<string, Record<string, { selected: boolean; amount: string }>>
   >({});
@@ -362,6 +366,15 @@ export default function FinanceLite() {
       setSelectedBillingMonth(defaultMonth);
     }
   }, [selectedPeriodMonths, selectedBillingMonth, currentBillingMonth]);
+
+  useEffect(() => {
+    if (!selectedBillingMonth) return;
+    const node = monthCardRefs.current[selectedBillingMonth];
+    if (!node) return;
+    requestAnimationFrame(() => {
+      node.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  }, [selectedBillingMonth, selectedPeriodId]);
 
   useEffect(() => {
     const residentApplySignature = previewResidents
@@ -521,12 +534,22 @@ export default function FinanceLite() {
     });
 
   const selectedPeriodScopedCharges = useMemo(() => {
-    if (!selectedPeriodId) return charges;
-    return charges.filter(
-      (charge: any) =>
-        Number(charge?.periodId || 0) === Number(selectedPeriodId),
-    );
-  }, [charges, selectedPeriodId]);
+    let scoped = charges;
+    if (selectedPeriodId) {
+      scoped = scoped.filter(
+        (charge: any) =>
+          Number(charge?.periodId || 0) === Number(selectedPeriodId),
+      );
+    }
+    if (selectedBillingMonth) {
+      scoped = scoped.filter(
+        (charge: any) =>
+          !charge?.billingMonth ||
+          String(charge.billingMonth) === String(selectedBillingMonth),
+      );
+    }
+    return scoped;
+  }, [charges, selectedPeriodId, selectedBillingMonth]);
   const openCharges = useMemo(
     () =>
       selectedPeriodScopedCharges.filter((charge: any) =>
@@ -605,6 +628,33 @@ export default function FinanceLite() {
       return { ...group, status, chargeCount: group.charges.length };
     });
   }, [selectedPeriodScopedCharges]);
+
+  useEffect(() => {
+    setStudentLedgerPage(1);
+  }, [selectedPeriodId, selectedBillingMonth, searchTerm, statusFilter, studentLedgerPageSize]);
+
+  const studentLedgerTotalPages = Math.max(
+    1,
+    Math.ceil(groupedCharges.length / studentLedgerPageSize),
+  );
+
+  const safeStudentLedgerPage = Math.min(
+    studentLedgerPage,
+    studentLedgerTotalPages,
+  );
+
+  const paginatedGroupedCharges = useMemo(() => {
+    const startIndex = (safeStudentLedgerPage - 1) * studentLedgerPageSize;
+    return groupedCharges.slice(startIndex, startIndex + studentLedgerPageSize);
+  }, [groupedCharges, safeStudentLedgerPage, studentLedgerPageSize]);
+
+  const studentLedgerStartIndex = groupedCharges.length
+    ? (safeStudentLedgerPage - 1) * studentLedgerPageSize + 1
+    : 0;
+  const studentLedgerEndIndex = groupedCharges.length
+    ? Math.min(safeStudentLedgerPage * studentLedgerPageSize, groupedCharges.length)
+    : 0;
+
   const groupSelectedPeriod = useMemo(
     () =>
       periods.find(
@@ -619,7 +669,7 @@ export default function FinanceLite() {
     [groupSelectedPeriod],
   );
   const groupPaymentCandidateCharges = useMemo(() => {
-    return openCharges.filter((charge: any) => {
+    return charges.filter((charge: any) => {
       if (
         groupPaymentForm.periodId &&
         Number(charge?.periodId || 0) !== Number(groupPaymentForm.periodId)
@@ -635,7 +685,7 @@ export default function FinanceLite() {
         charge?.residentId && toMoneyNumber(charge?.remainingAmount || 0) > 0,
       );
     });
-  }, [openCharges, groupPaymentForm.periodId, groupPaymentForm.billingMonth]);
+  }, [charges, groupPaymentForm.periodId, groupPaymentForm.billingMonth]);
   const groupPaymentResidents = useMemo(() => {
     const residentMap = new Map<
       number,
@@ -1521,11 +1571,19 @@ export default function FinanceLite() {
           label: "Còn phải thu kỳ",
           value: formatMoney(scopedOpenAmount),
           hint: selectedPeriod?.periodName || "",
+          subhint: "Giá trị còn cần thu trong kỳ đang xem",
+          icon: WalletCards,
+          iconTone: "text-amber-700",
+          iconWrap: "bg-white/90 border-amber-200/80",
         },
         {
           label: "Đã thu trong kỳ",
           value: formatMoney(scopedPaidAmount),
           hint: selectedPeriod?.periodName || "",
+          subhint: "Các khoản đã ghi nhận thanh toán",
+          icon: CreditCard,
+          iconTone: "text-amber-700",
+          iconWrap: "bg-white/90 border-amber-200/80",
         },
         {
           label: "Tổng phải thu kỳ",
@@ -1533,11 +1591,19 @@ export default function FinanceLite() {
             scopedTotalAmount || scopedOpenAmount + scopedPaidAmount,
           ),
           hint: selectedPeriod?.periodName || "",
+          subhint: "Tổng công nợ phát sinh của kỳ này",
+          icon: CalendarDays,
+          iconTone: "text-amber-700",
+          iconWrap: "bg-white/90 border-amber-200/80",
         },
         {
           label: "Khoản trong kỳ",
           value: String(scopedChargeCount || 0),
           hint: selectedPeriod?.periodName || "",
+          subhint: "Số dòng công nợ đang được theo dõi",
+          icon: Users,
+          iconTone: "text-amber-700",
+          iconWrap: "bg-white/90 border-amber-200/80",
         },
       ]
     : [
@@ -1545,21 +1611,37 @@ export default function FinanceLite() {
           label: "Còn phải thu",
           value: formatMoney(summary.totalOpenAmount),
           hint: "Toàn hệ thống",
+          subhint: "Số dư công nợ học viên chưa thu",
+          icon: WalletCards,
+          iconTone: "text-amber-700",
+          iconWrap: "bg-white/90 border-amber-200/80",
         },
         {
           label: "Đã thu học viên",
           value: formatMoney(summary.totalPaidAmount),
           hint: "Toàn hệ thống",
+          subhint: "Tổng thu từ các khoản phí học viên",
+          icon: CreditCard,
+          iconTone: "text-amber-700",
+          iconWrap: "bg-white/90 border-amber-200/80",
         },
         {
           label: "Thu khác",
           value: formatMoney(summary.totalCashIn),
           hint: "Toàn hệ thống",
+          subhint: "Các khoản thu khác, tài trợ và ủng hộ",
+          icon: CalendarDays,
+          iconTone: "text-amber-700",
+          iconWrap: "bg-white/90 border-amber-200/80",
         },
         {
           label: "Khoản đang mở",
           value: String(summary.openChargeCount || 0),
           hint: "Toàn hệ thống",
+          subhint: "Tổng số khoản chưa hoàn tất",
+          icon: Users,
+          iconTone: "text-amber-700",
+          iconWrap: "bg-white/90 border-amber-200/80",
         },
       ];
 
@@ -1576,8 +1658,7 @@ export default function FinanceLite() {
                   Tài chính lưu xá
                 </h1>
                 <p className={residenceMediumStyle.standardHeaderSubtitle}>
-                  Tạo kỳ thu chung, áp dụng cho từng học viên theo tháng và ghi
-                  nhận thanh toán.
+                  Quản lý kỳ thu học viên, khoản chi và sổ thu chi phát sinh.
                 </p>
               </div>
               <div className={residenceMediumStyle.standardHeaderActions}>
@@ -1599,32 +1680,51 @@ export default function FinanceLite() {
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-4">
-            {topSummaryCards.map((card) => (
-              <div
-                key={card.label}
-                className="rounded-2xl border border-white/70 bg-white/85 p-4 shadow-sm"
-              >
-                <p className="text-xs text-slate-500">{card.label}</p>
-                <p className="mt-1 text-xl font-semibold text-slate-900">
-                  {card.value}
-                </p>
-                <p className="mt-1 truncate text-[11px] text-slate-400">
-                  {card.hint}
-                </p>
-              </div>
-            ))}
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {topSummaryCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <div
+                  key={card.label}
+                  className="group relative overflow-hidden rounded-[26px] border border-white/85 bg-gradient-to-br from-[#fff8e5] via-white/96 to-[#f2c76b]/80 p-5 shadow-[0_14px_38px_rgba(15,23,42,0.08)] ring-1 ring-amber-100/70"
+                >
+                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.9),transparent_36%),linear-gradient(135deg,rgba(245,158,11,0.08),transparent_46%)]" />
+                  <div className="relative flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                        {card.label}
+                      </p>
+                      <p className="mt-4 text-[2rem] font-semibold leading-none tracking-tight text-slate-800">
+                        {card.value}
+                      </p>
+                      <p className="mt-4 truncate text-sm font-medium text-slate-600">
+                        {card.hint}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500/90">
+                        {card.subhint}
+                      </p>
+                    </div>
+                    <div
+                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border shadow-sm ${card.iconWrap}`}
+                    >
+                      <Icon className={`h-6 w-6 ${card.iconTone}`} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {periods.length ? (
-            <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
-              <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-center">
+            <section className="relative overflow-hidden rounded-[30px] border border-white/85 bg-gradient-to-r from-[#fff7e0] via-white/95 to-[#efd08a]/75 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] ring-1 ring-amber-100/70 md:p-5">
+              <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.88),transparent_33%),linear-gradient(120deg,rgba(245,158,11,0.08),transparent_45%)]" />
+              <div className="relative grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_290px] lg:items-center">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
                     Kỳ thu đang xem
                   </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Áp dụng cho tất cả tab bên dưới.
+                  <p className="mt-2 text-base font-semibold text-slate-800">
+                    Áp dụng cho sổ kỳ thu học viên và các báo cáo theo kỳ.
                   </p>
                 </div>
                 <select
@@ -1644,21 +1744,20 @@ export default function FinanceLite() {
                       "";
                     selectPeriodMonth(nextPeriod, defaultMonth);
                   }}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                  className="w-full rounded-2xl border border-slate-200/90 bg-white/95 px-5 py-3 text-base font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                 >
                   {periods.map((period: any) => (
                     <option key={period.id} value={period.id}>
-                      {period.periodName} · Tháng{" "}
-                      {String(period.fromMonth).padStart(2, "0")}-
-                      {String(period.toMonth).padStart(2, "0")} / {period.year}
+                      {period.periodName} · Tháng {String(period.fromMonth).padStart(2, "0")}-{String(period.toMonth).padStart(2, "0")} / {period.year}
                     </option>
                   ))}
                 </select>
-                <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm text-slate-600">
+                <div className="inline-flex items-center justify-start rounded-2xl border border-amber-200/80 bg-white/82 px-5 py-3 text-base text-slate-600 shadow-sm lg:justify-center">
                   <span className="font-semibold text-slate-900">
-                    {selectedPeriod?.chargeCount || 0}
-                  </span>{" "}
-                  khoản · Còn lại {formatMoney(selectedPeriod?.openAmount || 0)}
+                    {selectedPeriod?.chargeCount || 0} khoản
+                  </span>
+                  <span className="mx-2 text-slate-300">·</span>
+                  <span>Còn lại {formatMoney(selectedPeriod?.openAmount || 0)}</span>
                 </div>
               </div>
             </section>
@@ -1667,8 +1766,8 @@ export default function FinanceLite() {
           <div className={residenceMediumStyle.standardTabRail}>
             <div className={residenceMediumStyle.standardTabGrid}>
               {[
-                ["periods", "Kỳ thu"],
-                ["charges", "Khoản phải thu"],
+                ["studentLedger", "Kỳ thu học viên"],
+                ["expenses", "Khoản chi"],
                 ["cashbook", "Sổ thu chi"],
               ].map(([key, label]) => (
                 <button
@@ -1683,123 +1782,115 @@ export default function FinanceLite() {
             </div>
           </div>
 
-          {activeTab === "periods" ? (
-            <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)] xl:items-start">
-              <section className="flex min-h-0 flex-col rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm xl:sticky xl:top-4 xl:max-h-[calc(100vh-120px)]">
+          {activeTab === "studentLedger" ? (
+            <>
+            <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
+              <section className="flex min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/85 bg-gradient-to-b from-white/95 via-[#fffaf0] to-[#fff2d1] p-4 shadow-[0_16px_36px_rgba(15,23,42,0.08)] ring-1 ring-amber-100/70 xl:sticky xl:top-4 xl:h-[calc(100vh-5.5rem)] xl:max-h-none">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-semibold text-slate-900">
-                      Tháng trong kỳ
+                    <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
+                      Chọn tháng
                     </h2>
-                    <p className="text-sm text-slate-500">
-                      Chọn tháng của kỳ đang xem ở phía trên.
+                    <p className="mt-1 text-sm text-slate-500">
+                      {selectedPeriod?.periodName || "Kỳ thu học viên"}
                     </p>
                   </div>
                   <button
                     type="button"
-                    className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800"
+                    className="inline-flex items-center rounded-2xl border border-amber-200/90 bg-white/88 px-3.5 py-2 text-sm font-semibold text-amber-800 shadow-sm transition hover:border-amber-300 hover:bg-amber-50"
                     onClick={() => setPeriodFormOpen(true)}
                   >
-                    <Plus className="mr-1 inline h-3.5 w-3.5" /> Tạo
+                    <Plus className="mr-1.5 h-4 w-4" /> Kỳ
                   </button>
                 </div>
-                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                   {periods.length ? (
                     <>
-                      {selectedPeriod ? (
-                        <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">
-                                {selectedPeriod.periodName}
-                              </p>
-                              <p className="mt-1 text-xs text-slate-500">
-                                Tháng{" "}
-                                {String(selectedPeriod.fromMonth).padStart(
-                                  2,
-                                  "0",
-                                )}{" "}
-                                -{" "}
-                                {String(selectedPeriod.toMonth).padStart(
-                                  2,
-                                  "0",
-                                )}{" "}
-                                / {selectedPeriod.year}
-                              </p>
-                            </div>
-                            <SmallBadge className="border-slate-200 bg-white text-slate-600">
-                              {selectedPeriod.chargeCount || 0} khoản
-                            </SmallBadge>
-                          </div>
-                          <p className="mt-2 text-xs text-slate-500">
-                            Còn phải thu:{" "}
-                            {formatMoney(selectedPeriod.openAmount)}
+                      <div className="sticky top-0 z-10 -mx-1 mb-3 rounded-2xl bg-[linear-gradient(180deg,rgba(255,250,240,0.97),rgba(255,250,240,0.9))] px-1 pb-3 pt-1 backdrop-blur-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            Danh sách tháng
                           </p>
+                          <button
+                            type="button"
+                            className="inline-flex items-center rounded-full border border-amber-200 bg-white/90 px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm transition hover:border-amber-300 hover:bg-amber-50"
+                            onClick={() => {
+                              const periodWithCurrentMonth = periods.find((period: any) =>
+                                periodContainsBillingMonth(period, currentBillingMonth),
+                              );
+                              if (!periodWithCurrentMonth) return;
+                              selectPeriodMonth(periodWithCurrentMonth, currentBillingMonth);
+                            }}
+                          >
+                            Tháng hiện tại
+                          </button>
                         </div>
-                      ) : null}
-
-                      <div>
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Tháng trong kỳ
-                          </p>
-                          {periodContainsBillingMonth(
+                      </div>
+                      <div className="space-y-3">
+                        {selectedPeriodMonths.map((month: any) => {
+                          const stats = getMonthChargeStats(
                             selectedPeriod,
-                            currentBillingMonth,
-                          ) ? (
-                            <SmallBadge className="border-amber-200 bg-amber-50 text-amber-700">
-                              Tháng hiện tại
-                            </SmallBadge>
-                          ) : null}
-                        </div>
-                        <div className="space-y-2">
-                          {selectedPeriodMonths.map((month: any) => {
-                            const stats = getMonthChargeStats(
-                              selectedPeriod,
-                              month.value,
-                            );
-                            const selectedMonth =
-                              selectedBillingMonth === month.value;
-                            const isCurrentMonth =
-                              currentBillingMonth === month.value;
+                            month.value,
+                          );
+                          const selectedMonth =
+                            selectedBillingMonth === month.value;
+                          const isCurrentMonth =
+                            currentBillingMonth === month.value;
+                          const hasMonthCharges =
+                            Number(stats.residentCount || 0) > 0 ||
+                            toMoneyNumber(stats.paidAmount || 0) > 0 ||
+                            toMoneyNumber(stats.remainingAmount || 0) > 0;
 
-                            return (
-                              <button
-                                key={month.value}
-                                type="button"
-                                onClick={() =>
-                                  selectPeriodMonth(selectedPeriod, month.value)
-                                }
-                                className={`w-full rounded-2xl border px-3 py-3 text-left transition ${selectedMonth ? "border-amber-300 bg-white text-amber-900 shadow-sm" : "border-slate-100 bg-white/70 text-slate-600 hover:border-amber-200 hover:bg-white"}`}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-sm font-semibold">
+                          const monthCardClass = selectedMonth
+                            ? "border-amber-300 bg-gradient-to-br from-[#fff6de] via-white to-[#f3cf82]/75 text-amber-950 shadow-[0_12px_30px_rgba(217,119,6,0.12)] ring-1 ring-amber-100"
+                            : isCurrentMonth
+                              ? "border-amber-200 bg-gradient-to-br from-[#fffaf0] via-white to-[#f6de9e]/65 text-slate-700 shadow-sm hover:border-amber-300"
+                              : hasMonthCharges
+                                ? "border-amber-100/80 bg-white/88 text-slate-700 shadow-sm hover:border-amber-200 hover:bg-[#fffaf0]"
+                                : "border-slate-200/90 bg-slate-100/95 text-slate-600 hover:border-slate-300";
+
+                          const metaTextClass = selectedMonth
+                            ? "text-slate-600"
+                            : hasMonthCharges || isCurrentMonth
+                              ? "text-slate-500"
+                              : "text-slate-500/90";
+
+                          return (
+                            <button
+                              key={month.value}
+                              ref={(node) => {
+                                monthCardRefs.current[month.value] = node;
+                              }}
+                              type="button"
+                              onClick={() =>
+                                selectPeriodMonth(selectedPeriod, month.value)
+                              }
+                              className={`w-full rounded-[24px] border px-4 py-3 text-left transition ${monthCardClass}`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <span className="text-[15px] font-semibold tracking-tight">
                                     {month.label}
                                   </span>
-                                  <div className="flex items-center gap-1.5">
-                                    {isCurrentMonth ? (
-                                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                                        Hiện tại
-                                      </span>
-                                    ) : null}
-                                    <span className="text-[11px] text-slate-500">
-                                      {stats.residentCount} người
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {isCurrentMonth ? (
+                                    <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                                      Hiện tại
                                     </span>
-                                  </div>
-                                </div>
-                                <div className="mt-2 grid gap-1 text-[11px] text-slate-500">
-                                  <span>
-                                    Đã thu: {formatMoney(stats.paidAmount)}
-                                  </span>
-                                  <span>
-                                    Còn lại:{" "}
-                                    {formatMoney(stats.remainingAmount)}
+                                  ) : null}
+                                  <span className={`text-[12px] font-medium ${metaTextClass}`}>
+                                    {stats.residentCount} người
                                   </span>
                                 </div>
-                              </button>
-                            );
-                          })}
-                        </div>
+                              </div>
+                              <div className={`mt-3 grid gap-1 text-[12px] ${metaTextClass}`}>
+                                <span>Đã thu: {formatMoney(stats.paidAmount)}</span>
+                                <span>Còn lại: {formatMoney(stats.remainingAmount)}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </>
                   ) : (
@@ -1810,37 +1901,325 @@ export default function FinanceLite() {
                 </div>
               </section>
 
+              <div className="space-y-4">
+            <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h2 className="text-[22px] font-semibold leading-tight text-slate-950">
+                    Phải thu {getBillingMonthLabel(selectedBillingMonth)}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Công nợ học viên của tháng đang chọn, gom theo từng học viên để dễ thu và đối chiếu.
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                    <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-3 py-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tháng</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{getBillingMonthLabel(selectedBillingMonth).replace("Tháng ", "T")}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-white/80 px-3 py-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Học viên</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{groupedCharges.length}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-white/80 px-3 py-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Đã thu</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.paidAmount || 0), 0))}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-white/80 px-3 py-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Còn lại</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.remainingAmount || 0), 0))}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className={residenceMediumStyle.buttonCardPrimary}
+                    onClick={openGroupedPayment}
+                  >
+                    Thu theo học viên
+                  </button>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      placeholder="Tìm học viên..."
+                      className="w-52 rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm"
+                    />
+                  </div>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) =>
+                      setStatusFilter(event.target.value as ChargeStatus)
+                    }
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="all">Tất cả</option>
+                    <option value="open">Chưa thu</option>
+                    <option value="partial">Thu một phần</option>
+                    <option value="paid">Đã thu</option>
+                    <option value="cancelled">Đã hủy</option>
+                  </select>
+                  <select
+                    value={studentLedgerPageSize}
+                    onChange={(event) =>
+                      setStudentLedgerPageSize(Number(event.target.value) || 7)
+                    }
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    title="Số dòng mỗi trang"
+                  >
+                    <option value={5}>5 dòng</option>
+                    <option value={7}>7 dòng</option>
+                    <option value={10}>10 dòng</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-[26px] border border-white/85 bg-white/92 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
+                <table className="w-full table-fixed divide-y divide-slate-100 text-sm">
+                  <thead className="bg-gradient-to-r from-[#fff8e8] via-white to-[#f7e3ab]/65 text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                    <tr>
+                      <th className="w-[22%] px-3 py-3 text-left">
+                        Học viên
+                      </th>
+                      <th className="w-[44%] px-3 py-3 text-left">
+                        Khoản phí
+                      </th>
+                      <th className="w-[11%] px-3 py-3 text-right">Tổng</th>
+                      <th className="w-[11%] px-3 py-3 text-right">Đã thu</th>
+                      <th className="w-[11%] px-3 py-3 text-right">Còn lại</th>
+                      <th className="w-[10%] px-3 py-3 text-right">Tác vụ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white/95">
+                    {paginatedGroupedCharges.map((group: any) => {
+                      const canCollect =
+                        Boolean(group.residentId) &&
+                        group.charges.some(
+                          (charge: any) =>
+                            ["open", "partial"].includes(
+                              String(charge.status || "open"),
+                            ) && toMoneyNumber(charge.remainingAmount || 0) > 0,
+                        );
+                      return (
+                        <tr key={group.key} className="align-top">
+                          <td className="px-3 py-4">
+                            <p className="font-semibold text-slate-900">
+                              {group.residentName}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {group.residentCode || "-"}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {getBillingMonthLabel(group.billingMonth)} · {group.periodName || "Khoản riêng"}
+                            </p>
+                          </td>
+                          <td className="px-3 py-4">
+                            <div className="space-y-2">
+                              {group.charges.map((charge: any) => {
+                                const canEdit =
+                                  String(charge.status || "") !== "cancelled";
+                                const canCancel =
+                                  toMoneyNumber(charge.paidAmount || 0) <= 0 &&
+                                  String(charge.status || "") !== "cancelled";
+                                const chargeTitle =
+                                  charge.periodItemName ||
+                                  charge.feeTypeName ||
+                                  charge.feeName ||
+                                  "Khoản thu";
+                                const status = String(charge.status || "open");
+                                const isPaid = status === "paid";
+                                return (
+                                  <div
+                                    key={charge.id}
+                                    className="rounded-2xl border border-amber-100/80 bg-gradient-to-r from-[#fffaf0] via-white to-[#fff3d6] px-3 py-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)]"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <p className="text-[15px] font-semibold leading-5 text-slate-800">
+                                            {chargeTitle}
+                                          </p>
+                                          {isPaid ? (
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                              <CheckCircle2 className="h-3.5 w-3.5" />
+                                              Đã thu
+                                            </span>
+                                          ) : status === "partial" || status === "cancelled" ? (
+                                            <SmallBadge
+                                              className={getStatusClass(charge.status)}
+                                            >
+                                              {getStatusLabel(charge.status)}
+                                            </SmallBadge>
+                                          ) : null}
+                                        </div>
+                                        <p className="mt-1 text-[12px] leading-5 text-slate-500">
+                                          {formatMoney(charge.amount)} · thu {formatMoney(charge.paidAmount)} · còn {formatMoney(charge.remainingAmount)}
+                                        </p>
+                                      </div>
+                                      <div className="flex shrink-0 items-center gap-1.5">
+                                        {canEdit ? (
+                                          <button
+                                            type="button"
+                                            className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white/90 text-slate-500 transition hover:border-amber-200 hover:text-amber-700"
+                                            onClick={() => openEditCharge(charge)}
+                                            title="Sửa khoản thu"
+                                            aria-label="Sửa khoản thu"
+                                          >
+                                            <Pencil className="h-3.5 w-3.5" />
+                                          </button>
+                                        ) : null}
+                                        {canCancel ? (
+                                          <button
+                                            type="button"
+                                            className="rounded-xl border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700"
+                                            onClick={() => {
+                                              if (
+                                                window.confirm(
+                                                  "Hủy khoản thu này?",
+                                                )
+                                              )
+                                                cancelChargeMutation?.mutate?.({
+                                                  id: Number(charge.id),
+                                                  reason:
+                                                    "Hủy từ màn tài chính",
+                                                });
+                                            }}
+                                          >
+                                            Hủy
+                                          </button>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 text-right font-semibold text-slate-900">
+                            {formatMoney(group.amount)}
+                          </td>
+                          <td className="px-3 py-4 text-right text-slate-600">
+                            {formatMoney(group.paidAmount)}
+                          </td>
+                          <td className="px-3 py-4 text-right font-semibold text-slate-800">
+                            {formatMoney(group.remainingAmount)}
+                          </td>
+                          <td className="px-3 py-4 text-right">
+                            {canCollect ? (
+                              <button
+                                type="button"
+                                className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700"
+                                onClick={() =>
+                                  openGroupPaymentForChargeGroup(group)
+                                }
+                              >
+                                Thu
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-400">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {!groupedCharges.length ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-3 py-8 text-center text-sm text-slate-500"
+                        >
+                          Chưa có khoản phải thu phù hợp.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+
+              {groupedCharges.length ? (
+                <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-slate-100 bg-white/70 px-3 py-2 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+                  <span>
+                    Hiển thị {studentLedgerStartIndex}-{studentLedgerEndIndex} / {groupedCharges.length} học viên
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={safeStudentLedgerPage <= 1}
+                      onClick={() =>
+                        setStudentLedgerPage((current) => Math.max(1, current - 1))
+                      }
+                    >
+                      Trước
+                    </button>
+                    <span className="min-w-[72px] text-center text-xs font-semibold text-slate-700">
+                      Trang {safeStudentLedgerPage}/{studentLedgerTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={safeStudentLedgerPage >= studentLedgerTotalPages}
+                      onClick={() =>
+                        setStudentLedgerPage((current) =>
+                          Math.min(studentLedgerTotalPages, current + 1),
+                        )
+                      }
+                    >
+                      Sau
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
               <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
                 {detail ? (
                   <>
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div>
-                        <h2 className="text-lg font-semibold text-slate-900">
-                          {detail.period.periodName}
+                        <h2 className="text-base font-semibold text-slate-900">
+                          Áp dụng khoản thu
                         </h2>
                         <p className="text-sm text-slate-500">
-                          Đang áp dụng cho{" "}
-                          {getBillingMonthLabel(selectedBillingMonth)}. Chọn kỳ
-                          thu và tháng ở panel bên trái.
+                          Chỉ mở khi cần tạo thêm khoản phí cho tháng đang chọn.
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800"
-                          onClick={applyDefaultForAllEligible}
-                        >
-                          Apply all đủ điều kiện
-                        </button>
-                        <button
-                          type="button"
                           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600"
-                          onClick={clearAllSelections}
+                          onClick={() => setApplyPanelOpen((value) => !value)}
                         >
-                          Bỏ chọn tất cả
+                          {applyPanelOpen ? "Thu gọn" : "Mở áp dụng"}
                         </button>
+                        {applyPanelOpen ? (
+                          <>
+                            <button
+                              type="button"
+                              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800"
+                              onClick={applyDefaultForAllEligible}
+                            >
+                              Apply all đủ điều kiện
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600"
+                              onClick={clearAllSelections}
+                            >
+                              Bỏ chọn tất cả
+                            </button>
+                          </>
+                        ) : null}
                       </div>
                     </div>
+
+                    {!applyPanelOpen ? (
+                      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-slate-600">
+                        Đang có <span className="font-semibold text-slate-900">{groupedCharges.length}</span> học viên trong danh sách phải thu tháng này. Mở phần áp dụng khi cần tạo thêm khoản phí.
+                      </div>
+                    ) : (
+                      <>
 
                     <div className="mt-4 grid gap-3 md:grid-cols-3">
                       {periodItems.map((item: any) => {
@@ -1953,7 +2332,7 @@ export default function FinanceLite() {
                       </div>
                     </div>
 
-                    <div className="mt-4 overflow-hidden rounded-2xl border border-slate-100">
+                    <div className="mt-4 overflow-hidden rounded-[26px] border border-white/85 bg-white/92 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
                       <table className="w-full table-fixed divide-y divide-slate-100 text-sm">
                         <colgroup>
                           <col className="w-[24%]" />
@@ -1961,7 +2340,7 @@ export default function FinanceLite() {
                             <col key={item.id} className="w-[25.33%]" />
                           ))}
                         </colgroup>
-                        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                        <thead className="bg-gradient-to-r from-[#fff8e8] via-white to-[#f7e3ab]/65 text-[11px] uppercase tracking-[0.18em] text-slate-500">
                           <tr>
                             <th className="px-3 py-3 text-left">Học viên</th>
                             {periodItems.map((item: any) => (
@@ -1971,7 +2350,7 @@ export default function FinanceLite() {
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
+                        <tbody className="divide-y divide-slate-100 bg-white/95">
                           {!previewResidents.length ? (
                             <tr>
                               <td
@@ -2088,6 +2467,8 @@ export default function FinanceLite() {
                           : "Lưu áp dụng khoản thu"}
                       </button>
                     </div>
+                      </>
+                    )}
                   </>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
@@ -2095,218 +2476,92 @@ export default function FinanceLite() {
                   </div>
                 )}
               </section>
+
+              </div>
             </div>
+
+            </>
           ) : null}
 
-          {activeTab === "charges" ? (
+          {activeTab === "expenses" ? (
             <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-slate-900">
-                    Khoản phải thu học viên
+                    Khoản chi
                   </h2>
                   <p className="text-sm text-slate-500">
-                    Danh sách khoản phải thu theo kỳ thu đang xem. Đổi kỳ ở bộ
-                    chọn phía trên.
+                    Quản lý khoản chi theo kỳ như điện, nước, internet và các khoản chi phát sinh không theo kỳ.
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={residenceMediumStyle.buttonCardPrimary}
-                    onClick={openGroupedPayment}
-                  >
-                    Thu theo học viên
-                  </button>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
-                      placeholder="Tìm học viên, loại phí..."
-                      className="w-64 rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm"
-                    />
+                <button
+                  type="button"
+                  className={residenceMediumStyle.buttonCardPrimary}
+                  onClick={() => {
+                    setTransactionForm((prev) => ({
+                      ...prev,
+                      source: "expense",
+                      direction: "out",
+                    }));
+                    setTransactionFormOpen(true);
+                  }}
+                >
+                  Ghi nhận khoản chi
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Chi theo kỳ
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Dùng cho các khoản vận hành lặp lại theo tháng/kỳ.
+                      </p>
+                    </div>
+                    <SmallBadge className="border-amber-200 bg-white text-amber-700">
+                      Theo tháng
+                    </SmallBadge>
                   </div>
-                  <select
-                    value={statusFilter}
-                    onChange={(event) =>
-                      setStatusFilter(event.target.value as ChargeStatus)
-                    }
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  >
-                    <option value="all">Tất cả</option>
-                    <option value="open">Chưa thu</option>
-                    <option value="partial">Thu một phần</option>
-                    <option value="paid">Đã thu</option>
-                    <option value="cancelled">Đã hủy</option>
-                  </select>
+                  <div className="mt-4 grid gap-2 text-sm text-slate-600">
+                    <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2">
+                      Điện, nước, internet, vệ sinh, bảo trì định kỳ
+                    </div>
+                    <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2">
+                      Có thể gắn với kỳ/tháng đang xem để lên báo cáo vận hành
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Chi không theo kỳ
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Dùng cho sự kiện, sửa chữa, mua sắm, hỗ trợ học viên hoặc khoản phát sinh.
+                      </p>
+                    </div>
+                    <SmallBadge className="border-slate-200 bg-slate-50 text-slate-600">
+                      Phát sinh
+                    </SmallBadge>
+                  </div>
+                  <div className="mt-4 grid gap-2 text-sm text-slate-600">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
+                      Ghi nhận trực tiếp vào sổ thu chi, không cần chọn kỳ
+                    </div>
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
+                      Bắt buộc có mục đích/người nhận hoặc ghi chú rõ ràng
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-2xl border border-slate-100">
-                <table className="w-full table-fixed divide-y divide-slate-100 text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="w-[22%] px-3 py-3 text-left">
-                        Học viên / Kỳ
-                      </th>
-                      <th className="w-[36%] px-3 py-3 text-left">
-                        Các khoản trong kỳ
-                      </th>
-                      <th className="w-[11%] px-3 py-3 text-right">Tổng</th>
-                      <th className="w-[11%] px-3 py-3 text-right">Đã thu</th>
-                      <th className="w-[11%] px-3 py-3 text-right">Còn lại</th>
-                      <th className="w-[10%] px-3 py-3 text-left">
-                        Trạng thái
-                      </th>
-                      <th className="w-[10%] px-3 py-3 text-right">Tác vụ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {groupedCharges.map((group: any) => {
-                      const canCollect =
-                        Boolean(group.residentId) &&
-                        group.charges.some(
-                          (charge: any) =>
-                            ["open", "partial"].includes(
-                              String(charge.status || "open"),
-                            ) && toMoneyNumber(charge.remainingAmount || 0) > 0,
-                        );
-                      return (
-                        <tr key={group.key} className="align-top">
-                          <td className="px-3 py-4">
-                            <p className="font-semibold text-slate-900">
-                              {group.residentName}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {group.residentCode || "-"}
-                            </p>
-                            <p className="mt-2 text-xs font-medium text-slate-600">
-                              {getBillingMonthLabel(group.billingMonth)}
-                            </p>
-                            <p className="text-xs text-slate-400">
-                              {group.periodName || "Khoản riêng"}
-                            </p>
-                          </td>
-                          <td className="px-3 py-4">
-                            <div className="space-y-2">
-                              {group.charges.map((charge: any) => {
-                                const canEdit =
-                                  String(charge.status || "") !== "cancelled";
-                                const canCancel =
-                                  toMoneyNumber(charge.paidAmount || 0) <= 0 &&
-                                  String(charge.status || "") !== "cancelled";
-                                return (
-                                  <div
-                                    key={charge.id}
-                                    className="rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2"
-                                  >
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <div>
-                                        <p className="text-sm font-semibold text-slate-800">
-                                          {charge.periodItemName ||
-                                            charge.feeTypeName ||
-                                            charge.feeName ||
-                                            "Khoản thu"}
-                                        </p>
-                                        <p className="text-xs text-slate-500">
-                                          {formatMoney(charge.amount)} · Đã thu{" "}
-                                          {formatMoney(charge.paidAmount)} · Còn{" "}
-                                          {formatMoney(charge.remainingAmount)}
-                                        </p>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <SmallBadge
-                                          className={getStatusClass(
-                                            charge.status,
-                                          )}
-                                        >
-                                          {getStatusLabel(charge.status)}
-                                        </SmallBadge>
-                                        {canEdit ? (
-                                          <button
-                                            type="button"
-                                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600"
-                                            onClick={() =>
-                                              openEditCharge(charge)
-                                            }
-                                          >
-                                            Sửa
-                                          </button>
-                                        ) : null}
-                                        {canCancel ? (
-                                          <button
-                                            type="button"
-                                            className="rounded-lg border border-rose-100 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700"
-                                            onClick={() => {
-                                              if (
-                                                window.confirm(
-                                                  "Hủy khoản thu này?",
-                                                )
-                                              )
-                                                cancelChargeMutation?.mutate?.({
-                                                  id: Number(charge.id),
-                                                  reason:
-                                                    "Hủy từ màn tài chính",
-                                                });
-                                            }}
-                                          >
-                                            Hủy
-                                          </button>
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </td>
-                          <td className="px-3 py-4 text-right font-semibold text-slate-900">
-                            {formatMoney(group.amount)}
-                          </td>
-                          <td className="px-3 py-4 text-right text-slate-600">
-                            {formatMoney(group.paidAmount)}
-                          </td>
-                          <td className="px-3 py-4 text-right font-semibold text-slate-800">
-                            {formatMoney(group.remainingAmount)}
-                          </td>
-                          <td className="px-3 py-4">
-                            <SmallBadge
-                              className={getStatusClass(group.status)}
-                            >
-                              {getStatusLabel(group.status)}
-                            </SmallBadge>
-                          </td>
-                          <td className="px-3 py-4 text-right">
-                            {canCollect ? (
-                              <button
-                                type="button"
-                                className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700"
-                                onClick={() =>
-                                  openGroupPaymentForChargeGroup(group)
-                                }
-                              >
-                                Thu
-                              </button>
-                            ) : (
-                              <span className="text-xs text-slate-400">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {!groupedCharges.length ? (
-                      <tr>
-                        <td
-                          colSpan={7}
-                          className="px-3 py-8 text-center text-sm text-slate-500"
-                        >
-                          Chưa có khoản phải thu phù hợp.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
+              <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-4 text-sm text-slate-500">
+                Bước này đang tổ chức lại sổ sách. Trước mắt, các khoản chi được ghi nhận vào <span className="font-semibold text-slate-700">Sổ thu chi</span>. Sau đó có thể mở rộng thêm mẫu chi định kỳ điện, nước, internet theo từng tháng.
               </div>
             </section>
           ) : null}
