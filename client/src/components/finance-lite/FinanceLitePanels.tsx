@@ -1,8 +1,26 @@
-import { CreditCard, WalletCards } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+      ArrowDownRight,
+      ArrowUpRight,
+      Building2,
+      CreditCard,
+      HandCoins,
+      PiggyBank,
+      ReceiptText,
+      Search,
+      WalletCards,
+      Wrench,
+} from "lucide-react";
 
 import { InlineBadge } from "@/components/shared/display/InlineBadge";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
-import { formatDate, formatMoney, getTransactionSourceMeta } from "./financeLiteUtils";
+import {
+      formatDate,
+      formatMoney,
+      getTransactionDirectionForSource,
+      getTransactionSourceMeta,
+      toMoneyNumber,
+} from "./financeLiteUtils";
 
 export function FinancePeriodSelector({
       periods,
@@ -68,99 +86,105 @@ export function FinancePeriodSelector({
 }
 
 export function FinanceExpensesPanel({
-      transactions,
+      transactions = [],
       onCreateExpense,
 }: {
-      transactions: any[];
-      onCreateExpense: () => void;
+      transactions?: any[];
+      onCreateExpense: (source?: string) => void;
 }) {
-      const expenseTransactions = transactions.filter(
-            (transaction: any) =>
-                  transaction.direction === "out" || transaction.source === "expense",
+      const expenseTransactions = useMemo(
+            () => transactions.filter((item: any) => getTransactionDirectionForSource(item.source, item.direction) === "out"),
+            [transactions],
       );
-      const totalExpense = expenseTransactions.reduce(
-            (sum: number, transaction: any) => sum + Number(transaction.amount || 0),
-            0,
+      const periodExpenses = useMemo(
+            () => expenseTransactions.filter((item: any) => isPeriodExpense(item)),
+            [expenseTransactions],
       );
+      const oneTimeExpenses = useMemo(
+            () => expenseTransactions.filter((item: any) => !isPeriodExpense(item)),
+            [expenseTransactions],
+      );
+      const totalExpense = useMemo(
+            () => expenseTransactions.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
+            [expenseTransactions],
+      );
+      const totalPeriodExpense = useMemo(
+            () => periodExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
+            [periodExpenses],
+      );
+      const totalOneTimeExpense = useMemo(
+            () => oneTimeExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
+            [oneTimeExpenses],
+      );
+      const recentExpenses = expenseTransactions.slice(0, 6);
 
       return (
-            <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(246,201,92,0.16),transparent_36%)]" />
+                  <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div>
-                              <h2 className="text-base font-semibold text-slate-900">Khoản chi</h2>
-                              <p className="text-sm text-slate-500">
-                                    Ghi nhận điện nước, sửa chữa, mua vật dụng và các khoản chi phát sinh.
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Khoản chi</p>
+                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Quản lý chi phí vận hành</h2>
+                              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                                    Ghi nhận chi phí điện nước, sửa chữa, mua sắm, sinh hoạt và các khoản phát sinh. Tất cả khoản chi sẽ tự đi vào sổ thu chi.
                               </p>
-                              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                    <div className="rounded-2xl border border-rose-100 bg-rose-50/70 px-4 py-3">
-                                          <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-600">
-                                                Tổng chi
-                                          </p>
-                                          <p className="mt-1 text-lg font-semibold text-rose-700">
-                                                {formatMoney(totalExpense)}
-                                          </p>
-                                    </div>
-                                    <div className="rounded-2xl border border-slate-100 bg-white/80 px-4 py-3">
-                                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                                Số nghiệp vụ
-                                          </p>
-                                          <p className="mt-1 text-lg font-semibold text-slate-900">
-                                                {expenseTransactions.length}
-                                          </p>
-                                    </div>
-                              </div>
                         </div>
                         <button
                               type="button"
-                              className={residenceMediumStyle.buttonCardPrimary}
-                              onClick={onCreateExpense}
+                              className="inline-flex items-center justify-center rounded-2xl border border-[#d8b45d]/70 bg-[linear-gradient(135deg,#fff7dc_0%,#efcf7a_100%)] px-5 py-3 text-sm font-semibold text-[#4a2b00] shadow-[0_12px_26px_rgba(180,122,20,0.18),inset_0_1px_0_rgba(255,255,255,0.88)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(180,122,20,0.24)]"
+                              onClick={() => onCreateExpense("expense")}
                         >
-                              Ghi nhận khoản chi
+                              <CreditCard className="mr-2 h-4 w-4" /> Ghi nhận khoản chi
                         </button>
                   </div>
 
-                  <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                        <ExpenseInfoCard
-                              title="Vận hành định kỳ"
-                              description="Điện, nước, internet, vệ sinh, bảo trì theo tháng."
-                              badge="Theo tháng"
-                              badgeClassName="border-amber-200 bg-white text-amber-700"
-                              tone="amber"
-                              lines={["Gắn tháng khi cần đối chiếu", "Nên ghi rõ kỳ/tháng chi"]}
+                  <div className="relative mt-5 grid gap-3 md:grid-cols-4">
+                        <ExpenseMetricCard label="Tổng chi" value={formatMoney(totalExpense)} tone="amber" />
+                        <ExpenseMetricCard label="Theo kỳ" value={formatMoney(totalPeriodExpense)} tone="blue" />
+                        <ExpenseMetricCard label="Một lần" value={formatMoney(totalOneTimeExpense)} tone="slate" />
+                        <ExpenseMetricCard label="Gần nhất" value={recentExpenses[0] ? formatDate(recentExpenses[0].transactionDate) : "Chưa có"} tone="emerald" />
+                  </div>
+
+                  <div className="relative mt-5 grid gap-3 lg:grid-cols-3">
+                        <ExpenseCategoryCard
+                              icon={Building2}
+                              title="Chi theo kỳ"
+                              description="Điện, nước, internet, vệ sinh, bảo trì định kỳ theo tháng."
+                              action="Ghi chi theo kỳ"
+                              onClick={() => onCreateExpense("expense")}
                         />
-                        <ExpenseInfoCard
-                              title="Sửa chữa / mua sắm"
-                              description="Khoản phát sinh cho phòng ở, vật dụng, cơ sở vật chất."
-                              badge="Phát sinh"
-                              badgeClassName="border-slate-200 bg-slate-50 text-slate-600"
-                              tone="slate"
-                              lines={["Ghi rõ người nhận/đơn vị nhận", "Nên có mục đích chi cụ thể"]}
+                        <ExpenseCategoryCard
+                              icon={Wrench}
+                              title="Chi một lần"
+                              description="Vật dụng, thiết bị, sửa chữa phòng ở hoặc phát sinh không lặp lại."
+                              action="Ghi chi một lần"
+                              onClick={() => onCreateExpense("expense")}
                         />
-                        <ExpenseInfoCard
+                        <ExpenseCategoryCard
+                              icon={HandCoins}
                               title="Sinh hoạt / hỗ trợ"
-                              description="Chi cho hoạt động, học tập, hỗ trợ học viên hoặc việc chung."
-                              badge="Nội bộ"
-                              badgeClassName="border-emerald-100 bg-emerald-50 text-emerald-700"
-                              tone="slate"
-                              lines={["Theo dõi trong sổ thu chi", "Có thể mở rộng phân quyền sau"]}
+                              description="Hoạt động chung, hỗ trợ học viên, y tế hoặc các khoản hỗ trợ riêng."
+                              action="Ghi chi hỗ trợ"
+                              onClick={() => onCreateExpense("expense")}
                         />
                   </div>
 
-                  <div className="mt-4 overflow-hidden rounded-[26px] border border-white/85 bg-white/92 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
-                        <div className="border-b border-slate-100 bg-gradient-to-r from-[#fff8e8] via-white to-[#f7e3ab]/65 px-4 py-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                    Khoản chi gần đây
-                              </p>
+                  <div className="relative mt-5 rounded-[26px] border border-[#ead9ad]/70 bg-white/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                              <div>
+                                    <p className="text-sm font-semibold text-slate-900">Khoản chi gần đây</p>
+                                    <p className="text-xs text-slate-500">Hiển thị các nghiệp vụ chi mới nhất từ sổ thu chi.</p>
+                              </div>
+                              <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">{recentExpenses.length} dòng</InlineBadge>
                         </div>
-                        <div className="divide-y divide-slate-100">
-                              {expenseTransactions.slice(0, 10).map((transaction: any) => (
-                                    <CashbookLine key={transaction.id} transaction={transaction} />
-                              ))}
-                              {!expenseTransactions.length ? (
-                                    <div className="px-4 py-8 text-center text-sm text-slate-500">
-                                          Chưa có khoản chi nào. Bấm “Ghi nhận khoản chi” để thêm nghiệp vụ.
-                                    </div>
-                              ) : null}
+                        <div className="space-y-2">
+                              {recentExpenses.length ? (
+                                    recentExpenses.map((transaction: any) => (
+                                          <CashbookLine key={transaction.id} transaction={transaction} compact />
+                                    ))
+                              ) : (
+                                    <EmptyFinanceBox text="Chưa có khoản chi nào. Bấm “Ghi nhận khoản chi” để thêm nghiệp vụ đầu tiên." />
+                              )}
                         </div>
                   </div>
             </section>
@@ -172,154 +196,275 @@ export function FinanceCashbookPanel({
       onCreateTransaction,
 }: {
       transactions: any[];
-      onCreateTransaction: () => void;
+      onCreateTransaction: (source?: string) => void;
 }) {
-      const totalIn = transactions
-            .filter((transaction: any) => transaction.direction === "in")
-            .reduce((sum: number, transaction: any) => sum + Number(transaction.amount || 0), 0);
-      const totalOut = transactions
-            .filter((transaction: any) => transaction.direction === "out")
-            .reduce((sum: number, transaction: any) => sum + Number(transaction.amount || 0), 0);
+      const [directionFilter, setDirectionFilter] = useState<"all" | "in" | "out">("all");
+      const [searchText, setSearchText] = useState("");
+
+      const normalizedTransactions = useMemo(
+            () =>
+                  transactions.map((transaction: any) => ({
+                        ...transaction,
+                        normalizedDirection: getTransactionDirectionForSource(transaction.source, transaction.direction),
+                  })),
+            [transactions],
+      );
+
+      const totalIn = useMemo(
+            () =>
+                  normalizedTransactions
+                        .filter((item: any) => item.normalizedDirection === "in")
+                        .reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
+            [normalizedTransactions],
+      );
+      const totalOut = useMemo(
+            () =>
+                  normalizedTransactions
+                        .filter((item: any) => item.normalizedDirection === "out")
+                        .reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
+            [normalizedTransactions],
+      );
+      const balance = totalIn - totalOut;
+
+      const filteredTransactions = useMemo(() => {
+            const keyword = searchText.trim().toLowerCase();
+            return normalizedTransactions.filter((transaction: any) => {
+                  if (directionFilter !== "all" && transaction.normalizedDirection !== directionFilter) return false;
+                  if (!keyword) return true;
+                  const meta = getTransactionSourceMeta(transaction.source);
+                  return [
+                        transaction.targetName,
+                        transaction.description,
+                        transaction.source,
+                        meta.label,
+                        transaction.transactionDate,
+                  ]
+                        .filter(Boolean)
+                        .join(" ")
+                        .toLowerCase()
+                        .includes(keyword);
+            });
+      }, [directionFilter, normalizedTransactions, searchText]);
 
       return (
-            <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
-                  <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(246,201,92,0.14),transparent_34%)]" />
+                  <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div>
-                              <h2 className="text-base font-semibold text-slate-900">Sổ thu chi</h2>
-                              <p className="text-sm text-slate-500">
-                                    Ghi nhận thu khác, tài trợ/ủng hộ, chi phí và dòng tiền phát sinh.
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Sổ thu chi</p>
+                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Dòng tiền phát sinh</h2>
+                              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                                    Theo dõi thu khác, tài trợ, khoản chi và nghiệp vụ kinh doanh trong một sổ đơn giản, dễ đối chiếu.
                               </p>
-                              <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                                    <MiniCashStat label="Thu vào" value={formatMoney(totalIn)} tone="in" />
-                                    <MiniCashStat label="Chi ra" value={formatMoney(totalOut)} tone="out" />
-                                    <MiniCashStat label="Cân đối" value={formatMoney(totalIn - totalOut)} tone="neutral" />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                              <button type="button" className={cashbookActionClass("income")} onClick={() => onCreateTransaction("other_income")}>
+                                    <WalletCards className="mr-2 h-4 w-4" /> Thu khác
+                              </button>
+                              <button type="button" className={cashbookActionClass("donation")} onClick={() => onCreateTransaction("donation")}>
+                                    <PiggyBank className="mr-2 h-4 w-4" /> Tài trợ
+                              </button>
+                              <button type="button" className={cashbookActionClass("expense")} onClick={() => onCreateTransaction("expense")}>
+                                    <CreditCard className="mr-2 h-4 w-4" /> Khoản chi
+                              </button>
+                        </div>
+                  </div>
+
+                  <div className="relative mt-5 grid gap-3 md:grid-cols-3">
+                        <CashbookMetricCard label="Thu vào" value={formatMoney(totalIn)} icon={ArrowUpRight} tone="emerald" />
+                        <CashbookMetricCard label="Chi ra" value={formatMoney(totalOut)} icon={ArrowDownRight} tone="amber" />
+                        <CashbookMetricCard label="Cân đối" value={`${balance >= 0 ? "+" : "-"}${formatMoney(Math.abs(balance))}`} icon={ReceiptText} tone={balance >= 0 ? "blue" : "rose"} />
+                  </div>
+
+                  <div className="relative mt-5 rounded-[26px] border border-[#ead9ad]/70 bg-white/86 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                        <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                              <label className="relative block">
+                                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                          value={searchText}
+                                          onChange={(event) => setSearchText(event.target.value)}
+                                          placeholder="Tìm theo đối tượng, nội dung, loại nghiệp vụ..."
+                                          className="w-full rounded-2xl border border-slate-200/90 bg-white px-10 py-3 text-sm text-slate-700 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                                    />
+                              </label>
+                              <div className="flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                                    {[
+                                          ["all", "Tất cả"],
+                                          ["in", "Thu"],
+                                          ["out", "Chi"],
+                                    ].map(([value, label]) => (
+                                          <button
+                                                key={value}
+                                                type="button"
+                                                onClick={() => setDirectionFilter(value as "all" | "in" | "out")}
+                                                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${directionFilter === value ? "bg-white text-[#7c4a03] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                                          >
+                                                {label}
+                                          </button>
+                                    ))}
                               </div>
                         </div>
-                        <button
-                              type="button"
-                              className={residenceMediumStyle.buttonCardPrimary}
-                              onClick={onCreateTransaction}
-                        >
-                              Thêm thu / chi
-                        </button>
-                  </div>
-                  <div className="space-y-2">
-                        {transactions.map((transaction: any) => (
-                              <CashbookLine key={transaction.id} transaction={transaction} />
-                        ))}
-                        {!transactions.length ? (
-                              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-8 text-center text-sm text-slate-500">
-                                    Chưa có nghiệp vụ thu chi nào.
-                              </div>
-                        ) : null}
+
+                        <div className="space-y-2">
+                              {filteredTransactions.length ? (
+                                    filteredTransactions.map((transaction: any) => (
+                                          <CashbookLine key={transaction.id} transaction={transaction} />
+                                    ))
+                              ) : (
+                                    <EmptyFinanceBox text="Chưa có nghiệp vụ phù hợp với bộ lọc hiện tại." />
+                              )}
+                        </div>
                   </div>
             </section>
       );
 }
 
-function ExpenseInfoCard({
+function ExpenseMetricCard({ label, value, tone }: { label: string; value: string; tone: "amber" | "slate" | "emerald" | "blue" }) {
+      const toneClass =
+            tone === "amber"
+                  ? "border-[#e6c675] bg-[#fff5d7] text-[#7c4a03]"
+                  : tone === "emerald"
+                        ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                        : tone === "blue"
+                              ? "border-blue-100 bg-blue-50 text-blue-700"
+                              : "border-slate-200 bg-white text-slate-700";
+      return (
+            <div className={`rounded-[24px] border px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] ${toneClass}`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">{label}</p>
+                  <p className="mt-1 text-lg font-semibold">{value}</p>
+            </div>
+      );
+}
+
+function ExpenseCategoryCard({
+      icon: Icon,
       title,
       description,
-      badge,
-      badgeClassName,
-      tone,
-      lines,
+      action,
+      onClick,
 }: {
+      icon: any;
       title: string;
       description: string;
-      badge: string;
-      badgeClassName: string;
-      tone: "amber" | "slate";
-      lines: string[];
+      action: string;
+      onClick: () => void;
 }) {
-      const shellClass =
-            tone === "amber"
-                  ? "border-amber-100 bg-amber-50/60"
-                  : "border-slate-100 bg-white";
-      const lineClass =
-            tone === "amber"
-                  ? "border-white/70 bg-white/80"
-                  : "border-slate-100 bg-slate-50/80";
-
       return (
-            <div className={`rounded-2xl border p-4 ${shellClass}`}>
-                  <div className="flex items-start justify-between gap-3">
-                        <div>
-                              <p className="text-sm font-semibold text-slate-900">{title}</p>
-                              <p className="mt-1 text-sm text-slate-500">{description}</p>
-                        </div>
-                        <InlineBadge className={badgeClassName}>{badge}</InlineBadge>
+            <button
+                  type="button"
+                  onClick={onClick}
+                  className="group rounded-[26px] border border-[#ead9ad]/70 bg-white/82 p-4 text-left shadow-[0_12px_30px_rgba(91,67,22,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] transition hover:-translate-y-0.5 hover:border-[#d6af55] hover:shadow-[0_18px_38px_rgba(91,67,22,0.12)]"
+            >
+                  <div className="mb-4 inline-flex rounded-2xl border border-amber-100 bg-amber-50 p-3 text-amber-700">
+                        <Icon className="h-5 w-5" />
                   </div>
-                  <div className="mt-4 grid gap-2 text-sm text-slate-600">
-                        {lines.map((line) => (
-                              <div key={line} className={`rounded-xl border px-3 py-2 ${lineClass}`}>
-                                    {line}
-                              </div>
-                        ))}
+                  <p className="text-base font-semibold text-slate-900">{title}</p>
+                  <p className="mt-2 min-h-[42px] text-sm leading-5 text-slate-500">{description}</p>
+                  <p className="mt-4 text-sm font-semibold text-[#8a5305] group-hover:text-[#5f3904]">{action}</p>
+            </button>
+      );
+}
+
+function CashbookMetricCard({
+      label,
+      value,
+      icon: Icon,
+      tone,
+}: {
+      label: string;
+      value: string;
+      icon: any;
+      tone: "emerald" | "amber" | "blue" | "rose";
+}) {
+      const toneClass =
+            tone === "emerald"
+                  ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                  : tone === "amber"
+                        ? "border-[#e6c675] bg-[#fff5d7] text-[#8a5305]"
+                        : tone === "rose"
+                              ? "border-rose-100 bg-rose-50 text-rose-700"
+                              : "border-blue-100 bg-blue-50 text-blue-700";
+      return (
+            <div className={`rounded-[24px] border px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] ${toneClass}`}>
+                  <div className="flex items-center justify-between gap-3">
+                        <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">{label}</p>
+                              <p className="mt-1 text-xl font-semibold">{value}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/70 p-2 shadow-sm">
+                              <Icon className="h-5 w-5" />
+                        </div>
                   </div>
             </div>
       );
 }
 
-function CashbookLine({ transaction }: { transaction: any }) {
-      const isOut = transaction.direction === "out";
-      const sourceMeta = getTransactionSourceMeta(transaction.source, transaction.direction);
+function CashbookLine({ transaction, compact = false }: { transaction: any; compact?: boolean }) {
+      const direction = getTransactionDirectionForSource(transaction.source, transaction.direction);
+      const isOut = direction === "out";
+      const meta = getTransactionSourceMeta(transaction.source);
+      const lineClass = compact ? "px-3 py-2.5" : "px-4 py-3";
+      const amountClass = isOut ? "text-[#9a5f08]" : "text-emerald-700";
 
       return (
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white p-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                        <div className={`rounded-xl p-2 ${isOut ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>
-                              {isOut ? (
-                                    <CreditCard className="h-4 w-4" />
-                              ) : (
-                                    <WalletCards className="h-4 w-4" />
-                              )}
+            <div className={`grid gap-3 rounded-[20px] border border-slate-100 bg-white/92 ${lineClass} shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] md:grid-cols-[1fr_auto] md:items-center`}>
+                  <div className="flex min-w-0 items-start gap-3">
+                        <div className={`shrink-0 rounded-2xl p-2 ${isOut ? "bg-[#fff5d7] text-[#9a5f08]" : "bg-emerald-50 text-emerald-700"}`}>
+                              {isOut ? <CreditCard className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
                         </div>
                         <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate font-medium text-slate-900">
-                                          {transaction.targetName ||
-                                                transaction.description ||
-                                                "Nghiệp vụ thu chi"}
+                                    <p className="truncate font-semibold text-slate-900">
+                                          {transaction.targetName || transaction.description || "Nghiệp vụ thu chi"}
                                     </p>
-                                    <InlineBadge className={sourceMeta.badgeClassName}>
-                                          {sourceMeta.label}
+                                    <InlineBadge className={isOut ? "border-amber-100 bg-amber-50 text-amber-800" : "border-emerald-100 bg-emerald-50 text-emerald-700"}>
+                                          {meta.shortLabel}
                                     </InlineBadge>
+                                    {transaction.source === "expense" ? (
+                                          <InlineBadge className={isPeriodExpense(transaction) ? "border-blue-100 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-600"}>
+                                                {getExpenseScopeLabel(transaction)}
+                                          </InlineBadge>
+                                    ) : null}
                               </div>
-                              <p className="mt-0.5 text-xs text-slate-500">
-                                    {formatDate(transaction.transactionDate)}
-                                    {transaction.description ? ` · ${transaction.description}` : ""}
+                              <p className="mt-1 text-xs text-slate-500">
+                                    {formatDate(transaction.transactionDate)}{transaction.description ? ` · ${transaction.description}` : ""}
                               </p>
                         </div>
                   </div>
-                  <p className={`shrink-0 font-semibold ${isOut ? "text-rose-700" : "text-emerald-700"}`}>
-                        {isOut ? "-" : "+"}
-                        {formatMoney(transaction.amount)}
+                  <p className={`text-right text-base font-semibold ${amountClass}`}>
+                        {isOut ? "-" : "+"}{formatMoney(transaction.amount)}
                   </p>
             </div>
       );
 }
 
-function MiniCashStat({
-      label,
-      value,
-      tone,
-}: {
-      label: string;
-      value: string;
-      tone: "in" | "out" | "neutral";
-}) {
-      const toneClass =
-            tone === "in"
-                  ? "border-emerald-100 bg-emerald-50/70 text-emerald-700"
-                  : tone === "out"
-                        ? "border-rose-100 bg-rose-50/70 text-rose-700"
-                        : "border-slate-100 bg-white/80 text-slate-900";
+function isPeriodExpense(transaction: any) {
+      return String(transaction?.targetType || "").startsWith("expense_period");
+}
 
+function getExpenseScopeLabel(transaction: any) {
+      const targetType = String(transaction?.targetType || "");
+      if (targetType.startsWith("expense_period:")) {
+            const month = targetType.split(":")[1] || "";
+            return month ? `Theo kỳ ${month.slice(5, 7)}/${month.slice(0, 4)}` : "Theo kỳ";
+      }
+      return "Một lần";
+}
+
+function EmptyFinanceBox({ text }: { text: string }) {
       return (
-            <div className={`rounded-2xl border px-4 py-3 ${toneClass}`}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide opacity-75">{label}</p>
-                  <p className="mt-1 text-sm font-semibold">{value}</p>
+            <div className="rounded-[22px] border border-dashed border-[#e4d3aa] bg-white/65 p-5 text-sm text-slate-500">
+                  {text}
             </div>
       );
+}
+
+function cashbookActionClass(tone: "income" | "donation" | "expense") {
+      if (tone === "expense") {
+            return "inline-flex items-center rounded-2xl border border-[#d8b45d]/70 bg-[linear-gradient(135deg,#fff7dc_0%,#efcf7a_100%)] px-4 py-2.5 text-sm font-semibold text-[#4a2b00] shadow-[0_10px_22px_rgba(180,122,20,0.16)] transition hover:-translate-y-0.5";
+      }
+      if (tone === "donation") {
+            return "inline-flex items-center rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:-translate-y-0.5";
+      }
+      return "inline-flex items-center rounded-2xl border border-blue-100 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition hover:-translate-y-0.5";
 }

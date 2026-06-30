@@ -1,3 +1,5 @@
+import { HandCoins, PiggyBank, ReceiptText, WalletCards } from "lucide-react";
+
 import { DatePickerInput } from "@/components/shared/form/DatePickerInput";
 import { StandardModalShell } from "@/components/shared/overlay/StandardModalShell";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
@@ -355,25 +357,24 @@ export function FinanceTransactionModal({
   onClose: () => void;
   onSubmit: () => void;
 }) {
-  const sourceMeta = getTransactionSourceMeta(form.source, form.direction);
+  const sourceMeta = getTransactionSourceMeta(form.source);
+  const normalizedDirection = getTransactionDirectionForSource(form.source, form.direction);
   const isBusiness = form.source === "business";
 
-  function handleSourceChange(source: string) {
-    const nextDirection = getTransactionDirectionForSource(
+  function selectSource(source: string) {
+    setForm((current: any) => ({
+      ...current,
       source,
-      form.direction === "out" ? "out" : "in",
-    );
-    setForm({
-      ...form,
-      source,
-      direction: source === "business" ? form.direction || "in" : nextDirection,
-    });
+      direction: getTransactionDirectionForSource(source, current.direction),
+      expenseKind: source === "expense" ? current.expenseKind || "period" : "one_time",
+      expenseBillingMonth: current.expenseBillingMonth || new Date().toISOString().slice(0, 7),
+    }));
   }
 
   return (
     <StandardModalShell
       title="Ghi nhận thu / chi"
-      subtitle="Tách rõ thu khác, tài trợ/ủng hộ và khoản chi để sổ sách dễ đối chiếu."
+      subtitle="Tách rõ thu khác, tài trợ, khoản chi và nghiệp vụ kinh doanh để sổ thu chi dễ đối chiếu."
       onClose={onClose}
     >
       <div className="space-y-4 p-5">
@@ -383,93 +384,157 @@ export function FinanceTransactionModal({
           </div>
         ) : null}
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <SelectField
-            label="Loại nghiệp vụ"
-            value={form.source}
-            onChange={handleSourceChange}
-            options={[
-              ["other_income", "Thu khác"],
-              ["donation", "Tài trợ / ủng hộ"],
-              ["expense", "Chi phí"],
-              ["business", "Thu / chi kinh doanh"],
-            ]}
-          />
-          <SelectField
-            label="Chiều tiền"
-            value={form.direction}
-            onChange={(direction) => setForm({ ...form, direction })}
-            options={[
-              ["in", "Thu vào"],
-              ["out", "Chi ra"],
-            ]}
-            disabled={!isBusiness}
-          />
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Loại nghiệp vụ
+          </p>
+          <div className="grid gap-3 md:grid-cols-4">
+            <TransactionSourceCard
+              active={form.source === "other_income"}
+              icon={WalletCards}
+              title="Thu khác"
+              description="Quỹ, hoàn tiền, thu phát sinh"
+              onClick={() => selectSource("other_income")}
+            />
+            <TransactionSourceCard
+              active={form.source === "donation"}
+              icon={PiggyBank}
+              title="Tài trợ"
+              description="Ủng hộ, tài trợ theo mục đích"
+              onClick={() => selectSource("donation")}
+            />
+            <TransactionSourceCard
+              active={form.source === "expense"}
+              icon={HandCoins}
+              title="Khoản chi"
+              description="Điện nước, sửa chữa, mua sắm"
+              onClick={() => selectSource("expense")}
+            />
+            <TransactionSourceCard
+              active={form.source === "business"}
+              icon={ReceiptText}
+              title="Kinh doanh"
+              description="Thu hoặc chi cửa hàng"
+              onClick={() => selectSource("business")}
+            />
+          </div>
         </div>
 
-        {!isBusiness ? (
-          <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-slate-600">
-            <span className="font-semibold text-slate-900">{sourceMeta.label}</span>{" "}
-            được tự động ghi là{" "}
-            <span className="font-semibold text-slate-900">
-              {sourceMeta.direction === "out" ? "chi ra" : "thu vào"}
-            </span>
-            .
+        {form.source === "expense" ? (
+          <div className="rounded-[24px] border border-[#ead9ad]/80 bg-white/86 p-4 shadow-[0_10px_24px_rgba(91,67,22,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cách ghi nhận khoản chi</p>
+                <p className="mt-1 text-sm text-slate-600">Chọn chi theo kỳ/tháng để đối chiếu vận hành, hoặc chi một lần cho phát sinh riêng.</p>
+              </div>
+              {form.expenseKind === "period" ? (
+                <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
+                  Theo kỳ {getBillingMonthLabel(form.expenseBillingMonth || "")}
+                </span>
+              ) : (
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">Chi một lần</span>
+              )}
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_180px] md:items-end">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, expenseKind: "period", expenseBillingMonth: form.expenseBillingMonth || new Date().toISOString().slice(0, 7) })}
+                className={`rounded-2xl border p-3 text-left transition ${form.expenseKind === "period" ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_10px_22px_rgba(180,122,20,0.14)]" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50/50"}`}
+              >
+                <p className="text-sm font-semibold">Khoản chi theo kỳ</p>
+                <p className="mt-1 text-xs leading-4 opacity-75">Điện nước, internet, vệ sinh, bảo trì định kỳ theo tháng.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, expenseKind: "one_time" })}
+                className={`rounded-2xl border p-3 text-left transition ${form.expenseKind === "one_time" ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_10px_22px_rgba(180,122,20,0.14)]" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50/50"}`}
+              >
+                <p className="text-sm font-semibold">Khoản chi một lần</p>
+                <p className="mt-1 text-xs leading-4 opacity-75">Sửa chữa, mua vật dụng, hỗ trợ hoặc phát sinh không lặp lại.</p>
+              </button>
+              {form.expenseKind === "period" ? (
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Tháng/Kỳ chi</label>
+                  <input
+                    type="month"
+                    value={form.expenseBillingMonth || new Date().toISOString().slice(0, 7)}
+                    onChange={(event) => setForm({ ...form, expenseBillingMonth: event.target.value })}
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                  />
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <MoneyInput
-            label="Số tiền"
-            value={form.amount}
-            onChange={(amount) => setForm({ ...form, amount })}
-          />
-          <DateField
-            label={sourceMeta.dateLabel}
-            value={form.transactionDate}
-            onChange={(transactionDate) =>
-              setForm({ ...form, transactionDate })
-            }
-          />
+        <div className="rounded-[24px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff6dd_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{sourceMeta.label}</p>
+              <p className="text-xs text-slate-500">
+                {normalizedDirection === "out" ? "Nghiệp vụ chi ra" : "Nghiệp vụ thu vào"}
+              </p>
+            </div>
+            {isBusiness ? (
+              <div className="flex rounded-2xl border border-slate-200 bg-white p-1">
+                {[
+                  ["in", "Thu"],
+                  ["out", "Chi"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setForm({ ...form, direction: value })}
+                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${form.direction === value ? "bg-amber-50 text-amber-800 shadow-sm" : "text-slate-500"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="rounded-full border border-amber-100 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800">
+                {normalizedDirection === "out" ? "Chi ra" : "Thu vào"}
+              </span>
+            )}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <MoneyInput
+              label="Số tiền"
+              value={form.amount}
+              onChange={(amount) => setForm({ ...form, amount })}
+            />
+            <DateField
+              label="Ngày ghi nhận"
+              value={form.transactionDate}
+              onChange={(transactionDate) => setForm({ ...form, transactionDate })}
+            />
+          </div>
+          <div className="mt-3">
+            <label className="text-sm font-medium text-slate-700">
+              {sourceMeta.targetLabel}
+            </label>
+            <input
+              value={form.targetName}
+              onChange={(event) => setForm({ ...form, targetName: event.target.value })}
+              placeholder={sourceMeta.targetLabel}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+            />
+          </div>
+          <div className="mt-3">
+            <label className="text-sm font-medium text-slate-700">
+              {sourceMeta.descriptionLabel}
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              placeholder={sourceMeta.descriptionLabel}
+              className="mt-1 min-h-[86px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+            />
+          </div>
         </div>
-        <div>
-          <label className="text-sm font-medium text-slate-700">
-            {sourceMeta.targetLabel}
-          </label>
-          <input
-            value={form.targetName}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                targetName: event.target.value,
-              })
-            }
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            placeholder={
-              form.source === "expense"
-                ? "Ví dụ: Điện lực, thợ sửa chữa, cửa hàng vật dụng..."
-                : form.source === "donation"
-                  ? "Ví dụ: Ân nhân, phụ huynh, đơn vị tài trợ..."
-                  : "Ví dụ: Quỹ sinh hoạt, hoàn tiền, khoản thu phát sinh..."
-            }
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-slate-700">
-            {sourceMeta.purposeLabel}
-          </label>
-          <textarea
-            value={form.description}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                description: event.target.value,
-              })
-            }
-            className="mt-1 min-h-[80px] w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            placeholder="Ghi rõ mục đích để sau này đối chiếu sổ sách."
-          />
-        </div>
+
         <ModalActions
           onClose={onClose}
           onSubmit={onSubmit}
@@ -482,6 +547,33 @@ export function FinanceTransactionModal({
   );
 }
 
+function TransactionSourceCard({
+  active,
+  icon: Icon,
+  title,
+  description,
+  onClick,
+}: {
+  active: boolean;
+  icon: any;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl border p-3 text-left transition ${active ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_10px_24px_rgba(180,122,20,0.16)]" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50/50"}`}
+    >
+      <div className="mb-2 inline-flex rounded-xl bg-white/75 p-2 shadow-sm">
+        <Icon className="h-4 w-4" />
+      </div>
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="mt-1 text-xs leading-4 opacity-75">{description}</p>
+    </button>
+  );
+}
 
 export function FinanceGroupPaymentModal({
   message,
@@ -836,13 +928,11 @@ function SelectField({
   value,
   options,
   onChange,
-  disabled,
 }: {
   label: string;
   value: string;
   options: Array<[string, string]>;
   onChange: (value: string) => void;
-  disabled?: boolean;
 }) {
   return (
     <div>
@@ -850,8 +940,7 @@ function SelectField({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        disabled={disabled}
-        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
+        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
       >
         {options.map(([optionValue, label]) => (
           <option key={optionValue} value={optionValue}>

@@ -1181,12 +1181,6 @@ export async function updateFinanceCharge(input: UpdateChargeInput) {
       const feeTypeId = input.feeTypeId === undefined ? Number(current.feeTypeId || 0) || null : Number(input.feeTypeId || 0) || null;
       const amount = input.amount === undefined || input.amount === null ? Number(current.amount || 0) : Number(input.amount || 0);
       const paidAmount = Number(current.paidAmount || 0);
-      if (amount < paidAmount) {
-            throw new Error('Số tiền phải thu không được nhỏ hơn số tiền đã thu.');
-      }
-      if (String(current.status || '') === 'paid' && amount !== Number(current.amount || 0)) {
-            throw new Error('Khoản đã thu đủ không nên sửa số tiền. Nếu cần điều chỉnh, hãy tạo nghiệp vụ điều chỉnh riêng.');
-      }
       const remainingAmount = Math.max(amount - paidAmount, 0);
       let resolvedStatus = input.status || current.status || 'open';
 
@@ -1426,19 +1420,22 @@ export async function createFinanceTransaction(input: {
 }) {
       const db = await getFinanceDb();
 
-      const normalizedSource = input.source || 'other_income';
-      const normalizedDirection =
-            normalizedSource === 'expense'
+      const source = input.source || 'other_income';
+      const direction =
+            source === 'expense'
                   ? 'out'
-                  : normalizedSource === 'donation' || normalizedSource === 'other_income'
+                  : source === 'other_income' || source === 'donation'
                         ? 'in'
                         : input.direction === 'out'
                               ? 'out'
                               : 'in';
+      const amount = Number(input.amount || 0);
+      const targetName = String(input.targetName || '').trim();
+      const description = String(input.description || '').trim();
 
-      if (Number(input.amount || 0) <= 0) throw new Error('Số tiền nghiệp vụ phải lớn hơn 0.');
-      if (!String(input.targetName || '').trim()) throw new Error('Vui lòng nhập đối tượng/người nhận/người tài trợ.');
-      if (!String(input.description || '').trim()) throw new Error('Vui lòng nhập mục đích hoặc ghi chú nghiệp vụ.');
+      if (amount <= 0) throw new Error('Vui lòng nhập số tiền hợp lệ.');
+      if (!targetName) throw new Error('Vui lòng nhập đối tượng/người nhận hoặc nguồn thu.');
+      if (!description) throw new Error('Vui lòng nhập mục đích hoặc ghi chú nghiệp vụ.');
 
       await db.execute(sql`
             INSERT INTO finance_transactions (
@@ -1454,13 +1451,13 @@ export async function createFinanceTransaction(input: {
                   updated_at
             )
             VALUES (
-                  ${normalizedSource},
-                  ${normalizedDirection},
-                  ${Number(input.amount || 0)},
+                  ${source},
+                  ${direction},
+                  ${amount},
                   ${input.transactionDate || todayText()},
-                  ${input.targetType || null},
-                  ${input.targetName || null},
-                  ${input.description || null},
+                  ${input.targetType || source},
+                  ${targetName},
+                  ${description},
                   ${input.createdBy || null},
                   NOW(),
                   NOW()

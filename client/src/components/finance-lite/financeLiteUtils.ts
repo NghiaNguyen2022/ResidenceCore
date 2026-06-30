@@ -23,9 +23,7 @@ export function normalizeStoredMoneyValue(value?: string | number | null) {
   const raw = String(value ?? "").trim();
   if (!raw) return "";
   if (/^-?\d+\.\d{1,2}$/.test(raw)) return String(Math.round(Number(raw)));
-  const sign = raw.startsWith("-") ? "-" : "";
-  const digits = raw.replace(/[^0-9]/g, "");
-  return digits ? `${sign}${digits}` : "";
+  return raw.replace(/[^0-9]/g, "");
 }
 
 export function toMoneyNumber(value?: string | number | null) {
@@ -116,59 +114,45 @@ export function emptyPeriodForm(): PeriodFormState {
 }
 
 
-export type FinanceTransactionSource = "other_income" | "donation" | "expense" | "business";
-
-export function getTransactionDirectionForSource(source?: string | null, fallback: "in" | "out" = "in") {
+export function getTransactionDirectionForSource(source?: string | null, direction?: string | null) {
   if (source === "expense") return "out";
   if (source === "other_income" || source === "donation") return "in";
-  return fallback;
+  return direction === "out" ? "out" : "in";
 }
 
-export function getTransactionSourceMeta(source?: string | null, direction?: string | null) {
-  const normalizedSource = String(source || "other_income");
-  const resolvedDirection = getTransactionDirectionForSource(
-    normalizedSource,
-    direction === "out" ? "out" : "in",
-  );
-  if (normalizedSource === "donation") {
+export function getTransactionSourceMeta(source?: string | null) {
+  if (source === "donation") {
     return {
       label: "Tài trợ / ủng hộ",
+      shortLabel: "Tài trợ",
       targetLabel: "Người/đơn vị tài trợ",
-      purposeLabel: "Mục đích tài trợ / ghi chú",
-      dateLabel: "Ngày nhận",
-      badgeClassName: "border-emerald-100 bg-emerald-50 text-emerald-700",
-      direction: "in" as const,
+      descriptionLabel: "Mục đích tài trợ / ghi chú",
+      tone: "emerald",
     };
   }
-  if (normalizedSource === "expense") {
+  if (source === "expense") {
     return {
       label: "Khoản chi",
+      shortLabel: "Chi phí",
       targetLabel: "Người nhận / đơn vị nhận",
-      purposeLabel: "Mục đích chi / ghi chú",
-      dateLabel: "Ngày chi",
-      badgeClassName: "border-rose-100 bg-rose-50 text-rose-700",
-      direction: "out" as const,
+      descriptionLabel: "Mục đích chi / ghi chú",
+      tone: "amber",
     };
   }
-  if (normalizedSource === "business") {
+  if (source === "business") {
     return {
-      label: resolvedDirection === "out" ? "Chi kinh doanh" : "Thu kinh doanh",
-      targetLabel: resolvedDirection === "out" ? "Đơn vị nhận / nội dung chi" : "Nguồn thu / khách hàng",
-      purposeLabel: "Mục đích / ghi chú",
-      dateLabel: resolvedDirection === "out" ? "Ngày chi" : "Ngày thu",
-      badgeClassName:
-        resolvedDirection === "out"
-          ? "border-rose-100 bg-rose-50 text-rose-700"
-          : "border-amber-100 bg-amber-50 text-amber-800",
-      direction: resolvedDirection,
+      label: "Thu / chi kinh doanh",
+      shortLabel: "Kinh doanh",
+      targetLabel: "Đối tượng / cửa hàng",
+      descriptionLabel: "Nội dung nghiệp vụ / ghi chú",
+      tone: "slate",
     };
   }
   return {
     label: "Khoản thu khác",
+    shortLabel: "Thu khác",
     targetLabel: "Nguồn thu / đối tượng",
-    purposeLabel: "Mục đích thu / ghi chú",
-    dateLabel: "Ngày thu",
-    badgeClassName: "border-amber-100 bg-amber-50 text-amber-800",
-    direction: "in" as const,
+    descriptionLabel: "Mục đích thu / ghi chú",
+    tone: "blue",
   };
 }

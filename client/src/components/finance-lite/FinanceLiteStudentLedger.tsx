@@ -449,7 +449,7 @@ export function FinanceLiteStudentLedger({
                                     })}
 
                                     {!groupedCharges.length ? (
-                                          <div className="rounded-[24px] border border-dashed border-slate-200 bg-white/70 px-4 py-10 text-center text-sm text-slate-500">
+                                          <div className="rounded-[22px] border border-dashed border-slate-200 bg-white/70 px-4 py-10 text-center text-sm text-slate-500">
                                                 Chưa có khoản phải thu phù hợp.
                                           </div>
                                     ) : null}
@@ -485,219 +485,455 @@ export function FinanceLiteStudentLedger({
                               ) : null}
                         </section>
 
-                        <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
+                        <section className="overflow-hidden rounded-[28px] border border-[#ead9ad]/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96)_0%,rgba(255,249,232,0.95)_100%)] p-4 shadow-[0_14px_34px_rgba(106,76,20,0.08),inset_0_1px_0_rgba(255,255,255,0.92)]">
                               {detail ? (
-                                    <>
-                                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                                <div>
-                                                      <h2 className="text-base font-semibold text-slate-900">Tạo khoản phải thu</h2>
-                                                      <p className="text-sm text-slate-500">
-                                                            Chọn khoản phí và học viên để sinh khoản phải thu thật cho tháng đang chọn.
-                                                      </p>
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                          <div className="min-w-0">
+                                                <div className="inline-flex rounded-full border border-[#efd89d] bg-[#fff8df] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#96600c]">
+                                                      Tạo khoản phải thu
                                                 </div>
-                                                <div className="flex flex-wrap gap-2">
-                                                      <button
-                                                            type="button"
-                                                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600"
-                                                            onClick={() => setApplyPanelOpen((value) => !value)}
-                                                      >
-                                                            {applyPanelOpen ? "Thu gọn" : "Tạo khoản phải thu"}
-                                                      </button>
-                                                      {applyPanelOpen ? (
-                                                            <>
-                                                                  <button
-                                                                        type="button"
-                                                                        className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800"
-                                                                        onClick={() => togglePeriodItemForAllEligible(0, true, 0)}
-                                                                  >
-                                                                        Chọn tất cả đủ điều kiện
-                                                                  </button>
-                                                                  <button
-                                                                        type="button"
-                                                                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600"
-                                                                        onClick={() => togglePeriodItemForAllEligible(0, false, 0)}
-                                                                  >
-                                                                        Bỏ chọn tất cả
-                                                                  </button>
-                                                            </>
-                                                      ) : null}
-                                                </div>
+                                                <h2 className="mt-2 text-lg font-semibold tracking-tight text-[#17213a]">
+                                                      Sinh khoản phải thu cho {getBillingMonthLabel(selectedBillingMonth)}
+                                                </h2>
+                                                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                                                      Mở form riêng để chọn khoản phí và học viên. Danh sách chính không bị kéo dài, dễ thao tác và tránh cuộn sâu trong trang.
+                                                </p>
                                           </div>
 
-                                          {!applyPanelOpen ? (
-                                                <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-slate-600">
-                                                      Đang có <span className="font-semibold text-slate-900">{groupedCharges.length}</span> học viên trong danh sách phải thu tháng này. Mở “Tạo khoản phải thu” khi cần sinh thêm khoản phí.
+                                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-2.5 text-sm shadow-sm">
+                                                      <span className="text-slate-500">Đang có </span>
+                                                      <span className="font-semibold text-[#17213a]">{groupedCharges.length}</span>
+                                                      <span className="text-slate-500"> học viên phải thu</span>
                                                 </div>
-                                          ) : (
-                                                <>
-                                                      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/45 px-4 py-3">
-                                                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">1. Chọn khoản phí</p>
-                                                            <p className="mt-1 text-sm text-slate-600">Tick nhanh từng loại phí, hệ thống sẽ bỏ qua khoản đã tồn tại.</p>
-                                                      </div>
-
-                                                      <div className="mt-3 grid gap-3 md:grid-cols-3">
-                                                            {periodItems.map((item: any) => {
-                                                                  const itemId = Number(item.id);
-                                                                  const allSelected = isPeriodItemSelectedForAllEligible(itemId);
-                                                                  const selectedCount = getPeriodItemSelectedCount(itemId);
-
-                                                                  return (
-                                                                        <button
-                                                                              key={item.id}
-                                                                              type="button"
-                                                                              onClick={() => togglePeriodItemForAllEligible(itemId, !allSelected, item.amount)}
-                                                                              className={`rounded-2xl border p-3 text-left transition ${allSelected ? "border-amber-300 bg-amber-50/80 shadow-sm" : "border-slate-100 bg-slate-50/70 hover:border-amber-200 hover:bg-amber-50/40"}`}
-                                                                        >
-                                                                              <div className="flex items-start justify-between gap-3">
-                                                                                    <div>
-                                                                                          <p className="text-sm font-semibold text-slate-900">{item.feeTypeName}</p>
-                                                                                          <p className="mt-2 max-w-[210px] text-sm leading-5 text-slate-500">
-                                                                                                {formatMoney(item.amount)} · {Number(item.isDefaultChecked) === 1 ? "Mặc định chọn" : "Không mặc định"}
-                                                                                          </p>
-                                                                                          <p className="mt-2 text-xs text-slate-500">
-                                                                                                Đã chọn {selectedCount}/{getPeriodItemEligibleResidents(itemId).length || 0} học viên
-                                                                                          </p>
-                                                                                    </div>
-                                                                                    <span className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-md border text-xs ${allSelected ? "border-amber-400 bg-amber-500 text-white" : "border-slate-300 bg-white text-transparent"}`}>
-                                                                                          ✓
-                                                                                    </span>
-                                                                              </div>
-                                                                        </button>
-                                                                  );
-                                                            })}
-                                                      </div>
-
-                                                      {selectionMessage ? (
-                                                            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                                                                  {selectionMessage}
-                                                            </div>
-                                                      ) : null}
-
-                                                      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-                                                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                                                  <div>
-                                                                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">2. Dự kiến tạo</p>
-                                                                        <p className="mt-1 text-sm font-semibold text-slate-900">Tổng hợp trước khi lưu</p>
-                                                                        <p className="mt-1 text-xs text-slate-500">
-                                                                              Tính theo các ô đang được chọn, chưa tạo khoản phải thu thật.
-                                                                        </p>
-                                                                  </div>
-                                                                  <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
-                                                                        <MiniSummary label="Học viên" value={String(projectedApplySummary.residentCount)} />
-                                                                        <MiniSummary label="Khoản phí" value={String(projectedApplySummary.totalItems)} />
-                                                                        <MiniSummary label="Tổng tiền" value={formatMoney(projectedApplySummary.totalAmount)} />
-                                                                  </div>
-                                                            </div>
-                                                            <div className="mt-3 grid gap-2 md:grid-cols-3">
-                                                                  {projectedApplySummary.items.map((item: any) => (
-                                                                        <div key={item.id} className="rounded-xl border border-white/70 bg-white/70 px-3 py-2">
-                                                                              <p className="truncate text-xs font-semibold text-slate-700">{item.name}</p>
-                                                                              <p className="mt-1 text-xs text-slate-500">
-                                                                                    {item.count} khoản · {formatMoney(item.amount)}
-                                                                              </p>
-                                                                        </div>
-                                                                  ))}
-                                                            </div>
-                                                      </div>
-
-                                                      <div className="mt-4 rounded-2xl border border-amber-100 bg-white/80 px-4 py-3">
-                                                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">3. Chọn học viên và xác nhận</p>
-                                                            <p className="mt-1 text-sm text-slate-600">Có thể chỉnh tiền từng khoản trước khi lưu áp dụng.</p>
-                                                      </div>
-
-                                                      <div className="mt-3 overflow-hidden rounded-[26px] border border-white/85 bg-white/92 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
-                                                            <table className="w-full table-fixed divide-y divide-slate-100 text-sm">
-                                                                  <colgroup>
-                                                                        <col className="w-[24%]" />
-                                                                        {periodItems.map((item: any) => (
-                                                                              <col key={item.id} className="w-[25.33%]" />
-                                                                        ))}
-                                                                  </colgroup>
-                                                                  <thead className="bg-gradient-to-r from-[#fff8e8] via-white to-[#f7e3ab]/65 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                                                                        <tr>
-                                                                              <th className="px-3 py-3 text-left">Học viên</th>
-                                                                              {periodItems.map((item: any) => (
-                                                                                    <th key={item.id} className="px-2 py-3 text-left">{item.feeTypeName}</th>
-                                                                              ))}
-                                                                        </tr>
-                                                                  </thead>
-                                                                  <tbody className="divide-y divide-slate-100 bg-white/95">
-                                                                        {!previewResidents.length ? (
-                                                                              <tr>
-                                                                                    <td colSpan={periodItems.length + 1} className="px-4 py-8 text-center text-sm text-slate-500">
-                                                                                          {"Chưa có học viên trong danh sách áp dụng cho tháng này."}
-                                                                                    </td>
-                                                                              </tr>
-                                                                        ) : null}
-                                                                        {previewResidents.map((resident: any) => (
-                                                                              <tr key={resident.id} className={!resident.eligible ? "bg-slate-50 text-slate-400" : ""}>
-                                                                                    <td className="px-3 py-3">
-                                                                                          <p className="font-medium text-slate-900">{resident.fullName}</p>
-                                                                                          <p className="text-xs text-slate-500">{resident.residentCode || "Chưa có mã"}</p>
-                                                                                          {!resident.eligible ? (
-                                                                                                <p className="mt-1 text-[11px] text-amber-700">{resident.reason || "Không đủ điều kiện"}</p>
-                                                                                          ) : null}
-                                                                                    </td>
-                                                                                    {periodItems.map((item: any) => {
-                                                                                          const selected = residentSelections[String(resident.id)]?.[String(item.id)];
-                                                                                          const alreadyApplied = isResidentItemAlreadyApplied(resident, item);
-                                                                                          const selectable = isResidentItemSelectable(resident, item);
-                                                                                          return (
-                                                                                                <td key={item.id} className={`px-1.5 py-3 ${alreadyApplied ? "bg-slate-50 text-slate-400" : ""}`}>
-                                                                                                      <label className="grid min-w-0 grid-cols-[18px_minmax(132px,1fr)] items-center gap-1.5">
-                                                                                                            <input
-                                                                                                                  type="checkbox"
-                                                                                                                  className="h-3.5 w-3.5 justify-self-center"
-                                                                                                                  disabled={!selectable}
-                                                                                                                  checked={Boolean(alreadyApplied || (selected?.selected && selectable))}
-                                                                                                                  onChange={(event) =>
-                                                                                                                        toggleResidentItem(Number(resident.id), Number(item.id), event.target.checked)
-                                                                                                                  }
-                                                                                                            />
-                                                                                                            <input
-                                                                                                                  type="text"
-                                                                                                                  inputMode="numeric"
-                                                                                                                  disabled={!selectable || !selected?.selected}
-                                                                                                                  value={selected?.amount || formatMoneyInput(item.amount)}
-                                                                                                                  onChange={(event) =>
-                                                                                                                        updateResidentItemAmount(Number(resident.id), Number(item.id), event.target.value)
-                                                                                                                  }
-                                                                                                                  className="w-full min-w-[132px] rounded-lg border border-slate-200 px-2 py-2 text-right text-[12px] font-semibold text-slate-800 disabled:bg-slate-50 disabled:text-slate-400"
-                                                                                                            />
-                                                                                                      </label>
-                                                                                                </td>
-                                                                                          );
-                                                                                    })}
-                                                                              </tr>
-                                                                        ))}
-                                                                  </tbody>
-                                                            </table>
-                                                      </div>
-
-                                                      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                                            <p className="text-xs text-slate-500">
-                                                                  {hasSelectedApplicableItems
-                                                                        ? `Sẽ tạo ${projectedApplySummary.totalItems} khoản cho ${projectedApplySummary.residentCount} học viên, tổng ${formatMoney(projectedApplySummary.totalAmount)}.`
-                                                                        : "Chưa có khoản nào được chọn để tạo."}
-                                                            </p>
-                                                            <button
-                                                                  type="button"
-                                                                  className={`${residenceMediumStyle.buttonCardPrimary} disabled:cursor-not-allowed disabled:opacity-50`}
-                                                                  onClick={submitApplyPeriod}
-                                                                  disabled={applyPeriodMutationPending || !hasSelectedApplicableItems}
-                                                            >
-                                                                  {applyPeriodMutationPending ? "Đang áp dụng..." : "Lưu áp dụng khoản thu"}
-                                                            </button>
-                                                      </div>
-                                                </>
-                                          )}
-                                    </>
+                                                <button
+                                                      type="button"
+                                                      className="inline-flex items-center justify-center rounded-2xl border border-[#e0b85a] bg-[linear-gradient(135deg,#fff6dc_0%,#f2d27d_100%)] px-5 py-3 text-sm font-semibold text-[#5b3b06] shadow-[0_12px_24px_rgba(184,127,24,0.18),inset_0_1px_0_rgba(255,255,255,0.9)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(184,127,24,0.24)]"
+                                                      onClick={() => setApplyPanelOpen(true)}
+                                                >
+                                                      <Plus className="mr-2 h-4 w-4" />
+                                                      Tạo khoản phải thu
+                                                </button>
+                                          </div>
+                                    </div>
                               ) : (
-                                    <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+                                    <div className="rounded-2xl border border-dashed border-[#e4d3aa] bg-white/70 p-8 text-center text-sm text-slate-500">
                                           Chọn một kỳ thu để xem chi tiết.
                                     </div>
                               )}
                         </section>
+
+                        {applyPanelOpen && detail ? (
+                              <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm">
+                                    <div className="flex max-h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-[34px] border border-[#ead9ad]/90 bg-[linear-gradient(180deg,#fffdf7_0%,#fbf3df_100%)] shadow-[0_30px_90px_rgba(15,23,42,0.30),inset_0_1px_0_rgba(255,255,255,0.96)]">
+                                          <div className="border-b border-[#ead9ad]/70 bg-[linear-gradient(135deg,#fffdfa_0%,#fff5d6_100%)] px-5 py-4">
+                                                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                                      <div className="min-w-0">
+                                                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9a640c]">
+                                                                  Tạo khoản phải thu học viên
+                                                            </p>
+                                                            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#111b31]">
+                                                                  {getBillingMonthLabel(selectedBillingMonth)} · {selectedPeriod?.periodName || "Kỳ thu"}
+                                                            </h2>
+                                                            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+                                                                  Chọn tháng ngay trong form, kiểm tra khoản phí và học viên đủ điều kiện trước khi sinh khoản phải thu thật. Khoản đã tồn tại sẽ được bỏ qua.
+                                                            </p>
+                                                      </div>
+                                                      <button
+                                                            type="button"
+                                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#e2c77c] bg-white/80 text-xl font-semibold text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-900"
+                                                            onClick={() => setApplyPanelOpen(false)}
+                                                            aria-label="Đóng form tạo khoản phải thu"
+                                                      >
+                                                            ×
+                                                      </button>
+                                                </div>
+
+                                                {selectedPeriodMonths.length ? (
+                                                      <div className="mt-4 rounded-[22px] border border-[#ead9ad]/75 bg-white/72 px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                                                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                                                  <div className="flex min-w-0 items-center gap-3">
+                                                                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[#efd89d] bg-[#fff8df] text-sm font-semibold text-[#96600c]">
+                                                                              {selectedPeriodMonths.findIndex((month: any) => month.value === selectedBillingMonth) + 1 || 1}
+                                                                        </span>
+                                                                        <div className="min-w-0">
+                                                                              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Tháng áp dụng</p>
+                                                                              <p className="truncate text-sm font-semibold text-[#17213a]">
+                                                                                    Đang chọn {getBillingMonthLabel(selectedBillingMonth)}
+                                                                              </p>
+                                                                        </div>
+                                                                  </div>
+
+                                                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                                        <button
+                                                                              type="button"
+                                                                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-[#e0b85a] hover:bg-[#fffaf0] disabled:cursor-not-allowed disabled:opacity-45"
+                                                                              disabled={selectedPeriodMonths.findIndex((month: any) => month.value === selectedBillingMonth) <= 0}
+                                                                              onClick={() => {
+                                                                                    const currentIndex = selectedPeriodMonths.findIndex((month: any) => month.value === selectedBillingMonth);
+                                                                                    const previousMonth = selectedPeriodMonths[currentIndex - 1];
+                                                                                    if (previousMonth) selectPeriodMonth(selectedPeriod, previousMonth.value);
+                                                                              }}
+                                                                        >
+                                                                              Tháng trước
+                                                                        </button>
+
+                                                                        <select
+                                                                              value={selectedBillingMonth}
+                                                                              onChange={(event) => selectPeriodMonth(selectedPeriod, event.target.value)}
+                                                                              className="min-w-[220px] rounded-2xl border border-[#ead9ad] bg-[linear-gradient(180deg,#fffefa_0%,#fff7df_100%)] px-4 py-2.5 text-sm font-semibold text-[#5b3b06] shadow-[0_8px_18px_rgba(106,76,20,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] outline-none transition focus:border-[#d6a63d] focus:ring-4 focus:ring-amber-100"
+                                                                        >
+                                                                              {selectedPeriodMonths.map((month: any) => {
+                                                                                    const monthStats = getMonthChargeStats(selectedPeriod, month.value);
+                                                                                    const monthRemaining = toMoneyNumber(monthStats.remainingAmount || 0);
+                                                                                    return (
+                                                                                          <option key={month.value} value={month.value}>
+                                                                                                {month.label} · {monthStats.residentCount} HV · {monthRemaining > 0 ? `Còn ${formatMoney(monthStats.remainingAmount)}` : "Đã ổn"}
+                                                                                          </option>
+                                                                                    );
+                                                                              })}
+                                                                        </select>
+
+                                                                        <button
+                                                                              type="button"
+                                                                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-[#e0b85a] hover:bg-[#fffaf0] disabled:cursor-not-allowed disabled:opacity-45"
+                                                                              disabled={
+                                                                                    selectedPeriodMonths.findIndex((month: any) => month.value === selectedBillingMonth) >=
+                                                                                    selectedPeriodMonths.length - 1
+                                                                              }
+                                                                              onClick={() => {
+                                                                                    const currentIndex = selectedPeriodMonths.findIndex((month: any) => month.value === selectedBillingMonth);
+                                                                                    const nextMonth = selectedPeriodMonths[currentIndex + 1];
+                                                                                    if (nextMonth) selectPeriodMonth(selectedPeriod, nextMonth.value);
+                                                                              }}
+                                                                        >
+                                                                              Tháng sau
+                                                                        </button>
+                                                                  </div>
+                                                            </div>
+                                                      </div>
+                                                ) : null}
+                                          </div>
+
+                                          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+                                                <div className="grid gap-6 xl:grid-cols-[330px_minmax(0,1fr)]">
+                                                      <div className="space-y-4">
+                                                            <section className="rounded-[28px] border border-[#ead9ad]/80 bg-white/88 p-4 shadow-[0_12px_30px_rgba(106,76,20,0.08),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                                                                  <div className="flex items-start justify-between gap-3">
+                                                                        <div>
+                                                                              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a640c]">1. Khoản phí</p>
+                                                                              <p className="mt-1 text-sm leading-6 text-slate-600">Chọn loại phí muốn sinh cho học viên đủ điều kiện.</p>
+                                                                        </div>
+                                                                        <div className="flex shrink-0 gap-2">
+                                                                              <button
+                                                                                    type="button"
+                                                                                    className="rounded-xl border border-[#e0b85a]/70 bg-[#fff8df] px-3 py-2 text-xs font-semibold text-[#8a5608] transition hover:bg-[#ffefbd]"
+                                                                                    onClick={applyDefaultForAllEligible}
+                                                                              >
+                                                                                    Chọn mặc định
+                                                                              </button>
+                                                                              <button
+                                                                                    type="button"
+                                                                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                                                                                    onClick={clearAllSelections}
+                                                                              >
+                                                                                    Bỏ chọn
+                                                                              </button>
+                                                                        </div>
+                                                                  </div>
+
+                                                                  <div className="mt-4 space-y-2.5">
+                                                                        {periodItems.map((item: any) => {
+                                                                              const itemId = Number(item.id);
+                                                                              const allSelected = isPeriodItemSelectedForAllEligible(itemId);
+                                                                              const selectedCount = getPeriodItemSelectedCount(itemId);
+                                                                              const eligibleCount = getPeriodItemEligibleResidents(itemId).length || 0;
+
+                                                                              return (
+                                                                                    <button
+                                                                                          key={item.id}
+                                                                                          type="button"
+                                                                                          onClick={() => togglePeriodItemForAllEligible(itemId, !allSelected, item.amount)}
+                                                                                          className={`w-full rounded-[20px] border px-3.5 py-3 text-left transition ${
+                                                                                                allSelected
+                                                                                                      ? "border-[#d9ad43] bg-[linear-gradient(135deg,#fff8df_0%,#ffe9a3_100%)] shadow-[0_10px_20px_rgba(184,127,24,0.14)]"
+                                                                                                      : "border-slate-200 bg-white/80 hover:border-[#e0b85a] hover:bg-[#fffaf0]"
+                                                                                          }`}
+                                                                                    >
+                                                                                          <div className="flex items-start justify-between gap-3">
+                                                                                                <div className="min-w-0">
+                                                                                                      <p className="truncate text-sm font-semibold text-[#17213a]">{item.feeTypeName}</p>
+                                                                                                      <p className="mt-1 text-sm text-slate-500">
+                                                                                                            {formatMoney(item.amount)} · {Number(item.isDefaultChecked) === 1 ? "Mặc định chọn" : "Không mặc định"}
+                                                                                                      </p>
+                                                                                                </div>
+                                                                                                <span
+                                                                                                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border text-xs font-semibold ${
+                                                                                                            allSelected
+                                                                                                                  ? "border-[#b98516] bg-[#c9952a] text-white"
+                                                                                                                  : "border-slate-300 bg-white text-transparent"
+                                                                                                      }`}
+                                                                                                >
+                                                                                                      ✓
+                                                                                                </span>
+                                                                                          </div>
+                                                                                          <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                                                                                                <span>Đã chọn {selectedCount}/{eligibleCount} học viên</span>
+                                                                                                <span>{eligibleCount ? "Đủ điều kiện" : "Không có học viên"}</span>
+                                                                                          </div>
+                                                                                    </button>
+                                                                              );
+                                                                        })}
+
+                                                                        {!periodItems.length ? (
+                                                                              <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-4 text-sm text-slate-500">
+                                                                                    Kỳ thu này chưa có khoản phí. Hãy kiểm tra cấu hình kỳ thu.
+                                                                              </div>
+                                                                        ) : null}
+                                                                  </div>
+                                                            </section>
+
+                                                            <section className="rounded-[28px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffaf0_0%,#fff4d7_100%)] p-4 shadow-[0_12px_30px_rgba(106,76,20,0.08),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                                                                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a640c]">2. Dự kiến tạo</p>
+                                                                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                                                                        <MiniSummary label="Học viên" value={String(projectedApplySummary.residentCount)} />
+                                                                        <MiniSummary label="Khoản phí" value={String(projectedApplySummary.totalItems)} />
+                                                                        <MiniSummary label="Tổng tiền" value={formatMoney(projectedApplySummary.totalAmount)} />
+                                                                  </div>
+
+                                                                  <div className="mt-3 space-y-2">
+                                                                        {projectedApplySummary.items.map((item: any) => (
+                                                                              <div key={item.id} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/75 px-3 py-2 text-sm">
+                                                                                    <span className="truncate font-semibold text-slate-700">{item.name}</span>
+                                                                                    <span className="shrink-0 text-xs text-slate-500">
+                                                                                          {item.count} khoản · {formatMoney(item.amount)}
+                                                                                    </span>
+                                                                              </div>
+                                                                        ))}
+                                                                        {!projectedApplySummary.items.length ? (
+                                                                              <p className="rounded-2xl border border-dashed border-[#ead9ad] bg-white/50 px-3 py-3 text-sm text-slate-500">
+                                                                                    Chưa có khoản nào được chọn.
+                                                                              </p>
+                                                                        ) : null}
+                                                                  </div>
+
+                                                                  {selectionMessage ? (
+                                                                        <div className="mt-3 rounded-2xl border border-[#e8c972]/70 bg-white/70 px-3 py-2 text-sm text-[#8a5608]">
+                                                                              {selectionMessage}
+                                                                        </div>
+                                                                  ) : null}
+                                                            </section>
+                                                      </div>
+
+                                                      <section className="min-w-0 overflow-hidden rounded-[28px] border border-[#ead9ad]/80 bg-white/92 shadow-[0_12px_30px_rgba(106,76,20,0.08),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                                                            <div className="sticky top-0 z-10 border-b border-[#ead9ad]/60 bg-[linear-gradient(90deg,#fffdfa_0%,#fff7df_100%)] px-4 py-3">
+                                                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                                                        <div className="min-w-0">
+                                                                              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a640c]">3. Học viên</p>
+                                                                              <p className="mt-1 text-sm leading-6 text-slate-600">
+                                                                                    Tick từng khoản phí cần tạo. Khoản đã có sẽ được khóa và tự bỏ qua.
+                                                                              </p>
+                                                                        </div>
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                              <span className="rounded-full border border-slate-200 bg-white/85 px-3 py-1 text-xs font-semibold text-slate-600">
+                                                                                    {previewResidents.length} học viên
+                                                                              </span>
+                                                                              <span className="rounded-full border border-[#efd89d] bg-[#fff8df] px-3 py-1 text-xs font-semibold text-[#96600c]">
+                                                                                    {getBillingMonthLabel(selectedBillingMonth)}
+                                                                              </span>
+                                                                        </div>
+                                                                  </div>
+                                                            </div>
+
+                                                            <div className="max-h-[56vh] space-y-3 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#fffdf8_0%,#f8fafc_100%)] p-3.5">
+                                                                  {previewQuery?.isLoading ? (
+                                                                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-8 text-center text-sm text-slate-500">
+                                                                              Đang tải danh sách học viên...
+                                                                        </div>
+                                                                  ) : null}
+
+                                                                  {!previewQuery?.isLoading && !previewResidents.length ? (
+                                                                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-8 text-center text-sm text-slate-500">
+                                                                              Chưa có học viên trong danh sách áp dụng cho tháng này.
+                                                                        </div>
+                                                                  ) : null}
+
+                                                                  {previewResidents.map((resident: any) => {
+                                                                        const residentSelectedCount = periodItems.reduce((count: number, item: any) => {
+                                                                              const selected = residentSelections[String(resident.id)]?.[String(item.id)];
+                                                                              const alreadyApplied = isResidentItemAlreadyApplied(resident, item);
+                                                                              return count + (alreadyApplied || selected?.selected ? 1 : 0);
+                                                                        }, 0);
+                                                                        const residentCanApply = Boolean(resident.eligible);
+                                                                        const visibleItems = periodItems.filter((item: any) => {
+                                                                              const alreadyApplied = isResidentItemAlreadyApplied(resident, item);
+                                                                              const selectable = isResidentItemSelectable(resident, item);
+                                                                              return alreadyApplied || selectable;
+                                                                        });
+
+                                                                        return (
+                                                                              <article
+                                                                                    key={resident.id}
+                                                                                    className={`overflow-hidden rounded-[22px] border transition ${
+                                                                                          residentCanApply
+                                                                                                ? "border-[#ead9ad]/75 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.05),inset_0_1px_0_rgba(255,255,255,0.95)] hover:border-[#e0b85a]"
+                                                                                                : "border-slate-200 bg-slate-50/95 text-slate-500"
+                                                                                    }`}
+                                                                              >
+                                                                                    <div className="flex flex-col gap-2 border-b border-[#efe6cf] bg-[linear-gradient(180deg,#fffefa_0%,#fffaf0_100%)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                                                                          <div className="min-w-0">
+                                                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                                                      <p className={`break-words text-base font-semibold ${residentCanApply ? "text-[#17213a]" : "text-slate-500"}`}>
+                                                                                                            {resident.fullName}
+                                                                                                      </p>
+                                                                                                      {!residentCanApply ? (
+                                                                                                            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                                                                                                                  Không áp dụng
+                                                                                                            </span>
+                                                                                                      ) : null}
+                                                                                                </div>
+                                                                                                <p className="mt-1 text-xs text-slate-500">{resident.residentCode || "Chưa có mã"}</p>
+                                                                                                {!residentCanApply ? (
+                                                                                                      <p className="mt-1.5 text-sm font-medium text-amber-700">{resident.reason || "Không đủ điều kiện áp dụng trong tháng này."}</p>
+                                                                                                ) : null}
+                                                                                          </div>
+
+                                                                                          <span
+                                                                                                className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold ${
+                                                                                                      residentSelectedCount > 0
+                                                                                                            ? "border-[#efd89d] bg-[#fff8df] text-[#96600c]"
+                                                                                                            : "border-slate-200 bg-white text-slate-500"
+                                                                                                }`}
+                                                                                          >
+                                                                                                {residentSelectedCount}/{periodItems.length} khoản
+                                                                                          </span>
+                                                                                    </div>
+
+                                                                                    {!residentCanApply ? (
+                                                                                          <div className="px-4 py-4">
+                                                                                                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-500">
+                                                                                                      Học viên chưa đủ điều kiện trong tháng này nên các khoản phí được ẩn để tránh nhầm khi tạo công nợ.
+                                                                                                </div>
+                                                                                          </div>
+                                                                                    ) : !visibleItems.length ? (
+                                                                                          <div className="px-4 py-4">
+                                                                                                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-500">
+                                                                                                      Không có khoản phí nào còn có thể tạo cho học viên này.
+                                                                                                </div>
+                                                                                          </div>
+                                                                                    ) : (
+                                                                                          <div className="space-y-2.5 px-4 py-3">
+                                                                                                {visibleItems.map((item: any) => {
+                                                                                                      const selected = residentSelections[String(resident.id)]?.[String(item.id)];
+                                                                                                      const alreadyApplied = isResidentItemAlreadyApplied(resident, item);
+                                                                                                      const selectable = isResidentItemSelectable(resident, item);
+                                                                                                      const checked = Boolean(alreadyApplied || (selected?.selected && selectable));
+                                                                                                      const inputDisabled = !selectable || !selected?.selected;
+                                                                                                      const inputId = `finance-apply-${resident.id}-${item.id}`;
+
+                                                                                                      return (
+                                                                                                            <div
+                                                                                                                  key={item.id}
+                                                                                                                  className={`grid grid-cols-[26px_minmax(0,1fr)] gap-3 rounded-2xl border px-3 py-2.5 transition sm:grid-cols-[26px_minmax(0,1fr)_150px] sm:items-center ${
+                                                                                                                        alreadyApplied
+                                                                                                                              ? "border-slate-200 bg-slate-50/80 text-slate-400"
+                                                                                                                              : checked
+                                                                                                                                    ? "border-[#ecd28c] bg-[linear-gradient(180deg,#fffdf7_0%,#fff7df_100%)] shadow-[0_8px_18px_rgba(170,120,25,0.08)]"
+                                                                                                                                    : "border-[#eadfca] bg-white/90 hover:border-[#e0bf6f]"
+                                                                                                                  }`}
+                                                                                                            >
+                                                                                                                  <div className="flex h-10 items-center justify-center">
+                                                                                                                        <input
+                                                                                                                              id={inputId}
+                                                                                                                              type="checkbox"
+                                                                                                                              className="h-4 w-4 shrink-0 rounded border-[#d9c8a2] text-[#c9952a] focus:ring-amber-200 disabled:opacity-45"
+                                                                                                                              disabled={!selectable}
+                                                                                                                              checked={checked}
+                                                                                                                              onChange={(event) =>
+                                                                                                                                    toggleResidentItem(Number(resident.id), Number(item.id), event.target.checked)
+                                                                                                                              }
+                                                                                                                        />
+                                                                                                                  </div>
+
+                                                                                                                  <label htmlFor={inputId} className="min-w-0 cursor-pointer">
+                                                                                                                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                                                                                                              <span className={`min-w-0 text-sm font-semibold leading-5 ${alreadyApplied ? "text-slate-400" : "text-[#17213a]"}`}>
+                                                                                                                                    {item.feeTypeName}
+                                                                                                                              </span>
+                                                                                                                              {alreadyApplied ? (
+                                                                                                                                    <span className="shrink-0 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+                                                                                                                                          Đã có
+                                                                                                                                    </span>
+                                                                                                                              ) : checked ? (
+                                                                                                                                    <span className="shrink-0 rounded-full border border-[#efd89d] bg-[#fff8df] px-2 py-0.5 text-[10px] font-semibold text-[#96600c]">
+                                                                                                                                          Sẽ tạo
+                                                                                                                                    </span>
+                                                                                                                              ) : (
+                                                                                                                                    <span className="shrink-0 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                                                                                                                                          Chưa chọn
+                                                                                                                                    </span>
+                                                                                                                              )}
+                                                                                                                        </div>
+                                                                                                                        <p className={`mt-0.5 text-xs leading-5 ${alreadyApplied ? "text-slate-400" : "text-slate-500"}`}>
+                                                                                                                              {alreadyApplied ? "Khoản này đã có, hệ thống sẽ bỏ qua." : `Mặc định ${formatMoney(item.amount)}`}
+                                                                                                                        </p>
+                                                                                                                  </label>
+
+                                                                                                                  <div className="col-span-2 flex items-center gap-2 sm:col-span-1 sm:justify-end">
+                                                                                                                        <span className="w-16 shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:hidden">
+                                                                                                                              Số tiền
+                                                                                                                        </span>
+                                                                                                                        <input
+                                                                                                                              type="text"
+                                                                                                                              inputMode="numeric"
+                                                                                                                              disabled={inputDisabled}
+                                                                                                                              value={selected?.amount || formatMoneyInput(item.amount)}
+                                                                                                                              onChange={(event) =>
+                                                                                                                                    updateResidentItemAmount(Number(resident.id), Number(item.id), event.target.value)
+                                                                                                                              }
+                                                                                                                              className="h-10 w-full rounded-xl border border-[#e4d7bd] bg-white px-3 text-right text-sm font-semibold text-[#17213a] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] outline-none transition focus:border-[#d6a63d] focus:ring-4 focus:ring-amber-100 disabled:bg-slate-50 disabled:text-slate-400 sm:w-[136px]"
+                                                                                                                        />
+                                                                                                                  </div>
+                                                                                                            </div>
+                                                                                                      );
+                                                                                                })}
+                                                                                          </div>
+                                                                                    )}
+                                                                              </article>
+                                                                        );
+                                                                  })}
+                                                            </div>
+                                                      </section>
+                                                </div>
+                                          </div>
+
+                                          <div className="flex flex-col gap-3 border-t border-[#ead9ad]/70 bg-white/82 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                                <p className="text-sm text-slate-600">
+                                                      {hasSelectedApplicableItems
+                                                            ? `Sẽ tạo ${projectedApplySummary.totalItems} khoản cho ${projectedApplySummary.residentCount} học viên, tổng ${formatMoney(projectedApplySummary.totalAmount)}.`
+                                                            : "Chưa có khoản nào được chọn để tạo."}
+                                                </p>
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                      <button
+                                                            type="button"
+                                                            className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                                                            onClick={() => setApplyPanelOpen(false)}
+                                                      >
+                                                            Đóng
+                                                      </button>
+                                                      <button
+                                                            type="button"
+                                                            className={`${residenceMediumStyle.buttonCardPrimary} disabled:cursor-not-allowed disabled:opacity-50`}
+                                                            onClick={submitApplyPeriod}
+                                                            disabled={applyPeriodMutationPending || !hasSelectedApplicableItems}
+                                                      >
+                                                            {applyPeriodMutationPending ? "Đang tạo..." : "Tạo khoản phải thu"}
+                                                      </button>
+                                                </div>
+                                          </div>
+                                    </div>
+                              </div>
+                        ) : null}
                   </div>
             </div>
       );
@@ -708,6 +944,15 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
             <div className="rounded-2xl border border-slate-100 bg-white/80 px-3 py-2.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
                   <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+            </div>
+      );
+}
+
+function MiniSummary({ label, value }: { label: string; value: string }) {
+      return (
+            <div className="rounded-2xl border border-[#ead9ad]/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.95)_0%,rgba(255,248,225,0.9)_100%)] px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#14213d]">{value}</p>
             </div>
       );
 }
