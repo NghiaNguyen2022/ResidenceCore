@@ -8,6 +8,8 @@ import {
   getBillingMonthLabel,
   getMonthEnd,
   getMonthStart,
+  getTransactionDirectionForSource,
+  getTransactionSourceMeta,
   toMoneyNumber,
 } from "./financeLiteUtils";
 
@@ -353,10 +355,25 @@ export function FinanceTransactionModal({
   onClose: () => void;
   onSubmit: () => void;
 }) {
+  const sourceMeta = getTransactionSourceMeta(form.source, form.direction);
+  const isBusiness = form.source === "business";
+
+  function handleSourceChange(source: string) {
+    const nextDirection = getTransactionDirectionForSource(
+      source,
+      form.direction === "out" ? "out" : "in",
+    );
+    setForm({
+      ...form,
+      source,
+      direction: source === "business" ? form.direction || "in" : nextDirection,
+    });
+  }
+
   return (
     <StandardModalShell
-      title="Thu / chi khác"
-      subtitle="Ghi nhận khoản thu khác, tài trợ, ủng hộ, khoản chi hoặc kinh doanh."
+      title="Ghi nhận thu / chi"
+      subtitle="Tách rõ thu khác, tài trợ/ủng hộ và khoản chi để sổ sách dễ đối chiếu."
       onClose={onClose}
     >
       <div className="space-y-4 p-5">
@@ -365,28 +382,42 @@ export function FinanceTransactionModal({
             {message}
           </div>
         ) : null}
+
         <div className="grid gap-3 md:grid-cols-2">
           <SelectField
             label="Loại nghiệp vụ"
             value={form.source}
-            onChange={(source) => setForm({ ...form, source })}
+            onChange={handleSourceChange}
             options={[
-              ["other_income", "Khoản thu khác"],
+              ["other_income", "Thu khác"],
               ["donation", "Tài trợ / ủng hộ"],
-              ["expense", "Khoản chi"],
+              ["expense", "Chi phí"],
               ["business", "Thu / chi kinh doanh"],
             ]}
           />
           <SelectField
-            label="Thu / chi"
+            label="Chiều tiền"
             value={form.direction}
             onChange={(direction) => setForm({ ...form, direction })}
             options={[
-              ["in", "Thu"],
-              ["out", "Chi"],
+              ["in", "Thu vào"],
+              ["out", "Chi ra"],
             ]}
+            disabled={!isBusiness}
           />
         </div>
+
+        {!isBusiness ? (
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-slate-600">
+            <span className="font-semibold text-slate-900">{sourceMeta.label}</span>{" "}
+            được tự động ghi là{" "}
+            <span className="font-semibold text-slate-900">
+              {sourceMeta.direction === "out" ? "chi ra" : "thu vào"}
+            </span>
+            .
+          </div>
+        ) : null}
+
         <div className="grid gap-3 md:grid-cols-2">
           <MoneyInput
             label="Số tiền"
@@ -394,7 +425,7 @@ export function FinanceTransactionModal({
             onChange={(amount) => setForm({ ...form, amount })}
           />
           <DateField
-            label="Ngày"
+            label={sourceMeta.dateLabel}
             value={form.transactionDate}
             onChange={(transactionDate) =>
               setForm({ ...form, transactionDate })
@@ -403,7 +434,7 @@ export function FinanceTransactionModal({
         </div>
         <div>
           <label className="text-sm font-medium text-slate-700">
-            Người/đơn vị/mục tiêu
+            {sourceMeta.targetLabel}
           </label>
           <input
             value={form.targetName}
@@ -414,11 +445,18 @@ export function FinanceTransactionModal({
               })
             }
             className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+            placeholder={
+              form.source === "expense"
+                ? "Ví dụ: Điện lực, thợ sửa chữa, cửa hàng vật dụng..."
+                : form.source === "donation"
+                  ? "Ví dụ: Ân nhân, phụ huynh, đơn vị tài trợ..."
+                  : "Ví dụ: Quỹ sinh hoạt, hoàn tiền, khoản thu phát sinh..."
+            }
           />
         </div>
         <div>
           <label className="text-sm font-medium text-slate-700">
-            Mục đích / ghi chú
+            {sourceMeta.purposeLabel}
           </label>
           <textarea
             value={form.description}
@@ -429,6 +467,7 @@ export function FinanceTransactionModal({
               })
             }
             className="mt-1 min-h-[80px] w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+            placeholder="Ghi rõ mục đích để sau này đối chiếu sổ sách."
           />
         </div>
         <ModalActions
@@ -442,6 +481,7 @@ export function FinanceTransactionModal({
     </StandardModalShell>
   );
 }
+
 
 export function FinanceGroupPaymentModal({
   message,
@@ -796,11 +836,13 @@ function SelectField({
   value,
   options,
   onChange,
+  disabled,
 }: {
   label: string;
   value: string;
   options: Array<[string, string]>;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -808,7 +850,8 @@ function SelectField({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+        disabled={disabled}
+        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
       >
         {options.map(([optionValue, label]) => (
           <option key={optionValue} value={optionValue}>

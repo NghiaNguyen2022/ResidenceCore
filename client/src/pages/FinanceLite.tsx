@@ -35,6 +35,8 @@ import {
       getCurrentBillingMonth,
       getStatusClass,
       getStatusLabel,
+      getTransactionDirectionForSource,
+      getTransactionSourceMeta,
       monthNames,
       periodContainsBillingMonth,
       toMoneyNumber,
@@ -1359,18 +1361,33 @@ export default function FinanceLite() {
       function submitTransaction() {
             setTransactionFormMessage("");
             const amount = toMoneyNumber(transactionForm.amount);
+            const direction = getTransactionDirectionForSource(
+                  transactionForm.source,
+                  transactionForm.direction as "in" | "out",
+            );
+            const sourceMeta = getTransactionSourceMeta(transactionForm.source, direction);
+
             if (amount <= 0) {
                   setTransactionFormMessage("Vui lòng nhập số tiền hợp lệ.");
                   return;
             }
+            if (!String(transactionForm.targetName || "").trim()) {
+                  setTransactionFormMessage(`Vui lòng nhập ${sourceMeta.targetLabel.toLowerCase()}.`);
+                  return;
+            }
+            if (!String(transactionForm.description || "").trim()) {
+                  setTransactionFormMessage(`Vui lòng nhập ${sourceMeta.purposeLabel.toLowerCase()}.`);
+                  return;
+            }
+
             createTransactionMutation?.mutate?.({
                   source: transactionForm.source,
-                  direction: transactionForm.direction as "in" | "out",
+                  direction,
                   amount,
                   transactionDate: transactionForm.transactionDate || null,
                   targetType: transactionForm.source,
-                  targetName: transactionForm.targetName || null,
-                  description: transactionForm.description || null,
+                  targetName: transactionForm.targetName.trim(),
+                  description: transactionForm.description.trim(),
             });
       }
 
@@ -1599,12 +1616,16 @@ export default function FinanceLite() {
 {
       activeTab === "expenses" ? (
             <FinanceExpensesPanel
+                  transactions={transactions}
                   onCreateExpense={() => {
-                        setTransactionForm((prev) => ({
-                              ...prev,
+                        setTransactionForm({
                               source: "expense",
                               direction: "out",
-                        }));
+                              amount: "",
+                              transactionDate: new Date().toISOString().slice(0, 10),
+                              targetName: "",
+                              description: "",
+                        });
                         setTransactionFormOpen(true);
                   }}
             />
@@ -1614,7 +1635,17 @@ export default function FinanceLite() {
       activeTab === "cashbook" ? (
             <FinanceCashbookPanel
                   transactions={transactions}
-                  onCreateTransaction={() => setTransactionFormOpen(true)}
+                  onCreateTransaction={() => {
+                        setTransactionForm({
+                              source: "other_income",
+                              direction: "in",
+                              amount: "",
+                              transactionDate: new Date().toISOString().slice(0, 10),
+                              targetName: "",
+                              description: "",
+                        });
+                        setTransactionFormOpen(true);
+                  }}
             />
       ) : null
 }

@@ -132,21 +132,24 @@ export function FinanceLiteStudentLedger({
       updateResidentItemAmount,
       setStudentLedgerPage,
 }: FinanceLiteStudentLedgerProps) {
+      const ledgerTotalAmount = groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.amount || 0), 0);
+      const ledgerPaidAmount = groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.paidAmount || 0), 0);
+      const ledgerRemainingAmount = groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.remainingAmount || 0), 0);
       return (
-            <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
-                  <section className="flex min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/85 bg-gradient-to-b from-white/95 via-[#fffaf0] to-[#fff2d1] p-4 shadow-[0_16px_36px_rgba(15,23,42,0.08)] ring-1 ring-amber-100/70 xl:sticky xl:top-4 xl:h-[calc(100vh-5.5rem)] xl:max-h-none">
-                        <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="relative grid gap-5 rounded-[34px] bg-[radial-gradient(circle_at_0%_0%,rgba(246,201,92,0.18),transparent_34%),linear-gradient(180deg,#fffdf8_0%,#fbf4e4_48%,#f6ead0_100%)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] xl:grid-cols-[308px_minmax(0,1fr)] xl:items-start">
+                  <section className="flex min-h-0 flex-col overflow-hidden rounded-[30px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(255,250,236,0.94)_100%)] p-4 shadow-[0_22px_55px_rgba(106,76,20,0.12),0_4px_12px_rgba(106,76,20,0.06),inset_0_1px_0_rgba(255,255,255,0.95)] ring-1 ring-white/70 xl:sticky xl:top-4 xl:h-[calc(100vh-5.5rem)] xl:max-h-none">
+                        <div className="mb-4 flex items-start justify-between gap-3">
                               <div>
-                                    <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
+                                    <h2 className="text-[30px] font-semibold leading-[1.05] tracking-tight text-[#101a2f]">
                                           Chọn tháng
                                     </h2>
-                                    <p className="mt-1 text-sm text-slate-500">
+                                    <p className="mt-2 max-w-[210px] text-sm leading-5 text-slate-500">
                                           {selectedPeriod?.periodName || "Kỳ thu học viên"}
                                     </p>
                               </div>
                               <button
                                     type="button"
-                                    className="inline-flex items-center rounded-2xl border border-amber-200 bg-white/88 px-3.5 py-2 text-sm font-semibold text-amber-800 shadow-sm transition hover:border-amber-300 hover:bg-amber-50"
+                                    className="inline-flex shrink-0 items-center rounded-2xl border border-[#e5c06a]/70 bg-[linear-gradient(135deg,#fffdf7_0%,#fff2c9_100%)] px-3.5 py-2 text-sm font-semibold text-[#7c4a03] shadow-[0_10px_22px_rgba(180,122,20,0.16),inset_0_1px_0_rgba(255,255,255,0.9)] transition hover:-translate-y-0.5 hover:border-[#d6a63d] hover:shadow-[0_14px_28px_rgba(180,122,20,0.22)]"
                                     onClick={() => setPeriodFormOpen(true)}
                               >
                                     <Plus className="mr-1.5 h-4 w-4" /> Kỳ
@@ -155,14 +158,14 @@ export function FinanceLiteStudentLedger({
                         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                               {periods.length ? (
                                     <>
-                                          <div className="sticky top-0 z-10 -mx-1 mb-3 rounded-2xl bg-[linear-gradient(180deg,rgba(255,250,240,0.97),rgba(255,250,240,0.9))] px-1 pb-3 pt-1 backdrop-blur-sm">
+                                          <div className="sticky top-0 z-20 mb-3 rounded-[22px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(255,247,225,0.94)_100%)] px-3 py-2.5 shadow-[0_12px_26px_rgba(94,70,26,0.10),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur">
                                                 <div className="flex items-center justify-between gap-2">
                                                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                                                             Danh sách tháng
                                                       </p>
                                                       <button
                                                             type="button"
-                                                            className="inline-flex items-center rounded-full border border-amber-200 bg-white/90 px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm transition hover:border-amber-300 hover:bg-amber-50"
+                                                            className="inline-flex items-center rounded-full border border-[#e0b85a]/70 bg-[linear-gradient(135deg,#fffdf6_0%,#ffe9a9_100%)] px-3 py-1.5 text-[11px] font-semibold text-[#8a5305] shadow-[0_8px_18px_rgba(184,127,24,0.16),inset_0_1px_0_rgba(255,255,255,0.9)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_22px_rgba(184,127,24,0.22)]"
                                                             onClick={() => {
                                                                   const periodWithCurrentMonth = periods.find((period: any) =>
                                                                         periodContainsBillingMonth(period, currentBillingMonth),
@@ -175,7 +178,7 @@ export function FinanceLiteStudentLedger({
                                                       </button>
                                                 </div>
                                           </div>
-                                          <div className="space-y-3">
+                                          <div className="space-y-2">
                                                 {selectedPeriodMonths.map((month: any) => {
                                                       const stats = getMonthChargeStats(selectedPeriod, month.value);
                                                       const selectedMonth = selectedBillingMonth === month.value;
@@ -186,12 +189,12 @@ export function FinanceLiteStudentLedger({
                                                             toMoneyNumber(stats.remainingAmount || 0) > 0;
 
                                                       const monthCardClass = selectedMonth
-                                                            ? "border-amber-300 bg-gradient-to-br from-[#fff6de] via-white to-[#f3cf82]/75 text-amber-950 shadow-[0_12px_30px_rgba(217,119,6,0.12)] ring-1 ring-amber-100"
+                                                            ? "border-[#d8a735] bg-[linear-gradient(135deg,#fffdfa_0%,#fff3cb_48%,#f0c96d_100%)] text-[#402600] shadow-[0_16px_36px_rgba(180,122,20,0.24),0_3px_8px_rgba(180,122,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)] ring-1 ring-[#f4d88f]"
                                                             : isCurrentMonth
-                                                                  ? "border-amber-200 bg-gradient-to-br from-[#fffaf0] via-white to-[#f6de9e]/65 text-slate-700 shadow-sm hover:border-amber-300"
+                                                                  ? "border-[#e5c06a]/80 bg-[linear-gradient(135deg,#ffffff_0%,#fff8e4_55%,#f8df9a_100%)] text-slate-800 shadow-[0_10px_24px_rgba(150,108,28,0.12),inset_0_1px_0_rgba(255,255,255,0.88)] hover:border-[#d9a940]"
                                                                   : hasMonthCharges
-                                                                        ? "border-amber-100/80 bg-white/88 text-slate-700 shadow-sm hover:border-amber-200 hover:bg-[#fffaf0]"
-                                                                        : "border-slate-200/90 bg-slate-100/95 text-slate-600 hover:border-slate-300";
+                                                                        ? "border-[#eee3c9] bg-[linear-gradient(180deg,#fffefa_0%,#fffaf0_100%)] text-slate-700 shadow-[0_8px_18px_rgba(63,48,20,0.07),inset_0_1px_0_rgba(255,255,255,0.9)] hover:border-[#e2c67d] hover:bg-[#fff8e8]"
+                                                                        : "border-slate-200/90 bg-[linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)] text-slate-500 opacity-85 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] hover:border-slate-300";
 
                                                       const metaTextClass = selectedMonth
                                                             ? "text-slate-600"
@@ -207,7 +210,7 @@ export function FinanceLiteStudentLedger({
                                                                   }}
                                                                   type="button"
                                                                   onClick={() => selectPeriodMonth(selectedPeriod, month.value)}
-                                                                  className={`w-full rounded-[24px] border px-4 py-3 text-left transition ${monthCardClass}`}
+                                                                  className={`group w-full rounded-[22px] border px-3.5 py-3 text-left transition duration-200 hover:-translate-y-0.5 ${monthCardClass}`}
                                                             >
                                                                   <div className="flex items-start justify-between gap-3">
                                                                         <div>
@@ -226,9 +229,11 @@ export function FinanceLiteStudentLedger({
                                                                               </span>
                                                                         </div>
                                                                   </div>
-                                                                  <div className={`mt-3 grid gap-1 text-[12px] ${metaTextClass}`}>
-                                                                        <span>Đã thu: {formatMoney(stats.paidAmount)}</span>
-                                                                        <span>Còn lại: {formatMoney(stats.remainingAmount)}</span>
+                                                                  <div className={`mt-2 flex items-center justify-between gap-2 text-[12px] ${metaTextClass}`}>
+                                                                        <span>Thu {formatMoney(stats.paidAmount)}</span>
+                                                                        <span className={toMoneyNumber(stats.remainingAmount) > 0 ? "rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-600" : "rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-600"}>
+                                                                              {toMoneyNumber(stats.remainingAmount) > 0 ? `Còn ${formatMoney(stats.remainingAmount)}` : "Đủ"}
+                                                                        </span>
                                                                   </div>
                                                             </button>
                                                       );
@@ -244,190 +249,210 @@ export function FinanceLiteStudentLedger({
                   </section>
 
                   <div className="space-y-4">
-                        <section className="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-sm">
-                              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                    <div>
-                                          <h2 className="text-[22px] font-semibold leading-tight text-slate-950">
-                                                Phải thu {getBillingMonthLabel(selectedBillingMonth)}
+                        <section className="rounded-[30px] border border-white/80 bg-white/92 p-4 shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
+                              <div className="flex flex-col gap-4">
+                                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                                          <div className="min-w-0 flex-1">
+                                                <div className="inline-flex items-center gap-2 rounded-full border border-amber-100 bg-[#fff8df] px-3 py-1 text-xs font-semibold text-amber-800">
+                                                      <span>{getBillingMonthLabel(selectedBillingMonth)}</span>
+                                                      <span className="h-1 w-1 rounded-full bg-amber-400" />
+                                                      <span>{groupedCharges.length} học viên</span>
+                                                </div>
+                                                <h2 className="mt-2 text-[25px] font-semibold leading-tight tracking-tight text-slate-950">
+                                                      Sổ phải thu học viên
                                                 </h2>
-                                                <p className="mt-1 text-sm text-slate-500">
-                                                      Công nợ học viên của tháng đang chọn, gom theo từng học viên để dễ thu và đối chiếu.
+                                                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                                                      Tập trung vào số còn phải thu, trạng thái từng học viên và thao tác thu nhanh.
                                                 </p>
-                                          <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                                                <SummaryStat label="Tháng" value={getBillingMonthLabel(selectedBillingMonth).replace("Tháng ", "T")} />
-                                                <SummaryStat label="Học viên" value={String(groupedCharges.length)} />
-                                                <SummaryStat
-                                                      label="Đã thu"
-                                                      value={formatMoney(groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.paidAmount || 0), 0))}
-                                                />
-                                                <SummaryStat
-                                                      label="Còn lại"
-                                                      value={formatMoney(groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.remainingAmount || 0), 0))}
-                                                />
+                                          </div>
+                                          <div className="grid w-full gap-2 sm:grid-cols-3 xl:w-[520px]">
+                                                <FocusSummary label="Còn phải thu" value={formatMoney(ledgerRemainingAmount)} tone="danger" />
+                                                <FocusSummary label="Đã thu" value={formatMoney(ledgerPaidAmount)} tone="success" />
+                                                <FocusSummary label="Tổng kỳ này" value={formatMoney(ledgerTotalAmount)} />
                                           </div>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
+
+                                    <div className="flex flex-col gap-2 rounded-[22px] border border-slate-100 bg-slate-50/60 p-2 lg:flex-row lg:items-center lg:justify-between">
                                           <button
                                                 type="button"
-                                                className={residenceMediumStyle.buttonCardPrimary}
+                                                className="inline-flex items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-100"
                                                 onClick={openGroupedPayment}
                                           >
                                                 Thu theo học viên
                                           </button>
-                                          <div className="relative">
-                                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                                <input
-                                                      value={searchTerm}
-                                                      onChange={(event) => setSearchTerm(event.target.value)}
-                                                      placeholder="Tìm học viên..."
-                                                      className="w-52 rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm"
-                                                />
+                                          <div className="grid flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_150px_120px] lg:max-w-3xl">
+                                                <div className="relative">
+                                                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                                      <input
+                                                            value={searchTerm}
+                                                            onChange={(event) => setSearchTerm(event.target.value)}
+                                                            placeholder="Tìm học viên..."
+                                                            className="h-10 w-full rounded-2xl border border-transparent bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-100/70"
+                                                      />
+                                                </div>
+                                                <select
+                                                      value={statusFilter}
+                                                      onChange={(event) => setStatusFilter(event.target.value as ChargeStatus)}
+                                                      className="h-10 rounded-2xl border border-transparent bg-white px-3 text-sm outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-100/70"
+                                                >
+                                                      <option value="all">Tất cả</option>
+                                                      <option value="open">Chưa thu</option>
+                                                      <option value="partial">Thu một phần</option>
+                                                      <option value="paid">Đã thu</option>
+                                                      <option value="cancelled">Đã hủy</option>
+                                                </select>
+                                                <select
+                                                      value={studentLedgerPageSize}
+                                                      onChange={(event) => setStudentLedgerPageSize(Number(event.target.value) || 7)}
+                                                      className="h-10 rounded-2xl border border-transparent bg-white px-3 text-sm outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-100/70"
+                                                      title="Số dòng mỗi trang"
+                                                >
+                                                      <option value={5}>5 dòng</option>
+                                                      <option value={7}>7 dòng</option>
+                                                      <option value={10}>10 dòng</option>
+                                                </select>
                                           </div>
-                                          <select
-                                                value={statusFilter}
-                                                onChange={(event) => setStatusFilter(event.target.value as ChargeStatus)}
-                                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                          >
-                                                <option value="all">Tất cả</option>
-                                                <option value="open">Chưa thu</option>
-                                                <option value="partial">Thu một phần</option>
-                                                <option value="paid">Đã thu</option>
-                                                <option value="cancelled">Đã hủy</option>
-                                          </select>
-                                          <select
-                                                value={studentLedgerPageSize}
-                                                onChange={(event) => setStudentLedgerPageSize(Number(event.target.value) || 7)}
-                                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                                title="Số dòng mỗi trang"
-                                          >
-                                                <option value={5}>5 dòng</option>
-                                                <option value={7}>7 dòng</option>
-                                                <option value={10}>10 dòng</option>
-                                          </select>
                                     </div>
                               </div>
+                              <div className="mt-4 space-y-2.5">
+                                    {paginatedGroupedCharges.map((group: any) => {
+                                          const groupAmount = toMoneyNumber(group.amount || 0);
+                                          const groupPaid = toMoneyNumber(group.paidAmount || 0);
+                                          const groupRemaining = toMoneyNumber(group.remainingAmount || 0);
+                                          const isGroupPaid = groupAmount > 0 && groupRemaining <= 0;
+                                          const progress = groupAmount > 0 ? Math.min(100, Math.max(0, (groupPaid / groupAmount) * 100)) : 0;
+                                          const canCollect =
+                                                Boolean(group.residentId) &&
+                                                group.charges.some((charge: any) =>
+                                                      ["open", "partial"].includes(String(charge.status || "open")) && toMoneyNumber(charge.remainingAmount || 0) > 0,
+                                                );
 
-                              <div className="mt-4 overflow-hidden rounded-[26px] border border-white/85 bg-white/92 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
-                                    <table className="w-full table-fixed divide-y divide-slate-100 text-sm">
-                                          <thead className="bg-gradient-to-r from-[#fff8e8] via-white to-[#f7e3ab]/65 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                                                <tr>
-                                                      <th className="w-[22%] px-3 py-3 text-left">Học viên</th>
-                                                      <th className="w-[44%] px-3 py-3 text-left">Khoản phí</th>
-                                                      <th className="w-[11%] px-3 py-3 text-right">Tổng</th>
-                                                      <th className="w-[11%] px-3 py-3 text-right">Đã thu</th>
-                                                      <th className="w-[11%] px-3 py-3 text-right">Còn lại</th>
-                                                      <th className="w-[10%] px-3 py-3 text-right">Tác vụ</th>
-                                                </tr>
-                                          </thead>
-                                          <tbody className="divide-y divide-slate-100 bg-white/95">
-                                                {paginatedGroupedCharges.map((group: any) => {
-                                                      const canCollect =
-                                                            Boolean(group.residentId) &&
-                                                            group.charges.some((charge: any) =>
-                                                                  ["open", "partial"].includes(String(charge.status || "open")) && toMoneyNumber(charge.remainingAmount || 0) > 0,
-                                                            );
+                                          return (
+                                                <article
+                                                      key={group.key}
+                                                      className="overflow-hidden rounded-[28px] border border-[#eadfca]/90 bg-[linear-gradient(180deg,#fffefa_0%,#fffaf1_100%)] shadow-[0_18px_46px_rgba(105,75,22,0.10),0_3px_10px_rgba(105,75,22,0.05),inset_0_1px_0_rgba(255,255,255,0.94)] ring-1 ring-white/70 transition duration-200 hover:-translate-y-0.5 hover:border-[#e2c57c] hover:shadow-[0_24px_58px_rgba(105,75,22,0.14),0_6px_16px_rgba(105,75,22,0.07)]"
+                                                >
+                                                      <div className="grid gap-3 px-4 py-3.5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                                                            <div className="min-w-0">
+                                                                  <div className="flex flex-wrap items-center gap-2">
+                                                                        <h3 className="truncate text-[18px] font-semibold tracking-tight text-slate-950">{group.residentName}</h3>
+                                                                        {isGroupPaid ? (
+                                                                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                                                                    <CheckCircle2 className="h-3.5 w-3.5" /> Đã thu đủ
+                                                                              </span>
+                                                                        ) : null}
+                                                                  </div>
+                                                                  <p className="mt-1 text-xs text-slate-500">
+                                                                        {group.residentCode || "Chưa có mã"} · {getBillingMonthLabel(group.billingMonth)} · {group.periodName || "Khoản riêng"}
+                                                                  </p>
+                                                            </div>
 
-                                                      return (
-                                                            <tr key={group.key} className="align-top">
-                                                                  <td className="px-3 py-4">
-                                                                        <p className="font-semibold text-slate-900">{group.residentName}</p>
-                                                                        <p className="text-xs text-slate-500">{group.residentCode || "-"}</p>
-                                                                        <p className="mt-1 text-xs text-slate-500">
-                                                                              {getBillingMonthLabel(group.billingMonth)} · {group.periodName || "Khoản riêng"}
-                                                                        </p>
-                                                                  </td>
-                                                                  <td className="px-3 py-4">
-                                                                        <div className="space-y-2">
-                                                                              {group.charges.map((charge: any) => {
-                                                                                    const chargeTitle =
-                                                                                          charge.periodItemName || charge.feeTypeName || charge.feeName || "Khoản thu";
-                                                                                    const status = String(charge.status || "open");
-                                                                                    const isPaid = status === "paid";
-                                                                                    const canEdit = String(charge.status || "") !== "cancelled";
-                                                                                    const canCancel =
-                                                                                          toMoneyNumber(charge.paidAmount || 0) <= 0 &&
-                                                                                          String(charge.status || "") !== "cancelled";
-
-                                                                                    return (
-                                                                                          <div
-                                                                                                key={charge.id}
-                                                                                                className="rounded-2xl border border-amber-100/80 bg-gradient-to-r from-[#fffaf0] via-white to-[#fff3d6] px-3 py-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)]"
-                                                                                          >
-                                                                                                <div className="flex items-start justify-between gap-3">
-                                                                                                      <div className="min-w-0 flex-1">
-                                                                                                            <div className="flex flex-wrap items-center gap-1.5">
-                                                                                                                  <p className="text-[15px] font-semibold leading-5 text-slate-800">{chargeTitle}</p>
-                                                                                                                  {isPaid ? (
-                                                                                                                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                                                                                                              <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                                                                              Đã thu
-                                                                                                                        </span>
-                                                                                                                  ) : (
-                                                                                                                        <InlineBadge className={getStatusClass(charge.status)}>
-                                                                                                                              {getStatusLabel(charge.status)}
-                                                                                                                        </InlineBadge>
-                                                                                                                  )}
-                                                                                                            </div>
-                                                                                                            <p className="mt-1 text-[12px] leading-5 text-slate-500">
-                                                                                                                  {formatMoney(charge.amount)} · thu {formatMoney(charge.paidAmount)} · còn {formatMoney(charge.remainingAmount)}
-                                                                                                            </p>
-                                                                                                      </div>
-                                                                                                      <div className="flex shrink-0 items-center gap-1.5">
-                                                                                                            {canEdit ? (
-                                                                                                                  <button
-                                                                                                                        type="button"
-                                                                                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white/90 text-slate-500 transition hover:border-amber-200 hover:text-amber-700"
-                                                                                                                        onClick={() => openEditCharge(charge)}
-                                                                                                                        title="Sửa khoản thu"
-                                                                                                                        aria-label="Sửa khoản thu"
-                                                                                                                  >
-                                                                                                                        <Pencil className="h-3.5 w-3.5" />
-                                                                                                                  </button>
-                                                                                                            ) : null}
-                                                                                                            {canCancel ? (
-                                                                                                                  <button
-                                                                                                                        type="button"
-                                                                                                                        className="rounded-xl border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700"
-                                                                                                                        onClick={() => onCancelCharge(charge)}
-                                                                                                                  >
-                                                                                                                        Hủy
-                                                                                                                  </button>
-                                                                                                            ) : null}
-                                                                                                      </div>
-                                                                                                </div>
-                                                                                          </div>
-                                                                                    );
-                                                                              })}
+                                                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:justify-end">
+                                                                  <div className="grid min-w-[310px] grid-cols-3 overflow-hidden rounded-[22px] border border-[#eadfca]/90 bg-[linear-gradient(135deg,#fffefa_0%,#fff5dc_100%)] text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_rgba(96,70,21,0.06)]">
+                                                                        <MoneyMetric label="Tổng" value={formatMoney(groupAmount)} />
+                                                                        <MoneyMetric label="Đã thu" value={formatMoney(groupPaid)} />
+                                                                        <MoneyMetric
+                                                                              label="Còn"
+                                                                              value={formatMoney(groupRemaining)}
+                                                                              tone={groupRemaining > 0 ? "danger" : "success"}
+                                                                        />
+                                                                  </div>
+                                                                  {canCollect ? (
+                                                                        <button
+                                                                              type="button"
+                                                                              className="inline-flex min-w-[116px] items-center justify-center rounded-[20px] border border-[#dfbd63]/80 bg-[linear-gradient(135deg,#fff6d8_0%,#f1ce72_100%)] px-4 py-2.5 text-sm font-semibold text-[#593b07] shadow-[0_10px_22px_rgba(190,136,28,0.20),inset_0_1px_0_rgba(255,255,255,0.82)] transition hover:-translate-y-0.5 hover:border-[#c9982f] hover:shadow-[0_14px_28px_rgba(190,136,28,0.26)]"
+                                                                              onClick={() => openGroupPaymentForChargeGroup(group)}
+                                                                        >
+                                                                              Thu tiền
+                                                                        </button>
+                                                                  ) : (
+                                                                        <div className="inline-flex min-w-[116px] items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-400">
+                                                                              Đã xong
                                                                         </div>
-                                                                  </td>
-                                                                  <td className="px-3 py-4 text-right font-semibold text-slate-900">{formatMoney(group.amount)}</td>
-                                                                  <td className="px-3 py-4 text-right text-slate-600">{formatMoney(group.paidAmount)}</td>
-                                                                  <td className="px-3 py-4 text-right font-semibold text-slate-800">{formatMoney(group.remainingAmount)}</td>
-                                                                  <td className="px-3 py-4 text-right">
-                                                                        {canCollect ? (
-                                                                              <button
-                                                                                    type="button"
-                                                                                    className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700"
-                                                                                    onClick={() => openGroupPaymentForChargeGroup(group)}
-                                                                              >
-                                                                                    Thu
-                                                                              </button>
-                                                                        ) : (
-                                                                              <span className="text-xs text-slate-400">-</span>
-                                                                        )}
-                                                                  </td>
-                                                            </tr>
-                                                      );
-                                                })}
-                                                {!groupedCharges.length ? (
-                                                      <tr>
-                                                            <td colSpan={6} className="px-3 py-8 text-center text-sm text-slate-500">
-                                                                  Chưa có khoản phải thu phù hợp.
-                                                            </td>
-                                                      </tr>
-                                                ) : null}
-                                          </tbody>
-                                    </table>
+                                                                  )}
+                                                            </div>
+                                                      </div>
+
+                                                      <div className="px-4 pb-3">
+                                                            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                                                  <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
+                                                            </div>
+                                                      </div>
+
+                                                      <div className="divide-y divide-[#efe5d1] border-t border-[#efe5d1] bg-[linear-gradient(180deg,rgba(255,250,238,0.55)_0%,rgba(255,255,255,0.52)_100%)]">
+                                                            {group.charges.map((charge: any) => {
+                                                                  const chargeTitle = charge.periodItemName || charge.feeTypeName || charge.feeName || "Khoản thu";
+                                                                  const status = String(charge.status || "open");
+                                                                  const isPaid = status === "paid";
+                                                                  const canEdit = String(charge.status || "") !== "cancelled";
+                                                                  const canCancel =
+                                                                        toMoneyNumber(charge.paidAmount || 0) <= 0 &&
+                                                                        String(charge.status || "") !== "cancelled";
+                                                                  const chargeRemaining = toMoneyNumber(charge.remainingAmount || 0);
+
+                                                                  return (
+                                                                        <div
+                                                                              key={charge.id}
+                                                                              className="grid gap-2 px-4 py-2.5 md:grid-cols-[minmax(0,1fr)_170px_92px] md:items-center"
+                                                                        >
+                                                                              <div className="min-w-0">
+                                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                                          <p className="truncate text-sm font-semibold text-slate-800">{chargeTitle}</p>
+                                                                                          {isPaid ? (
+                                                                                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                                                                                                      <CheckCircle2 className="h-3.5 w-3.5" /> Đã thu
+                                                                                                </span>
+                                                                                          ) : (
+                                                                                                <InlineBadge className={getStatusClass(charge.status)}>
+                                                                                                      {getStatusLabel(charge.status)}
+                                                                                                </InlineBadge>
+                                                                                          )}
+                                                                                    </div>
+                                                                                    <p className="mt-0.5 text-xs text-slate-500">
+                                                                                          Phải thu {formatMoney(charge.amount)} · đã thu {formatMoney(charge.paidAmount)}
+                                                                                    </p>
+                                                                              </div>
+                                                                              <div className="flex items-baseline justify-between gap-3 md:block md:text-right">
+                                                                                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Còn lại</span>
+                                                                                    <p className={chargeRemaining > 0 ? "text-sm font-semibold text-[#b7791f]" : "text-sm font-semibold text-emerald-600"}>
+                                                                                          {formatMoney(charge.remainingAmount)}
+                                                                                    </p>
+                                                                              </div>
+                                                                              <div className="flex items-center gap-1.5 md:justify-end">
+                                                                                    {canEdit ? (
+                                                                                          <button
+                                                                                                type="button"
+                                                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#eadfca] bg-white/90 text-slate-500 shadow-sm transition hover:border-[#d9b65a] hover:bg-[#fff7df] hover:text-[#9a5f08]"
+                                                                                                onClick={() => openEditCharge(charge)}
+                                                                                                title="Sửa khoản thu"
+                                                                                                aria-label="Sửa khoản thu"
+                                                                                          >
+                                                                                                <Pencil className="h-3.5 w-3.5" />
+                                                                                          </button>
+                                                                                    ) : null}
+                                                                                    {canCancel ? (
+                                                                                          <button
+                                                                                                type="button"
+                                                                                                className="rounded-xl border border-rose-100 bg-rose-50/55 px-2.5 py-1.5 text-[11px] font-semibold text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
+                                                                                                onClick={() => onCancelCharge(charge)}
+                                                                                          >
+                                                                                                Hủy
+                                                                                          </button>
+                                                                                    ) : null}
+                                                                              </div>
+                                                                        </div>
+                                                                  );
+                                                            })}
+                                                      </div>
+                                                </article>
+                                          );
+                                    })}
+
+                                    {!groupedCharges.length ? (
+                                          <div className="rounded-[24px] border border-dashed border-slate-200 bg-white/70 px-4 py-10 text-center text-sm text-slate-500">
+                                                Chưa có khoản phải thu phù hợp.
+                                          </div>
+                                    ) : null}
                               </div>
 
                               {groupedCharges.length ? (
@@ -465,9 +490,9 @@ export function FinanceLiteStudentLedger({
                                     <>
                                           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                                 <div>
-                                                      <h2 className="text-base font-semibold text-slate-900">Áp dụng khoản thu</h2>
+                                                      <h2 className="text-base font-semibold text-slate-900">Tạo khoản phải thu</h2>
                                                       <p className="text-sm text-slate-500">
-                                                            Chỉ mở khi cần tạo thêm khoản phí cho tháng đang chọn.
+                                                            Chọn khoản phí và học viên để sinh khoản phải thu thật cho tháng đang chọn.
                                                       </p>
                                                 </div>
                                                 <div className="flex flex-wrap gap-2">
@@ -476,7 +501,7 @@ export function FinanceLiteStudentLedger({
                                                             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600"
                                                             onClick={() => setApplyPanelOpen((value) => !value)}
                                                       >
-                                                            {applyPanelOpen ? "Thu gọn" : "Mở áp dụng"}
+                                                            {applyPanelOpen ? "Thu gọn" : "Tạo khoản phải thu"}
                                                       </button>
                                                       {applyPanelOpen ? (
                                                             <>
@@ -485,7 +510,7 @@ export function FinanceLiteStudentLedger({
                                                                         className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800"
                                                                         onClick={() => togglePeriodItemForAllEligible(0, true, 0)}
                                                                   >
-                                                                        Apply all đủ điều kiện
+                                                                        Chọn tất cả đủ điều kiện
                                                                   </button>
                                                                   <button
                                                                         type="button"
@@ -501,11 +526,16 @@ export function FinanceLiteStudentLedger({
 
                                           {!applyPanelOpen ? (
                                                 <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-slate-600">
-                                                      Đang có <span className="font-semibold text-slate-900">{groupedCharges.length}</span> học viên trong danh sách phải thu tháng này. Mở phần áp dụng khi cần tạo thêm khoản phí.
+                                                      Đang có <span className="font-semibold text-slate-900">{groupedCharges.length}</span> học viên trong danh sách phải thu tháng này. Mở “Tạo khoản phải thu” khi cần sinh thêm khoản phí.
                                                 </div>
                                           ) : (
                                                 <>
-                                                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                                                      <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/45 px-4 py-3">
+                                                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">1. Chọn khoản phí</p>
+                                                            <p className="mt-1 text-sm text-slate-600">Tick nhanh từng loại phí, hệ thống sẽ bỏ qua khoản đã tồn tại.</p>
+                                                      </div>
+
+                                                      <div className="mt-3 grid gap-3 md:grid-cols-3">
                                                             {periodItems.map((item: any) => {
                                                                   const itemId = Number(item.id);
                                                                   const allSelected = isPeriodItemSelectedForAllEligible(itemId);
@@ -521,7 +551,7 @@ export function FinanceLiteStudentLedger({
                                                                               <div className="flex items-start justify-between gap-3">
                                                                                     <div>
                                                                                           <p className="text-sm font-semibold text-slate-900">{item.feeTypeName}</p>
-                                                                                          <p className="mt-1 text-sm text-slate-500">
+                                                                                          <p className="mt-2 max-w-[210px] text-sm leading-5 text-slate-500">
                                                                                                 {formatMoney(item.amount)} · {Number(item.isDefaultChecked) === 1 ? "Mặc định chọn" : "Không mặc định"}
                                                                                           </p>
                                                                                           <p className="mt-2 text-xs text-slate-500">
@@ -546,7 +576,8 @@ export function FinanceLiteStudentLedger({
                                                       <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
                                                             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                                                   <div>
-                                                                        <p className="text-sm font-semibold text-slate-900">Dự kiến áp dụng</p>
+                                                                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">2. Dự kiến tạo</p>
+                                                                        <p className="mt-1 text-sm font-semibold text-slate-900">Tổng hợp trước khi lưu</p>
                                                                         <p className="mt-1 text-xs text-slate-500">
                                                                               Tính theo các ô đang được chọn, chưa tạo khoản phải thu thật.
                                                                         </p>
@@ -569,7 +600,12 @@ export function FinanceLiteStudentLedger({
                                                             </div>
                                                       </div>
 
-                                                      <div className="mt-4 overflow-hidden rounded-[26px] border border-white/85 bg-white/92 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
+                                                      <div className="mt-4 rounded-2xl border border-amber-100 bg-white/80 px-4 py-3">
+                                                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">3. Chọn học viên và xác nhận</p>
+                                                            <p className="mt-1 text-sm text-slate-600">Có thể chỉnh tiền từng khoản trước khi lưu áp dụng.</p>
+                                                      </div>
+
+                                                      <div className="mt-3 overflow-hidden rounded-[26px] border border-white/85 bg-white/92 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
                                                             <table className="w-full table-fixed divide-y divide-slate-100 text-sm">
                                                                   <colgroup>
                                                                         <col className="w-[24%]" />
@@ -676,11 +712,55 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
       );
 }
 
-function MiniSummary({ label, value }: { label: string; value: string }) {
+
+function MoneyMetric({
+      label,
+      value,
+      tone = "default",
+}: {
+      label: string;
+      value: string;
+      tone?: "default" | "danger" | "success";
+}) {
+      const valueClass =
+            tone === "danger"
+                  ? "text-[#b7791f]"
+                  : tone === "success"
+                        ? "text-emerald-600"
+                        : "text-slate-900";
       return (
-            <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-2">
-                  <p className="text-[11px] text-slate-500">{label}</p>
-                  <p className="text-sm font-semibold text-slate-900">{value}</p>
+            <div className="px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+                  <p className={`mt-0.5 text-sm font-semibold ${valueClass}`}>{value}</p>
+            </div>
+      );
+}
+
+function FocusSummary({
+      label,
+      value,
+      tone = "default",
+}: {
+      label: string;
+      value: string;
+      tone?: "default" | "danger" | "success";
+}) {
+      const valueClass =
+            tone === "danger"
+                  ? "text-[#b7791f]"
+                  : tone === "success"
+                        ? "text-emerald-600"
+                        : "text-slate-900";
+      const frameClass =
+            tone === "danger"
+                  ? "border-[#efd59d] bg-[#fff6dc]"
+                  : tone === "success"
+                        ? "border-emerald-100 bg-emerald-50/70"
+                        : "border-amber-100 bg-[#fff8df]";
+      return (
+            <div className={`rounded-2xl border px-3.5 py-3 ${frameClass}`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+                  <p className={`mt-1 text-[17px] font-semibold tracking-tight ${valueClass}`}>{value}</p>
             </div>
       );
 }

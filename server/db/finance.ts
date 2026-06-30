@@ -1181,6 +1181,12 @@ export async function updateFinanceCharge(input: UpdateChargeInput) {
       const feeTypeId = input.feeTypeId === undefined ? Number(current.feeTypeId || 0) || null : Number(input.feeTypeId || 0) || null;
       const amount = input.amount === undefined || input.amount === null ? Number(current.amount || 0) : Number(input.amount || 0);
       const paidAmount = Number(current.paidAmount || 0);
+      if (amount < paidAmount) {
+            throw new Error('Số tiền phải thu không được nhỏ hơn số tiền đã thu.');
+      }
+      if (String(current.status || '') === 'paid' && amount !== Number(current.amount || 0)) {
+            throw new Error('Khoản đã thu đủ không nên sửa số tiền. Nếu cần điều chỉnh, hãy tạo nghiệp vụ điều chỉnh riêng.');
+      }
       const remainingAmount = Math.max(amount - paidAmount, 0);
       let resolvedStatus = input.status || current.status || 'open';
 
@@ -1420,6 +1426,20 @@ export async function createFinanceTransaction(input: {
 }) {
       const db = await getFinanceDb();
 
+      const normalizedSource = input.source || 'other_income';
+      const normalizedDirection =
+            normalizedSource === 'expense'
+                  ? 'out'
+                  : normalizedSource === 'donation' || normalizedSource === 'other_income'
+                        ? 'in'
+                        : input.direction === 'out'
+                              ? 'out'
+                              : 'in';
+
+      if (Number(input.amount || 0) <= 0) throw new Error('Số tiền nghiệp vụ phải lớn hơn 0.');
+      if (!String(input.targetName || '').trim()) throw new Error('Vui lòng nhập đối tượng/người nhận/người tài trợ.');
+      if (!String(input.description || '').trim()) throw new Error('Vui lòng nhập mục đích hoặc ghi chú nghiệp vụ.');
+
       await db.execute(sql`
             INSERT INTO finance_transactions (
                   source,
@@ -1434,8 +1454,8 @@ export async function createFinanceTransaction(input: {
                   updated_at
             )
             VALUES (
-                  ${input.source},
-                  ${input.direction},
+                  ${normalizedSource},
+                  ${normalizedDirection},
                   ${Number(input.amount || 0)},
                   ${input.transactionDate || todayText()},
                   ${input.targetType || null},
