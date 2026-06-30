@@ -10,6 +10,8 @@ import {
       formatMoney,
       formatMoneyInput,
       getBillingMonthLabel,
+      getStatusClass,
+      getStatusLabel,
       periodContainsBillingMonth,
       toMoneyNumber,
 } from "./financeLiteUtils";
@@ -41,7 +43,7 @@ type FinanceLiteStudentLedgerProps = {
       openEditCharge: (charge: any) => void;
       onCancelCharge: (charge: any) => void;
       applyPanelOpen: boolean;
-      setApplyPanelOpen: (value: boolean) => void;
+      setApplyPanelOpen: Dispatch<SetStateAction<boolean>>;
       selectionMessage: string;
       projectedApplySummary: any;
       hasSelectedApplicableItems: boolean;
@@ -247,10 +249,10 @@ export function FinanceLiteStudentLedger({
                                     <div>
                                           <h2 className="text-[22px] font-semibold leading-tight text-slate-950">
                                                 Phải thu {getBillingMonthLabel(selectedBillingMonth)}
-                                          </h2>
-                                          <p className="mt-1 text-sm text-slate-500">
-                                                Công nợ học viên của tháng đang chọn, gom theo từng học viên để dễ thu và đối chiếu.
-                                          </p>
+                                                </h2>
+                                                <p className="mt-1 text-sm text-slate-500">
+                                                      Công nợ học viên của tháng đang chọn, gom theo từng học viên để dễ thu và đối chiếu.
+                                                </p>
                                           <div className="mt-3 grid gap-2 sm:grid-cols-4">
                                                 <SummaryStat label="Tháng" value={getBillingMonthLabel(selectedBillingMonth).replace("Tháng ", "T")} />
                                                 <SummaryStat label="Học viên" value={String(groupedCharges.length)} />

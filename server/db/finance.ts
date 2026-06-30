@@ -909,7 +909,7 @@ export async function applyFinanceChargePeriod(input: ApplyChargePeriodInput) {
       const startDate = monthStart(input.billingMonth);
       const endDate = monthEnd(input.billingMonth);
       const previewResidents = await previewFinanceChargePeriodResidents({ periodId: input.periodId, billingMonth: input.billingMonth });
-      const residentEligibility = new Map(previewResidents.map((resident: any) => [Number(resident.id), resident]));
+      const residentEligibility = new Map<number, any>(previewResidents.map((resident: any) => [Number(resident.id), resident]));
 
       let createdCount = 0;
       let skippedCount = 0;
