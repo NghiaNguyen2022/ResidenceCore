@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { BriefcaseBusiness, Building2, CheckCircle2, ShieldCheck, UsersRound } from "lucide-react";
+import { BriefcaseBusiness, Building2, CheckCircle2, Coins, ShieldCheck, UsersRound } from "lucide-react";
 
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { trpc } from "@/lib/trpc";
@@ -150,6 +150,14 @@ export default function ResidentRoleOverview() {
             ? ((accessContextQuery.data as any).roles as any[])
             : [];
 
+      const financeQuery = trpc.residentPortal.getMyFinanceOverview.useQuery(undefined, {
+            retry: false,
+            refetchOnWindowFocus: false,
+      });
+      const unitAdvances = Array.isArray((financeQuery.data as any)?.unitAdvances)
+            ? ((financeQuery.data as any).unitAdvances as any[])
+            : [];
+
       return (
             <ResidenceCareLayout>
                   <div className="mx-auto max-w-6xl space-y-5">
@@ -254,6 +262,60 @@ export default function ResidentRoleOverview() {
                                                 </article>
                                           );
                                     })}
+                              </section>
+                        )}
+
+
+
+                        {unitAdvances.length > 0 && (
+                              <section className="rounded-3xl border border-[#ead9ad] bg-[linear-gradient(180deg,#fffdf8_0%,#fff7e6_100%)] p-5 shadow-[0_16px_40px_rgba(91,68,28,0.08)]">
+                                    <div className="flex items-start gap-3">
+                                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#fff2c9] text-[#8a5305]">
+                                                <Coins className="h-5 w-5" />
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                                      <div>
+                                                            <h2 className="text-base font-semibold text-[#101a2f]">
+                                                                  Tạm ứng của Tổ/Ban đang phụ trách
+                                                            </h2>
+                                                            <p className="mt-1 text-sm leading-6 text-slate-600">
+                                                                  Các khoản tạm ứng được giao cho Tổ hoặc Ban của bạn sẽ cần cập nhật chi thực tế theo kỳ.
+                                                            </p>
+                                                      </div>
+                                                      <Link
+                                                            href="/resident/finance"
+                                                            className="inline-flex w-fit items-center rounded-2xl border border-[#e5c06a] bg-white/80 px-3 py-2 text-sm font-semibold text-[#7c4a03] shadow-sm"
+                                                      >
+                                                            Mở tài chính
+                                                      </Link>
+                                                </div>
+
+                                                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                                                      {unitAdvances.slice(0, 4).map((advance: any) => (
+                                                            <div key={advance.id} className="rounded-2xl border border-[#efe4cb] bg-white/85 px-4 py-3">
+                                                                  <div className="flex items-start justify-between gap-3">
+                                                                        <div>
+                                                                              <p className="font-semibold text-slate-900">
+                                                                                    {advance.targetName || "Tạm ứng đơn vị"}
+                                                                              </p>
+                                                                              <p className="mt-1 text-xs text-slate-500">
+                                                                                    {advance.periodStart || "Theo kỳ"}
+                                                                                    {advance.periodEnd ? ` → ${advance.periodEnd}` : ""}
+                                                                              </p>
+                                                                        </div>
+                                                                        <div className="text-right">
+                                                                              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Còn giữ</p>
+                                                                              <p className="mt-1 font-bold text-[#a05a12]">
+                                                                                    {new Intl.NumberFormat("vi-VN").format(Number(advance.balanceAmount || 0))}đ
+                                                                              </p>
+                                                                        </div>
+                                                                  </div>
+                                                            </div>
+                                                      ))}
+                                                </div>
+                                          </div>
+                                    </div>
                               </section>
                         )}
 

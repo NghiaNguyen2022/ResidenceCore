@@ -68,6 +68,32 @@ export const residentPortalRouter = router({
                   });
             }),
 
+
+      getMyFinanceOverview: protectedProcedure.query(async ({ ctx }) => {
+            const userId = getUserIdFromContext(ctx);
+            return residentPortalService.getMyFinanceOverview(userId);
+      }),
+
+      createMyAdvanceExpenseEntry: protectedProcedure
+            .input(
+                  z.object({
+                        advanceId: z.number().int().positive(),
+                        amount: z.number().positive("Vui lòng nhập số tiền thực chi."),
+                        transactionDate: z.string().optional().nullable(),
+                        description: z.string().trim().min(1, "Vui lòng nhập nội dung chi thực tế."),
+                  })
+            )
+            .mutation(async ({ ctx, input }) => {
+                  const userId = getUserIdFromContext(ctx);
+                  return residentPortalService.createMyAdvanceExpenseEntry({
+                        userId,
+                        advanceId: input.advanceId,
+                        amount: input.amount,
+                        transactionDate: input.transactionDate,
+                        description: input.description,
+                  });
+            }),
+
       changePassword: protectedProcedure
             .input(
                   z.object({

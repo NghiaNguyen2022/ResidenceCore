@@ -1500,6 +1500,317 @@ export async function deleteFinanceTransaction(input: { id: number }) {
       return { success: true };
 }
 
+
+function toFinanceNumber(value: unknown) {
+      const numberValue = Number(value || 0);
+      return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function normalizePortalText(value?: string | null) {
+      return String(value || '')
+            .trim()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D')
+            .toLowerCase();
+}
+
+function parseAdvanceMeta(targetType?: string | null) {
+      const value = String(targetType || '');
+      const parts = value.split(':');
+
+      if (!value.startsWith('expense_advance:')) {
+            return {
+                  raw: value,
+                  category: 'advance',
+                  periodType: null,
+                  periodStart: null,
+                  periodEnd: null,
+                  receiverType: null,
+            };
+      }
+
+      const range = parts[3] || '';
+      const [periodStart, periodEnd] = range.split('_');
+
+      return {
+            raw: value,
+            category: parts[1] || 'advance',
+            periodType: parts[2] || null,
+            periodStart: periodStart || null,
+            periodEnd: periodEnd || null,
+            receiverType: parts[4] || null,
+      };
+}
+
+function mapAdvanceRow(row: any, actualByAdvanceId: Map<number, number>) {
+      const id = Number(row.id || 0);
+      const advanceAmount = toFinanceNumber(row.amount);
+      const actualAmount = actualByAdvanceId.get(id) || 0;
+      const balanceAmount = advanceAmount - actualAmount;
+      const meta = parseAdvanceMeta(row.targetType);
+
+      return {
+            id,
+            source: row.source,
+            amount: advanceAmount,
+            advanceAmount,
+            actualAmount,
+            balanceAmount,
+            transactionDate: row.transactionDate,
+            targetType: row.targetType,
+            targetName: row.targetName,
+            description: row.description,
+            createdAt: row.createdAt,
+            category: meta.category,
+            periodType: meta.periodType,
+            periodStart: meta.periodStart,
+            periodEnd: meta.periodEnd,
+            receiverType: meta.receiverType,
+            status:
+                  balanceAmount < 0
+                        ? 'over_spent'
+                        : actualAmount <= 0
+                              ? 'holding'
+                              : balanceAmount <= 0
+                                    ? 'settled'
+                                    : 'partial_spent',
+      };
+}
+
+async function getActualSpendingByAdvanceIds(db: any, advanceIds: number[]) {
+      const uniqueIds = Array.from(new Set(advanceIds.map((id) => Number(id)).filter((id) => id > 0)));
+      const actualByAdvanceId = new Map<number, number>();
+      if (!uniqueIds.length) return actualByAdvanceId;
+
+      const result = await db.execute(sql`
+            SELECT
+                  target_type AS targetType,
+                  COALESCE(SUM(amount), 0) AS actualAmount
+            FROM finance_transactions
+            WHERE source = 'advance_actual_spending'
+                  AND target_type IN ${uniqueIds.map((id) => `advance_entry:${id}`)}
+            GROUP BY target_type
+      `);
+
+      for (const row of getRows(result)) {
+            const id = Number(String(row.targetType || '').replace('advance_entry:', ''));
+            if (id > 0) actualByAdvanceId.set(id, toFinanceNumber(row.actualAmount));
+      }
+
+      return actualByAdvanceId;
+}
+
+function advanceMatchesResident(row: any, resident: { id: number; name?: string | null; code?: string | null }) {
+      const meta = parseAdvanceMeta(row.targetType);
+      const receiverType = normalizePortalText(meta.receiverType);
+      const targetText = normalizePortalText(`${row.targetName || ''} ${row.description || ''}`);
+      const residentName = normalizePortalText(resident.name);
+      const residentCode = normalizePortalText(resident.code);
+
+      if (![receiverType, normalizePortalText(row.targetType)].some((text) => ['person', 'resident', 'ca_nhan'].includes(text))) {
+            if (!String(row.targetType || '').includes(':person') && !String(row.targetType || '').includes(':resident')) {
+                  return false;
+            }
+      }
+
+      return Boolean(
+            (residentName && targetText.includes(residentName)) ||
+                  (residentCode && targetText.includes(residentCode))
+      );
+}
+
+function advanceMatchesUnit(row: any, unit: { unitType?: string | null; unitName?: string | null; unitId?: number | null }) {
+      const meta = parseAdvanceMeta(row.targetType);
+      const receiverType = normalizePortalText(meta.receiverType || row.targetType);
+      const targetText = normalizePortalText(`${row.targetName || ''} ${row.description || ''}`);
+      const unitName = normalizePortalText(unit.unitName);
+      const unitType = normalizePortalText(unit.unitType);
+
+      if (unitType && receiverType && !receiverType.includes(unitType)) return false;
+      return Boolean(unitName && targetText.includes(unitName));
+}
+
+export async function getFinancePortalOverview(input: {
+      residentId: number;
+      residentName?: string | null;
+      residentCode?: string | null;
+      unitTargets?: Array<{ unitId?: number | null; unitName?: string | null; unitType?: string | null }>;
+}) {
+      const db = await getFinanceDb();
+      const residentId = Number(input.residentId || 0);
+      if (!residentId) throw new Error('Thiếu học viên cần xem tài chính.');
+
+      const chargesResult = await db.execute(sql`
+            SELECT
+                  c.id,
+                  c.charge_code AS chargeCode,
+                  c.resident_id AS residentId,
+                  c.amount,
+                  c.paid_amount AS paidAmount,
+                  c.remaining_amount AS remainingAmount,
+                  c.due_date AS dueDate,
+                  c.status,
+                  c.billing_month AS billingMonth,
+                  c.period_start_date AS periodStartDate,
+                  c.period_end_date AS periodEndDate,
+                  c.description,
+                  c.created_at AS createdAt,
+                  ft.fee_name AS feeName,
+                  p.period_name AS periodName,
+                  pi.fee_type_name AS periodItemName
+            FROM finance_charges c
+            LEFT JOIN finance_fee_types ft ON ft.id = c.fee_type_id
+            LEFT JOIN finance_charge_periods p ON p.id = c.period_id
+            LEFT JOIN finance_charge_period_items pi ON pi.id = c.period_item_id
+            WHERE c.resident_id = ${residentId}
+                  AND c.status <> 'cancelled'
+            ORDER BY COALESCE(c.billing_month, DATE_FORMAT(c.created_at, '%Y-%m')) DESC, c.id DESC
+      `);
+      const charges = getRows(chargesResult);
+
+      const paymentsResult = await db.execute(sql`
+            SELECT
+                  p.id,
+                  p.charge_id AS chargeId,
+                  p.resident_id AS residentId,
+                  p.amount,
+                  p.payment_date AS paymentDate,
+                  p.method,
+                  p.note,
+                  p.created_at AS createdAt,
+                  c.billing_month AS billingMonth,
+                  ft.fee_name AS feeName,
+                  pi.fee_type_name AS periodItemName
+            FROM finance_payments p
+            LEFT JOIN finance_charges c ON c.id = p.charge_id
+            LEFT JOIN finance_fee_types ft ON ft.id = c.fee_type_id
+            LEFT JOIN finance_charge_period_items pi ON pi.id = c.period_item_id
+            WHERE p.resident_id = ${residentId}
+            ORDER BY p.payment_date DESC, p.id DESC
+            LIMIT 100
+      `);
+      const payments = getRows(paymentsResult);
+
+      const advancesResult = await db.execute(sql`
+            SELECT
+                  id,
+                  source,
+                  amount,
+                  transaction_date AS transactionDate,
+                  target_type AS targetType,
+                  target_name AS targetName,
+                  description,
+                  created_at AS createdAt
+            FROM finance_transactions
+            WHERE source = 'advance_out'
+            ORDER BY transaction_date DESC, id DESC
+            LIMIT 500
+      `);
+      const advanceRows = getRows(advancesResult);
+      const actualByAdvanceId = await getActualSpendingByAdvanceIds(
+            db,
+            advanceRows.map((row: any) => Number(row.id || 0))
+      );
+
+      const personalAdvanceRows = advanceRows.filter((row: any) =>
+            advanceMatchesResident(row, {
+                  id: residentId,
+                  name: input.residentName,
+                  code: input.residentCode,
+            })
+      );
+      const unitAdvanceRows = advanceRows.filter((row: any) =>
+            (input.unitTargets || []).some((unit) => advanceMatchesUnit(row, unit))
+      );
+
+      const personalAdvances = personalAdvanceRows.map((row: any) => mapAdvanceRow(row, actualByAdvanceId));
+      const unitAdvances = unitAdvanceRows.map((row: any) => mapAdvanceRow(row, actualByAdvanceId));
+
+      const openCharges = charges.filter((charge: any) => ['open', 'partial', 'overdue'].includes(String(charge.status || 'open')));
+      const paidCharges = charges.filter((charge: any) => String(charge.status || '') === 'paid');
+      const totalDue = openCharges.reduce((sum: number, item: any) => sum + toFinanceNumber(item.remainingAmount), 0);
+      const totalPaid = charges.reduce((sum: number, item: any) => sum + toFinanceNumber(item.paidAmount), 0);
+      const personalAdvanceBalance = personalAdvances.reduce((sum: number, item: any) => sum + toFinanceNumber(item.balanceAmount), 0);
+      const unitAdvanceBalance = unitAdvances.reduce((sum: number, item: any) => sum + toFinanceNumber(item.balanceAmount), 0);
+
+      return {
+            summary: {
+                  totalDue,
+                  totalPaid,
+                  openChargeCount: openCharges.length,
+                  paidChargeCount: paidCharges.length,
+                  personalAdvanceBalance,
+                  unitAdvanceBalance,
+                  personalAdvanceCount: personalAdvances.length,
+                  unitAdvanceCount: unitAdvances.length,
+            },
+            charges,
+            openCharges,
+            paidCharges,
+            payments,
+            personalAdvances,
+            unitAdvances,
+      };
+}
+
+export async function createFinanceAdvanceSpendingEntry(input: {
+      advanceId: number;
+      amount: number;
+      transactionDate?: string | null;
+      description?: string | null;
+      createdBy?: number | null;
+}) {
+      const db = await getFinanceDb();
+      const advanceId = Number(input.advanceId || 0);
+      const amount = Number(input.amount || 0);
+      const description = String(input.description || '').trim();
+
+      if (!advanceId) throw new Error('Thiếu khoản tạm ứng cần cập nhật.');
+      if (amount <= 0) throw new Error('Vui lòng nhập số tiền thực chi hợp lệ.');
+      if (!description) throw new Error('Vui lòng nhập nội dung chi thực tế.');
+
+      const advanceResult = await db.execute(sql`
+            SELECT id, amount, target_name AS targetName, target_type AS targetType
+            FROM finance_transactions
+            WHERE id = ${advanceId}
+                  AND source = 'advance_out'
+            LIMIT 1
+      `);
+      const advance = getRows(advanceResult)?.[0];
+      if (!advance) throw new Error('Không tìm thấy khoản tạm ứng.');
+
+      await db.execute(sql`
+            INSERT INTO finance_transactions (
+                  source,
+                  direction,
+                  amount,
+                  transaction_date,
+                  target_type,
+                  target_name,
+                  description,
+                  created_by,
+                  created_at,
+                  updated_at
+            )
+            VALUES (
+                  'advance_actual_spending',
+                  'memo',
+                  ${amount},
+                  ${input.transactionDate || todayText()},
+                  ${`advance_entry:${advanceId}`},
+                  ${advance.targetName || 'Tạm ứng'},
+                  ${description},
+                  ${input.createdBy || null},
+                  NOW(),
+                  NOW()
+            )
+      `);
+
+      return { success: true };
+}
+
 export async function getFinanceSummary() {
       const db = await getFinanceDb();
 

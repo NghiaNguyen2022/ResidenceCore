@@ -1,4 +1,6 @@
 import * as db from "../db";
+import * as financeDb from "../db/finance";
+import { getResidentPortalAccessContext } from "./residentPortalAccessService";
 import { hashPassword, verifyPassword } from "./authService";
 
 function toDateString(value: unknown) {
@@ -185,6 +187,67 @@ export const residentPortalService = {
                   roommates,
                   contacts: contacts.map(sanitizeContact).filter(Boolean),
             };
+      },
+
+
+
+      async getMyFinanceOverview(userId: number) {
+            if (!userId) {
+                  throw new Error("Vui lòng đăng nhập để xem tài chính.");
+            }
+
+            const linkedResident = await db.getResidentLinkedToUser(userId);
+            if (!linkedResident?.id) {
+                  throw new Error("Tài khoản chưa được liên kết với hồ sơ học viên.");
+            }
+
+            const accessContext = await getResidentPortalAccessContext(userId);
+            const unitTargets = (accessContext.roles || [])
+                  .filter((role: any) => ["team_leader", "committee_head"].includes(String(role.roleCode || "")))
+                  .map((role: any) => ({
+                        unitId: role.unitId || null,
+                        unitName: role.unitName || null,
+                        unitType: role.unitType || (role.roleCode === "team_leader" ? "team" : "committee"),
+                  }))
+                  .filter((unit: any) => unit.unitName);
+
+            return financeDb.getFinancePortalOverview({
+                  residentId: Number(linkedResident.id),
+                  residentName: linkedResident.fullName,
+                  residentCode: linkedResident.residentCode,
+                  unitTargets,
+            });
+      },
+
+      async createMyAdvanceExpenseEntry(input: {
+            userId: number;
+            advanceId: number;
+            amount: number;
+            transactionDate?: string | null;
+            description?: string | null;
+      }) {
+            if (!input.userId) {
+                  throw new Error("Vui lòng đăng nhập để cập nhật tạm ứng.");
+            }
+
+            const overview = await this.getMyFinanceOverview(input.userId);
+            const allowedAdvances = [
+                  ...((overview as any).personalAdvances || []),
+                  ...((overview as any).unitAdvances || []),
+            ];
+            const canUpdate = allowedAdvances.some((advance: any) => Number(advance.id) === Number(input.advanceId));
+
+            if (!canUpdate) {
+                  throw new Error("Bạn không có quyền cập nhật khoản tạm ứng này.");
+            }
+
+            return financeDb.createFinanceAdvanceSpendingEntry({
+                  advanceId: input.advanceId,
+                  amount: input.amount,
+                  transactionDate: input.transactionDate,
+                  description: input.description,
+                  createdBy: input.userId,
+            });
       },
 
       async changePassword(input: {
