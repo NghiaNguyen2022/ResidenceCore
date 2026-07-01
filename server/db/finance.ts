@@ -238,7 +238,7 @@ async function ensureFinanceSchema(db: any) {
                   status VARCHAR(40) NOT NULL DEFAULT 'open',
                   source VARCHAR(60) NOT NULL DEFAULT 'student_fee',
                   fee_mode VARCHAR(60) NULL,
-                  target_type VARCHAR(60) NULL,
+                  target_type VARCHAR(160) NULL,
                   target_name VARCHAR(255) NULL,
                   billing_month VARCHAR(7) NULL,
                   period_start_date DATE NULL,
@@ -280,7 +280,7 @@ async function ensureFinanceSchema(db: any) {
                   direction VARCHAR(20) NOT NULL,
                   amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
                   transaction_date DATE NOT NULL,
-                  target_type VARCHAR(60) NULL,
+                  target_type VARCHAR(160) NULL,
                   target_name VARCHAR(255) NULL,
                   description TEXT NULL,
                   created_by INT NULL,
@@ -290,6 +290,9 @@ async function ensureFinanceSchema(db: any) {
                   INDEX idx_finance_transactions_source (source, direction)
             )
       `);
+
+      await db.execute(sql`ALTER TABLE finance_transactions MODIFY COLUMN target_type VARCHAR(160) NULL`).catch(() => undefined);
+      await db.execute(sql`ALTER TABLE finance_charges MODIFY COLUMN target_type VARCHAR(160) NULL`).catch(() => undefined);
 
       const chargeColumns = [
             ['period_id', 'ALTER TABLE finance_charges ADD COLUMN period_id INT NULL AFTER fee_type_id'],
@@ -1426,7 +1429,7 @@ export async function createFinanceTransaction(input: {
 
       const source = input.source || 'other_income';
       const direction =
-            source === 'expense' || source === 'expense_plan'
+            source === 'expense' || source === 'expense_plan' || source === 'advance_out'
                   ? 'out'
                   : source === 'other_income' || source === 'donation'
                         ? 'in'

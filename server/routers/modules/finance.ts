@@ -1,6 +1,5 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-
 import { protectedProcedure, router } from '../../_core/trpc';
 import * as financeDb from '../../db/finance';
 
@@ -50,7 +49,7 @@ export const financeRouter = router({
                         defaultAmount: z.number().optional().nullable(),
                         cycle: z.string().optional().nullable(),
                         description: z.string().optional().nullable(),
-                  })
+                  }),
             )
             .mutation(async ({ input }) => {
                   try {
@@ -151,11 +150,11 @@ export const financeRouter = router({
                                                 periodItemId: z.number(),
                                                 selected: z.boolean(),
                                                 amount: z.number().optional().nullable(),
-                                          })
+                                          }),
                                     ),
-                              })
+                              }),
                         ),
-                  })
+                  }),
             )
             .mutation(async ({ input, ctx }: any) => {
                   try {
@@ -184,7 +183,7 @@ export const financeRouter = router({
                               limit: z.number().optional(),
                               offset: z.number().optional(),
                         })
-                        .optional()
+                        .optional(),
             )
             .query(async ({ input }) => {
                   try {
@@ -215,7 +214,7 @@ export const financeRouter = router({
                         targetType: z.string().optional().nullable(),
                         targetName: z.string().optional().nullable(),
                         description: z.string().optional().nullable(),
-                  })
+                  }),
             )
             .mutation(async ({ input, ctx }: any) => {
                   try {
@@ -244,7 +243,7 @@ export const financeRouter = router({
                         status: z.string().optional().nullable(),
                         targetName: z.string().optional().nullable(),
                         description: z.string().optional().nullable(),
-                  })
+                  }),
             )
             .mutation(async ({ input }) => {
                   try {
@@ -268,7 +267,7 @@ export const financeRouter = router({
                               limit: z.number().optional(),
                               offset: z.number().optional(),
                         })
-                        .optional()
+                        .optional(),
             )
             .query(async ({ input }) => {
                   try {
@@ -292,7 +291,7 @@ export const financeRouter = router({
                         targetType: z.string().optional().nullable(),
                         targetName: z.string().optional().nullable(),
                         description: z.string().optional().nullable(),
-                  })
+                  }),
             )
             .mutation(async ({ input, ctx }: any) => {
                   try {
@@ -306,6 +305,20 @@ export const financeRouter = router({
                   }
             }),
 
+      deleteTransaction: protectedProcedure
+            .input(z.object({ id: z.number() }))
+            .mutation(async ({ input }) => {
+                  try {
+                        return await financeDb.deleteFinanceTransaction(input);
+                  } catch (error) {
+                        console.error('[finance.deleteTransaction] Error:', error);
+                        throw new TRPCError({
+                              code: 'BAD_REQUEST',
+                              message: error instanceof Error ? error.message : 'Không thể xóa khoản thu chi.',
+                        });
+                  }
+            }),
+
       recordPayment: protectedProcedure
             .input(
                   z.object({
@@ -315,7 +328,7 @@ export const financeRouter = router({
                         paymentDate: z.string().optional().nullable(),
                         method: z.string().optional().nullable(),
                         note: z.string().optional().nullable(),
-                  })
+                  }),
             )
             .mutation(async ({ input, ctx }: any) => {
                   try {

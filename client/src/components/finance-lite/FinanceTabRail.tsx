@@ -3,8 +3,9 @@ import type { FinanceTab } from "./financeLiteTypes";
 
 const financeTabs: Array<[FinanceTab, string]> = [
   ["studentLedger", "Kỳ thu học viên"],
-  ["expenses", "Khoản chi"],
-  ["cashbook", "Sổ thu chi"],
+  ["expenses", "Thu chi khác"],
+  ["plans", "Khoản đề xuất"],
+  ["cashbook", "Sổ dòng tiền"],
 ];
 
 export function FinanceTabRail({

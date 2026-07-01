@@ -143,7 +143,8 @@ export function emptyPeriodForm(): PeriodFormState {
 
 
 export function getTransactionDirectionForSource(source?: string | null, direction?: string | null) {
-  if (source === "expense" || source === "expense_plan") return "out";
+  if (source === "expense" || source === "expense_plan" || source === "advance_out") return "out";
+  if (source === "advance_actual_spending") return direction === "out" ? "out" : "in";
   if (source === "other_income" || source === "donation") return "in";
   return direction === "out" ? "out" : "in";
 }
@@ -160,11 +161,29 @@ export function getTransactionSourceMeta(source?: string | null) {
   }
   if (source === "expense_plan") {
     return {
-      label: "Dự chi theo kỳ",
+      label: "Khoản đề xuất / dự chi",
       shortLabel: "Dự chi",
       targetLabel: "Đơn vị/nhà cung cấp dự kiến",
       descriptionLabel: "Nội dung dự chi / ghi chú",
       tone: "blue",
+    };
+  }
+  if (source === "advance_out") {
+    return {
+      label: "Xuất tạm ứng",
+      shortLabel: "Tạm ứng",
+      targetLabel: "Ban/Tổ/Cá nhân nhận tạm ứng",
+      descriptionLabel: "Nội dung tạm ứng / ghi chú",
+      tone: "amber",
+    };
+  }
+  if (source === "advance_actual_spending") {
+    return {
+      label: "Cập nhật thực chi tạm ứng",
+      shortLabel: "Thực chi",
+      targetLabel: "Khoản tạm ứng",
+      descriptionLabel: "Nội dung thực chi",
+      tone: "slate",
     };
   }
   if (source === "expense") {

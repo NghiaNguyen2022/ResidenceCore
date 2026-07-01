@@ -97,120 +97,230 @@ export function FinanceExpensesPanel({
       onDeleteTransaction?: (transaction: any) => void;
       isDeletingTransaction?: boolean;
 }) {
-      const plannedPeriodExpenses = useMemo(
-            () => transactions.filter((item: any) => isPlannedPeriodExpense(item)),
+      const actualExpenseTransactions = useMemo(
+            () =>
+                  transactions.filter(
+                        (item: any) =>
+                              getTransactionDirectionForSource(item.source, item.direction) === "out" &&
+                              !isPlannedPeriodExpense(item),
+                  ),
             [transactions],
       );
-      const expenseTransactions = useMemo(
-            () => transactions.filter((item: any) => getTransactionDirectionForSource(item.source, item.direction) === "out" && !isPlannedPeriodExpense(item)),
+      const manualIncomeTransactions = useMemo(
+            () =>
+                  transactions.filter((item: any) => {
+                        if (item.source === "student_fee_payment") return false;
+                        if (isPlannedPeriodExpense(item)) return false;
+                        return getTransactionDirectionForSource(item.source, item.direction) === "in";
+                  }),
             [transactions],
-      );
-      const periodExpenses = useMemo(
-            () => expenseTransactions.filter((item: any) => isPeriodExpense(item)),
-            [expenseTransactions],
       );
       const advanceExpenses = useMemo(
-            () => expenseTransactions.filter((item: any) => isAdvanceExpense(item)),
-            [expenseTransactions],
+            () => actualExpenseTransactions.filter((item: any) => isAdvanceExpense(item)),
+            [actualExpenseTransactions],
       );
       const oneTimeExpenses = useMemo(
-            () => expenseTransactions.filter((item: any) => !isPeriodExpense(item) && !isAdvanceExpense(item)),
-            [expenseTransactions],
+            () =>
+                  actualExpenseTransactions.filter(
+                        (item: any) => !isAdvanceExpense(item),
+                  ),
+            [actualExpenseTransactions],
       );
-      const totalExpense = useMemo(
-            () => expenseTransactions.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
-            [expenseTransactions],
-      );
-      const totalPlannedPeriodExpense = useMemo(
-            () => plannedPeriodExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
-            [plannedPeriodExpenses],
-      );
-      const totalPeriodExpense = useMemo(
-            () => periodExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
-            [periodExpenses],
-      );
-      const totalAdvanceExpense = useMemo(
-            () => advanceExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
-            [advanceExpenses],
+      const totalManualIncome = useMemo(
+            () => manualIncomeTransactions.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
+            [manualIncomeTransactions],
       );
       const totalOneTimeExpense = useMemo(
             () => oneTimeExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
             [oneTimeExpenses],
       );
-      const recentExpenses = [...plannedPeriodExpenses, ...expenseTransactions].slice(0, 6);
+      const totalAdvanceExpense = useMemo(
+            () => advanceExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
+            [advanceExpenses],
+      );
+      const recentManualOperations = useMemo(
+            () =>
+                  transactions
+                        .filter((item: any) => item.source !== "student_fee_payment" && !isPlannedPeriodExpense(item))
+                        .slice(0, 6),
+            [transactions],
+      );
 
       return (
             <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
-                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(246,201,92,0.16),transparent_36%)]" />
+                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(246,201,92,0.15),transparent_36%)]" />
+
                   <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Khoản chi</p>
-                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Quản lý chi phí vận hành</h2>
-                              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                                    Quản lý dự chi cố định theo kỳ, tạm ứng tiền chợ/hoa nến/văn phòng phẩm và các khoản chi phát sinh. Dự chi chưa làm giảm tiền mặt; chỉ khi ghi nhận chi thực tế mới vào sổ thu chi.
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Thu chi khác</p>
+                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Thu chi ngoài học viên</h2>
+                              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                                    Chỉ gồm nghiệp vụ đã phát sinh thật: thu khác/tài trợ, chi một lần và xuất tạm ứng. Các khoản dự chi kế hoạch nằm riêng ở tab Khoản đề xuất.
                               </p>
                         </div>
-                        <button
-                              type="button"
-                              className="inline-flex items-center justify-center rounded-2xl border border-[#d8b45d]/70 bg-[linear-gradient(135deg,#fff7dc_0%,#efcf7a_100%)] px-5 py-3 text-sm font-semibold text-[#4a2b00] shadow-[0_12px_26px_rgba(180,122,20,0.18),inset_0_1px_0_rgba(255,255,255,0.88)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(180,122,20,0.24)]"
-                              onClick={() => onCreateExpense("expense")}
-                        >
-                              <CreditCard className="mr-2 h-4 w-4" /> Ghi nhận khoản chi
-                        </button>
                   </div>
 
-                  <div className="relative mt-5 grid gap-3 md:grid-cols-4">
-                        <ExpenseMetricCard label="Đã chi thực tế" value={formatMoney(totalExpense)} tone="amber" />
-                        <ExpenseMetricCard label="Dự chi theo kỳ" value={formatMoney(totalPlannedPeriodExpense)} tone="blue" />
-                        <ExpenseMetricCard label="Tạm ứng" value={formatMoney(totalAdvanceExpense)} tone="emerald" />
-                        <ExpenseMetricCard label="Một lần" value={formatMoney(totalOneTimeExpense)} tone="slate" />
-                  </div>
-
-                  <div className="relative mt-5 grid gap-3 lg:grid-cols-3">
-                        <ExpenseCategoryCard
-                              icon={Building2}
-                              title="Dự chi cố định theo kỳ"
-                              description="Điện, nước, internet, tiện ích, bảo trì. Tạo kế hoạch cho nhiều kỳ, chưa ghi giảm tiền mặt."
-                              action="Tạo dự chi"
-                              onClick={() => onCreateExpense("expense")}
+                  <div className="relative mt-5 grid gap-3 xl:grid-cols-3">
+                        <OperationQuickCard
+                              icon={WalletCards}
+                              eyebrow="Tiền vào"
+                              title="Thu khác / tài trợ"
+                              description="Ghi nhận tiền vào ngoài học viên: thu quỹ, hoàn tiền, sự kiện, tài trợ hoặc ủng hộ."
+                              action="Ghi nhận khoản thu"
+                              tone="blue"
+                              onClick={() => onCreateExpense("other_income")}
                         />
-                        <ExpenseCategoryCard
-                              icon={Wrench}
-                              title="Tạm ứng theo kỳ"
-                              description="Ứng trước tiền chợ, hoa nến, văn phòng phẩm cho cá nhân/tổ; cập nhật thực chi từng ngày."
-                              action="Tạo tạm ứng"
-                              onClick={() => onCreateExpense("expense")}
-                        />
-                        <ExpenseCategoryCard
-                              icon={HandCoins}
+                        <OperationQuickCard
+                              icon={CreditCard}
+                              eyebrow="Tiền ra"
                               title="Chi một lần"
-                              description="Sửa chữa, mua sắm, hỗ trợ hoặc khoản phát sinh riêng, ghi nhận xong là hoàn tất."
-                              action="Tạo chi một lần"
-                              onClick={() => onCreateExpense("expense")}
+                              description="Dùng cho sửa chữa, mua sắm, hỗ trợ hoặc khoản chi phát sinh đã chi ngay."
+                              action="Ghi nhận khoản chi"
+                              tone="amber"
+                              onClick={() => onCreateExpense("expense_once")}
+                        />
+                        <OperationQuickCard
+                              icon={HandCoins}
+                              eyebrow="Tạm ứng"
+                              title="Tạm ứng theo kỳ"
+                              description="Ứng tiền cho Ban/Tổ/Cá nhân giữ, sau đó cập nhật thực chi để cấn trừ dần."
+                              action="Xuất tạm ứng"
+                              tone="emerald"
+                              onClick={() => onCreateExpense("expense_advance")}
                         />
                   </div>
 
-                  <div className="relative mt-5 rounded-[26px] border border-[#ead9ad]/70 bg-white/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                              <div>
-                                    <p className="text-sm font-semibold text-slate-900">Khoản chi gần đây</p>
-                                    <p className="text-xs text-slate-500">Hiển thị các nghiệp vụ chi mới nhất từ sổ thu chi.</p>
+                  <div className="relative mt-5 grid gap-3 md:grid-cols-3">
+                        <ExpenseMetricCard label="Thu ngoài học viên" value={formatMoney(totalManualIncome)} tone="blue" />
+                        <ExpenseMetricCard label="Chi một lần" value={formatMoney(totalOneTimeExpense)} tone="amber" />
+                        <ExpenseMetricCard label="Tiền đang tạm ứng" value={formatMoney(totalAdvanceExpense)} tone="emerald" />
+                  </div>
+
+                  <div className="relative mt-5 grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+                        <div className="rounded-[28px] border border-[#ead9ad]/70 bg-white/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                    <div>
+                                          <p className="text-sm font-semibold text-slate-900">Tạm ứng đang theo dõi</p>
+                                          <p className="text-xs text-slate-500">Các khoản tiền đã xuất cho Ban/Tổ/Cá nhân, cần cập nhật thực chi và quyết toán sau.</p>
+                                    </div>
+                                    <InlineBadge className="border-emerald-100 bg-emerald-50 text-emerald-700">{advanceExpenses.length} dòng</InlineBadge>
                               </div>
-                              <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">{recentExpenses.length} dòng</InlineBadge>
+                              <div className="space-y-2">
+                                    {advanceExpenses.length ? (
+                                          advanceExpenses.slice(0, 5).map((transaction: any) => (
+                                                <CashbookLine
+                                                      key={transaction.id}
+                                                      transaction={transaction}
+                                                      compact
+                                                      onDelete={onDeleteTransaction}
+                                                      isDeleting={isDeletingTransaction}
+                                                />
+                                          ))
+                                    ) : (
+                                          <EmptyFinanceBox text="Chưa có khoản tạm ứng cần theo dõi." />
+                                    )}
+                              </div>
+                        </div>
+
+                        <div className="rounded-[28px] border border-[#ead9ad]/70 bg-white/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                    <div>
+                                          <p className="text-sm font-semibold text-slate-900">Thu chi gần đây</p>
+                                          <p className="text-xs text-slate-500">Các dòng tiền thật ngoài khoản thu học viên.</p>
+                                    </div>
+                                    <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">{recentManualOperations.length} dòng</InlineBadge>
+                              </div>
+                              <div className="space-y-2">
+                                    {recentManualOperations.length ? (
+                                          recentManualOperations.map((transaction: any) => (
+                                                <CashbookLine
+                                                      key={transaction.id}
+                                                      transaction={transaction}
+                                                      compact
+                                                      onDelete={onDeleteTransaction}
+                                                      isDeleting={isDeletingTransaction}
+                                                />
+                                          ))
+                                    ) : (
+                                          <EmptyFinanceBox text="Chưa có thu chi khác. Chọn một thao tác nhanh bên trên để bắt đầu." />
+                                    )}
+                              </div>
+                        </div>
+                  </div>
+            </section>
+      );
+}
+
+export function FinanceExpensePlansPanel({
+      transactions = [],
+      onCreatePlan,
+      onCreateActualExpense,
+      onDeleteTransaction,
+      isDeletingTransaction = false,
+}: {
+      transactions?: any[];
+      onCreatePlan: () => void;
+      onCreateActualExpense: () => void;
+      onDeleteTransaction?: (transaction: any) => void;
+      isDeletingTransaction?: boolean;
+}) {
+      const plannedPeriodExpenses = useMemo(
+            () => transactions.filter((item: any) => isPlannedPeriodExpense(item)),
+            [transactions],
+      );
+      const totalPlanned = useMemo(
+            () => plannedPeriodExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
+            [plannedPeriodExpenses],
+      );
+      const upcomingPlans = useMemo(() => plannedPeriodExpenses.slice(0, 8), [plannedPeriodExpenses]);
+
+      return (
+            <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.10),transparent_35%),radial-gradient(circle_at_top_left,rgba(246,201,92,0.16),transparent_36%)]" />
+                  <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Khoản đề xuất</p>
+                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Dự chi và nhắc chuẩn bị</h2>
+                              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                                    Dùng cho điện, nước, internet, tiện ích hoặc khoản chi định kỳ cần chuẩn bị trước. Dự chi chưa làm giảm tiền mặt và chưa nằm trong Sổ dòng tiền.
+                              </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                              <button type="button" onClick={onCreatePlan} className={cashbookActionClass("expense")}>
+                                    <ReceiptText className="mr-2 h-4 w-4" /> Tạo dự chi
+                              </button>
+                              <button type="button" onClick={onCreateActualExpense} className="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200">
+                                    <CreditCard className="mr-2 h-4 w-4" /> Ghi nhận chi thật
+                              </button>
+                        </div>
+                  </div>
+
+                  <div className="relative mt-5 grid gap-3 md:grid-cols-3">
+                        <ExpenseMetricCard label="Tổng dự chi" value={formatMoney(totalPlanned)} tone="blue" />
+                        <ExpenseMetricCard label="Khoản đang theo dõi" value={`${plannedPeriodExpenses.length} khoản`} tone="slate" />
+                        <ExpenseMetricCard label="Tác động tiền mặt" value="Chưa phát sinh" tone="emerald" />
+                  </div>
+
+                  <div className="relative mt-5 rounded-[28px] border border-[#ead9ad]/70 bg-white/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                              <div>
+                                    <p className="text-sm font-semibold text-slate-900">Danh sách khoản đề xuất</p>
+                                    <p className="text-xs text-slate-500">Mỗi khoản có ngày dự chi theo từng kỳ để sau này nhắc chuẩn bị.</p>
+                              </div>
+                              <InlineBadge className="border-blue-100 bg-blue-50 text-blue-700">{upcomingPlans.length} dòng</InlineBadge>
                         </div>
                         <div className="space-y-2">
-                              {recentExpenses.length ? (
-                                    recentExpenses.map((transaction: any) => (
+                              {upcomingPlans.length ? (
+                                    upcomingPlans.map((transaction: any) => (
                                           <CashbookLine
                                                 key={transaction.id}
                                                 transaction={transaction}
-                                                compact
                                                 onDelete={onDeleteTransaction}
                                                 isDeleting={isDeletingTransaction}
                                           />
                                     ))
                               ) : (
-                                    <EmptyFinanceBox text="Chưa có khoản chi nào. Bấm “Ghi nhận khoản chi” để thêm nghiệp vụ đầu tiên." />
+                                    <EmptyFinanceBox text="Chưa có khoản đề xuất. Bấm Tạo dự chi để lập kế hoạch điện, nước, internet hoặc tiện ích theo kỳ." />
                               )}
                         </div>
                   </div>
@@ -284,7 +394,7 @@ export function FinanceCashbookPanel({
                   <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(246,201,92,0.14),transparent_34%)]" />
                   <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Sổ thu chi</p>
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Sổ dòng tiền</p>
                               <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Dòng tiền phát sinh</h2>
                               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                                     Theo dõi dòng tiền thực tế đã phát sinh. Các khoản dự chi theo kỳ không hiển thị ở đây cho đến khi ghi nhận chi thật.
@@ -292,13 +402,10 @@ export function FinanceCashbookPanel({
                         </div>
                         <div className="flex flex-wrap gap-2">
                               <button type="button" className={cashbookActionClass("income")} onClick={() => onCreateTransaction("other_income")}>
-                                    <WalletCards className="mr-2 h-4 w-4" /> Thu khác
-                              </button>
-                              <button type="button" className={cashbookActionClass("donation")} onClick={() => onCreateTransaction("donation")}>
-                                    <PiggyBank className="mr-2 h-4 w-4" /> Tài trợ
+                                    <WalletCards className="mr-2 h-4 w-4" /> Thu khác / tài trợ
                               </button>
                               <button type="button" className={cashbookActionClass("expense")} onClick={() => onCreateTransaction("expense")}>
-                                    <CreditCard className="mr-2 h-4 w-4" /> Khoản chi
+                                    <CreditCard className="mr-2 h-4 w-4" /> Chi một lần
                               </button>
                         </div>
                   </div>
@@ -354,6 +461,52 @@ export function FinanceCashbookPanel({
                         </div>
                   </div>
             </section>
+      );
+}
+
+
+function OperationQuickCard({
+      icon: Icon,
+      eyebrow,
+      title,
+      description,
+      action,
+      tone,
+      onClick,
+}: {
+      icon: any;
+      eyebrow: string;
+      title: string;
+      description: string;
+      action: string;
+      tone: "blue" | "emerald" | "amber";
+      onClick: () => void;
+}) {
+      const toneClass =
+            tone === "emerald"
+                  ? "border-emerald-100 bg-[linear-gradient(180deg,#f0fdf4_0%,#ffffff_100%)] text-emerald-700"
+                  : tone === "blue"
+                        ? "border-blue-100 bg-[linear-gradient(180deg,#eff6ff_0%,#ffffff_100%)] text-blue-700"
+                        : "border-[#e6c675] bg-[linear-gradient(180deg,#fff7dc_0%,#ffffff_100%)] text-[#8a5305]";
+
+      return (
+            <button
+                  type="button"
+                  onClick={onClick}
+                  className={`group rounded-[28px] border p-4 text-left shadow-[0_14px_34px_rgba(91,67,22,0.08),inset_0_1px_0_rgba(255,255,255,0.92)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_44px_rgba(91,67,22,0.12)] ${toneClass}`}
+            >
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                        <div className="rounded-2xl bg-white/78 p-3 shadow-sm">
+                              <Icon className="h-5 w-5" />
+                        </div>
+                        <span className="rounded-full border border-current/10 bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] opacity-80">
+                              {eyebrow}
+                        </span>
+                  </div>
+                  <p className="text-lg font-semibold text-slate-950">{title}</p>
+                  <p className="mt-2 min-h-[42px] text-sm leading-5 text-slate-600">{description}</p>
+                  <p className="mt-4 text-sm font-semibold text-current group-hover:underline">{action}</p>
+            </button>
       );
 }
 
@@ -469,7 +622,7 @@ function CashbookLine({
                                     <InlineBadge className={isOut ? "border-amber-100 bg-amber-50 text-amber-800" : "border-emerald-100 bg-emerald-50 text-emerald-700"}>
                                           {meta.shortLabel}
                                     </InlineBadge>
-                                    {transaction.source === "expense" || transaction.source === "expense_plan" ? (
+                                    {transaction.source === "expense" || transaction.source === "expense_plan" || transaction.source === "advance_out" ? (
                                           <InlineBadge className={isPlannedPeriodExpense(transaction) ? "border-blue-100 bg-blue-50 text-blue-700" : isAdvanceExpense(transaction) ? "border-emerald-100 bg-emerald-50 text-emerald-700" : isPeriodExpense(transaction) ? "border-blue-100 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-600"}>
                                                 {getExpenseScopeLabel(transaction)}
                                           </InlineBadge>
@@ -501,7 +654,8 @@ function CashbookLine({
 }
 
 function isPlannedPeriodExpense(transaction: any) {
-      return transaction?.source === "expense_plan" || String(transaction?.targetType || "").startsWith("expense_plan_period");
+      const targetType = String(transaction?.targetType || "");
+      return transaction?.source === "expense_plan" || targetType.startsWith("expense_plan_period") || targetType.startsWith("plan:");
 }
 
 function isPeriodExpense(transaction: any) {
@@ -509,7 +663,7 @@ function isPeriodExpense(transaction: any) {
 }
 
 function isAdvanceExpense(transaction: any) {
-      return String(transaction?.targetType || "").startsWith("expense_advance:");
+      return transaction?.source === "advance_out" || String(transaction?.targetType || "").startsWith("expense_advance:");
 }
 
 function getExpenseScopeLabel(transaction: any) {
@@ -530,6 +684,16 @@ function getExpenseScopeLabel(transaction: any) {
             const [startDate, endDate] = dateRange.split("_");
             const rangeLabel = startDate ? ` · ${startDate}${endDate && endDate !== startDate ? `-${endDate}` : ""}` : "";
             return `${categoryLabels[category] || "Tạm ứng"} · ${modeLabel}${rangeLabel}`;
+      }
+      if (targetType.startsWith("plan:")) {
+            const range = targetType.split(":")[1] || "";
+            const [firstRaw, lastRaw] = range.split("-");
+            const formatCompactMonth = (value: string) => value && value.length === 6 ? `${value.slice(4, 6)}/${value.slice(0, 4)}` : "";
+            const first = formatCompactMonth(firstRaw || "");
+            const last = formatCompactMonth(lastRaw || firstRaw || "");
+            if (first && last && first !== last) return `Dự chi ${first}-${last}`;
+            if (first) return `Dự chi ${first}`;
+            return "Dự chi theo kỳ";
       }
       if (targetType.startsWith("expense_plan_periods:")) {
             const months = (targetType.split(":")[1] || "").split(",").filter(Boolean);

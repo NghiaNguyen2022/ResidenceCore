@@ -1,4 +1,4 @@
-export type FinanceTab = "studentLedger" | "expenses" | "cashbook";
+export type FinanceTab = "studentLedger" | "expenses" | "plans" | "cashbook";
 
 export type ChargeStatus = "all" | "open" | "partial" | "paid" | "cancelled";
 

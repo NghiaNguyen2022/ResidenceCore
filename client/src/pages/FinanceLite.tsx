@@ -17,6 +17,7 @@ import { FinanceSummaryCards } from "@/components/finance-lite/FinanceSummaryCar
 import { FinanceTabRail } from "@/components/finance-lite/FinanceTabRail";
 import {
       FinanceCashbookPanel,
+      FinanceExpensePlansPanel,
       FinanceExpensesPanel,
       FinancePeriodSelector,
 } from "@/components/finance-lite/FinanceLitePanels";
@@ -124,27 +125,60 @@ export default function FinanceLite() {
             advanceStartDate: getVietnamDateInputValue(),
             advanceEndDate: getVietnamDateInputValue(),
             advanceReceiverType: "committee",
+            advanceReceiverId: "",
+            incomeKind: "other",
+            planDueMode: "first_day",
+            planFixedDay: "01",
       });
+      const [deleteTransactionTarget, setDeleteTransactionTarget] = useState<any | null>(null);
+      const [deleteTransactionMessage, setDeleteTransactionMessage] = useState("");
 
       function openTransactionForm(source = "other_income") {
+            const requestedSource = source || "other_income";
+            const baseSource = requestedSource.startsWith("expense_") ? "expense" : requestedSource;
+            const defaultExpenseKind =
+                  requestedSource === "expense_plan"
+                        ? "period"
+                        : requestedSource === "expense_advance"
+                              ? "advance"
+                              : requestedSource === "expense_once" || baseSource === "expense"
+                                    ? "one_time"
+                                    : "one_time";
+            const defaultIncomeKind = requestedSource === "donation" ? "donation" : "other";
+            const defaultPreset =
+                  defaultExpenseKind === "period"
+                        ? { key: "electricity", label: "Điện", targetName: "EVN", description: "Dự chi tiền điện theo kỳ" }
+                        : defaultExpenseKind === "advance"
+                              ? { key: "market", label: "Tạm ứng tiền chợ", targetName: "Ban Hậu cần", description: "Tạm ứng tiền chợ theo kỳ" }
+                              : defaultExpenseKind === "one_time" && baseSource === "expense"
+                                    ? { key: "repair", label: "Sửa chữa", targetName: "", description: "Chi phí phát sinh" }
+                                    : { key: "", label: "", targetName: "", description: "" };
+
             setTransactionFormMessage("");
             setTransactionForm({
-                  source,
-                  direction: getTransactionDirectionForSource(source, transactionForm.direction),
+                  source: baseSource,
+                  direction: getTransactionDirectionForSource(
+                        requestedSource === "expense_plan" ? "expense_plan" : baseSource,
+                        transactionForm.direction,
+                  ),
                   amount: "",
                   transactionDate: getVietnamDateInputValue(),
-                  targetName: "",
-                  description: "",
-                  expenseKind: source === "expense" ? "period" : "one_time",
+                  targetName: defaultPreset.targetName,
+                  description: defaultPreset.description,
+                  expenseKind: defaultExpenseKind,
                   expenseBillingMonth: selectedBillingMonth || getCurrentBillingMonth(),
                   expenseFromMonth: selectedBillingMonth || getCurrentBillingMonth(),
                   expenseToMonth: selectedBillingMonth || getCurrentBillingMonth(),
-                  expensePreset: "",
-                  expensePresetLabel: "",
+                  expensePreset: defaultPreset.key,
+                  expensePresetLabel: defaultPreset.label,
                   advancePeriodMode: "week",
                   advanceStartDate: getVietnamDateInputValue(),
                   advanceEndDate: getVietnamDateInputValue(),
                   advanceReceiverType: "committee",
+                  advanceReceiverId: "",
+                  incomeKind: defaultIncomeKind,
+                  planDueMode: "first_day",
+                  planFixedDay: "01",
             });
             setTransactionFormOpen(true);
       }
@@ -174,6 +208,14 @@ export default function FinanceLite() {
             search: searchTerm || undefined,
             limit: 200,
       });
+      const activeResidentsQuery = (trpc as any).members?.list?.useQuery?.(
+            { page: 1, pageSize: 500, status: "active" },
+            { enabled: transactionFormOpen },
+      );
+      const organizationUnitsQuery = (trpc as any).organization?.listUnits?.useQuery?.(
+            { isActive: true },
+            { enabled: transactionFormOpen },
+      );
 
       const rawPeriods = periodsQuery?.data || [];
       const currentBillingMonth = useMemo(() => getCurrentBillingMonth(), []);
@@ -205,6 +247,10 @@ export default function FinanceLite() {
       const charges = chargesQuery?.data || [];
       const transactions = transactionsQuery?.data || [];
       const feeTypes = feeTypesQuery?.data || [];
+      const advanceReceiverOptions = useMemo(
+            () => buildFinanceAdvanceReceiverOptions(activeResidentsQuery?.data, organizationUnitsQuery?.data),
+            [activeResidentsQuery?.data, organizationUnitsQuery?.data],
+      );
       const summary = summaryQuery?.data || {
             totalOpenAmount: 0,
             totalPaidAmount: 0,
@@ -410,6 +456,8 @@ export default function FinanceLite() {
                               advanceStartDate: getVietnamDateInputValue(),
                               advanceEndDate: getVietnamDateInputValue(),
                               advanceReceiverType: "committee",
+                              advanceReceiverId: "",
+                              incomeKind: "other",
                         });
                         transactionsQuery?.refetch?.();
                         summaryQuery?.refetch?.();
@@ -423,27 +471,31 @@ export default function FinanceLite() {
       const deleteTransactionMutation =
             financeApi?.deleteTransaction?.useMutation?.({
                   onSuccess: () => {
+                        setDeleteTransactionTarget(null);
+                        setDeleteTransactionMessage("");
                         transactionsQuery?.refetch?.();
                         summaryQuery?.refetch?.();
                   },
                   onError: (error: any) =>
-                        alert(error?.message || "Không thể xóa khoản thu chi này."),
+                        setDeleteTransactionMessage(error?.message || "Không thể xóa khoản thu chi này."),
             });
 
       const deleteTransaction = (transaction: any) => {
             if (!transaction?.id) return;
+            setDeleteTransactionMessage("");
             if (transaction.source === "student_fee_payment") {
-                  alert("Khoản thu học viên đã liên kết thanh toán, không xóa trực tiếp ở Sổ thu chi.");
+                  setDeleteTransactionTarget({
+                        ...transaction,
+                        lockedMessage: "Khoản thu học viên đã liên kết thanh toán, không xóa trực tiếp ở Sổ thu chi.",
+                  });
                   return;
             }
+            setDeleteTransactionTarget(transaction);
+      };
 
-            const title = transaction.targetName || transaction.description || "khoản thu chi này";
-            const ok = window.confirm(
-                  `Xóa ${title}?\n\nKhoản này sẽ được gỡ khỏi Khoản chi/Sổ thu chi. Dự chi theo kỳ hoặc tạm ứng nhầm có thể xóa tại đây; khoản đã quyết toán nên kiểm tra trước khi xóa.`,
-            );
-            if (!ok) return;
-
-            deleteTransactionMutation?.mutate?.({ id: Number(transaction.id) });
+      const confirmDeleteTransaction = () => {
+            if (!deleteTransactionTarget?.id || deleteTransactionTarget?.lockedMessage) return;
+            deleteTransactionMutation?.mutate?.({ id: Number(deleteTransactionTarget.id) });
       };
 
       const selectedPeriodScopedCharges = useMemo(() => {
@@ -1442,23 +1494,29 @@ export default function FinanceLite() {
                   setTransactionFormMessage("Vui lòng nhập mục đích hoặc ghi chú nghiệp vụ.");
                   return;
             }
+            const effectiveSource =
+                  (transactionForm.source === "other_income" || transactionForm.source === "donation") && transactionForm.incomeKind === "donation"
+                        ? "donation"
+                        : transactionForm.source === "donation"
+                              ? "donation"
+                              : transactionForm.source;
             const expenseMonths =
-                  transactionForm.source === "expense" && transactionForm.expenseKind === "period"
+                  effectiveSource === "expense" && transactionForm.expenseKind === "period"
                         ? getExpenseMonthRange(
                                 transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
                                 transactionForm.expenseToMonth || transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
                           )
                         : [];
-            if (transactionForm.source === "expense" && transactionForm.expenseKind === "period" && !expenseMonths.length) {
+            if (effectiveSource === "expense" && transactionForm.expenseKind === "period" && !expenseMonths.length) {
                   setTransactionFormMessage("Vui lòng chọn kỳ bắt đầu và kỳ kết thúc hợp lệ.");
                   return;
             }
             const normalizedDirection = getTransactionDirectionForSource(
-                  transactionForm.source,
+                  effectiveSource,
                   transactionForm.direction,
             );
             const expenseKind = transactionForm.expenseKind || "one_time";
-            if (transactionForm.source === "expense" && expenseKind === "advance") {
+            if (effectiveSource === "expense" && expenseKind === "advance") {
                   const startDate = String(transactionForm.advanceStartDate || "").slice(0, 10);
                   const endDate = String(transactionForm.advanceEndDate || startDate).slice(0, 10);
                   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate) {
@@ -1467,31 +1525,40 @@ export default function FinanceLite() {
                   }
             }
             const submitSource =
-                  transactionForm.source === "expense" && expenseKind === "period"
+                  effectiveSource === "expense" && expenseKind === "period"
                         ? "expense_plan"
-                        : transactionForm.source;
+                        : effectiveSource === "expense" && expenseKind === "advance"
+                              ? "advance_out"
+                              : effectiveSource;
+            const planStartCompact = expenseMonths[0] ? expenseMonths[0].replace("-", "") : "";
+            const planEndCompact = expenseMonths[expenseMonths.length - 1] ? expenseMonths[expenseMonths.length - 1].replace("-", "") : planStartCompact;
+            const planDueModeCompact =
+                  transactionForm.planDueMode === "last_day"
+                        ? "last"
+                        : transactionForm.planDueMode === "fixed_day"
+                              ? "day"
+                              : "first";
             const targetType =
-                  transactionForm.source === "expense"
+                  effectiveSource === "expense"
                         ? expenseKind === "period"
-                              ? expenseMonths.length > 1
-                                    ? `expense_plan_periods:${expenseMonths.join(",")}`
-                                    : `expense_plan_period:${expenseMonths[0]}`
+                              ? `plan:${planStartCompact}${planEndCompact && planEndCompact !== planStartCompact ? `-${planEndCompact}` : ""}:${planDueModeCompact}:${transactionForm.planFixedDay || "01"}`
                               : expenseKind === "advance"
                                     ? `expense_advance:${transactionForm.expensePreset || "other"}:${transactionForm.advancePeriodMode || "week"}:${transactionForm.advanceStartDate || ""}_${transactionForm.advanceEndDate || transactionForm.advanceStartDate || ""}:${transactionForm.advanceReceiverType || "committee"}`
                                     : `expense_daily:${transactionForm.expensePreset || "other"}`
-                        : transactionForm.source;
+                        : effectiveSource;
             const submitAmount =
-                  transactionForm.source === "expense" && expenseKind === "period"
+                  effectiveSource === "expense" && expenseKind === "period"
                         ? amount * Math.max(1, expenseMonths.length)
                         : amount;
             const descriptionParts = [transactionForm.description];
-            if (transactionForm.source === "expense") {
+            if (effectiveSource === "expense") {
                   if (transactionForm.expensePresetLabel) {
                         descriptionParts.push(`Nhóm chi: ${transactionForm.expensePresetLabel}`);
                   }
                   if (expenseKind === "period") {
                         descriptionParts.push(`Áp dụng kỳ: ${expenseMonths.join(", ")}`);
                         descriptionParts.push(`Số tiền mỗi kỳ: ${amount}`);
+                        descriptionParts.push(`Ngày dự chi: ${transactionForm.planDueMode === "fixed_day" ? `ngày ${transactionForm.planFixedDay || "01"} mỗi kỳ` : transactionForm.planDueMode === "last_day" ? "cuối kỳ" : "đầu kỳ"}`);
                   } else if (expenseKind === "advance") {
                         descriptionParts.push("Loại chi: Tạm ứng theo kỳ");
                         descriptionParts.push(`Thời gian: ${transactionForm.advanceStartDate || ""} → ${transactionForm.advanceEndDate || transactionForm.advanceStartDate || ""}`);
@@ -1667,7 +1734,7 @@ export default function FinanceLite() {
                                                       Tài chính lưu xá
                                                 </h1>
                                                 <p className={residenceMediumStyle.standardHeaderSubtitle}>
-                                                      Quản lý kỳ thu học viên, khoản chi và sổ thu chi phát sinh.
+                                                      Quản lý kỳ thu học viên, thu chi ngoài học viên và dòng tiền phát sinh.
                                                 </p>
                                           </div>
                                           <div className={residenceMediumStyle.standardHeaderActions}>
@@ -1676,7 +1743,7 @@ export default function FinanceLite() {
                                                       className={residenceMediumStyle.buttonCard}
                                                       onClick={() => openTransactionForm("other_income")}
                                                 >
-                                                      Thu / chi khác
+                                                      Thu chi khác
                                                 </button>
                                                 <button
                                                       type="button"
@@ -1759,7 +1826,18 @@ export default function FinanceLite() {
       activeTab === "expenses" ? (
             <FinanceExpensesPanel
                   transactions={transactions}
-                  onCreateExpense={() => openTransactionForm("expense")}
+                  onCreateExpense={(source = "other_income") => openTransactionForm(source)}
+                  onDeleteTransaction={deleteTransaction}
+                  isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
+            />
+      ) : null
+}
+{
+      activeTab === "plans" ? (
+            <FinanceExpensePlansPanel
+                  transactions={transactions}
+                  onCreatePlan={() => openTransactionForm("expense_plan")}
+                  onCreateActualExpense={() => openTransactionForm("expense_once")}
                   onDeleteTransaction={deleteTransaction}
                   isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
             />
@@ -1769,7 +1847,7 @@ export default function FinanceLite() {
       activeTab === "cashbook" ? (
             <FinanceCashbookPanel
                   transactions={transactions}
-                  onCreateTransaction={(source = "other_income") => openTransactionForm(source)}
+                  onCreateTransaction={(source = "other_income") => openTransactionForm(source === "expense" ? "expense_once" : source)}
                   onDeleteTransaction={deleteTransaction}
                   isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
             />
@@ -1855,11 +1933,77 @@ onSubmit = { submitCreatePeriod }
                   form={transactionForm}
                   setForm={setTransactionForm}
                   isSubmitting={createTransactionMutation?.isPending}
+                  advanceReceiverOptions={advanceReceiverOptions}
                   onClose={() => setTransactionFormOpen(false)}
                   onSubmit={submitTransaction}
             />
       ) : null
 }
+
+{deleteTransactionTarget ? (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-[28px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff7df_100%)] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Xác nhận xóa</p>
+                  <h3 className="mt-2 text-xl font-semibold text-slate-950">Xóa {deleteTransactionTarget.targetName || deleteTransactionTarget.description || "khoản thu chi này"}?</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                        {deleteTransactionTarget.lockedMessage || "Khoản này sẽ được gỡ khỏi Khoản thu chi/Sổ dòng tiền. Dự chi hoặc tạm ứng nhầm có thể xóa tại đây; khoản đã quyết toán nên kiểm tra trước khi xóa."}
+                  </p>
+                  {deleteTransactionMessage ? (
+                        <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{deleteTransactionMessage}</div>
+                  ) : null}
+                  <div className="mt-5 flex justify-end gap-2">
+                        <button type="button" className={residenceMediumStyle.buttonCard} onClick={() => { setDeleteTransactionTarget(null); setDeleteTransactionMessage(""); }}>Đóng</button>
+                        {!deleteTransactionTarget.lockedMessage ? (
+                              <button type="button" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60" disabled={deleteTransactionMutation?.isPending} onClick={confirmDeleteTransaction}>
+                                    {deleteTransactionMutation?.isPending ? "Đang xóa..." : "Xóa khoản này"}
+                              </button>
+                        ) : null}
+                  </div>
+            </div>
+      </div>
+) : null}
     </ResidenceCareLayout >
   );
+}
+
+
+function normalizeFinanceListData(data: any): any[] {
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data.items)) return data.items;
+      if (Array.isArray(data.data)) return data.data;
+      if (Array.isArray(data.rows)) return data.rows;
+      return [];
+}
+
+function buildFinanceAdvanceReceiverOptions(residentData: any, unitData: any) {
+      const residents = normalizeFinanceListData(residentData);
+      const units = normalizeFinanceListData(unitData);
+      const options: Array<{ type: string; id: string; label: string; subLabel?: string }> = [];
+
+      for (const unit of units) {
+            const rawType = String(unit?.unitType || unit?.type || unit?.roleType || "").toLowerCase();
+            const type = rawType.includes("committee") || rawType.includes("ban") ? "committee" : rawType.includes("team") || rawType.includes("to") || rawType.includes("tổ") ? "team" : "";
+            if (!type) continue;
+            const label = String(unit?.unitName || unit?.name || unit?.title || "").trim();
+            if (!label) continue;
+            options.push({ type, id: String(unit?.id || label), label, subLabel: type === "committee" ? "Ban" : "Tổ" });
+      }
+
+      for (const resident of residents) {
+            const label = String(resident?.fullName || resident?.name || resident?.residentName || "").trim();
+            if (!label) continue;
+            options.push({
+                  type: "person",
+                  id: String(resident?.id || label),
+                  label,
+                  subLabel: String(resident?.residentCode || resident?.code || resident?.currentRoomName || "").trim() || "Học viên",
+            });
+      }
+
+      const hasLogistics = options.some((item) => item.type === "committee" && item.label.toLowerCase().includes("hậu cần"));
+      if (!hasLogistics) {
+            options.unshift({ type: "committee", id: "committee-ban-hau-can", label: "Ban Hậu cần", subLabel: "Mặc định" });
+      }
+      return options;
 }
