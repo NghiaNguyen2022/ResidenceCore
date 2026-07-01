@@ -17,6 +17,33 @@ export const monthNames = [
   "Tháng 12",
 ];
 
+export const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
+
+export function getVietnamDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: VIETNAM_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const value = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+  };
+}
+
+export function getVietnamDateInputValue(date = new Date()) {
+  const parts = getVietnamDateParts(date);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+export function getVietnamCurrentYear() {
+  return getVietnamDateParts().year;
+}
+
 export function normalizeStoredMoneyValue(value?: string | number | null) {
   if (typeof value === "number")
     return Number.isFinite(value) ? String(Math.round(value)) : "";
@@ -55,7 +82,8 @@ export function getMonthEnd(monthValue?: string) {
   const year = Number(yearText);
   const month = Number(monthText);
   if (!year || !month) return "";
-  return new Date(year, month, 0).toISOString().slice(0, 10);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${yearText}-${monthText}-${String(lastDay).padStart(2, "0")}`;
 }
 
 export function getBillingMonthLabel(value?: string | null) {
@@ -67,8 +95,8 @@ export function getBillingMonthLabel(value?: string | null) {
 }
 
 export function getCurrentBillingMonth() {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const parts = getVietnamDateParts();
+  return `${parts.year}-${parts.month}`;
 }
 
 export function periodContainsBillingMonth(period: any, billingMonth: string) {
@@ -100,7 +128,7 @@ export function getStatusClass(status?: string | null) {
 }
 
 export function emptyPeriodForm(): PeriodFormState {
-  const year = String(new Date().getFullYear());
+  const year = getVietnamCurrentYear();
   return {
     periodName: `Phí lưu xá năm ${year}`,
     year,
@@ -115,7 +143,7 @@ export function emptyPeriodForm(): PeriodFormState {
 
 
 export function getTransactionDirectionForSource(source?: string | null, direction?: string | null) {
-  if (source === "expense") return "out";
+  if (source === "expense" || source === "expense_plan") return "out";
   if (source === "other_income" || source === "donation") return "in";
   return direction === "out" ? "out" : "in";
 }
@@ -128,6 +156,15 @@ export function getTransactionSourceMeta(source?: string | null) {
       targetLabel: "Người/đơn vị tài trợ",
       descriptionLabel: "Mục đích tài trợ / ghi chú",
       tone: "emerald",
+    };
+  }
+  if (source === "expense_plan") {
+    return {
+      label: "Dự chi theo kỳ",
+      shortLabel: "Dự chi",
+      targetLabel: "Đơn vị/nhà cung cấp dự kiến",
+      descriptionLabel: "Nội dung dự chi / ghi chú",
+      tone: "blue",
     };
   }
   if (source === "expense") {

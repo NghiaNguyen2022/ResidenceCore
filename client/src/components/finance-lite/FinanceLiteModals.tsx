@@ -10,6 +10,7 @@ import {
   getBillingMonthLabel,
   getMonthEnd,
   getMonthStart,
+  getVietnamDateInputValue,
   getTransactionDirectionForSource,
   getTransactionSourceMeta,
   toMoneyNumber,
@@ -342,6 +343,66 @@ export function FinanceEditChargeModal({
   );
 }
 
+
+const EXPENSE_PERIOD_PRESETS = [
+  { key: "electricity", label: "Điện", hint: "Chi điện theo tháng/kỳ", targetName: "Tiền điện", description: "Chi phí điện vận hành theo kỳ" },
+  { key: "water", label: "Nước", hint: "Chi nước sinh hoạt", targetName: "Tiền nước", description: "Chi phí nước sinh hoạt theo kỳ" },
+  { key: "internet", label: "Internet", hint: "Mạng, wifi, cáp", targetName: "Internet / mạng", description: "Chi phí internet, wifi theo kỳ" },
+  { key: "utilities", label: "Tiện ích", hint: "Rác, vệ sinh, bảo vệ", targetName: "Tiện ích vận hành", description: "Chi phí tiện ích vận hành định kỳ" },
+  { key: "maintenance", label: "Bảo trì", hint: "Bảo trì định kỳ", targetName: "Bảo trì định kỳ", description: "Chi phí bảo trì định kỳ" },
+];
+
+const EXPENSE_DAILY_PRESETS = [
+  { key: "market", label: "Tiền đi chợ", hint: "Thực phẩm, bữa ăn, sinh hoạt", targetName: "Tiền đi chợ", description: "Chi phí đi chợ / thực phẩm trong ngày" },
+  { key: "stationery", label: "Văn phòng phẩm", hint: "Giấy, bút, mực, hồ sơ", targetName: "Văn phòng phẩm", description: "Chi phí văn phòng phẩm" },
+  { key: "flowers_lights", label: "Hoa đèn", hint: "Trang trí, lễ nghi, sinh hoạt", targetName: "Hoa đèn / trang trí", description: "Chi phí hoa đèn, trang trí hoặc sinh hoạt chung" },
+  { key: "supplies", label: "Vật dụng", hint: "Đồ dùng, dụng cụ nhỏ", targetName: "Mua vật dụng", description: "Chi phí mua vật dụng phát sinh" },
+  { key: "repair", label: "Sửa chữa", hint: "Sửa phòng, thiết bị, điện nước", targetName: "Sửa chữa phát sinh", description: "Chi phí sửa chữa phát sinh" },
+  { key: "support", label: "Hỗ trợ", hint: "Hỗ trợ học viên / hoạt động", targetName: "Hỗ trợ sinh hoạt", description: "Chi phí hỗ trợ học viên hoặc hoạt động" },
+];
+
+const EXPENSE_ADVANCE_PRESETS = [
+  { key: "market", label: "Tạm ứng tiền chợ", hint: "Ứng trước theo tuần/tháng, cập nhật chi thực tế mỗi ngày", targetName: "Người/tổ nhận tiền chợ", description: "Tạm ứng tiền chợ theo kỳ" },
+  { key: "flowers_lights", label: "Tạm ứng hoa nến", hint: "Hoa đèn, nến, trang trí, phụng vụ", targetName: "Người/tổ nhận hoa nến", description: "Tạm ứng hoa nến / hoa đèn theo kỳ" },
+  { key: "stationery", label: "Tạm ứng văn phòng phẩm", hint: "Giấy, bút, mực, hồ sơ dùng trong kỳ", targetName: "Người/tổ nhận văn phòng phẩm", description: "Tạm ứng văn phòng phẩm theo kỳ" },
+  { key: "supplies", label: "Tạm ứng vật dụng", hint: "Vật dụng sinh hoạt nhỏ dùng theo kỳ", targetName: "Người/tổ nhận vật dụng", description: "Tạm ứng vật dụng sinh hoạt theo kỳ" },
+];
+
+const ADVANCE_PERIOD_OPTIONS = [
+  { key: "week", label: "Theo tuần", hint: "Phù hợp tiền chợ, hoa nến ngắn kỳ" },
+  { key: "month", label: "Theo tháng", hint: "Phù hợp văn phòng phẩm, vật dụng" },
+  { key: "custom", label: "Tùy chọn", hint: "Tự chọn từ ngày đến ngày" },
+];
+
+const ADVANCE_RECEIVER_OPTIONS = [
+  { key: "committee", label: "Ban", hint: "Thường là Ban Hậu cần" },
+  { key: "team", label: "Tổ", hint: "Giao cho tổ phụ trách" },
+  { key: "person", label: "Cá nhân", hint: "Giao cho một người cụ thể" },
+  { key: "room", label: "Phòng / nhóm", hint: "Nhóm/phòng nhận tạm ứng" },
+];
+
+const ADVANCE_RECEIVER_PRESETS = [
+  { receiverType: "committee", label: "Ban Hậu cần", hint: "Mặc định cho tiền chợ, vật dụng, hậu cần" },
+  { receiverType: "committee", label: "Ban Phụng vụ", hint: "Phù hợp hoa nến / hoa đèn" },
+  { receiverType: "committee", label: "Ban Văn phòng", hint: "Phù hợp văn phòng phẩm" },
+  { receiverType: "team", label: "Tổ trực tuần", hint: "Giao cho tổ đang trực hoặc tổ phụ trách tuần" },
+  { receiverType: "person", label: "Cá nhân phụ trách", hint: "Chọn khi cần ghi tên người nhận cụ thể" },
+  { receiverType: "room", label: "Nhóm hậu cần", hint: "Dùng khi chưa gắn với ban/tổ chính thức" },
+];
+
+function getDefaultAdvanceReceiverName(receiverType?: string | null) {
+  if (receiverType === "committee") return "Ban Hậu cần";
+  if (receiverType === "team") return "Tổ trực tuần";
+  if (receiverType === "room") return "Nhóm hậu cần";
+  return "";
+}
+
+function isAutoAdvanceReceiverName(value?: string | null) {
+  const name = String(value || "").trim();
+  if (!name) return true;
+  return ADVANCE_RECEIVER_PRESETS.some((preset) => preset.label === name);
+}
+
 export function FinanceTransactionModal({
   message,
   form,
@@ -360,21 +421,105 @@ export function FinanceTransactionModal({
   const sourceMeta = getTransactionSourceMeta(form.source);
   const normalizedDirection = getTransactionDirectionForSource(form.source, form.direction);
   const isBusiness = form.source === "business";
+  const isExpense = form.source === "expense";
+  const expenseKind = ["period", "advance", "one_time"].includes(form.expenseKind) ? form.expenseKind : "one_time";
+  const expenseMonths = expenseKind === "period" ? getModalExpenseMonths(form.expenseFromMonth || form.expenseBillingMonth, form.expenseToMonth || form.expenseFromMonth || form.expenseBillingMonth) : [];
+  const amountPerPeriod = toMoneyNumber(form.amount);
+  const estimatedTotal = isExpense && expenseKind === "period" ? amountPerPeriod * Math.max(1, expenseMonths.length) : amountPerPeriod;
+  const advanceStartDate = form.advanceStartDate || getVietnamDateInputValue();
+  const advanceEndDate = form.advanceEndDate || advanceStartDate;
+  const advanceReceiverType = form.advanceReceiverType || "committee";
+  const visibleAdvanceReceiverPresets = ADVANCE_RECEIVER_PRESETS.filter(
+    (preset) => preset.receiverType === advanceReceiverType,
+  );
+  const dynamicTargetLabel =
+    isExpense && expenseKind === "advance"
+      ? advanceReceiverType === "committee"
+        ? "Ban nhận tạm ứng"
+        : advanceReceiverType === "team"
+          ? "Tổ nhận tạm ứng"
+          : advanceReceiverType === "room"
+            ? "Phòng / nhóm nhận tạm ứng"
+            : "Người nhận tạm ứng"
+      : sourceMeta.targetLabel;
+  const dynamicDescriptionLabel =
+    isExpense && expenseKind === "advance"
+      ? "Nội dung tạm ứng / mục đích sử dụng"
+      : sourceMeta.descriptionLabel;
 
   function selectSource(source: string) {
+    const currentMonth = new Date().toISOString().slice(0, 7);
     setForm((current: any) => ({
       ...current,
       source,
       direction: getTransactionDirectionForSource(source, current.direction),
       expenseKind: source === "expense" ? current.expenseKind || "period" : "one_time",
-      expenseBillingMonth: current.expenseBillingMonth || new Date().toISOString().slice(0, 7),
+      expenseBillingMonth: current.expenseBillingMonth || current.expenseFromMonth || currentMonth,
+      expenseFromMonth: current.expenseFromMonth || current.expenseBillingMonth || currentMonth,
+      expenseToMonth: current.expenseToMonth || current.expenseFromMonth || current.expenseBillingMonth || currentMonth,
+      expensePreset: source === "expense" ? current.expensePreset || "" : "",
+      expensePresetLabel: source === "expense" ? current.expensePresetLabel || "" : "",
+      advancePeriodMode: current.advancePeriodMode || "week",
+      advanceStartDate: current.advanceStartDate || getVietnamDateInputValue(),
+      advanceEndDate: current.advanceEndDate || getVietnamDateInputValue(),
+      advanceReceiverType: current.advanceReceiverType || "committee",
+    }));
+  }
+
+  function selectExpenseKind(kind: "period" | "advance" | "one_time") {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    setForm((current: any) => ({
+      ...current,
+      expenseKind: kind,
+      expenseBillingMonth: current.expenseBillingMonth || current.expenseFromMonth || currentMonth,
+      expenseFromMonth: current.expenseFromMonth || current.expenseBillingMonth || currentMonth,
+      expenseToMonth: current.expenseToMonth || current.expenseFromMonth || current.expenseBillingMonth || currentMonth,
+      expensePreset: "",
+      expensePresetLabel: "",
+      targetName: kind === "advance" ? current.targetName || "Ban Hậu cần" : "",
+      description: "",
+      advancePeriodMode: current.advancePeriodMode || "week",
+      advanceStartDate: current.advanceStartDate || getVietnamDateInputValue(),
+      advanceEndDate: current.advanceEndDate || getVietnamDateInputValue(),
+      advanceReceiverType: kind === "advance" ? current.advanceReceiverType || "committee" : current.advanceReceiverType || "committee",
+    }));
+  }
+
+  function selectExpensePreset(preset: any) {
+    setForm((current: any) => ({
+      ...current,
+      expensePreset: preset.key,
+      expensePresetLabel: preset.label,
+      targetName:
+        expenseKind === "advance"
+          ? current.targetName || getDefaultAdvanceReceiverName(current.advanceReceiverType || "committee") || preset.targetName
+          : current.targetName || preset.targetName,
+      description: current.description || preset.description,
+    }));
+  }
+
+  function selectAdvanceReceiverType(receiverType: string) {
+    setForm((current: any) => ({
+      ...current,
+      advanceReceiverType: receiverType,
+      targetName: isAutoAdvanceReceiverName(current.targetName)
+        ? getDefaultAdvanceReceiverName(receiverType)
+        : current.targetName,
+    }));
+  }
+
+  function selectAdvanceReceiverPreset(preset: any) {
+    setForm((current: any) => ({
+      ...current,
+      advanceReceiverType: preset.receiverType,
+      targetName: preset.label,
     }));
   }
 
   return (
     <StandardModalShell
       title="Ghi nhận thu / chi"
-      subtitle="Tách rõ thu khác, tài trợ, khoản chi và nghiệp vụ kinh doanh để sổ thu chi dễ đối chiếu."
+      subtitle="Tách rõ thu khác, tài trợ, khoản chi theo kỳ và khoản chi phát sinh để sổ thu chi dễ đối chiếu."
       onClose={onClose}
     >
       <div className="space-y-4 p-5">
@@ -389,81 +534,168 @@ export function FinanceTransactionModal({
             Loại nghiệp vụ
           </p>
           <div className="grid gap-3 md:grid-cols-4">
-            <TransactionSourceCard
-              active={form.source === "other_income"}
-              icon={WalletCards}
-              title="Thu khác"
-              description="Quỹ, hoàn tiền, thu phát sinh"
-              onClick={() => selectSource("other_income")}
-            />
-            <TransactionSourceCard
-              active={form.source === "donation"}
-              icon={PiggyBank}
-              title="Tài trợ"
-              description="Ủng hộ, tài trợ theo mục đích"
-              onClick={() => selectSource("donation")}
-            />
-            <TransactionSourceCard
-              active={form.source === "expense"}
-              icon={HandCoins}
-              title="Khoản chi"
-              description="Điện nước, sửa chữa, mua sắm"
-              onClick={() => selectSource("expense")}
-            />
-            <TransactionSourceCard
-              active={form.source === "business"}
-              icon={ReceiptText}
-              title="Kinh doanh"
-              description="Thu hoặc chi cửa hàng"
-              onClick={() => selectSource("business")}
-            />
+            <TransactionSourceCard active={form.source === "other_income"} icon={WalletCards} title="Thu khác" description="Quỹ, hoàn tiền, thu phát sinh" onClick={() => selectSource("other_income")} />
+            <TransactionSourceCard active={form.source === "donation"} icon={PiggyBank} title="Tài trợ" description="Ủng hộ, tài trợ theo mục đích" onClick={() => selectSource("donation")} />
+            <TransactionSourceCard active={form.source === "expense"} icon={HandCoins} title="Khoản chi" description="Theo kỳ hoặc phát sinh hằng ngày" onClick={() => selectSource("expense")} />
+            <TransactionSourceCard active={form.source === "business"} icon={ReceiptText} title="Kinh doanh" description="Thu hoặc chi cửa hàng" onClick={() => selectSource("business")} />
           </div>
         </div>
 
-        {form.source === "expense" ? (
-          <div className="rounded-[24px] border border-[#ead9ad]/80 bg-white/86 p-4 shadow-[0_10px_24px_rgba(91,67,22,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        {isExpense ? (
+          <div className="rounded-[26px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff7df_100%)] p-4 shadow-[0_12px_30px_rgba(91,67,22,0.08),inset_0_1px_0_rgba(255,255,255,0.92)]">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cách ghi nhận khoản chi</p>
-                <p className="mt-1 text-sm text-slate-600">Chọn chi theo kỳ/tháng để đối chiếu vận hành, hoặc chi một lần cho phát sinh riêng.</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Thiết kế khoản chi linh hoạt</p>
+                <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-600">
+                  Tách rõ dự chi cố định, tạm ứng theo kỳ và chi phát sinh. Dự chi theo kỳ chỉ là kế hoạch, chưa vào sổ thu chi cho đến khi ghi nhận chi thực tế.
+                </p>
               </div>
-              {form.expenseKind === "period" ? (
-                <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
-                  Theo kỳ {getBillingMonthLabel(form.expenseBillingMonth || "")}
-                </span>
-              ) : (
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">Chi một lần</span>
-              )}
+              <span className="rounded-full border border-[#e6c675] bg-white/80 px-3 py-1.5 text-xs font-semibold text-[#8a5305]">
+                {expenseKind === "period" ? `${expenseMonths.length || 1} kỳ` : expenseKind === "advance" ? "Tạm ứng theo kỳ" : "Một lần / theo ngày"}
+              </span>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr_180px] md:items-end">
+            <div className="grid gap-3 lg:grid-cols-3">
               <button
                 type="button"
-                onClick={() => setForm({ ...form, expenseKind: "period", expenseBillingMonth: form.expenseBillingMonth || new Date().toISOString().slice(0, 7) })}
-                className={`rounded-2xl border p-3 text-left transition ${form.expenseKind === "period" ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_10px_22px_rgba(180,122,20,0.14)]" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50/50"}`}
+                onClick={() => selectExpenseKind("period")}
+                className={`rounded-[22px] border p-4 text-left transition ${expenseKind === "period" ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_12px_26px_rgba(180,122,20,0.16)]" : "border-slate-200 bg-white/85 text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}
               >
-                <p className="text-sm font-semibold">Khoản chi theo kỳ</p>
-                <p className="mt-1 text-xs leading-4 opacity-75">Điện nước, internet, vệ sinh, bảo trì định kỳ theo tháng.</p>
+                <p className="text-sm font-semibold">Dự chi cố định theo kỳ</p>
+                <p className="mt-1 text-xs leading-5 opacity-75">Điện, nước, internet, tiện ích, bảo trì. Tạo kế hoạch nhiều tháng, chưa ghi giảm tiền mặt.</p>
               </button>
               <button
                 type="button"
-                onClick={() => setForm({ ...form, expenseKind: "one_time" })}
-                className={`rounded-2xl border p-3 text-left transition ${form.expenseKind === "one_time" ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_10px_22px_rgba(180,122,20,0.14)]" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50/50"}`}
+                onClick={() => selectExpenseKind("advance")}
+                className={`rounded-[22px] border p-4 text-left transition ${expenseKind === "advance" ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_12px_26px_rgba(180,122,20,0.16)]" : "border-slate-200 bg-white/85 text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}
               >
-                <p className="text-sm font-semibold">Khoản chi một lần</p>
-                <p className="mt-1 text-xs leading-4 opacity-75">Sửa chữa, mua vật dụng, hỗ trợ hoặc phát sinh không lặp lại.</p>
+                <p className="text-sm font-semibold">Tạm ứng theo kỳ</p>
+                <p className="mt-1 text-xs leading-5 opacity-75">Tiền chợ, hoa nến, văn phòng phẩm: ứng trước cho người/tổ rồi cập nhật thực chi.</p>
               </button>
-              {form.expenseKind === "period" ? (
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Tháng/Kỳ chi</label>
-                  <input
-                    type="month"
-                    value={form.expenseBillingMonth || new Date().toISOString().slice(0, 7)}
-                    onChange={(event) => setForm({ ...form, expenseBillingMonth: event.target.value })}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                  />
+              <button
+                type="button"
+                onClick={() => selectExpenseKind("one_time")}
+                className={`rounded-[22px] border p-4 text-left transition ${expenseKind === "one_time" ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_12px_26px_rgba(180,122,20,0.16)]" : "border-slate-200 bg-white/85 text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}
+              >
+                <p className="text-sm font-semibold">Chi một lần</p>
+                <p className="mt-1 text-xs leading-5 opacity-75">Sửa chữa, mua sắm, hỗ trợ hoặc phát sinh riêng trong ngày.</p>
+              </button>
+            </div>
+
+            {expenseKind === "period" ? (
+              <div className="mt-4 rounded-[22px] border border-[#ead9ad]/70 bg-white/75 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Áp dụng nhiều kỳ</p>
+                    <p className="text-xs text-slate-500">Nhập số tiền mỗi kỳ, hệ thống sẽ ghi nhận tổng tiền cho các kỳ đã chọn.</p>
+                  </div>
+                  <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
+                    {expenseMonths.length ? expenseMonths.map(getBillingMonthLabel).join(" · ") : "Chưa chọn kỳ"}
+                  </span>
                 </div>
-              ) : null}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <MonthInput label="Từ kỳ" value={form.expenseFromMonth || form.expenseBillingMonth || new Date().toISOString().slice(0, 7)} onChange={(expenseFromMonth) => setForm({ ...form, expenseFromMonth, expenseBillingMonth: expenseFromMonth, expenseToMonth: form.expenseToMonth || expenseFromMonth })} />
+                  <MonthInput label="Đến kỳ" value={form.expenseToMonth || form.expenseFromMonth || form.expenseBillingMonth || new Date().toISOString().slice(0, 7)} onChange={(expenseToMonth) => setForm({ ...form, expenseToMonth })} />
+                </div>
+              </div>
+            ) : null}
+
+            {expenseKind === "advance" ? (
+              <div className="mt-4 rounded-[22px] border border-[#ead9ad]/70 bg-white/75 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Thông tin tạm ứng</p>
+                    <p className="text-xs text-slate-500">Dùng cho khoản ứng trước theo tuần/tháng/khoảng ngày. Sau đó cập nhật chi thực tế từng ngày và quyết toán cuối kỳ.</p>
+                  </div>
+                  <span className="rounded-full border border-[#e6c675] bg-[#fff6dc] px-3 py-1.5 text-xs font-semibold text-[#8a5305]">
+                    Tạm ứng · {form.advancePeriodMode === "month" ? "tháng" : form.advancePeriodMode === "custom" ? "tùy chọn" : "tuần"}
+                  </span>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-3">
+                  {ADVANCE_PERIOD_OPTIONS.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setForm({ ...form, advancePeriodMode: option.key })}
+                      className={`rounded-2xl border px-3 py-2.5 text-left transition ${form.advancePeriodMode === option.key ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00]" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200"}`}
+                    >
+                      <p className="text-sm font-semibold">{option.label}</p>
+                      <p className="mt-0.5 text-[11px] leading-4 opacity-70">{option.hint}</p>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <DateField label="Từ ngày" value={advanceStartDate} onChange={(advanceStartDate) => setForm({ ...form, advanceStartDate })} />
+                  <DateField label="Đến ngày" value={advanceEndDate} onChange={(advanceEndDate) => setForm({ ...form, advanceEndDate })} />
+                </div>
+
+                <div className="mt-4 rounded-[22px] border border-[#ead9ad]/70 bg-[linear-gradient(180deg,#fffdf8_0%,#fff8e6_100%)] p-3.5">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Giao tạm ứng cho</p>
+                      <p className="mt-1 text-xs text-slate-500">Gắn khoản tạm ứng vào đúng cá nhân, tổ hoặc ban phụ trách. Mặc định thường dùng: Ban Hậu cần.</p>
+                    </div>
+                    <span className="rounded-full border border-[#e6c675] bg-white/80 px-3 py-1 text-[11px] font-semibold text-[#8a5305]">
+                      {advanceReceiverType === "committee" ? "Ban" : advanceReceiverType === "team" ? "Tổ" : advanceReceiverType === "room" ? "Phòng / nhóm" : "Cá nhân"}
+                    </span>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-4">
+                    {ADVANCE_RECEIVER_OPTIONS.map((option) => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => selectAdvanceReceiverType(option.key)}
+                        className={`rounded-2xl border px-3 py-2.5 text-left transition ${advanceReceiverType === option.key ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_8px_18px_rgba(180,122,20,0.12)]" : "border-slate-200 bg-white text-slate-500 hover:border-amber-200"}`}
+                      >
+                        <span className="block text-sm font-semibold">{option.label}</span>
+                        <span className="mt-0.5 block text-[11px] leading-4 opacity-70">{option.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 grid gap-2 md:grid-cols-3">
+                    {visibleAdvanceReceiverPresets.map((preset) => (
+                      <button
+                        key={`${preset.receiverType}-${preset.label}`}
+                        type="button"
+                        onClick={() => selectAdvanceReceiverPreset(preset)}
+                        className={`rounded-2xl border px-3 py-2.5 text-left transition ${form.targetName === preset.label ? "border-[#d8b45d] bg-white text-[#4a2b00] shadow-[0_8px_18px_rgba(180,122,20,0.12)]" : "border-slate-200 bg-white/75 text-slate-600 hover:border-amber-200 hover:bg-white"}`}
+                      >
+                        <span className="block text-sm font-semibold">{preset.label}</span>
+                        <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{preset.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                {expenseKind === "period" ? "Chi phí mặc định theo kỳ" : expenseKind === "advance" ? "Khoản tạm ứng thường dùng" : "Chi phí một lần thường gặp"}
+              </p>
+              <div className="grid gap-2 md:grid-cols-3">
+                {(expenseKind === "period" ? EXPENSE_PERIOD_PRESETS : expenseKind === "advance" ? EXPENSE_ADVANCE_PRESETS : EXPENSE_DAILY_PRESETS).map((preset) => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => selectExpensePreset(preset)}
+                    className={`rounded-2xl border px-3 py-3 text-left transition ${form.expensePreset === preset.key ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_10px_22px_rgba(180,122,20,0.14)]" : "border-slate-200 bg-white/82 text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}
+                  >
+                    <p className="text-sm font-semibold">{preset.label}</p>
+                    <p className="mt-1 text-xs leading-4 opacity-70">{preset.hint}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <MiniTransactionMetric label={expenseKind === "period" ? "Số kỳ" : expenseKind === "advance" ? "Kỳ tạm ứng" : "Loại"} value={expenseKind === "period" ? `${Math.max(1, expenseMonths.length)} kỳ` : expenseKind === "advance" ? "Theo ngày thực chi" : "Một lần"} />
+              <MiniTransactionMetric label={expenseKind === "period" ? "Mỗi kỳ" : expenseKind === "advance" ? "Số tiền ứng" : "Số tiền"} value={formatMoney(amountPerPeriod)} />
+              <MiniTransactionMetric label={expenseKind === "period" ? "Tổng dự chi" : "Tổng ghi nhận"} value={formatMoney(estimatedTotal)} highlight />
             </div>
           </div>
         ) : null}
@@ -478,16 +710,8 @@ export function FinanceTransactionModal({
             </div>
             {isBusiness ? (
               <div className="flex rounded-2xl border border-slate-200 bg-white p-1">
-                {[
-                  ["in", "Thu"],
-                  ["out", "Chi"],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setForm({ ...form, direction: value })}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${form.direction === value ? "bg-amber-50 text-amber-800 shadow-sm" : "text-slate-500"}`}
-                  >
+                {[["in", "Thu"], ["out", "Chi"]].map(([value, label]) => (
+                  <button key={value} type="button" onClick={() => setForm({ ...form, direction: value })} className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${form.direction === value ? "bg-amber-50 text-amber-800 shadow-sm" : "text-slate-500"}`}>
                     {label}
                   </button>
                 ))}
@@ -500,50 +724,73 @@ export function FinanceTransactionModal({
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <MoneyInput
-              label="Số tiền"
-              value={form.amount}
-              onChange={(amount) => setForm({ ...form, amount })}
-            />
-            <DateField
-              label="Ngày ghi nhận"
-              value={form.transactionDate}
-              onChange={(transactionDate) => setForm({ ...form, transactionDate })}
-            />
+            <MoneyInput label={isExpense && expenseKind === "period" ? "Số tiền dự chi mỗi kỳ" : isExpense && expenseKind === "advance" ? "Số tiền tạm ứng" : "Số tiền"} value={form.amount} onChange={(amount) => setForm({ ...form, amount })} />
+            <DateField label={isExpense && expenseKind === "period" ? "Ngày lập dự chi" : "Ngày ghi nhận"} value={form.transactionDate} onChange={(transactionDate) => setForm({ ...form, transactionDate })} />
           </div>
           <div className="mt-3">
-            <label className="text-sm font-medium text-slate-700">
-              {sourceMeta.targetLabel}
-            </label>
+            <label className="text-sm font-medium text-slate-700">{dynamicTargetLabel}</label>
             <input
               value={form.targetName}
               onChange={(event) => setForm({ ...form, targetName: event.target.value })}
-              placeholder={sourceMeta.targetLabel}
+              placeholder={dynamicTargetLabel}
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
             />
           </div>
           <div className="mt-3">
-            <label className="text-sm font-medium text-slate-700">
-              {sourceMeta.descriptionLabel}
-            </label>
+            <label className="text-sm font-medium text-slate-700">{dynamicDescriptionLabel}</label>
             <textarea
               value={form.description}
               onChange={(event) => setForm({ ...form, description: event.target.value })}
-              placeholder={sourceMeta.descriptionLabel}
+              placeholder={dynamicDescriptionLabel}
               className="mt-1 min-h-[86px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
             />
           </div>
         </div>
 
-        <ModalActions
-          onClose={onClose}
-          onSubmit={onSubmit}
-          isSubmitting={isSubmitting}
-          submittingText="Đang lưu..."
-          submitText="Lưu nghiệp vụ"
-        />
+        <ModalActions onClose={onClose} onSubmit={onSubmit} isSubmitting={isSubmitting} submittingText="Đang lưu..." submitText="Lưu nghiệp vụ" />
       </div>
     </StandardModalShell>
+  );
+}
+
+function getModalExpenseMonths(fromMonth?: string, toMonth?: string) {
+  const from = String(fromMonth || "").slice(0, 7);
+  const to = String(toMonth || from || "").slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(from) || !/^\d{4}-\d{2}$/.test(to)) return [];
+  const [fromYear, fromMonthNumber] = from.split("-").map(Number);
+  const [toYear, toMonthNumber] = to.split("-").map(Number);
+  const fromIndex = fromYear * 12 + fromMonthNumber;
+  const toIndex = toYear * 12 + toMonthNumber;
+  if (toIndex < fromIndex || toIndex - fromIndex > 24) return [];
+  const months: string[] = [];
+  for (let index = fromIndex; index <= toIndex; index += 1) {
+    const year = Math.floor((index - 1) / 12);
+    const month = ((index - 1) % 12) + 1;
+    months.push(`${year}-${String(month).padStart(2, "0")}`);
+  }
+  return months;
+}
+
+function MonthInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div>
+      <label className="text-sm font-medium text-slate-700">{label}</label>
+      <input
+        type="month"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+      />
+    </div>
+  );
+}
+
+function MiniTransactionMetric({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className={`rounded-2xl border px-3.5 py-2.5 ${highlight ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00]" : "border-slate-200 bg-white/80 text-slate-700"}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] opacity-65">{label}</p>
+      <p className="mt-1 text-sm font-semibold">{value}</p>
+    </div>
   );
 }
 

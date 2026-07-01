@@ -86,11 +86,15 @@ type ApplyChargePeriodInput = {
 };
 
 function todayText() {
-      const date = new Date();
+      const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+      }).formatToParts(new Date());
+      const value = (type: string) => parts.find((part) => part.type === type)?.value || '';
 
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-            date.getDate()
-      ).padStart(2, '0')}`;
+      return `${value('year')}-${value('month')}-${value('day')}`;
 }
 
 function monthStart(monthValue?: string | null) {
@@ -1422,7 +1426,7 @@ export async function createFinanceTransaction(input: {
 
       const source = input.source || 'other_income';
       const direction =
-            source === 'expense'
+            source === 'expense' || source === 'expense_plan'
                   ? 'out'
                   : source === 'other_income' || source === 'donation'
                         ? 'in'
@@ -1467,6 +1471,32 @@ export async function createFinanceTransaction(input: {
       return { success: true };
 }
 
+export async function deleteFinanceTransaction(input: { id: number }) {
+      const db = await getFinanceDb();
+      const id = Number(input.id || 0);
+      if (!id) throw new Error('Thiếu mã khoản thu chi cần xóa.');
+
+      const result = await db.execute(sql`
+            SELECT id, source, target_name AS targetName, description
+            FROM finance_transactions
+            WHERE id = ${id}
+            LIMIT 1
+      `);
+      const transaction = getRows(result)?.[0];
+
+      if (!transaction) throw new Error('Không tìm thấy khoản thu chi cần xóa.');
+      if (transaction.source === 'student_fee_payment') {
+            throw new Error('Khoản thu học viên đã liên kết thanh toán, không xóa trực tiếp ở Sổ thu chi.');
+      }
+
+      await db.execute(sql`
+            DELETE FROM finance_transactions
+            WHERE id = ${id}
+      `);
+
+      return { success: true };
+}
+
 export async function getFinanceSummary() {
       const db = await getFinanceDb();
 
@@ -1489,7 +1519,7 @@ export async function getFinanceSummary() {
       const transactionSummaryResult = await db.execute(sql`
             SELECT
                   COALESCE(SUM(CASE WHEN direction = 'in' THEN amount ELSE 0 END), 0) AS totalCashIn,
-                  COALESCE(SUM(CASE WHEN direction = 'out' THEN amount ELSE 0 END), 0) AS totalCashOut
+                  COALESCE(SUM(CASE WHEN direction = 'out' AND source <> 'expense_plan' THEN amount ELSE 0 END), 0) AS totalCashOut
             FROM finance_transactions
       `);
 

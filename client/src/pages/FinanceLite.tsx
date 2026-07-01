@@ -33,6 +33,7 @@ import {
       formatMoneyInput,
       getBillingMonthLabel,
       getCurrentBillingMonth,
+      getVietnamDateInputValue,
       getStatusClass,
       getStatusLabel,
       getTransactionDirectionForSource,
@@ -110,11 +111,19 @@ export default function FinanceLite() {
             source: "other_income",
             direction: "in",
             amount: "",
-            transactionDate: "",
+            transactionDate: getVietnamDateInputValue(),
             targetName: "",
             description: "",
             expenseKind: "one_time",
             expenseBillingMonth: selectedBillingMonth || getCurrentBillingMonth(),
+            expenseFromMonth: selectedBillingMonth || getCurrentBillingMonth(),
+            expenseToMonth: selectedBillingMonth || getCurrentBillingMonth(),
+            expensePreset: "",
+            expensePresetLabel: "",
+            advancePeriodMode: "week",
+            advanceStartDate: getVietnamDateInputValue(),
+            advanceEndDate: getVietnamDateInputValue(),
+            advanceReceiverType: "committee",
       });
 
       function openTransactionForm(source = "other_income") {
@@ -123,11 +132,19 @@ export default function FinanceLite() {
                   source,
                   direction: getTransactionDirectionForSource(source, transactionForm.direction),
                   amount: "",
-                  transactionDate: "",
+                  transactionDate: getVietnamDateInputValue(),
                   targetName: "",
                   description: "",
                   expenseKind: source === "expense" ? "period" : "one_time",
                   expenseBillingMonth: selectedBillingMonth || getCurrentBillingMonth(),
+                  expenseFromMonth: selectedBillingMonth || getCurrentBillingMonth(),
+                  expenseToMonth: selectedBillingMonth || getCurrentBillingMonth(),
+                  expensePreset: "",
+                  expensePresetLabel: "",
+                  advancePeriodMode: "week",
+                  advanceStartDate: getVietnamDateInputValue(),
+                  advanceEndDate: getVietnamDateInputValue(),
+                  advanceReceiverType: "committee",
             });
             setTransactionFormOpen(true);
       }
@@ -385,6 +402,14 @@ export default function FinanceLite() {
                               description: "",
                               expenseKind: "one_time",
                               expenseBillingMonth: selectedBillingMonth || getCurrentBillingMonth(),
+                              expenseFromMonth: selectedBillingMonth || getCurrentBillingMonth(),
+                              expenseToMonth: selectedBillingMonth || getCurrentBillingMonth(),
+                              expensePreset: "",
+                              expensePresetLabel: "",
+                              advancePeriodMode: "week",
+                              advanceStartDate: getVietnamDateInputValue(),
+                              advanceEndDate: getVietnamDateInputValue(),
+                              advanceReceiverType: "committee",
                         });
                         transactionsQuery?.refetch?.();
                         summaryQuery?.refetch?.();
@@ -394,6 +419,32 @@ export default function FinanceLite() {
                               error?.message || "Không thể lưu nghiệp vụ thu chi.",
                         ),
             });
+
+      const deleteTransactionMutation =
+            financeApi?.deleteTransaction?.useMutation?.({
+                  onSuccess: () => {
+                        transactionsQuery?.refetch?.();
+                        summaryQuery?.refetch?.();
+                  },
+                  onError: (error: any) =>
+                        alert(error?.message || "Không thể xóa khoản thu chi này."),
+            });
+
+      const deleteTransaction = (transaction: any) => {
+            if (!transaction?.id) return;
+            if (transaction.source === "student_fee_payment") {
+                  alert("Khoản thu học viên đã liên kết thanh toán, không xóa trực tiếp ở Sổ thu chi.");
+                  return;
+            }
+
+            const title = transaction.targetName || transaction.description || "khoản thu chi này";
+            const ok = window.confirm(
+                  `Xóa ${title}?\n\nKhoản này sẽ được gỡ khỏi Khoản chi/Sổ thu chi. Dự chi theo kỳ hoặc tạm ứng nhầm có thể xóa tại đây; khoản đã quyết toán nên kiểm tra trước khi xóa.`,
+            );
+            if (!ok) return;
+
+            deleteTransactionMutation?.mutate?.({ id: Number(transaction.id) });
+      };
 
       const selectedPeriodScopedCharges = useMemo(() => {
             let scoped = charges;
@@ -646,7 +697,7 @@ export default function FinanceLite() {
                         periodId: String(selectedPeriodId),
                         billingMonth: defaultMonth,
                         paymentDate:
-                              current.paymentDate || new Date().toISOString().slice(0, 10),
+                              current.paymentDate || getVietnamDateInputValue(),
                   }));
             }
       }, [
@@ -1034,7 +1085,7 @@ export default function FinanceLite() {
                   chargeId: String(charge.id),
                   residentId: String(charge.residentId || ""),
                   amount: formatMoneyInput(charge.remainingAmount || charge.amount),
-                  paymentDate: new Date().toISOString().slice(0, 10),
+                  paymentDate: getVietnamDateInputValue(),
                   method: "cash",
                   note: "",
             });
@@ -1088,7 +1139,7 @@ export default function FinanceLite() {
                   billingMonth: defaultMonth,
                   residentId: "",
                   amount: "",
-                  paymentDate: new Date().toISOString().slice(0, 10),
+                  paymentDate: getVietnamDateInputValue(),
                   method: "cash",
                   note: "",
             });
@@ -1171,7 +1222,7 @@ export default function FinanceLite() {
                   billingMonth: String(group?.billingMonth || ""),
                   residentId: String(group?.residentId || ""),
                   amount: totalRemaining > 0 ? formatMoneyInput(totalRemaining) : "",
-                  paymentDate: new Date().toISOString().slice(0, 10),
+                  paymentDate: getVietnamDateInputValue(),
                   method: "cash",
                   note: `Thu ${group?.residentName || "học viên"} - ${getBillingMonthLabel(group?.billingMonth)}`,
             });
@@ -1391,33 +1442,95 @@ export default function FinanceLite() {
                   setTransactionFormMessage("Vui lòng nhập mục đích hoặc ghi chú nghiệp vụ.");
                   return;
             }
-            if (
-                  transactionForm.source === "expense" &&
-                  transactionForm.expenseKind === "period" &&
-                  !String(transactionForm.expenseBillingMonth || "").trim()
-            ) {
-                  setTransactionFormMessage("Vui lòng chọn tháng/kỳ ghi nhận khoản chi.");
+            const expenseMonths =
+                  transactionForm.source === "expense" && transactionForm.expenseKind === "period"
+                        ? getExpenseMonthRange(
+                                transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
+                                transactionForm.expenseToMonth || transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
+                          )
+                        : [];
+            if (transactionForm.source === "expense" && transactionForm.expenseKind === "period" && !expenseMonths.length) {
+                  setTransactionFormMessage("Vui lòng chọn kỳ bắt đầu và kỳ kết thúc hợp lệ.");
                   return;
             }
             const normalizedDirection = getTransactionDirectionForSource(
                   transactionForm.source,
                   transactionForm.direction,
             );
+            const expenseKind = transactionForm.expenseKind || "one_time";
+            if (transactionForm.source === "expense" && expenseKind === "advance") {
+                  const startDate = String(transactionForm.advanceStartDate || "").slice(0, 10);
+                  const endDate = String(transactionForm.advanceEndDate || startDate).slice(0, 10);
+                  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate) {
+                        setTransactionFormMessage("Vui lòng chọn khoảng ngày tạm ứng hợp lệ.");
+                        return;
+                  }
+            }
+            const submitSource =
+                  transactionForm.source === "expense" && expenseKind === "period"
+                        ? "expense_plan"
+                        : transactionForm.source;
             const targetType =
                   transactionForm.source === "expense"
-                        ? transactionForm.expenseKind === "period"
-                              ? `expense_period:${transactionForm.expenseBillingMonth}`
-                              : "expense_once"
+                        ? expenseKind === "period"
+                              ? expenseMonths.length > 1
+                                    ? `expense_plan_periods:${expenseMonths.join(",")}`
+                                    : `expense_plan_period:${expenseMonths[0]}`
+                              : expenseKind === "advance"
+                                    ? `expense_advance:${transactionForm.expensePreset || "other"}:${transactionForm.advancePeriodMode || "week"}:${transactionForm.advanceStartDate || ""}_${transactionForm.advanceEndDate || transactionForm.advanceStartDate || ""}:${transactionForm.advanceReceiverType || "committee"}`
+                                    : `expense_daily:${transactionForm.expensePreset || "other"}`
                         : transactionForm.source;
+            const submitAmount =
+                  transactionForm.source === "expense" && expenseKind === "period"
+                        ? amount * Math.max(1, expenseMonths.length)
+                        : amount;
+            const descriptionParts = [transactionForm.description];
+            if (transactionForm.source === "expense") {
+                  if (transactionForm.expensePresetLabel) {
+                        descriptionParts.push(`Nhóm chi: ${transactionForm.expensePresetLabel}`);
+                  }
+                  if (expenseKind === "period") {
+                        descriptionParts.push(`Áp dụng kỳ: ${expenseMonths.join(", ")}`);
+                        descriptionParts.push(`Số tiền mỗi kỳ: ${amount}`);
+                  } else if (expenseKind === "advance") {
+                        descriptionParts.push("Loại chi: Tạm ứng theo kỳ");
+                        descriptionParts.push(`Thời gian: ${transactionForm.advanceStartDate || ""} → ${transactionForm.advanceEndDate || transactionForm.advanceStartDate || ""}`);
+                        descriptionParts.push(`Đối tượng nhận: ${transactionForm.advanceReceiverType || "committee"}`);
+                        if (transactionForm.targetName) {
+                              descriptionParts.push(`Đơn vị/cá nhân nhận: ${transactionForm.targetName}`);
+                        }
+                        descriptionParts.push("Ghi chú: cần cập nhật chi thực tế hằng ngày và quyết toán cuối kỳ");
+                  } else {
+                        descriptionParts.push("Loại chi: Chi theo ngày / một lần");
+                  }
+            }
             createTransactionMutation?.mutate?.({
-                  source: transactionForm.source,
-                  direction: normalizedDirection as "in" | "out",
-                  amount,
+                  source: submitSource,
+                  direction: getTransactionDirectionForSource(submitSource, normalizedDirection) as "in" | "out",
+                  amount: submitAmount,
                   transactionDate: transactionForm.transactionDate || null,
                   targetType,
                   targetName: transactionForm.targetName || null,
-                  description: transactionForm.description || null,
+                  description: descriptionParts.filter(Boolean).join(" · ") || null,
             });
+      }
+
+      function getExpenseMonthRange(fromMonth?: string, toMonth?: string) {
+            const from = String(fromMonth || "").slice(0, 7);
+            const to = String(toMonth || from || "").slice(0, 7);
+            if (!/^\d{4}-\d{2}$/.test(from) || !/^\d{4}-\d{2}$/.test(to)) return [];
+            const [fromYear, fromMonthNumber] = from.split("-").map(Number);
+            const [toYear, toMonthNumber] = to.split("-").map(Number);
+            const fromIndex = fromYear * 12 + fromMonthNumber;
+            const toIndex = toYear * 12 + toMonthNumber;
+            if (toIndex < fromIndex || toIndex - fromIndex > 24) return [];
+            const months: string[] = [];
+            for (let index = fromIndex; index <= toIndex; index += 1) {
+                  const year = Math.floor((index - 1) / 12);
+                  const month = ((index - 1) % 12) + 1;
+                  months.push(`${year}-${String(month).padStart(2, "0")}`);
+            }
+            return months;
       }
 
       const topSummaryIsPeriodScoped = Boolean(selectedPeriod);
@@ -1647,6 +1760,8 @@ export default function FinanceLite() {
             <FinanceExpensesPanel
                   transactions={transactions}
                   onCreateExpense={() => openTransactionForm("expense")}
+                  onDeleteTransaction={deleteTransaction}
+                  isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
             />
       ) : null
 }
@@ -1655,6 +1770,8 @@ export default function FinanceLite() {
             <FinanceCashbookPanel
                   transactions={transactions}
                   onCreateTransaction={(source = "other_income") => openTransactionForm(source)}
+                  onDeleteTransaction={deleteTransaction}
+                  isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
             />
       ) : null
 }
