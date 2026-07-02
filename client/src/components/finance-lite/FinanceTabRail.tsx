@@ -1,12 +1,11 @@
 import type { FinanceTab } from "./financeLiteTypes";
 
-const mainFinanceTabs: Array<[FinanceTab, string, string]> = [
-  ["studentLedger", "Thu học viên", "Tạo khoản phải thu, thu theo học viên"],
-  ["expenses", "Thu chi khác", "Thu khác, chi một lần, tạm ứng"],
-  ["plans", "Theo dõi", "Dự chi, nhắc việc, sổ dòng tiền"],
+const financeTabs: Array<[FinanceTab, string]> = [
+  ["studentLedger", "Thu học viên"],
+  ["expenses", "Thu chi khác"],
+  ["plans", "Theo dõi"],
+  ["cashbook", "Sổ dòng tiền"],
 ];
-
-const secondaryFinanceTabs: Array<[FinanceTab, string]> = [["cashbook", "Sổ dòng tiền"]];
 
 export function FinanceTabRail({
   activeTab,
@@ -16,42 +15,25 @@ export function FinanceTabRail({
   onTabChange: (tab: FinanceTab) => void;
 }) {
   return (
-    <div className="rounded-[28px] border border-[#ead9ad]/80 bg-white/74 p-2 shadow-[0_16px_34px_rgba(91,67,22,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
-      <div className="grid gap-2 xl:grid-cols-[1fr_auto] xl:items-center">
-        <div className="grid gap-2 md:grid-cols-3">
-          {mainFinanceTabs.map(([key, label, description]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onTabChange(key)}
-              className={`rounded-[22px] border px-4 py-3 text-left transition ${
-                activeTab === key
-                  ? "border-[#d7a63b] bg-[linear-gradient(135deg,#fff7df_0%,#f3d175_100%)] text-[#4a2b00] shadow-[0_10px_22px_rgba(180,122,20,0.18)]"
-                  : "border-transparent bg-transparent text-slate-500 hover:border-[#ead9ad] hover:bg-[#fffaf0] hover:text-slate-700"
-              }`}
-            >
-              <span className="block text-sm font-bold">{label}</span>
-              <span className="mt-0.5 block text-xs opacity-75">{description}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2 xl:justify-end">
-          {secondaryFinanceTabs.map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onTabChange(key)}
-              className={`w-full rounded-[20px] border px-4 py-3 text-sm font-semibold transition xl:w-auto ${
-                activeTab === key
-                  ? "border-slate-300 bg-slate-900 text-white shadow-lg"
-                  : "border-slate-200 bg-white text-slate-600 shadow-sm hover:border-[#d7a63b] hover:text-[#7c4a03]"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+    <div className="rounded-[26px] border border-amber-100/80 bg-white/70 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.05),inset_0_1px_0_rgba(255,255,255,0.76)]">
+      <div className="flex flex-wrap gap-2">
+        {financeTabs.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            className={[
+              "rounded-2xl border px-4 py-2.5 text-sm font-bold transition",
+              activeTab === key
+                ? key === "cashbook"
+                  ? "border-slate-900 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.18)]"
+                  : "border-amber-200/90 bg-[linear-gradient(135deg,#111827_0%,#92400e_62%,#f59e0b_145%)] text-white shadow-[0_14px_30px_rgba(146,64,14,0.20)]"
+                : "border-amber-100/80 bg-white/76 text-slate-700 hover:border-amber-200 hover:bg-amber-50/70",
+            ].join(" ")}
+            onClick={() => onTabChange(key)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
     </div>
   );

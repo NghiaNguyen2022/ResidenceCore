@@ -6,6 +6,7 @@ import {
       CreditCard,
       HandCoins,
       PiggyBank,
+      Plus,
       ReceiptText,
       Search,
       Trash2,
@@ -99,9 +100,6 @@ export function FinanceExpensesPanel({
       onDeleteTransaction?: (transaction: any) => void;
       isDeletingTransaction?: boolean;
 }) {
-      const [expandedAdvanceId, setExpandedAdvanceId] = useState<number | null>(null);
-      const [expandedRecentId, setExpandedRecentId] = useState<number | null>(null);
-
       const actualExpenseTransactions = useMemo(
             () =>
                   transactions.filter(
@@ -133,17 +131,6 @@ export function FinanceExpensesPanel({
                   ),
             [actualExpenseTransactions],
       );
-      const advanceActualById = useMemo(() => {
-            const map = new Map<number, number>();
-            transactions
-                  .filter((item: any) => isAdvanceActualSpending(item.source))
-                  .forEach((item: any) => {
-                        const id = Number(String(item?.targetType || "").replace("advance_entry:", ""));
-                        if (!id) return;
-                        map.set(id, (map.get(id) || 0) + toMoneyNumber(item.amount));
-                  });
-            return map;
-      }, [transactions]);
       const totalManualIncome = useMemo(
             () => manualIncomeTransactions.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
             [manualIncomeTransactions],
@@ -156,9 +143,12 @@ export function FinanceExpensesPanel({
             () => advanceExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
             [advanceExpenses],
       );
-      const totalAdvanceSpent = useMemo(
-            () => Array.from(advanceActualById.values()).reduce((sum, value) => sum + value, 0),
-            [advanceActualById],
+      const totalAdvanceActualSpending = useMemo(
+            () =>
+                  transactions
+                        .filter((item: any) => isAdvanceActualSpending(item.source))
+                        .reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
+            [transactions],
       );
       const recentManualOperations = useMemo(
             () =>
@@ -168,30 +158,36 @@ export function FinanceExpensesPanel({
                                     item.source !== "student_fee_payment" &&
                                     isTransactionAffectingCashFlow(item.source) &&
                                     !isPlannedPeriodExpense(item) &&
-                                    !isAdvanceExpense(item),
+                                    !isAdvanceExpense(item) &&
+                                    !isAdvanceActualSpending(item.source),
                         )
                         .slice(0, 6),
             [transactions],
       );
 
       return (
-            <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-4 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)] md:p-5">
-                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(246,201,92,0.12),transparent_36%)]" />
+            <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(246,201,92,0.15),transparent_36%)]" />
 
                   <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div>
                               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Thu chi khác</p>
-                              <h2 className="mt-1 text-[2rem] font-bold tracking-tight text-[#101a2f]">Ghi nhận và theo dõi</h2>
-                              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                                    Mọi nghiệp vụ ngoài học viên đều làm tại đây; danh sách chỉ giữ thông tin cốt lõi.
-                              </p>
+                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Ghi nhận và theo dõi</h2>
                         </div>
+                        <button
+                              type="button"
+                              onClick={() => onCreateExpense("other_income")}
+                              className="inline-flex items-center justify-center rounded-2xl border border-amber-200 bg-[linear-gradient(135deg,#111827_0%,#92400e_62%,#f59e0b_145%)] px-5 py-3 text-sm font-bold text-white shadow-[0_14px_30px_rgba(146,64,14,0.20)] transition hover:-translate-y-0.5"
+                        >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Ghi nhận nghiệp vụ
+                        </button>
                   </div>
 
                   <div className="relative mt-5 grid gap-3 md:grid-cols-3">
                         <ExpenseMetricCard label="Thu ngoài học viên" value={formatMoney(totalManualIncome)} tone="blue" />
                         <ExpenseMetricCard label="Chi một lần" value={formatMoney(totalOneTimeExpense)} tone="amber" />
-                        <ExpenseMetricCard label="Tạm ứng còn theo dõi" value={formatMoney(Math.max(0, totalAdvanceExpense - totalAdvanceSpent))} tone="emerald" />
+                        <ExpenseMetricCard label="Tạm ứng còn giữ" value={formatMoney(Math.max(0, totalAdvanceExpense - totalAdvanceActualSpending))} tone="emerald" />
                   </div>
 
                   <div className="relative mt-5 grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
@@ -199,26 +195,21 @@ export function FinanceExpensesPanel({
                               <div className="mb-3 flex items-center justify-between gap-3">
                                     <div>
                                           <p className="text-sm font-semibold text-slate-900">Tạm ứng đang theo dõi</p>
-                                          <p className="text-xs text-slate-500">Chỉ hiện người giữ tiền, kỳ và số dư.</p>
+                                          <p className="text-xs text-slate-500">Tiền đã xuất, còn cần cập nhật thực chi.</p>
                                     </div>
-                                    <InlineBadge className="border-emerald-100 bg-emerald-50 text-emerald-700">{advanceExpenses.length} khoản</InlineBadge>
+                                    <InlineBadge className="border-emerald-100 bg-emerald-50 text-emerald-700">{advanceExpenses.length} dòng</InlineBadge>
                               </div>
                               <div className="space-y-2">
                                     {advanceExpenses.length ? (
-                                          advanceExpenses.slice(0, 5).map((transaction: any) => {
-                                                const id = Number(transaction.id || 0);
-                                                return (
-                                                      <AdvanceTrackingCard
-                                                            key={transaction.id}
-                                                            transaction={transaction}
-                                                            actualSpent={advanceActualById.get(id) || 0}
-                                                            expanded={expandedAdvanceId === id}
-                                                            onToggle={() => setExpandedAdvanceId(expandedAdvanceId === id ? null : id)}
-                                                            onDelete={onDeleteTransaction}
-                                                            isDeleting={isDeletingTransaction}
-                                                      />
-                                                );
-                                          })
+                                          advanceExpenses.slice(0, 5).map((transaction: any) => (
+                                                <CashbookLine
+                                                      key={transaction.id}
+                                                      transaction={transaction}
+                                                      compact
+                                                      onDelete={onDeleteTransaction}
+                                                      isDeleting={isDeletingTransaction}
+                                                />
+                                          ))
                                     ) : (
                                           <EmptyFinanceBox text="Chưa có khoản tạm ứng cần theo dõi." />
                                     )}
@@ -229,25 +220,21 @@ export function FinanceExpensesPanel({
                               <div className="mb-3 flex items-center justify-between gap-3">
                                     <div>
                                           <p className="text-sm font-semibold text-slate-900">Thu chi gần đây</p>
-                                          <p className="text-xs text-slate-500">Thu khác và chi một lần. Tạm ứng đã nằm ở khối bên trái.</p>
+                                          <p className="text-xs text-slate-500">Thu khác và chi một lần.</p>
                                     </div>
                                     <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">{recentManualOperations.length} dòng</InlineBadge>
                               </div>
                               <div className="space-y-2">
                                     {recentManualOperations.length ? (
-                                          recentManualOperations.map((transaction: any) => {
-                                                const id = Number(transaction.id || 0);
-                                                return (
-                                                      <CompactTransactionLine
-                                                            key={transaction.id}
-                                                            transaction={transaction}
-                                                            expanded={expandedRecentId === id}
-                                                            onToggle={() => setExpandedRecentId(expandedRecentId === id ? null : id)}
-                                                            onDelete={onDeleteTransaction}
-                                                            isDeleting={isDeletingTransaction}
-                                                      />
-                                                );
-                                          })
+                                          recentManualOperations.map((transaction: any) => (
+                                                <CashbookLine
+                                                      key={transaction.id}
+                                                      transaction={transaction}
+                                                      compact
+                                                      onDelete={onDeleteTransaction}
+                                                      isDeleting={isDeletingTransaction}
+                                                />
+                                          ))
                                     ) : (
                                           <EmptyFinanceBox text="Chưa có thu chi khác. Chọn một thao tác nhanh bên trên để bắt đầu." />
                                     )}
@@ -282,21 +269,29 @@ export function FinanceExpensePlansPanel({
       const upcomingPlans = useMemo(() => plannedPeriodExpenses.slice(0, 8), [plannedPeriodExpenses]);
 
       return (
-            <section className="relative overflow-hidden rounded-[30px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-4 shadow-[0_16px_42px_rgba(106,76,20,0.08),inset_0_1px_0_rgba(255,255,255,0.92)] md:p-5">
+            <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
                   <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.10),transparent_35%),radial-gradient(circle_at_top_left,rgba(246,201,92,0.16),transparent_36%)]" />
                   <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Theo dõi</p>
-                              <h2 className="mt-1 text-[2rem] font-bold tracking-tight text-[#101a2f]">Dự chi và việc cần xử lý</h2>
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Khoản đề xuất</p>
+                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Dự chi và nhắc chuẩn bị</h2>
                               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                                    Dùng cho khoản chuẩn bị theo kỳ như điện, nước, internet. Dự chi chưa làm giảm tiền mặt.
+                                    Dùng cho điện, nước, internet, tiện ích hoặc khoản chi định kỳ cần chuẩn bị trước. Dự chi chưa làm giảm tiền mặt và chưa nằm trong Sổ dòng tiền.
                               </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                              <button type="button" onClick={onCreatePlan} className={cashbookActionClass("expense")}>
+                                    <ReceiptText className="mr-2 h-4 w-4" /> Tạo dự chi
+                              </button>
+                              <button type="button" onClick={onCreateActualExpense} className="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200">
+                                    <CreditCard className="mr-2 h-4 w-4" /> Ghi nhận chi thật
+                              </button>
                         </div>
                   </div>
 
                   <div className="relative mt-5 grid gap-3 md:grid-cols-3">
                         <ExpenseMetricCard label="Tổng dự chi" value={formatMoney(totalPlanned)} tone="blue" />
-                        <ExpenseMetricCard label="Cần theo dõi" value={`${plannedPeriodExpenses.length} khoản`} tone="slate" />
+                        <ExpenseMetricCard label="Khoản đang theo dõi" value={`${plannedPeriodExpenses.length} khoản`} tone="slate" />
                         <ExpenseMetricCard label="Tác động tiền mặt" value="Chưa phát sinh" tone="emerald" />
                   </div>
 
@@ -390,15 +385,13 @@ export function FinanceCashbookPanel({
       }, [directionFilter, normalizedTransactions, searchText]);
 
       return (
-            <section className="relative overflow-hidden rounded-[30px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-4 shadow-[0_16px_42px_rgba(106,76,20,0.08),inset_0_1px_0_rgba(255,255,255,0.92)] md:p-5">
+            <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
                   <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(246,201,92,0.14),transparent_34%)]" />
                   <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div>
                               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Sổ dòng tiền</p>
-                              <h2 className="mt-1 text-2xl font-bold tracking-tight text-[#101a2f]">Dòng tiền phát sinh</h2>
-                              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                                    Chỉ gồm dòng tiền thực tế. Dự chi và thực chi từ tạm ứng không tính vào cân đối quỹ lần hai.
-                              </p>
+                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Dòng tiền phát sinh</h2>
+
                         </div>
                   </div>
 
@@ -457,157 +450,6 @@ export function FinanceCashbookPanel({
 }
 
 
-function AdvanceTrackingCard({
-      transaction,
-      actualSpent,
-      expanded,
-      onToggle,
-      onDelete,
-      isDeleting = false,
-}: {
-      transaction: any;
-      actualSpent: number;
-      expanded: boolean;
-      onToggle: () => void;
-      onDelete?: (transaction: any) => void;
-      isDeleting?: boolean;
-}) {
-      const advanceAmount = toMoneyNumber(transaction.amount);
-      const balance = advanceAmount - actualSpent;
-      const canDelete = Boolean(onDelete);
-      const scopeLabel = getExpenseScopeLabel(transaction);
-      return (
-            <article className="rounded-[24px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffefa_0%,#fff8e8_100%)] p-4 shadow-[0_10px_24px_rgba(91,67,22,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-base font-bold text-[#18243c]">{transaction.targetName || "Đối tượng nhận tạm ứng"}</p>
-                                    <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">Tạm ứng</InlineBadge>
-                                    <InlineBadge className="border-emerald-100 bg-emerald-50 text-emerald-700">{scopeLabel}</InlineBadge>
-                              </div>
-                              <p className="mt-1 line-clamp-1 text-sm text-slate-500">{getCompactTransactionSummary(transaction)}</p>
-                        </div>
-                        <div className="grid shrink-0 grid-cols-3 gap-2 rounded-2xl border border-[#efe4cb] bg-white/82 px-3 py-2 text-right">
-                              <MiniAmount label="Đã xuất" value={formatMoney(advanceAmount)} />
-                              <MiniAmount label="Đã chi" value={formatMoney(actualSpent)} />
-                              <MiniAmount label="Còn giữ" value={formatMoney(balance)} strong={balance !== 0} />
-                        </div>
-                  </div>
-
-                  {expanded ? (
-                        <div className="mt-3 rounded-2xl border border-[#efe4cb] bg-white/72 px-3 py-3 text-sm leading-6 text-slate-600">
-                              <p><span className="font-semibold text-slate-700">Ngày ghi nhận:</span> {formatDate(transaction.transactionDate)}</p>
-                              {transaction.description ? <p className="mt-1">{transaction.description}</p> : null}
-                        </div>
-                  ) : null}
-
-                  <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-                        <button
-                              type="button"
-                              onClick={onToggle}
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-amber-200 hover:text-[#7c4a03]"
-                        >
-                              {expanded ? "Ẩn chi tiết" : "Chi tiết"}
-                        </button>
-                        {canDelete ? (
-                              <button
-                                    type="button"
-                                    disabled={isDeleting}
-                                    onClick={() => onDelete?.(transaction)}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                    title="Xóa khoản này"
-                              >
-                                    <Trash2 className="h-4 w-4" />
-                              </button>
-                        ) : null}
-                  </div>
-            </article>
-      );
-}
-
-function CompactTransactionLine({
-      transaction,
-      expanded,
-      onToggle,
-      onDelete,
-      isDeleting = false,
-}: {
-      transaction: any;
-      expanded: boolean;
-      onToggle: () => void;
-      onDelete?: (transaction: any) => void;
-      isDeleting?: boolean;
-}) {
-      const direction = getTransactionDirectionForSource(transaction.source, transaction.direction);
-      const isOut = direction === "out";
-      const meta = getTransactionSourceMeta(transaction.source);
-      const amountClass = isOut ? "text-[#9a5f08]" : "text-emerald-700";
-      const canDelete = Boolean(onDelete) && transaction.source !== "student_fee_payment";
-
-      return (
-            <article className="rounded-[22px] border border-slate-100 bg-white/92 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                  <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                        <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-base font-bold text-[#18243c]">{transaction.targetName || transaction.description || "Nghiệp vụ thu chi"}</p>
-                                    <InlineBadge className={isOut ? "border-amber-100 bg-amber-50 text-amber-800" : "border-emerald-100 bg-emerald-50 text-emerald-700"}>
-                                          {meta.shortLabel}
-                                    </InlineBadge>
-                                    {isOut ? (
-                                          <InlineBadge className="border-slate-200 bg-slate-50 text-slate-600">{getExpenseScopeLabel(transaction)}</InlineBadge>
-                                    ) : null}
-                              </div>
-                              <p className="mt-1 line-clamp-1 text-sm text-slate-500">{formatDate(transaction.transactionDate)} · {getCompactTransactionSummary(transaction)}</p>
-                        </div>
-                        <div className="flex items-center justify-end gap-2">
-                              <p className={`text-right text-lg font-bold ${amountClass}`}>{isOut ? "-" : "+"}{formatMoney(transaction.amount)}</p>
-                              <button
-                                    type="button"
-                                    onClick={onToggle}
-                                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-amber-200 hover:text-[#7c4a03]"
-                              >
-                                    {expanded ? "Ẩn" : "Chi tiết"}
-                              </button>
-                              {canDelete ? (
-                                    <button
-                                          type="button"
-                                          disabled={isDeleting}
-                                          onClick={() => onDelete?.(transaction)}
-                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                          title="Xóa khoản này"
-                                    >
-                                          <Trash2 className="h-4 w-4" />
-                                    </button>
-                              ) : null}
-                        </div>
-                  </div>
-                  {expanded ? (
-                        <div className="mt-3 rounded-2xl border border-[#efe4cb] bg-[#fffdf8] px-3 py-3 text-sm leading-6 text-slate-600">
-                              {transaction.description || "Không có ghi chú chi tiết."}
-                        </div>
-                  ) : null}
-            </article>
-      );
-}
-
-function MiniAmount({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-      return (
-            <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
-                  <p className={strong ? "mt-1 text-sm font-extrabold text-[#a05a12]" : "mt-1 text-sm font-bold text-slate-700"}>{value}</p>
-            </div>
-      );
-}
-
-function getCompactTransactionSummary(transaction: any) {
-      if (isAdvanceExpense(transaction)) return getExpenseScopeLabel(transaction);
-      if (transaction.source === "expense" || transaction.source === "expense_once") return getExpenseScopeLabel(transaction);
-      if (transaction.source === "donation") return "Tài trợ / ủng hộ";
-      if (transaction.source === "other_income") return "Thu khác ngoài học viên";
-      return getTransactionSourceMeta(transaction.source).shortLabel || "Nghiệp vụ";
-}
-
-
 function OperationQuickCard({
       icon: Icon,
       eyebrow,
@@ -636,9 +478,9 @@ function OperationQuickCard({
             <button
                   type="button"
                   onClick={onClick}
-                  className={`group rounded-[24px] border p-4 text-left shadow-[0_10px_24px_rgba(91,67,22,0.07),inset_0_1px_0_rgba(255,255,255,0.92)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(91,67,22,0.11)] ${toneClass}`}
+                  className={`group rounded-[28px] border p-4 text-left shadow-[0_14px_34px_rgba(91,67,22,0.08),inset_0_1px_0_rgba(255,255,255,0.92)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_44px_rgba(91,67,22,0.12)] ${toneClass}`}
             >
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mb-4 flex items-center justify-between gap-3">
                         <div className="rounded-2xl bg-white/78 p-3 shadow-sm">
                               <Icon className="h-5 w-5" />
                         </div>
@@ -646,9 +488,9 @@ function OperationQuickCard({
                               {eyebrow}
                         </span>
                   </div>
-                  <p className="text-base font-semibold text-slate-950">{title}</p>
-                  <p className="mt-1 text-sm leading-5 text-slate-600">{description}</p>
-                  <p className="mt-3 text-sm font-semibold text-current group-hover:underline">{action}</p>
+                  <p className="text-lg font-semibold text-slate-950">{title}</p>
+                  <p className="mt-2 min-h-[42px] text-sm leading-5 text-slate-600">{description}</p>
+                  <p className="mt-4 text-sm font-semibold text-current group-hover:underline">{action}</p>
             </button>
       );
 }

@@ -568,8 +568,7 @@ export function FinanceTransactionModal({
 
   return (
     <StandardModalShell
-      title="Ghi nhận thu / chi"
-      subtitle="Tách rõ thu khác, tài trợ, khoản chi theo kỳ và khoản chi phát sinh để sổ thu chi dễ đối chiếu."
+      title="Ghi nhận nghiệp vụ"
       onClose={onClose}
     >
       <div className="space-y-4 p-5">
@@ -583,20 +582,16 @@ export function FinanceTransactionModal({
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
             Loại nghiệp vụ
           </p>
-          <div className="grid gap-3 md:grid-cols-3">
-            <TransactionSourceCard active={isIncomeSource} icon={WalletCards} title="Thu khác / tài trợ" description="Thu quỹ, hoàn tiền, ủng hộ hoặc tài trợ" onClick={() => selectSource("other_income")} />
-            <TransactionSourceCard active={form.source === "expense"} icon={HandCoins} title="Khoản chi" description="Dự chi, tạm ứng hoặc chi phát sinh" onClick={() => selectSource("expense")} />
-            <TransactionSourceCard active={form.source === "business"} icon={ReceiptText} title="Kinh doanh" description="Thu hoặc chi cửa hàng" onClick={() => selectSource("business")} />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <TransactionSourceCard active={isIncomeSource} icon={WalletCards} title="Thu vào" onClick={() => selectSource("other_income")} />
+            <TransactionSourceCard active={form.source === "expense"} icon={HandCoins} title="Chi / tạm ứng" onClick={() => selectSource("expense")} />
           </div>
         </div>
 
         {isIncomeSource ? (
           <div className="rounded-[24px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff7df_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Khoản thu ngoài học viên</p>
-                <p className="text-xs text-slate-500">Chọn nhanh loại thu, sau đó nhập số tiền và nội dung. Thu khác và tài trợ dùng chung một form.</p>
-              </div>
+              <p className="text-sm font-semibold text-slate-900">Khoản thu ngoài học viên</p>
               <span className="rounded-full border border-amber-100 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800">Thu vào</span>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -620,8 +615,7 @@ export function FinanceTransactionModal({
                   className={`rounded-2xl border px-4 py-3 text-left transition ${incomeKind === option.key ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_10px_22px_rgba(180,122,20,0.14)]" : "border-slate-200 bg-white/86 text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}
                 >
                   <p className="text-sm font-semibold">{option.label}</p>
-                  <p className="mt-1 text-xs leading-4 opacity-75">{option.hint}</p>
-                </button>
+                  </button>
               ))}
             </div>
           </div>
@@ -630,14 +624,9 @@ export function FinanceTransactionModal({
         {isExpense ? (
           <div className="rounded-[26px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff7df_100%)] p-4 shadow-[0_12px_30px_rgba(91,67,22,0.08),inset_0_1px_0_rgba(255,255,255,0.92)]">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Thiết kế khoản chi linh hoạt</p>
-                <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-600">
-                  Tách rõ dự chi cố định, tạm ứng theo kỳ và chi phát sinh. Dự chi theo kỳ chỉ là kế hoạch, chưa vào sổ thu chi cho đến khi ghi nhận chi thực tế.
-                </p>
-              </div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Khoản chi</p>
               <span className="rounded-full border border-[#e6c675] bg-white/80 px-3 py-1.5 text-xs font-semibold text-[#8a5305]">
-                {expenseKind === "period" ? `${expenseMonths.length || 1} kỳ` : expenseKind === "advance" ? "Tạm ứng theo kỳ" : "Một lần / theo ngày"}
+                {expenseKind === "period" ? `${expenseMonths.length || 1} kỳ` : expenseKind === "advance" ? "Tạm ứng theo kỳ" : "Một lần"}
               </span>
             </div>
 
@@ -648,33 +637,27 @@ export function FinanceTransactionModal({
                 className={`rounded-[22px] border p-4 text-left transition ${expenseKind === "period" ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_12px_26px_rgba(180,122,20,0.16)]" : "border-slate-200 bg-white/85 text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}
               >
                 <p className="text-sm font-semibold">Dự chi cố định theo kỳ</p>
-                <p className="mt-1 text-xs leading-5 opacity-75">Điện, nước, internet, tiện ích, bảo trì. Tạo kế hoạch nhiều tháng, chưa ghi giảm tiền mặt.</p>
-              </button>
+                </button>
               <button
                 type="button"
                 onClick={() => selectExpenseKind("advance")}
                 className={`rounded-[22px] border p-4 text-left transition ${expenseKind === "advance" ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_12px_26px_rgba(180,122,20,0.16)]" : "border-slate-200 bg-white/85 text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}
               >
                 <p className="text-sm font-semibold">Tạm ứng theo kỳ</p>
-                <p className="mt-1 text-xs leading-5 opacity-75">Tiền chợ, hoa nến, văn phòng phẩm: ứng trước cho người/tổ rồi cập nhật thực chi.</p>
-              </button>
+                </button>
               <button
                 type="button"
                 onClick={() => selectExpenseKind("one_time")}
                 className={`rounded-[22px] border p-4 text-left transition ${expenseKind === "one_time" ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_12px_26px_rgba(180,122,20,0.16)]" : "border-slate-200 bg-white/85 text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}
               >
                 <p className="text-sm font-semibold">Chi một lần</p>
-                <p className="mt-1 text-xs leading-5 opacity-75">Sửa chữa, mua sắm, hỗ trợ hoặc phát sinh riêng trong ngày.</p>
-              </button>
+                </button>
             </div>
 
             {expenseKind === "period" ? (
               <div className="mt-4 rounded-[22px] border border-[#ead9ad]/70 bg-white/75 p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Áp dụng nhiều kỳ</p>
-                    <p className="text-xs text-slate-500">Nhập số tiền mỗi kỳ, hệ thống sẽ ghi nhận tổng tiền cho các kỳ đã chọn.</p>
-                  </div>
+                  <p className="text-sm font-semibold text-slate-900">Áp dụng nhiều kỳ</p>
                   <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
                     {expenseMonths.length ? expenseMonths.map(getBillingMonthLabel).join(" · ") : "Chưa chọn kỳ"}
                   </span>
@@ -685,10 +668,7 @@ export function FinanceTransactionModal({
                 </div>
                 <div className="mt-4 rounded-[20px] border border-blue-100 bg-blue-50/55 p-3.5">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Ngày dự chi / nhắc chuẩn bị</p>
-                      <p className="text-xs text-slate-500">Mặc định là ngày đầu kỳ. Sau này dùng dữ liệu này để gửi thông báo khi tới kỳ.</p>
-                    </div>
+                    <p className="text-sm font-semibold text-slate-900">Ngày dự chi</p>
                     <span className="rounded-full border border-blue-100 bg-white px-3 py-1 text-[11px] font-semibold text-blue-700">
                       {form.planDueMode === "fixed_day" ? `Ngày ${form.planFixedDay || "01"}` : form.planDueMode === "last_day" ? "Cuối kỳ" : "Đầu kỳ"}
                     </span>
@@ -722,10 +702,7 @@ export function FinanceTransactionModal({
             {expenseKind === "advance" ? (
               <div className="mt-4 rounded-[22px] border border-[#ead9ad]/70 bg-white/75 p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Thông tin tạm ứng</p>
-                    <p className="text-xs text-slate-500">Dùng cho khoản ứng trước theo tuần/tháng/khoảng ngày. Sau đó cập nhật chi thực tế từng ngày và quyết toán cuối kỳ.</p>
-                  </div>
+                  <p className="text-sm font-semibold text-slate-900">Thông tin tạm ứng</p>
                   <span className="rounded-full border border-[#e6c675] bg-[#fff6dc] px-3 py-1.5 text-xs font-semibold text-[#8a5305]">
                     Tạm ứng · {form.advancePeriodMode === "month" ? "tháng" : form.advancePeriodMode === "custom" ? "tùy chọn" : "tuần"}
                   </span>
@@ -740,8 +717,7 @@ export function FinanceTransactionModal({
                       className={`rounded-2xl border px-3 py-2.5 text-left transition ${form.advancePeriodMode === option.key ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00]" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200"}`}
                     >
                       <p className="text-sm font-semibold">{option.label}</p>
-                      <p className="mt-0.5 text-[11px] leading-4 opacity-70">{option.hint}</p>
-                    </button>
+                      </button>
                   ))}
                 </div>
 
@@ -754,7 +730,7 @@ export function FinanceTransactionModal({
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Giao tạm ứng cho</p>
-                      <p className="mt-1 text-xs text-slate-500">Chọn từ danh sách ban, tổ đã lưu hoặc học viên. Mặc định thường là Ban Hậu cần.</p>
+
                     </div>
                     <span className="rounded-full border border-[#e6c675] bg-white/80 px-3 py-1 text-[11px] font-semibold text-[#8a5305]">
                       {advanceReceiverType === "committee" ? "Ban" : advanceReceiverType === "team" ? "Tổ" : "Cá nhân"}
@@ -770,8 +746,7 @@ export function FinanceTransactionModal({
                         className={`rounded-2xl border px-3 py-2.5 text-left transition ${advanceReceiverType === option.key ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_8px_18px_rgba(180,122,20,0.12)]" : "border-slate-200 bg-white text-slate-500 hover:border-amber-200"}`}
                       >
                         <span className="block text-sm font-semibold">{option.label}</span>
-                        <span className="mt-0.5 block text-[11px] leading-4 opacity-70">{option.hint}</span>
-                      </button>
+                        </button>
                     ))}
                   </div>
 
@@ -813,8 +788,7 @@ export function FinanceTransactionModal({
                     className={`rounded-2xl border px-3 py-3 text-left transition ${form.expensePreset === preset.key ? "border-[#d8b45d] bg-[#fff2c5] text-[#4a2b00] shadow-[0_10px_22px_rgba(180,122,20,0.14)]" : "border-slate-200 bg-white/82 text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}
                   >
                     <p className="text-sm font-semibold">{preset.label}</p>
-                    <p className="mt-1 text-xs leading-4 opacity-70">{preset.hint}</p>
-                  </button>
+                    </button>
                 ))}
               </div>
             </div>
@@ -831,9 +805,7 @@ export function FinanceTransactionModal({
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-slate-900">{sourceMeta.label}</p>
-              <p className="text-xs text-slate-500">
-                {normalizedDirection === "out" ? "Nghiệp vụ chi ra" : "Nghiệp vụ thu vào"}
-              </p>
+
             </div>
             {isBusiness ? (
               <div className="flex rounded-2xl border border-slate-200 bg-white p-1">
@@ -927,13 +899,12 @@ function TransactionSourceCard({
   active,
   icon: Icon,
   title,
-  description,
   onClick,
 }: {
   active: boolean;
   icon: any;
   title: string;
-  description: string;
+  description?: string;
   onClick: () => void;
 }) {
   return (
@@ -946,7 +917,6 @@ function TransactionSourceCard({
         <Icon className="h-4 w-4" />
       </div>
       <p className="text-sm font-semibold">{title}</p>
-      <p className="mt-1 text-xs leading-4 opacity-75">{description}</p>
     </button>
   );
 }
