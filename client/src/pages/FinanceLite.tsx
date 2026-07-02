@@ -14,7 +14,6 @@ import {
       FinanceTransactionModal,
 } from "@/components/finance-lite/FinanceLiteModals";
 import { FinanceSummaryCards } from "@/components/finance-lite/FinanceSummaryCards";
-import { FinanceTabRail } from "@/components/finance-lite/FinanceTabRail";
 import {
       FinanceCashbookPanel,
       FinanceExpensePlansPanel,
@@ -43,6 +42,117 @@ import {
       toMoneyNumber,
 } from "@/components/finance-lite/financeLiteUtils";
 import { trpc } from "@/lib/trpc";
+
+function ToolbarActionButton({
+      label,
+      onClick,
+      primary = false,
+}: {
+      label: string;
+      onClick: () => void;
+      primary?: boolean;
+}) {
+      return (
+            <button
+                  type="button"
+                  onClick={onClick}
+                  className={`rounded-[18px] border px-4 py-2.5 text-sm font-semibold shadow-sm transition ${
+                        primary
+                              ? "border-[#d7a63b] bg-[linear-gradient(135deg,#fff5d2_0%,#ebc768_100%)] text-[#422705] hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(180,122,20,0.18)]"
+                              : "border-slate-200 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-[#d7a63b] hover:bg-[#fffaf0] hover:text-[#7c4a03]"
+                  }`}
+            >
+                  {label}
+            </button>
+      );
+}
+
+function FinanceWorkspaceToolbar({
+      activeTab,
+      onChangeTab,
+      onOpenApply,
+      onOpenPeriod,
+      onOpenTransaction,
+}: {
+      activeTab: FinanceTab;
+      onChangeTab: (tab: FinanceTab) => void;
+      onOpenApply: () => void;
+      onOpenPeriod: () => void;
+      onOpenTransaction: (source?: string) => void;
+}) {
+      const workspaceMeta: Record<FinanceTab, { label: string; description: string }> = {
+            studentLedger: {
+                  label: "Thu học viên",
+                  description: "Chọn kỳ, tạo khoản phải thu và thu theo từng học viên.",
+            },
+            expenses: {
+                  label: "Thu chi khác",
+                  description: "Ghi nhận thu khác, chi một lần hoặc xuất tạm ứng cho Ban/Tổ/Cá nhân.",
+            },
+            plans: {
+                  label: "Theo dõi",
+                  description: "Theo dõi dự chi, tạm ứng và các việc cần chuẩn bị theo kỳ.",
+            },
+            cashbook: {
+                  label: "Sổ dòng tiền",
+                  description: "Đối chiếu các dòng tiền thực tế đã phát sinh.",
+            },
+      };
+
+      const meta = workspaceMeta[activeTab];
+      const primaryAction =
+            activeTab === "studentLedger"
+                  ? { label: "Tạo khoản phải thu", onClick: onOpenApply }
+                  : activeTab === "plans"
+                    ? { label: "Tạo dự chi", onClick: () => onOpenTransaction("expense_plan") }
+                    : { label: "Ghi nhận nghiệp vụ", onClick: () => onOpenTransaction(activeTab === "cashbook" ? "other_income" : "other_income") };
+      const secondaryAction =
+            activeTab === "studentLedger"
+                  ? { label: "Tạo kỳ thu", onClick: onOpenPeriod }
+                  : activeTab === "plans"
+                    ? { label: "Chi một lần", onClick: () => onOpenTransaction("expense_once") }
+                    : null;
+
+      return (
+            <section className="rounded-[30px] border border-[#ead9ad]/80 bg-white/86 p-4 shadow-[0_14px_36px_rgba(91,67,22,0.07),inset_0_1px_0_rgba(255,255,255,0.94)]">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                        <div className="min-w-0">
+                              <div className="flex flex-wrap gap-2">
+                                    {([
+                                          ["studentLedger", "Thu học viên"],
+                                          ["expenses", "Thu chi khác"],
+                                          ["plans", "Theo dõi"],
+                                          ["cashbook", "Sổ dòng tiền"],
+                                    ] as Array<[FinanceTab, string]>).map(([tab, label]) => (
+                                          <button
+                                                key={tab}
+                                                type="button"
+                                                onClick={() => onChangeTab(tab)}
+                                                className={`rounded-[18px] border px-4 py-2.5 text-sm font-semibold transition ${
+                                                      activeTab === tab
+                                                            ? tab === "cashbook"
+                                                                  ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                                                                  : "border-[#e6c56c] bg-[linear-gradient(135deg,#fff7df_0%,#f1d37e_100%)] text-[#4a2b00] shadow-sm"
+                                                            : "border-slate-200 bg-white text-slate-600 hover:border-[#d7a63b] hover:bg-[#fffaf0] hover:text-[#7c4a03]"
+                                                }`}
+                                          >
+                                                {label}
+                                          </button>
+                                    ))}
+                              </div>
+                              <p className="mt-3 text-sm leading-6 text-slate-600">
+                                    <span className="font-semibold text-[#8b5a0a]">{meta.label}:</span> {meta.description}
+                              </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 xl:justify-end">
+                              <ToolbarActionButton label={primaryAction.label} primary onClick={primaryAction.onClick} />
+                              {secondaryAction ? <ToolbarActionButton label={secondaryAction.label} onClick={secondaryAction.onClick} /> : null}
+                        </div>
+                  </div>
+            </section>
+      );
+}
 
 export default function FinanceLite() {
       const financeApi = (trpc as any).finance;
@@ -1672,15 +1782,7 @@ export default function FinanceLite() {
                         iconTone: "text-amber-700",
                         iconWrap: "bg-white/90 border-amber-200/80",
                   },
-                  {
-                        label: "Khoản trong kỳ",
-                        value: String(scopedChargeCount || 0),
-                        hint: selectedPeriod?.periodName || "",
-                        subhint: "Số dòng công nợ đang được theo dõi",
-                        icon: Users,
-                        iconTone: "text-amber-700",
-                        iconWrap: "bg-white/90 border-amber-200/80",
-                  },
+
             ]
             : [
                   {
@@ -1710,15 +1812,7 @@ export default function FinanceLite() {
                         iconTone: "text-amber-700",
                         iconWrap: "bg-white/90 border-amber-200/80",
                   },
-                  {
-                        label: "Khoản đang mở",
-                        value: String(summary.openChargeCount || 0),
-                        hint: "Toàn hệ thống",
-                        subhint: "Tổng số khoản chưa hoàn tất",
-                        icon: Users,
-                        iconTone: "text-amber-700",
-                        iconWrap: "bg-white/90 border-amber-200/80",
-                  },
+
             ];
 
       return (
@@ -1726,49 +1820,61 @@ export default function FinanceLite() {
                   <div className={residenceMediumStyle.page}>
                         <span className={residenceMediumStyle.pageAura} />
                         <div className={residenceMediumStyle.standardPageContent}>
-                              <div className={residenceMediumStyle.standardHeader}>
-                                    <div className={residenceMediumStyle.standardHeaderAura} />
-                                    <div className={residenceMediumStyle.standardHeaderInner}>
-                                          <div className={residenceMediumStyle.standardHeaderTextWrap}>
-                                                <h1 className={residenceMediumStyle.standardHeaderTitle}>
-                                                      Tài chính lưu xá
-                                                </h1>
-                                                <p className={residenceMediumStyle.standardHeaderSubtitle}>
-                                                      Quản lý kỳ thu học viên, thu chi ngoài học viên và dòng tiền phát sinh.
-                                                </p>
-                                          </div>
-                                          <div className={residenceMediumStyle.standardHeaderActions}>
-                                                <button
-                                                      type="button"
-                                                      className={residenceMediumStyle.buttonCard}
-                                                      onClick={() => openTransactionForm("other_income")}
-                                                >
-                                                      Thu chi khác
-                                                </button>
-                                                <button
-                                                      type="button"
-                                                      className={residenceMediumStyle.buttonCardPrimary}
-                                                      onClick={() => setPeriodFormOpen(true)}
-                                                >
-                                                      Tạo kỳ thu
-                                                </button>
+                              <section className="relative px-2 pb-2 pt-3 md:px-4 md:pt-5">
+                                    <span className="pointer-events-none absolute inset-x-0 top-0 h-[260px] bg-[radial-gradient(circle_at_top_left,rgba(251,227,162,0.34),transparent_36%),radial-gradient(circle_at_top_right,rgba(255,255,255,0.82),transparent_30%),radial-gradient(circle_at_bottom_center,rgba(228,188,91,0.16),transparent_44%)]" />
+                                    <div className="relative text-center">
+                                          <p className="text-[13px] font-semibold uppercase tracking-[0.38em] text-[#9e6b11]">Tài chính</p>
+                                          <h1 className="mt-3 text-[3.2rem] font-extrabold tracking-[-0.03em] text-[#0f172a] md:text-[3.7rem]">
+                                                Tài chính lưu xá
+                                          </h1>
+                                          <p className="mx-auto mt-5 max-w-4xl text-[1.05rem] leading-8 text-slate-600 md:text-[1.12rem]">
+                                                Tập trung vào việc cần làm: thu học viên, ghi nhận thu chi, theo dõi tạm ứng và dự chi.
+                                          </p>
+                                          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                                                <InlineBadge className="border-white/85 bg-white/82 px-4 py-2 text-[13px] font-semibold text-[#8b5a0a] shadow-[0_8px_18px_rgba(125,92,29,0.10)]">
+                                                      {selectedPeriod?.periodName || "Chưa chọn kỳ"}
+                                                </InlineBadge>
+                                                <InlineBadge className="border-white/85 bg-white/82 px-4 py-2 text-[13px] font-semibold text-slate-700 shadow-[0_8px_18px_rgba(125,92,29,0.10)]">
+                                                      {getBillingMonthLabel(selectedBillingMonth || currentBillingMonth)}
+                                                </InlineBadge>
                                           </div>
                                     </div>
-                              </div>
+                              </section>
 
                               <FinanceSummaryCards cards={topSummaryCards} />
 
-                              <FinancePeriodSelector
-                                    periods={periods}
-                                    selectedPeriodId={selectedPeriodId}
-                                    selectedPeriod={selectedPeriod}
-                                    currentBillingMonth={currentBillingMonth}
-                                    getPeriodMonthsFromPeriod={getPeriodMonthsFromPeriod}
-                                    onSelectPeriodMonth={selectPeriodMonth}
+                              <FinanceWorkspaceToolbar
+                                    activeTab={activeTab}
+                                    onChangeTab={setActiveTab}
+                                    onOpenApply={() => {
+                                          setActiveTab("studentLedger");
+                                          setApplyPanelOpen(true);
+                                    }}
+                                    onOpenPeriod={() => {
+                                          setActiveTab("studentLedger");
+                                          setPeriodFormOpen(true);
+                                    }}
+                                    onOpenTransaction={(source = "other_income") => {
+                                          if (source === "expense_plan") {
+                                                setActiveTab("plans");
+                                          } else if (activeTab !== "cashbook") {
+                                                setActiveTab("expenses");
+                                          }
+                                          openTransactionForm(source);
+                                    }}
                               />
-                              <FinanceTabRail activeTab={activeTab} onTabChange={setActiveTab} />
 
                               {activeTab === "studentLedger" ? (
+                                    <>
+                                          <FinancePeriodSelector
+                                                periods={periods}
+                                                selectedPeriodId={selectedPeriodId}
+                                                selectedPeriod={selectedPeriod}
+                                                currentBillingMonth={currentBillingMonth}
+                                                getPeriodMonthsFromPeriod={getPeriodMonthsFromPeriod}
+                                                onSelectPeriodMonth={selectPeriodMonth}
+                                          />
+
                                     <FinanceLiteStudentLedger
                                           periods={periods}
                                           selectedPeriod={selectedPeriod}
@@ -1820,6 +1926,7 @@ export default function FinanceLite() {
                                           toggleResidentItem={toggleResidentItem}
                                           updateResidentItemAmount={updateResidentItemAmount}
                                     />
+                                    </>
                               ) : null}
 
 {
