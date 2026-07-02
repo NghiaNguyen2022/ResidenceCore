@@ -1,7 +1,8 @@
 'use client';
 
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { Menu, X } from "lucide-react";
 import {
       appointedResidentNavigation,
       detailedManagerNavigation,
@@ -376,10 +377,12 @@ function SidebarItem({
       item,
       currentPath,
       depth = 0,
+      onNavigate,
 }: {
       item: NavigationItem;
       currentPath: string;
       depth?: number;
+      onNavigate?: () => void;
 }) {
       const [isOpen, setIsOpen] = useState(() => isItemActive(item, currentPath));
 
@@ -480,7 +483,7 @@ function SidebarItem({
                               {content}
                         </button>
                   ) : item.path ? (
-                        <Link href={item.path} className={itemClass} style={itemStyle}>
+                        <Link href={item.path} className={itemClass} style={itemStyle} onClick={onNavigate}>
                               {isDeepChild && (
                                     <span
                                           className={[
@@ -509,6 +512,7 @@ function SidebarItem({
                                           item={child}
                                           currentPath={currentPath}
                                           depth={depth + 1}
+                                          onNavigate={onNavigate}
                                     />
                               ))}
                         </div>
@@ -596,6 +600,11 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
             name: enhancedUser?.name ?? "",
             email: enhancedUser?.email ?? "",
       });
+      const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+      useEffect(() => {
+            setIsMobileMenuOpen(false);
+      }, [currentPath]);
 
       const selectedNavigationItems = useMemo(() => {
             if (hasRole(enhancedUser, "manager")) {
@@ -658,60 +667,102 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
             });
       }
 
+      const sidebarContent = (
+            <>
+                  <div className="border-b border-amber-100/70 px-4 py-4">
+                        <div className="text-lg font-bold tracking-tight text-slate-900">
+                              ResidenceCore
+                        </div>
+                        <div className="mt-0.5 text-xs font-medium text-slate-500">Quản lý lưu xá</div>
+                  </div>
+
+                  <nav className="flex-1 space-y-1.5 overflow-y-auto px-2.5 py-3">
+                        {visibleNavigationItems.map((item) => (
+                              <SidebarItem
+                                    key={`${item.label}-${item.path ?? "group"}`}
+                                    item={item}
+                                    currentPath={currentPath}
+                                    onNavigate={() => setIsMobileMenuOpen(false)}
+                              />
+                        ))}
+                  </nav>
+
+                  <div className="border-t border-amber-100/70 bg-white/52 px-4 py-3">
+                        <div className="flex items-center gap-2">
+                              <button
+                                    type="button"
+                                    onClick={openProfileModal}
+                                    className="min-w-0 flex-1 rounded-xl border border-transparent px-2 py-1.5 text-left transition hover:border-amber-100/70 hover:bg-white/72"
+                                    title={`${displayName} · ${roleText}`}
+                              >
+                                    <div className="truncate text-sm font-semibold text-slate-900">
+                                          {displayName}
+                                    </div>
+                                    <div className="truncate text-xs text-slate-500">{roleText}</div>
+                              </button>
+
+                              <button
+                                    type="button"
+                                    onClick={logout}
+                                    className="shrink-0 rounded-xl border border-amber-100/70 bg-white/68 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-[0_4px_12px_rgba(120,53,15,0.035)] shadow-slate-900/5 transition hover:bg-white"
+                              >
+                                    Đăng xuất
+                              </button>
+                        </div>
+                  </div>
+            </>
+      );
+
+
       return (
             <div className="min-h-screen bg-[radial-gradient(circle_at_12%_16%,rgba(251,191,36,0.16)_0%,transparent_28%),linear-gradient(135deg,#fffaf0_0%,#f8fafc_46%,#fef3c7_82%,#111827_160%)]">
                   <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-amber-100/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.86)_0%,rgba(255,251,235,0.72)_55%,rgba(245,158,11,0.12)_100%)] shadow-[18px_0_46px_rgba(12,10,9,0.075),inset_-1px_0_0_rgba(255,255,255,0.72)] backdrop-blur lg:flex lg:flex-col">
-                        <div className="border-b border-amber-100/70 px-4 py-4">
-                              <div className="text-lg font-bold tracking-tight text-slate-900">
-                                    ResidenceCore
-                              </div>
-                              <div className="mt-0.5 text-xs font-medium text-slate-500">Quản lý lưu xá</div>
-                        </div>
-
-                        <nav className="flex-1 space-y-1.5 overflow-y-auto px-2.5 py-3">
-                              {visibleNavigationItems.map((item) => (
-                                    <SidebarItem
-                                          key={`${item.label}-${item.path ?? "group"}`}
-                                          item={item}
-                                          currentPath={currentPath}
-                                    />
-                              ))}
-                        </nav>
-
-                        <div className="border-t border-amber-100/70 bg-white/52 px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                    <button
-                                          type="button"
-                                          onClick={openProfileModal}
-                                          className="min-w-0 flex-1 rounded-xl border border-transparent px-2 py-1.5 text-left transition hover:border-amber-100/70 hover:bg-white/72"
-                                          title={`${displayName} · ${roleText}`}
-                                    >
-                                          <div className="truncate text-sm font-semibold text-slate-900">
-                                                {displayName}
-                                          </div>
-                                          <div className="truncate text-xs text-slate-500">{roleText}</div>
-                                    </button>
-
-                                    <button
-                                          type="button"
-                                          onClick={logout}
-                                          className="shrink-0 rounded-xl border border-amber-100/70 bg-white/68 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-[0_4px_12px_rgba(120,53,15,0.035)] shadow-slate-900/5 transition hover:bg-white"
-                                    >
-                                          Đăng xuất
-                                    </button>
-                              </div>
-                        </div>
+                        {sidebarContent}
                   </aside>
+
+                  {isMobileMenuOpen ? (
+                        <div className="fixed inset-0 z-40 lg:hidden">
+                              <button
+                                    type="button"
+                                    aria-label="Đóng menu"
+                                    className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px]"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                              />
+                              <aside className="absolute inset-y-0 left-0 flex w-[82vw] max-w-[19rem] flex-col border-r border-amber-100/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(255,251,235,0.88)_55%,rgba(245,158,11,0.16)_100%)] shadow-[18px_0_46px_rgba(12,10,9,0.18)] backdrop-blur">
+                                    <div className="absolute right-3 top-3 z-10">
+                                          <button
+                                                type="button"
+                                                aria-label="Đóng menu"
+                                                onClick={() => setIsMobileMenuOpen(false)}
+                                                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-100 bg-white/86 text-slate-700 shadow-sm"
+                                          >
+                                                <X className="h-5 w-5" />
+                                          </button>
+                                    </div>
+                                    {sidebarContent}
+                              </aside>
+                        </div>
+                  ) : null}
 
                   <div className="lg:pl-64">
                         <header className="sticky top-0 z-20 border-b border-amber-100/70 bg-white/72 shadow-[0_12px_34px_rgba(12,10,9,0.045)] backdrop-blur">
-                              <div className="flex h-14 items-center justify-between px-4 lg:px-6">
-                                    <div>
-                                          <div className="text-sm font-medium text-slate-900">
-                                                App Lưu Xá
-                                          </div>
-                                          <div className="text-xs text-slate-500">
-                                                {isDetailed ? "Chế độ chi tiết" : "Chế độ đơn giản"}
+                              <div className="flex h-14 items-center justify-between px-3 lg:px-6">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                          <button
+                                                type="button"
+                                                aria-label="Mở menu"
+                                                onClick={() => setIsMobileMenuOpen(true)}
+                                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-100/80 bg-white/82 text-slate-700 shadow-sm transition hover:border-amber-200 hover:bg-amber-50 lg:hidden"
+                                          >
+                                                <Menu className="h-5 w-5" />
+                                          </button>
+                                          <div className="min-w-0">
+                                                <div className="truncate text-sm font-medium text-slate-900">
+                                                      App Lưu Xá
+                                                </div>
+                                                <div className="truncate text-xs text-slate-500">
+                                                      {isDetailed ? "Chế độ chi tiết" : "Chế độ đơn giản"}
+                                                </div>
                                           </div>
                                     </div>
 
