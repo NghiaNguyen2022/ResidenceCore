@@ -20,6 +20,8 @@ import {
       formatMoney,
       getTransactionDirectionForSource,
       getTransactionSourceMeta,
+      isAdvanceActualSpending,
+      isTransactionAffectingCashFlow,
       toMoneyNumber,
 } from "./financeLiteUtils";
 
@@ -101,6 +103,7 @@ export function FinanceExpensesPanel({
             () =>
                   transactions.filter(
                         (item: any) =>
+                              isTransactionAffectingCashFlow(item.source) &&
                               getTransactionDirectionForSource(item.source, item.direction) === "out" &&
                               !isPlannedPeriodExpense(item),
                   ),
@@ -110,6 +113,7 @@ export function FinanceExpensesPanel({
             () =>
                   transactions.filter((item: any) => {
                         if (item.source === "student_fee_payment") return false;
+                        if (!isTransactionAffectingCashFlow(item.source)) return false;
                         if (isPlannedPeriodExpense(item)) return false;
                         return getTransactionDirectionForSource(item.source, item.direction) === "in";
                   }),
@@ -141,7 +145,12 @@ export function FinanceExpensesPanel({
       const recentManualOperations = useMemo(
             () =>
                   transactions
-                        .filter((item: any) => item.source !== "student_fee_payment" && !isPlannedPeriodExpense(item))
+                        .filter(
+                              (item: any) =>
+                                    item.source !== "student_fee_payment" &&
+                                    isTransactionAffectingCashFlow(item.source) &&
+                                    !isPlannedPeriodExpense(item),
+                        )
                         .slice(0, 6),
             [transactions],
       );
@@ -345,6 +354,7 @@ export function FinanceCashbookPanel({
       const normalizedTransactions = useMemo(
             () =>
                   transactions
+                        .filter((transaction: any) => isTransactionAffectingCashFlow(transaction.source))
                         .filter((transaction: any) => !isPlannedPeriodExpense(transaction))
                         .map((transaction: any) => ({
                               ...transaction,
@@ -397,7 +407,7 @@ export function FinanceCashbookPanel({
                               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Sổ dòng tiền</p>
                               <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Dòng tiền phát sinh</h2>
                               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                                    Theo dõi dòng tiền thực tế đã phát sinh. Các khoản dự chi theo kỳ không hiển thị ở đây cho đến khi ghi nhận chi thật.
+                                    Theo dõi dòng tiền thực tế đã phát sinh. Dự chi và cập nhật thực chi từ tạm ứng chỉ dùng để theo dõi/quyết toán, không tính vào cân đối quỹ.
                               </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -603,16 +613,25 @@ function CashbookLine({
 }) {
       const direction = getTransactionDirectionForSource(transaction.source, transaction.direction);
       const isOut = direction === "out";
+      const isMemo = isAdvanceActualSpending(transaction.source) || direction === "memo";
       const meta = getTransactionSourceMeta(transaction.source);
       const lineClass = compact ? "px-3 py-2.5" : "px-4 py-3";
-      const amountClass = isOut ? "text-[#9a5f08]" : "text-emerald-700";
+      const amountClass = isMemo ? "text-slate-600" : isOut ? "text-[#9a5f08]" : "text-emerald-700";
       const canDelete = Boolean(onDelete) && transaction.source !== "student_fee_payment";
 
       return (
             <div className={`grid gap-3 rounded-[20px] border border-slate-100 bg-white/92 ${lineClass} shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] md:grid-cols-[1fr_auto] md:items-center`}>
                   <div className="flex min-w-0 items-start gap-3">
-                        <div className={`shrink-0 rounded-2xl p-2 ${isOut ? "bg-[#fff5d7] text-[#9a5f08]" : "bg-emerald-50 text-emerald-700"}`}>
-                              {isOut ? <CreditCard className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+                        <div
+                              className={`shrink-0 rounded-2xl p-2 ${
+                                    isMemo
+                                          ? "bg-slate-100 text-slate-600"
+                                          : isOut
+                                                ? "bg-[#fff5d7] text-[#9a5f08]"
+                                                : "bg-emerald-50 text-emerald-700"
+                              }`}
+                        >
+                              {isMemo ? <ReceiptText className="h-4 w-4" /> : isOut ? <CreditCard className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
                         </div>
                         <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
@@ -635,7 +654,7 @@ function CashbookLine({
                   </div>
                   <div className="flex items-center justify-end gap-2">
                         <p className={`text-right text-base font-semibold ${amountClass}`}>
-                              {isOut ? "-" : "+"}{formatMoney(transaction.amount)}
+                              {isMemo ? "Theo dõi " : isOut ? "-" : "+"}{formatMoney(transaction.amount)}
                         </p>
                         {canDelete ? (
                               <button
@@ -654,8 +673,7 @@ function CashbookLine({
 }
 
 function isPlannedPeriodExpense(transaction: any) {
-      const targetType = String(transaction?.targetType || "");
-      return transaction?.source === "expense_plan" || targetType.startsWith("expense_plan_period") || targetType.startsWith("plan:");
+      return transaction?.source === "expense_plan" || String(transaction?.targetType || "").startsWith("expense_plan_period");
 }
 
 function isPeriodExpense(transaction: any) {
@@ -684,16 +702,6 @@ function getExpenseScopeLabel(transaction: any) {
             const [startDate, endDate] = dateRange.split("_");
             const rangeLabel = startDate ? ` · ${startDate}${endDate && endDate !== startDate ? `-${endDate}` : ""}` : "";
             return `${categoryLabels[category] || "Tạm ứng"} · ${modeLabel}${rangeLabel}`;
-      }
-      if (targetType.startsWith("plan:")) {
-            const range = targetType.split(":")[1] || "";
-            const [firstRaw, lastRaw] = range.split("-");
-            const formatCompactMonth = (value: string) => value && value.length === 6 ? `${value.slice(4, 6)}/${value.slice(0, 4)}` : "";
-            const first = formatCompactMonth(firstRaw || "");
-            const last = formatCompactMonth(lastRaw || firstRaw || "");
-            if (first && last && first !== last) return `Dự chi ${first}-${last}`;
-            if (first) return `Dự chi ${first}`;
-            return "Dự chi theo kỳ";
       }
       if (targetType.startsWith("expense_plan_periods:")) {
             const months = (targetType.split(":")[1] || "").split(",").filter(Boolean);

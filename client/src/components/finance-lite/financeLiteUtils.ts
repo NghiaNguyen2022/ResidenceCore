@@ -143,10 +143,20 @@ export function emptyPeriodForm(): PeriodFormState {
 
 
 export function getTransactionDirectionForSource(source?: string | null, direction?: string | null) {
+  if (source === "advance_actual_spending") return "memo";
   if (source === "expense" || source === "expense_plan" || source === "advance_out") return "out";
-  if (source === "advance_actual_spending") return direction === "out" ? "out" : "in";
   if (source === "other_income" || source === "donation") return "in";
   return direction === "out" ? "out" : "in";
+}
+
+export function isAdvanceActualSpending(source?: string | null) {
+  return source === "advance_actual_spending";
+}
+
+export function isTransactionAffectingCashFlow(source?: string | null) {
+  if (source === "expense_plan") return false;
+  if (source === "advance_actual_spending") return false;
+  return true;
 }
 
 export function getTransactionSourceMeta(source?: string | null) {

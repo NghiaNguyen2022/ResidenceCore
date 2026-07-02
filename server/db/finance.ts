@@ -1544,12 +1544,17 @@ function parseAdvanceMeta(targetType?: string | null) {
       };
 }
 
-function mapAdvanceRow(row: any, actualByAdvanceId: Map<number, number>) {
+function mapAdvanceRow(
+      row: any,
+      actualByAdvanceId: Map<number, number>,
+      actualEntriesByAdvanceId: Map<number, Array<{ id: number; amount: number; transactionDate: string | null; description: string | null; createdAt: string | null }>>
+) {
       const id = Number(row.id || 0);
       const advanceAmount = toFinanceNumber(row.amount);
       const actualAmount = actualByAdvanceId.get(id) || 0;
       const balanceAmount = advanceAmount - actualAmount;
       const meta = parseAdvanceMeta(row.targetType);
+      const actualEntries = actualEntriesByAdvanceId.get(id) || [];
 
       return {
             id,
@@ -1568,6 +1573,8 @@ function mapAdvanceRow(row: any, actualByAdvanceId: Map<number, number>) {
             periodStart: meta.periodStart,
             periodEnd: meta.periodEnd,
             receiverType: meta.receiverType,
+            actualEntries,
+            lastActualDate: actualEntries[0]?.transactionDate || null,
             status:
                   balanceAmount < 0
                         ? 'over_spent'
@@ -1582,24 +1589,40 @@ function mapAdvanceRow(row: any, actualByAdvanceId: Map<number, number>) {
 async function getActualSpendingByAdvanceIds(db: any, advanceIds: number[]) {
       const uniqueIds = Array.from(new Set(advanceIds.map((id) => Number(id)).filter((id) => id > 0)));
       const actualByAdvanceId = new Map<number, number>();
-      if (!uniqueIds.length) return actualByAdvanceId;
+      const actualEntriesByAdvanceId = new Map<number, Array<{ id: number; amount: number; transactionDate: string | null; description: string | null; createdAt: string | null }>>();
+      if (!uniqueIds.length) return { actualByAdvanceId, actualEntriesByAdvanceId };
 
       const result = await db.execute(sql`
             SELECT
+                  id,
                   target_type AS targetType,
-                  COALESCE(SUM(amount), 0) AS actualAmount
+                  amount,
+                  transaction_date AS transactionDate,
+                  description,
+                  created_at AS createdAt
             FROM finance_transactions
             WHERE source = 'advance_actual_spending'
                   AND target_type IN ${uniqueIds.map((id) => `advance_entry:${id}`)}
-            GROUP BY target_type
+            ORDER BY transaction_date DESC, id DESC
       `);
 
       for (const row of getRows(result)) {
             const id = Number(String(row.targetType || '').replace('advance_entry:', ''));
-            if (id > 0) actualByAdvanceId.set(id, toFinanceNumber(row.actualAmount));
+            if (id <= 0) continue;
+            const amount = toFinanceNumber(row.amount);
+            actualByAdvanceId.set(id, (actualByAdvanceId.get(id) || 0) + amount);
+            const current = actualEntriesByAdvanceId.get(id) || [];
+            current.push({
+                  id: Number(row.id || 0),
+                  amount,
+                  transactionDate: row.transactionDate || null,
+                  description: row.description || null,
+                  createdAt: row.createdAt || null,
+            });
+            actualEntriesByAdvanceId.set(id, current);
       }
 
-      return actualByAdvanceId;
+      return { actualByAdvanceId, actualEntriesByAdvanceId };
 }
 
 function advanceMatchesResident(row: any, resident: { id: number; name?: string | null; code?: string | null }) {
@@ -1709,7 +1732,7 @@ export async function getFinancePortalOverview(input: {
             LIMIT 500
       `);
       const advanceRows = getRows(advancesResult);
-      const actualByAdvanceId = await getActualSpendingByAdvanceIds(
+      const { actualByAdvanceId, actualEntriesByAdvanceId } = await getActualSpendingByAdvanceIds(
             db,
             advanceRows.map((row: any) => Number(row.id || 0))
       );
@@ -1725,8 +1748,8 @@ export async function getFinancePortalOverview(input: {
             (input.unitTargets || []).some((unit) => advanceMatchesUnit(row, unit))
       );
 
-      const personalAdvances = personalAdvanceRows.map((row: any) => mapAdvanceRow(row, actualByAdvanceId));
-      const unitAdvances = unitAdvanceRows.map((row: any) => mapAdvanceRow(row, actualByAdvanceId));
+      const personalAdvances = personalAdvanceRows.map((row: any) => mapAdvanceRow(row, actualByAdvanceId, actualEntriesByAdvanceId));
+      const unitAdvances = unitAdvanceRows.map((row: any) => mapAdvanceRow(row, actualByAdvanceId, actualEntriesByAdvanceId));
 
       const openCharges = charges.filter((charge: any) => ['open', 'partial', 'overdue'].includes(String(charge.status || 'open')));
       const paidCharges = charges.filter((charge: any) => String(charge.status || '') === 'paid');
