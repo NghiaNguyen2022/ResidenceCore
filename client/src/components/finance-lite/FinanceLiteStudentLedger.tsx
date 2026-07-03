@@ -251,21 +251,18 @@ export function FinanceLiteStudentLedger({
                   <div className="space-y-4">
                         <section className="rounded-[30px] border border-white/80 bg-white/92 p-4 shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
                               <div className="flex flex-col gap-4">
-                                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                                          <div className="min-w-0 flex-1">
+                                    <div className="grid gap-3 xl:grid-cols-[minmax(260px,1fr)_minmax(420px,520px)] xl:items-center">
+                                          <div className="min-w-0">
                                                 <div className="inline-flex items-center gap-2 rounded-full border border-amber-100 bg-[#fff8df] px-3 py-1 text-xs font-semibold text-amber-800">
                                                       <span>{getBillingMonthLabel(selectedBillingMonth)}</span>
                                                       <span className="h-1 w-1 rounded-full bg-amber-400" />
                                                       <span>{groupedCharges.length} học viên</span>
                                                 </div>
-                                                <h2 className="mt-2 text-[25px] font-semibold leading-tight tracking-tight text-slate-950">
+                                                <h2 className="mt-2 text-[22px] font-semibold leading-tight tracking-tight text-slate-950 sm:text-[26px]">
                                                       Sổ phải thu học viên
                                                 </h2>
-                                                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                                                      Tập trung vào số còn phải thu, trạng thái từng học viên và thao tác thu nhanh.
-                                                </p>
                                           </div>
-                                          <div className="grid w-full gap-2 sm:grid-cols-3 xl:w-[520px]">
+                                          <div className="grid w-full gap-2 sm:grid-cols-3">
                                                 <FocusSummary label="Còn phải thu" value={formatMoney(ledgerRemainingAmount)} tone="danger" />
                                                 <FocusSummary label="Đã thu" value={formatMoney(ledgerPaidAmount)} tone="success" />
                                                 <FocusSummary label="Tổng kỳ này" value={formatMoney(ledgerTotalAmount)} />

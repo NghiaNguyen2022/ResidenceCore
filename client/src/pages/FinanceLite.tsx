@@ -22,6 +22,7 @@ import {
       FinancePeriodSelector,
 } from "@/components/finance-lite/FinanceLitePanels";
 import { FinanceLiteStudentLedger } from "@/components/finance-lite/FinanceLiteStudentLedger";
+import { FinanceVoucherSettingsModal } from "@/components/finance-lite/FinanceVoucherSettingsModal";
 import type {
       ChargeStatus,
       EditChargeState,
@@ -108,6 +109,7 @@ export default function FinanceLite() {
       });
       const [transactionFormOpen, setTransactionFormOpen] = useState(false);
       const [transactionFormMessage, setTransactionFormMessage] = useState("");
+      const [voucherSettingsOpen, setVoucherSettingsOpen] = useState(false);
       const [transactionForm, setTransactionForm] = useState({
             source: "other_income",
             direction: "in",
@@ -1503,9 +1505,9 @@ export default function FinanceLite() {
             const expenseMonths =
                   effectiveSource === "expense" && transactionForm.expenseKind === "period"
                         ? getExpenseMonthRange(
-                              transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
-                              transactionForm.expenseToMonth || transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
-                        )
+                                transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
+                                transactionForm.expenseToMonth || transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
+                          )
                         : [];
             if (effectiveSource === "expense" && transactionForm.expenseKind === "period" && !expenseMonths.length) {
                   setTransactionFormMessage("Vui lòng chọn kỳ bắt đầu và kỳ kết thúc hợp lệ.");
@@ -1725,252 +1727,256 @@ export default function FinanceLite() {
             <ResidenceCareLayout>
                   <div className={residenceMediumStyle.page}>
                         <span className={residenceMediumStyle.pageAura} />
-                        <div className={residenceMediumStyle.pageShell}>
-                              <div className="relative overflow-visible px-1 pb-5 pt-3">
-                                    <div className="absolute right-1 top-2 z-20 flex flex-wrap justify-end gap-2">
-                                          <button
-                                                type="button"
-                                                onClick={() => {
-                                                      setActiveTab("expenses");
-                                                      openTransactionForm("other_income");
-                                                }}
-                                                className={residenceMediumStyle.buttonCard}
-                                          >
-                                                <Plus className={residenceMediumStyle.buttonCardIcon} />
-                                                Ghi nhận nghiệp vụ
-                                          </button>
-
-                                          <button
-                                                type="button"
-                                                onClick={() => {
-                                                      setActiveTab("studentLedger");
-                                                      setApplyPanelOpen(true);
-                                                }}
-                                                className={residenceMediumStyle.buttonCardPrimary}
-                                          >
-                                                <Plus className={residenceMediumStyle.buttonCardIcon} />
-                                                Tạo khoản phải thu
-                                          </button>
+                        <div className={residenceMediumStyle.standardPageContent}>
+                              <div className={residenceMediumStyle.standardHeader}>
+                                    <div className={residenceMediumStyle.standardHeaderAura} />
+                                    <div className={residenceMediumStyle.standardHeaderInner}>
+                                          <div className={residenceMediumStyle.standardHeaderTextWrap}>
+                                                <h1 className={residenceMediumStyle.standardHeaderTitle}>
+                                                      Tài chính lưu xá
+                                                </h1>
+                                                <p className={residenceMediumStyle.standardHeaderSubtitle}>
+                                                      Quản lý kỳ thu học viên, thu chi ngoài học viên và dòng tiền phát sinh.
+                                                </p>
+                                          </div>
+                                          <div className={residenceMediumStyle.standardHeaderActions}>
+                                                <button
+                                                      type="button"
+                                                      className={residenceMediumStyle.buttonCard}
+                                                      onClick={() => setVoucherSettingsOpen(true)}
+                                                >
+                                                      Cấu hình phiếu
+                                                </button>
+                                                <button
+                                                      type="button"
+                                                      className={residenceMediumStyle.buttonCard}
+                                                      onClick={() => openTransactionForm("other_income")}
+                                                >
+                                                      Thu chi khác
+                                                </button>
+                                                <button
+                                                      type="button"
+                                                      className={residenceMediumStyle.buttonCardPrimary}
+                                                      onClick={() => setPeriodFormOpen(true)}
+                                                >
+                                                      Tạo kỳ thu
+                                                </button>
+                                          </div>
                                     </div>
-
-                                    <div className={`${residenceMediumStyle.topInner} mx-auto max-w-4xl pt-9 text-center`}>
-                                          <h1 className={residenceMediumStyle.topTitle}>
-                                                Tài chính lưu xá
-                                          </h1>
-                                    </div>
-
-                                    <FinanceSummaryCards cards={topSummaryCards} />
                               </div>
 
+                              <FinanceSummaryCards cards={topSummaryCards} />
+
+                              <FinancePeriodSelector
+                                    periods={periods}
+                                    selectedPeriodId={selectedPeriodId}
+                                    selectedPeriod={selectedPeriod}
+                                    currentBillingMonth={currentBillingMonth}
+                                    getPeriodMonthsFromPeriod={getPeriodMonthsFromPeriod}
+                                    onSelectPeriodMonth={selectPeriodMonth}
+                              />
                               <FinanceTabRail activeTab={activeTab} onTabChange={setActiveTab} />
 
                               {activeTab === "studentLedger" ? (
-                                    <>
-                                          <FinancePeriodSelector
-                                                periods={periods}
-                                                selectedPeriodId={selectedPeriodId}
-                                                selectedPeriod={selectedPeriod}
-                                                currentBillingMonth={currentBillingMonth}
-                                                getPeriodMonthsFromPeriod={getPeriodMonthsFromPeriod}
-                                                onSelectPeriodMonth={selectPeriodMonth}
-                                          />
-
-                                          <FinanceLiteStudentLedger
-                                                periods={periods}
-                                                selectedPeriod={selectedPeriod}
-                                                selectedPeriodMonths={selectedPeriodMonths}
-                                                selectedBillingMonth={selectedBillingMonth}
-                                                currentBillingMonth={currentBillingMonth}
-                                                monthCardRefs={monthCardRefs}
-                                                selectPeriodMonth={selectPeriodMonth}
-                                                setPeriodFormOpen={setPeriodFormOpen}
-                                                groupedCharges={groupedCharges}
-                                                paginatedGroupedCharges={paginatedGroupedCharges}
-                                                studentLedgerPageSize={studentLedgerPageSize}
-                                                setStudentLedgerPageSize={setStudentLedgerPageSize}
-                                                setStudentLedgerPage={setStudentLedgerPage}
-                                                studentLedgerStartIndex={studentLedgerStartIndex}
-                                                studentLedgerEndIndex={studentLedgerEndIndex}
-                                                studentLedgerTotalPages={studentLedgerTotalPages}
-                                                safeStudentLedgerPage={safeStudentLedgerPage}
-                                                searchTerm={searchTerm}
-                                                setSearchTerm={setSearchTerm}
-                                                statusFilter={statusFilter}
-                                                setStatusFilter={setStatusFilter}
-                                                openGroupedPayment={openGroupedPayment}
-                                                openGroupPaymentForChargeGroup={openGroupPaymentForChargeGroup}
-                                                openEditCharge={openEditCharge}
-                                                onCancelCharge={onCancelCharge}
-                                                applyPanelOpen={applyPanelOpen}
-                                                setApplyPanelOpen={setApplyPanelOpen}
-                                                selectionMessage={selectionMessage}
-                                                projectedApplySummary={projectedApplySummary}
-                                                hasSelectedApplicableItems={hasSelectedApplicableItems}
-                                                applyPeriodMutationPending={applyPeriodMutation?.isPending ?? false}
-                                                submitApplyPeriod={submitApplyPeriod}
-                                                periodItems={periodItems}
-                                                previewResidents={previewResidents}
-                                                previewQuery={previewQuery}
-                                                residentSelections={residentSelections}
-                                                detail={detail}
-                                                getPeriodMonthsFromPeriod={getPeriodMonthsFromPeriod}
-                                                getMonthChargeStats={getMonthChargeStats}
-                                                getPeriodItemSelectedCount={getPeriodItemSelectedCount}
-                                                isPeriodItemSelectedForAllEligible={isPeriodItemSelectedForAllEligible}
-                                                getPeriodItemEligibleResidents={getPeriodItemEligibleResidents}
-                                                togglePeriodItemForAllEligible={togglePeriodItemForAllEligible}
-                                                applyDefaultForAllEligible={applyDefaultForAllEligible}
-                                                clearAllSelections={clearAllSelections}
-                                                isResidentItemAlreadyApplied={isResidentItemAlreadyApplied}
-                                                isResidentItemSelectable={isResidentItemSelectable}
-                                                toggleResidentItem={toggleResidentItem}
-                                                updateResidentItemAmount={updateResidentItemAmount}
-                                          />
-                                    </>
+                                    <FinanceLiteStudentLedger
+                                          periods={periods}
+                                          selectedPeriod={selectedPeriod}
+                                          selectedPeriodMonths={selectedPeriodMonths}
+                                          selectedBillingMonth={selectedBillingMonth}
+                                          currentBillingMonth={currentBillingMonth}
+                                          monthCardRefs={monthCardRefs}
+                                          selectPeriodMonth={selectPeriodMonth}
+                                          setPeriodFormOpen={setPeriodFormOpen}
+                                          groupedCharges={groupedCharges}
+                                          paginatedGroupedCharges={paginatedGroupedCharges}
+                                          studentLedgerPageSize={studentLedgerPageSize}
+                                          setStudentLedgerPageSize={setStudentLedgerPageSize}
+                                          setStudentLedgerPage={setStudentLedgerPage}
+                                          studentLedgerStartIndex={studentLedgerStartIndex}
+                                          studentLedgerEndIndex={studentLedgerEndIndex}
+                                          studentLedgerTotalPages={studentLedgerTotalPages}
+                                          safeStudentLedgerPage={safeStudentLedgerPage}
+                                          searchTerm={searchTerm}
+                                          setSearchTerm={setSearchTerm}
+                                          statusFilter={statusFilter}
+                                          setStatusFilter={setStatusFilter}
+                                          openGroupedPayment={openGroupedPayment}
+                                          openGroupPaymentForChargeGroup={openGroupPaymentForChargeGroup}
+                                          openEditCharge={openEditCharge}
+                                          onCancelCharge={onCancelCharge}
+                                          applyPanelOpen={applyPanelOpen}
+                                          setApplyPanelOpen={setApplyPanelOpen}
+                                          selectionMessage={selectionMessage}
+                                          projectedApplySummary={projectedApplySummary}
+                                          hasSelectedApplicableItems={hasSelectedApplicableItems}
+                                          applyPeriodMutationPending={applyPeriodMutation?.isPending ?? false}
+                                          submitApplyPeriod={submitApplyPeriod}
+                                          periodItems={periodItems}
+                                          previewResidents={previewResidents}
+                                          previewQuery={previewQuery}
+                                          residentSelections={residentSelections}
+                                          detail={detail}
+                                          getPeriodMonthsFromPeriod={getPeriodMonthsFromPeriod}
+                                          getMonthChargeStats={getMonthChargeStats}
+                                          getPeriodItemSelectedCount={getPeriodItemSelectedCount}
+                                          isPeriodItemSelectedForAllEligible={isPeriodItemSelectedForAllEligible}
+                                          getPeriodItemEligibleResidents={getPeriodItemEligibleResidents}
+                                          togglePeriodItemForAllEligible={togglePeriodItemForAllEligible}
+                                          applyDefaultForAllEligible={applyDefaultForAllEligible}
+                                          clearAllSelections={clearAllSelections}
+                                          isResidentItemAlreadyApplied={isResidentItemAlreadyApplied}
+                                          isResidentItemSelectable={isResidentItemSelectable}
+                                          toggleResidentItem={toggleResidentItem}
+                                          updateResidentItemAmount={updateResidentItemAmount}
+                                    />
                               ) : null}
 
-                              {
-                                    activeTab === "expenses" ? (
-                                          <FinanceExpensesPanel
-                                                transactions={transactions}
-                                                onCreateExpense={(source = "other_income") => openTransactionForm(source)}
-                                                onDeleteTransaction={deleteTransaction}
-                                                isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
-                                          />
-                                    ) : null
-                              }
-                              {
-                                    activeTab === "plans" ? (
-                                          <FinanceExpensePlansPanel
-                                                transactions={transactions}
-                                                onCreatePlan={() => openTransactionForm("expense_plan")}
-                                                onCreateActualExpense={() => openTransactionForm("expense_once")}
-                                                onDeleteTransaction={deleteTransaction}
-                                                isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
-                                          />
-                                    ) : null
-                              }
-                              {
-                                    activeTab === "cashbook" ? (
-                                          <FinanceCashbookPanel
-                                                transactions={transactions}
-                                                onCreateTransaction={(source = "other_income") => openTransactionForm(source === "expense" ? "expense_once" : source)}
-                                                onDeleteTransaction={deleteTransaction}
-                                                isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
-                                          />
-                                    ) : null
-                              }
-                        </div >
-                  </div >
+{
+      activeTab === "expenses" ? (
+            <FinanceExpensesPanel
+                  transactions={transactions}
+                  onCreateExpense={(source = "other_income") => openTransactionForm(source)}
+                  onDeleteTransaction={deleteTransaction}
+                  isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
+            />
+      ) : null
+}
+{
+      activeTab === "plans" ? (
+            <FinanceExpensePlansPanel
+                  transactions={transactions}
+                  onCreatePlan={() => openTransactionForm("expense_plan")}
+                  onCreateActualExpense={() => openTransactionForm("expense_once")}
+                  onDeleteTransaction={deleteTransaction}
+                  isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
+            />
+      ) : null
+}
+{
+      activeTab === "cashbook" ? (
+            <FinanceCashbookPanel
+                  transactions={transactions}
+                  onCreateTransaction={(source = "other_income") => openTransactionForm(source === "expense" ? "expense_once" : source)}
+                  onDeleteTransaction={deleteTransaction}
+                  isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
+            />
+      ) : null
+}
+        </div >
+      </div >
 
-                  {
-                        periodFormOpen ? (
-                              <FinanceCreatePeriodModal
-                                    message={periodFormMessage}
-                                    form={periodForm}
-                                    setForm={setPeriodForm}
-                                    isSubmitting={createPeriodMutation?.isPending}
-                                    onClose={() => setPeriodFormOpen(false)}
-                                    onSubmit={submitCreatePeriod}
-                              />
-                        ) : null}
-                  {
-                        paymentFormOpen ? (
-                              <FinancePaymentModal
-                                    message={paymentFormMessage}
-                                    form={paymentForm}
-                                    setForm={setPaymentForm}
-                                    charges={charges}
-                                    openCharges={openCharges}
-                                    isSubmitting={recordPaymentMutation?.isPending}
-                                    onClose={() => setPaymentFormOpen(false)}
-                                    onSubmit={submitPayment}
-                              />
-                        ) : null
-                  }
-                  {
-                        groupPaymentOpen ? (
-                              <FinanceGroupPaymentModal
-                                    message={groupPaymentMessage}
-                                    form={groupPaymentForm}
-                                    setForm={setGroupPaymentForm}
-                                    periods={periods}
-                                    months={groupPaymentMonths}
-                                    residents={groupPaymentResidents}
-                                    residentCharges={groupPaymentResidentCharges}
-                                    selectedChargeIds={groupPaymentSelectedChargeIds}
-                                    lineAmounts={groupPaymentLineAmounts}
-                                    selectedCharges={groupPaymentSelectedCharges}
-                                    allSelected={groupPaymentAllSelected}
-                                    selectedRemainingTotal={groupPaymentSelectedRemainingTotal}
-                                    inputTotal={groupPaymentInputTotal}
-                                    afterRemainingTotal={groupPaymentAfterRemainingTotal}
-                                    hasInvalidLineAmount={groupPaymentHasInvalidLineAmount}
-                                    isSubmitting={recordGroupedPaymentMutation?.isPending}
-                                    onPeriodChange={handleGroupPaymentPeriodChange}
-                                    onMonthChange={handleGroupPaymentMonthChange}
-                                    onResidentChange={handleGroupPaymentResidentChange}
-                                    onToggleCharge={toggleGroupPaymentCharge}
-                                    onUpdateLineAmount={updateGroupPaymentLineAmount}
-                                    onToggleAllCharges={setAllGroupPaymentCharges}
-                                    onSyncSelectedAmounts={syncGroupPaymentAmountToSelected}
-                                    onClearLineAmounts={clearGroupPaymentLineAmounts}
-                                    onClose={() => setGroupPaymentOpen(false)}
-                                    onSubmit={submitGroupedPayment}
-                              />
-                        ) : null
-                  }
-                  {
-                        editChargeOpen ? (
-                              <FinanceEditChargeModal
-                                    message={editChargeMessage}
-                                    form={editChargeForm}
-                                    setForm={setEditChargeForm}
-                                    feeTypes={feeTypes}
-                                    isSubmitting={updateChargeMutation?.isPending}
-                                    onClose={() => setEditChargeOpen(false)}
-                                    onSubmit={submitEditCharge}
-                              />
-                        ) : null
-                  }
-                  {
-                        transactionFormOpen ? (
-                              <FinanceTransactionModal
-                                    message={transactionFormMessage}
-                                    form={transactionForm}
-                                    setForm={setTransactionForm}
-                                    isSubmitting={createTransactionMutation?.isPending}
-                                    advanceReceiverOptions={advanceReceiverOptions}
-                                    onClose={() => setTransactionFormOpen(false)}
-                                    onSubmit={submitTransaction}
-                              />
-                        ) : null
-                  }
+      {
+            voucherSettingsOpen ? (
+                  <FinanceVoucherSettingsModal onClose={() => setVoucherSettingsOpen(false)} />
+            ) : null}
+      {
+            periodFormOpen?(
+        <FinanceCreatePeriodModal
+          message = { periodFormMessage }
+          form = { periodForm }
+          setForm = { setPeriodForm }
+          isSubmitting = { createPeriodMutation?.isPending }
+          onClose = {() => setPeriodFormOpen(false)}
+onSubmit = { submitCreatePeriod }
+      />
+      ) : null}
+{
+      paymentFormOpen ? (
+            <FinancePaymentModal
+                  message={paymentFormMessage}
+                  form={paymentForm}
+                  setForm={setPaymentForm}
+                  charges={charges}
+                  openCharges={openCharges}
+                  isSubmitting={recordPaymentMutation?.isPending}
+                  onClose={() => setPaymentFormOpen(false)}
+                  onSubmit={submitPayment}
+            />
+      ) : null
+}
+{
+      groupPaymentOpen ? (
+            <FinanceGroupPaymentModal
+                  message={groupPaymentMessage}
+                  form={groupPaymentForm}
+                  setForm={setGroupPaymentForm}
+                  periods={periods}
+                  months={groupPaymentMonths}
+                  residents={groupPaymentResidents}
+                  residentCharges={groupPaymentResidentCharges}
+                  selectedChargeIds={groupPaymentSelectedChargeIds}
+                  lineAmounts={groupPaymentLineAmounts}
+                  selectedCharges={groupPaymentSelectedCharges}
+                  allSelected={groupPaymentAllSelected}
+                  selectedRemainingTotal={groupPaymentSelectedRemainingTotal}
+                  inputTotal={groupPaymentInputTotal}
+                  afterRemainingTotal={groupPaymentAfterRemainingTotal}
+                  hasInvalidLineAmount={groupPaymentHasInvalidLineAmount}
+                  isSubmitting={recordGroupedPaymentMutation?.isPending}
+                  onPeriodChange={handleGroupPaymentPeriodChange}
+                  onMonthChange={handleGroupPaymentMonthChange}
+                  onResidentChange={handleGroupPaymentResidentChange}
+                  onToggleCharge={toggleGroupPaymentCharge}
+                  onUpdateLineAmount={updateGroupPaymentLineAmount}
+                  onToggleAllCharges={setAllGroupPaymentCharges}
+                  onSyncSelectedAmounts={syncGroupPaymentAmountToSelected}
+                  onClearLineAmounts={clearGroupPaymentLineAmounts}
+                  onClose={() => setGroupPaymentOpen(false)}
+                  onSubmit={submitGroupedPayment}
+            />
+      ) : null
+}
+{
+      editChargeOpen ? (
+            <FinanceEditChargeModal
+                  message={editChargeMessage}
+                  form={editChargeForm}
+                  setForm={setEditChargeForm}
+                  feeTypes={feeTypes}
+                  isSubmitting={updateChargeMutation?.isPending}
+                  onClose={() => setEditChargeOpen(false)}
+                  onSubmit={submitEditCharge}
+            />
+      ) : null
+}
+{
+      transactionFormOpen ? (
+            <FinanceTransactionModal
+                  message={transactionFormMessage}
+                  form={transactionForm}
+                  setForm={setTransactionForm}
+                  isSubmitting={createTransactionMutation?.isPending}
+                  advanceReceiverOptions={advanceReceiverOptions}
+                  onClose={() => setTransactionFormOpen(false)}
+                  onSubmit={submitTransaction}
+            />
+      ) : null
+}
 
-                  {deleteTransactionTarget ? (
-                        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
-                              <div className="w-full max-w-md rounded-[28px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff7df_100%)] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24),inset_0_1px_0_rgba(255,255,255,0.92)]">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Xác nhận xóa</p>
-                                    <h3 className="mt-2 text-xl font-semibold text-slate-950">Xóa {deleteTransactionTarget.targetName || deleteTransactionTarget.description || "khoản thu chi này"}?</h3>
-                                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                                          {deleteTransactionTarget.lockedMessage || "Khoản này sẽ được gỡ khỏi Khoản thu chi/Sổ dòng tiền. Dự chi hoặc tạm ứng nhầm có thể xóa tại đây; khoản đã quyết toán nên kiểm tra trước khi xóa."}
-                                    </p>
-                                    {deleteTransactionMessage ? (
-                                          <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{deleteTransactionMessage}</div>
-                                    ) : null}
-                                    <div className="mt-5 flex justify-end gap-2">
-                                          <button type="button" className={residenceMediumStyle.buttonCard} onClick={() => { setDeleteTransactionTarget(null); setDeleteTransactionMessage(""); }}>Đóng</button>
-                                          {!deleteTransactionTarget.lockedMessage ? (
-                                                <button type="button" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60" disabled={deleteTransactionMutation?.isPending} onClick={confirmDeleteTransaction}>
-                                                      {deleteTransactionMutation?.isPending ? "Đang xóa..." : "Xóa khoản này"}
-                                                </button>
-                                          ) : null}
-                                    </div>
-                              </div>
-                        </div>
+{deleteTransactionTarget ? (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-[28px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff7df_100%)] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Xác nhận xóa</p>
+                  <h3 className="mt-2 text-xl font-semibold text-slate-950">Xóa {deleteTransactionTarget.targetName || deleteTransactionTarget.description || "khoản thu chi này"}?</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                        {deleteTransactionTarget.lockedMessage || "Khoản này sẽ được gỡ khỏi Khoản thu chi/Sổ dòng tiền. Dự chi hoặc tạm ứng nhầm có thể xóa tại đây; khoản đã quyết toán nên kiểm tra trước khi xóa."}
+                  </p>
+                  {deleteTransactionMessage ? (
+                        <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{deleteTransactionMessage}</div>
                   ) : null}
-            </ResidenceCareLayout >
-      );
+                  <div className="mt-5 flex justify-end gap-2">
+                        <button type="button" className={residenceMediumStyle.buttonCard} onClick={() => { setDeleteTransactionTarget(null); setDeleteTransactionMessage(""); }}>Đóng</button>
+                        {!deleteTransactionTarget.lockedMessage ? (
+                              <button type="button" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60" disabled={deleteTransactionMutation?.isPending} onClick={confirmDeleteTransaction}>
+                                    {deleteTransactionMutation?.isPending ? "Đang xóa..." : "Xóa khoản này"}
+                              </button>
+                        ) : null}
+                  </div>
+            </div>
+      </div>
+) : null}
+    </ResidenceCareLayout >
+  );
 }
 
 

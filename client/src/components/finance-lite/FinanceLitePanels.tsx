@@ -7,6 +7,7 @@ import {
       HandCoins,
       PiggyBank,
       Plus,
+      Printer,
       ReceiptText,
       Search,
       Trash2,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { InlineBadge } from "@/components/shared/display/InlineBadge";
+import { FinanceVoucherPreviewModal } from "./FinanceVoucherPreviewModal";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
 import {
       formatDate,
@@ -100,6 +102,8 @@ export function FinanceExpensesPanel({
       onDeleteTransaction?: (transaction: any) => void;
       isDeletingTransaction?: boolean;
 }) {
+      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
+
       const actualExpenseTransactions = useMemo(
             () =>
                   transactions.filter(
@@ -166,6 +170,7 @@ export function FinanceExpensesPanel({
       );
 
       return (
+            <>
             <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
                   <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(246,201,92,0.15),transparent_36%)]" />
 
@@ -202,10 +207,11 @@ export function FinanceExpensesPanel({
                               <div className="space-y-2">
                                     {advanceExpenses.length ? (
                                           advanceExpenses.slice(0, 5).map((transaction: any) => (
-                                                <CashbookLine
+                                                <AdvanceTrackingLine
                                                       key={transaction.id}
                                                       transaction={transaction}
-                                                      compact
+                                                      transactions={transactions}
+                                                      onPrint={setVoucherTransaction}
                                                       onDelete={onDeleteTransaction}
                                                       isDeleting={isDeletingTransaction}
                                                 />
@@ -227,10 +233,10 @@ export function FinanceExpensesPanel({
                               <div className="space-y-2">
                                     {recentManualOperations.length ? (
                                           recentManualOperations.map((transaction: any) => (
-                                                <CashbookLine
+                                                <CompactTransactionLine
                                                       key={transaction.id}
                                                       transaction={transaction}
-                                                      compact
+                                                      onPrint={setVoucherTransaction}
                                                       onDelete={onDeleteTransaction}
                                                       isDeleting={isDeletingTransaction}
                                                 />
@@ -242,6 +248,13 @@ export function FinanceExpensesPanel({
                         </div>
                   </div>
             </section>
+            {voucherTransaction ? (
+                  <FinanceVoucherPreviewModal
+                        transaction={voucherTransaction}
+                        onClose={() => setVoucherTransaction(null)}
+                  />
+            ) : null}
+            </>
       );
 }
 
@@ -258,6 +271,8 @@ export function FinanceExpensePlansPanel({
       onDeleteTransaction?: (transaction: any) => void;
       isDeletingTransaction?: boolean;
 }) {
+      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
+
       const plannedPeriodExpenses = useMemo(
             () => transactions.filter((item: any) => isPlannedPeriodExpense(item)),
             [transactions],
@@ -269,15 +284,14 @@ export function FinanceExpensePlansPanel({
       const upcomingPlans = useMemo(() => plannedPeriodExpenses.slice(0, 8), [plannedPeriodExpenses]);
 
       return (
+            <>
             <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
                   <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.10),transparent_35%),radial-gradient(circle_at_top_left,rgba(246,201,92,0.16),transparent_36%)]" />
                   <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Khoản đề xuất</p>
-                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Dự chi và nhắc chuẩn bị</h2>
-                              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                                    Dùng cho điện, nước, internet, tiện ích hoặc khoản chi định kỳ cần chuẩn bị trước. Dự chi chưa làm giảm tiền mặt và chưa nằm trong Sổ dòng tiền.
-                              </p>
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Theo dõi</p>
+                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Dự chi sắp tới</h2>
+
                         </div>
                         <div className="flex flex-wrap gap-2">
                               <button type="button" onClick={onCreatePlan} className={cashbookActionClass("expense")}>
@@ -291,24 +305,25 @@ export function FinanceExpensePlansPanel({
 
                   <div className="relative mt-5 grid gap-3 md:grid-cols-3">
                         <ExpenseMetricCard label="Tổng dự chi" value={formatMoney(totalPlanned)} tone="blue" />
-                        <ExpenseMetricCard label="Khoản đang theo dõi" value={`${plannedPeriodExpenses.length} khoản`} tone="slate" />
+                        <ExpenseMetricCard label="Cần theo dõi" value={`${plannedPeriodExpenses.length} khoản`} tone="slate" />
                         <ExpenseMetricCard label="Tác động tiền mặt" value="Chưa phát sinh" tone="emerald" />
                   </div>
 
                   <div className="relative mt-5 rounded-[28px] border border-[#ead9ad]/70 bg-white/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                               <div>
-                                    <p className="text-sm font-semibold text-slate-900">Danh sách khoản đề xuất</p>
-                                    <p className="text-xs text-slate-500">Mỗi khoản có ngày dự chi theo từng kỳ để sau này nhắc chuẩn bị.</p>
+                                    <p className="text-sm font-semibold text-slate-900">Dự chi theo kỳ</p>
+                                    
                               </div>
                               <InlineBadge className="border-blue-100 bg-blue-50 text-blue-700">{upcomingPlans.length} dòng</InlineBadge>
                         </div>
                         <div className="space-y-2">
                               {upcomingPlans.length ? (
                                     upcomingPlans.map((transaction: any) => (
-                                          <CashbookLine
+                                          <PlanTrackingLine
                                                 key={transaction.id}
                                                 transaction={transaction}
+                                                onPrint={setVoucherTransaction}
                                                 onDelete={onDeleteTransaction}
                                                 isDeleting={isDeletingTransaction}
                                           />
@@ -319,6 +334,13 @@ export function FinanceExpensePlansPanel({
                         </div>
                   </div>
             </section>
+            {voucherTransaction ? (
+                  <FinanceVoucherPreviewModal
+                        transaction={voucherTransaction}
+                        onClose={() => setVoucherTransaction(null)}
+                  />
+            ) : null}
+            </>
       );
 }
 
@@ -335,6 +357,7 @@ export function FinanceCashbookPanel({
 }) {
       const [directionFilter, setDirectionFilter] = useState<"all" | "in" | "out">("all");
       const [searchText, setSearchText] = useState("");
+      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
 
       const normalizedTransactions = useMemo(
             () =>
@@ -384,7 +407,10 @@ export function FinanceCashbookPanel({
             });
       }, [directionFilter, normalizedTransactions, searchText]);
 
+      const cashbookRows = useMemo(() => groupCashbookTransactions(filteredTransactions), [filteredTransactions]);
+
       return (
+            <>
             <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
                   <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(246,201,92,0.14),transparent_34%)]" />
                   <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -431,11 +457,12 @@ export function FinanceCashbookPanel({
                         </div>
 
                         <div className="space-y-2">
-                              {filteredTransactions.length ? (
-                                    filteredTransactions.map((transaction: any) => (
+                              {cashbookRows.length ? (
+                                    cashbookRows.map((transaction: any) => (
                                           <CashbookLine
                                                 key={transaction.id}
                                                 transaction={transaction}
+                                                onPrint={setVoucherTransaction}
                                                 onDelete={onDeleteTransaction}
                                                 isDeleting={isDeletingTransaction}
                                           />
@@ -446,6 +473,13 @@ export function FinanceCashbookPanel({
                         </div>
                   </div>
             </section>
+            {voucherTransaction ? (
+                  <FinanceVoucherPreviewModal
+                        transaction={voucherTransaction}
+                        onClose={() => setVoucherTransaction(null)}
+                  />
+            ) : null}
+            </>
       );
 }
 
@@ -575,14 +609,203 @@ function CashbookMetricCard({
       );
 }
 
+function AdvanceTrackingLine({
+      transaction,
+      transactions,
+      onPrint,
+      onDelete,
+      isDeleting = false,
+}: {
+      transaction: any;
+      transactions: any[];
+      onPrint?: (transaction: any) => void;
+      onDelete?: (transaction: any) => void;
+      isDeleting?: boolean;
+}) {
+      const advanceAmount = toMoneyNumber(transaction.amount);
+      const actualSpent = getActualSpendingForAdvance(transaction, transactions);
+      const balance = advanceAmount - actualSpent;
+      const canDelete = Boolean(onDelete);
+
+      return (
+            <div className="rounded-[20px] border border-slate-100 bg-white/92 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
+                        <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                    <p className="truncate font-semibold text-slate-900">
+                                          {transaction.targetName || "Đối tượng nhận tạm ứng"}
+                                    </p>
+                                    <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">Tạm ứng</InlineBadge>
+                                    <InlineBadge className="border-emerald-100 bg-emerald-50 text-emerald-700">{getExpenseScopeLabel(transaction)}</InlineBadge>
+                              </div>
+                              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                                    <MiniMoney label="Đã xuất" value={advanceAmount} />
+                                    <MiniMoney label="Đã chi" value={actualSpent} />
+                                    <MiniMoney label="Còn giữ" value={balance} highlight />
+                              </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                              {onPrint ? (
+                                    <button
+                                          type="button"
+                                          onClick={() => onPrint(transaction)}
+                                          title="In phiếu"
+                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50 text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-100"
+                                    >
+                                          <Printer className="h-4 w-4" />
+                                    </button>
+                              ) : null}
+                              {canDelete ? (
+                                    <button
+                                          type="button"
+                                          disabled={isDeleting}
+                                          onClick={() => onDelete?.(transaction)}
+                                          title="Xóa khoản này"
+                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                          <Trash2 className="h-4 w-4" />
+                                    </button>
+                              ) : null}
+                        </div>
+                  </div>
+            </div>
+      );
+}
+
+function PlanTrackingLine({
+      transaction,
+      onPrint,
+      onDelete,
+      isDeleting = false,
+}: {
+      transaction: any;
+      onPrint?: (transaction: any) => void;
+      onDelete?: (transaction: any) => void;
+      isDeleting?: boolean;
+}) {
+      const canDelete = Boolean(onDelete);
+      return (
+            <div className="grid gap-3 rounded-[20px] border border-slate-100 bg-white/92 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] md:grid-cols-[1fr_auto] md:items-center">
+                  <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate font-semibold text-slate-900">
+                                    {transaction.targetName || "Dự chi"}
+                              </p>
+                              <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">Dự chi</InlineBadge>
+                              <InlineBadge className="border-blue-100 bg-blue-50 text-blue-700">{getExpenseScopeLabel(transaction)}</InlineBadge>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">{getPlanSummary(transaction)}</p>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                        <p className="text-right text-base font-semibold text-[#9a5f08]">-{formatMoney(transaction.amount)}</p>
+                              {onPrint ? (
+                                    <button
+                                          type="button"
+                                          onClick={() => onPrint(transaction)}
+                                          title="In phiếu"
+                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50 text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-100"
+                                    >
+                                          <Printer className="h-4 w-4" />
+                                    </button>
+                              ) : null}
+                        {canDelete ? (
+                              <button
+                                    type="button"
+                                    disabled={isDeleting}
+                                    onClick={() => onDelete?.(transaction)}
+                                    title="Xóa khoản này"
+                                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                    <Trash2 className="h-4 w-4" />
+                              </button>
+                        ) : null}
+                  </div>
+            </div>
+      );
+}
+
+function CompactTransactionLine({
+      transaction,
+      onPrint,
+      onDelete,
+      isDeleting = false,
+}: {
+      transaction: any;
+      onPrint?: (transaction: any) => void;
+      onDelete?: (transaction: any) => void;
+      isDeleting?: boolean;
+}) {
+      const direction = getTransactionDirectionForSource(transaction.source, transaction.direction);
+      const isOut = direction === "out";
+      const meta = getTransactionSourceMeta(transaction.source);
+      const canDelete = Boolean(onDelete) && transaction.source !== "student_fee_payment";
+      return (
+            <div className="grid gap-3 rounded-[20px] border border-slate-100 bg-white/92 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] md:grid-cols-[1fr_auto] md:items-center">
+                  <div className="flex min-w-0 items-start gap-3">
+                        <div className={`shrink-0 rounded-2xl p-2 ${isOut ? "bg-[#fff5d7] text-[#9a5f08]" : "bg-emerald-50 text-emerald-700"}`}>
+                              {isOut ? <CreditCard className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+                        </div>
+                        <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                    <p className="truncate font-semibold text-slate-900">{transaction.targetName || transaction.description || "Nghiệp vụ thu chi"}</p>
+                                    <InlineBadge className={isOut ? "border-amber-100 bg-amber-50 text-amber-800" : "border-emerald-100 bg-emerald-50 text-emerald-700"}>
+                                          {meta.shortLabel}
+                                    </InlineBadge>
+                                    {isOut ? <InlineBadge className="border-slate-200 bg-slate-50 text-slate-600">{getExpenseScopeLabel(transaction)}</InlineBadge> : null}
+                              </div>
+                              <p className="mt-1 text-xs text-slate-500">{formatDate(transaction.transactionDate)} · {getShortDescription(transaction)}</p>
+                        </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                        <p className={`text-right text-base font-semibold ${isOut ? "text-[#9a5f08]" : "text-emerald-700"}`}>
+                              {isOut ? "-" : "+"}{formatMoney(transaction.amount)}
+                        </p>
+                              {onPrint ? (
+                                    <button
+                                          type="button"
+                                          onClick={() => onPrint(transaction)}
+                                          title="In phiếu"
+                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50 text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-100"
+                                    >
+                                          <Printer className="h-4 w-4" />
+                                    </button>
+                              ) : null}
+                        {canDelete ? (
+                              <button
+                                    type="button"
+                                    disabled={isDeleting}
+                                    onClick={() => onDelete?.(transaction)}
+                                    title="Xóa khoản này"
+                                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                    <Trash2 className="h-4 w-4" />
+                              </button>
+                        ) : null}
+                  </div>
+            </div>
+      );
+}
+
+function MiniMoney({ label, value, highlight = false }: { label: string; value: number; highlight?: boolean }) {
+      return (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+                  <p className={`mt-1 text-sm font-bold ${highlight ? "text-[#9a5f08]" : "text-slate-700"}`}>{formatMoney(value)}</p>
+            </div>
+      );
+}
+
+
 function CashbookLine({
       transaction,
       compact = false,
+      onPrint,
       onDelete,
       isDeleting = false,
 }: {
       transaction: any;
       compact?: boolean;
+      onPrint?: (transaction: any) => void;
       onDelete?: (transaction: any) => void;
       isDeleting?: boolean;
 }) {
@@ -623,7 +846,7 @@ function CashbookLine({
                                     ) : null}
                               </div>
                               <p className="mt-1 text-xs text-slate-500">
-                                    {formatDate(transaction.transactionDate)}{transaction.description ? ` · ${transaction.description}` : ""}
+                                    {formatDate(transaction.transactionDate)} · {getShortDescription(transaction)}
                               </p>
                         </div>
                   </div>
@@ -631,6 +854,16 @@ function CashbookLine({
                         <p className={`text-right text-base font-semibold ${amountClass}`}>
                               {isMemo ? "Theo dõi " : isOut ? "-" : "+"}{formatMoney(transaction.amount)}
                         </p>
+                              {onPrint ? (
+                                    <button
+                                          type="button"
+                                          onClick={() => onPrint(transaction)}
+                                          title="In phiếu"
+                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50 text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-100"
+                                    >
+                                          <Printer className="h-4 w-4" />
+                                    </button>
+                              ) : null}
                         {canDelete ? (
                               <button
                                     type="button"
@@ -721,6 +954,89 @@ function getExpenseScopeLabel(transaction: any) {
       }
       return "Một lần";
 }
+
+function getActualSpendingForAdvance(advance: any, transactions: any[]) {
+      const advanceId = Number(advance?.id || 0);
+      if (!advanceId) return 0;
+      return transactions
+            .filter((item: any) => isAdvanceActualSpending(item.source) && String(item.targetType || "") === `advance_entry:${advanceId}`)
+            .reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0);
+}
+
+function getShortDescription(transaction: any) {
+      if (transaction?.summaryDescription) return transaction.summaryDescription;
+      if (isAdvanceExpense(transaction)) return getExpenseScopeLabel(transaction);
+      if (isPlannedPeriodExpense(transaction)) return getPlanSummary(transaction);
+      const source = String(transaction?.source || "");
+      if (source === "donation") return "Tài trợ / ủng hộ";
+      if (source === "other_income") return "Thu khác";
+      if (source === "student_fee_payment") return getStudentFeeSummary(transaction);
+      if (source === "expense" || source === "expense_once") return getExpenseScopeLabel(transaction);
+      return getTransactionSourceMeta(transaction.source).shortLabel || "Nghiệp vụ";
+}
+
+function getPlanSummary(transaction: any) {
+      const description = String(transaction?.description || "");
+      const perPeriod = description.match(/Số tiền mỗi kỳ:\s*([0-9,.]+)/i)?.[1];
+      const dueText = description.match(/Ngày dự chi:\s*([^·]+)/i)?.[1]?.trim();
+      const parts = [getExpenseScopeLabel(transaction)];
+      if (perPeriod) parts.push(`${perPeriod}đ/kỳ`);
+      if (dueText) parts.push(`Dự chi: ${dueText}`);
+      return parts.filter(Boolean).join(" · ");
+}
+
+function getStudentFeeSummary(transaction: any) {
+      const description = String(transaction?.description || "");
+      const monthMatch = description.match(/Tháng\s+(\d{2})\s*\/\s*(\d{4})/i) || description.match(/(\d{4})-(\d{2})/);
+      if (monthMatch) {
+            if (monthMatch[1]?.length === 2) return `Tháng ${monthMatch[1]}/${monthMatch[2]}`;
+            return `Tháng ${monthMatch[2]}/${monthMatch[1]}`;
+      }
+      return "Thu học viên";
+}
+
+function getStudentFeeGroupKey(transaction: any) {
+      return [
+            transaction.targetName || "",
+            transaction.transactionDate || "",
+            getStudentFeeSummary(transaction),
+      ].join("|");
+}
+
+function groupCashbookTransactions(transactions: any[]) {
+      const grouped = new Map<string, any>();
+      const result: any[] = [];
+
+      transactions.forEach((transaction: any) => {
+            if (transaction.source !== "student_fee_payment") {
+                  result.push(transaction);
+                  return;
+            }
+
+            const key = getStudentFeeGroupKey(transaction);
+            const existing = grouped.get(key);
+            if (existing) {
+                  existing.amount = toMoneyNumber(existing.amount) + toMoneyNumber(transaction.amount);
+                  existing.groupCount += 1;
+                  existing.groupIds.push(transaction.id);
+                  existing.summaryDescription = `${getStudentFeeSummary(transaction)} · ${existing.groupCount} khoản`;
+            } else {
+                  const row = {
+                        ...transaction,
+                        id: `student-fee-${key}`,
+                        amount: toMoneyNumber(transaction.amount),
+                        groupCount: 1,
+                        groupIds: [transaction.id],
+                        summaryDescription: `${getStudentFeeSummary(transaction)} · 1 khoản`,
+                  };
+                  grouped.set(key, row);
+                  result.push(row);
+            }
+      });
+
+      return result;
+}
+
 
 function EmptyFinanceBox({ text }: { text: string }) {
       return (
