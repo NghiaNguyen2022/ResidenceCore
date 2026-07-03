@@ -1,3 +1,5 @@
+import { cx } from '@/lib/utils';
+
 import {
       defaultResidenceAppearanceConfig,
       getDensityTokens,
@@ -5,9 +7,7 @@ import {
       getResidenceToneTokens,
 } from '@/config/residenceAppearance';
 
-export function cx(...classes: Array<string | false | null | undefined>) {
-      return classes.filter(Boolean).join(' ');
-}
+export { cx };
 
 const activeAppearanceConfig = defaultResidenceAppearanceConfig;
 const tone = getResidenceToneTokens(activeAppearanceConfig);
