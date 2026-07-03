@@ -7,6 +7,7 @@ import {
       HandCoins,
       PiggyBank,
       ReceiptText,
+      Printer,
       Search,
       Trash2,
       WalletCards,
@@ -15,6 +16,7 @@ import {
 
 import { InlineBadge } from "@/components/shared/display/InlineBadge";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
+import { FinanceVoucherPreviewModal } from "./FinanceVoucherPreviewModal";
 import {
       formatDate,
       formatMoney,
@@ -90,34 +92,47 @@ export function FinancePeriodSelector({
 
 export function FinanceExpensesPanel({
       transactions = [],
+      selectedPeriod,
+      selectedPeriodMonths = [],
+      selectedBillingMonth,
       onCreateExpense,
       onDeleteTransaction,
       isDeletingTransaction = false,
 }: {
       transactions?: any[];
+      selectedPeriod?: any;
+      selectedPeriodMonths?: Array<{ value: string; label?: string }>;
+      selectedBillingMonth?: string;
       onCreateExpense: (source?: string) => void;
       onDeleteTransaction?: (transaction: any) => void;
       isDeletingTransaction?: boolean;
 }) {
+      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
+
+      const visibleTransactions = useMemo(
+            () => filterTransactionsByViewingPeriod(transactions, selectedPeriodMonths),
+            [transactions, selectedPeriodMonths],
+      );
+      const viewingLabel = getViewingPeriodLabel(selectedPeriod, selectedPeriodMonths, selectedBillingMonth);
       const actualExpenseTransactions = useMemo(
             () =>
-                  transactions.filter(
+                  visibleTransactions.filter(
                         (item: any) =>
                               isTransactionAffectingCashFlow(item.source) &&
                               getTransactionDirectionForSource(item.source, item.direction) === "out" &&
                               !isPlannedPeriodExpense(item),
                   ),
-            [transactions],
+            [visibleTransactions],
       );
       const manualIncomeTransactions = useMemo(
             () =>
-                  transactions.filter((item: any) => {
-                        if (item.source === "student_fee_payment") return false;
+                  visibleTransactions.filter((item: any) => {
+                        if (isStudentFeeTransaction(item)) return false;
                         if (!isTransactionAffectingCashFlow(item.source)) return false;
                         if (isPlannedPeriodExpense(item)) return false;
                         return getTransactionDirectionForSource(item.source, item.direction) === "in";
                   }),
-            [transactions],
+            [visibleTransactions],
       );
       const advanceExpenses = useMemo(
             () => actualExpenseTransactions.filter((item: any) => isAdvanceExpense(item)),
@@ -142,61 +157,57 @@ export function FinanceExpensesPanel({
             () => advanceExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
             [advanceExpenses],
       );
+      const totalAdvanceActualSpending = useMemo(
+            () =>
+                  visibleTransactions
+                        .filter((item: any) => isAdvanceActualSpending(item.source))
+                        .reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
+            [visibleTransactions],
+      );
       const recentManualOperations = useMemo(
             () =>
-                  transactions
+                  visibleTransactions
                         .filter(
                               (item: any) =>
-                                    item.source !== "student_fee_payment" &&
+                                    !isStudentFeeTransaction(item) &&
+                                    !isAdvanceExpense(item) &&
+                                    !isAdvanceActualSpending(item.source) &&
                                     isTransactionAffectingCashFlow(item.source) &&
                                     !isPlannedPeriodExpense(item),
                         )
                         .slice(0, 6),
-            [transactions],
+            [visibleTransactions],
       );
 
       return (
-            <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
+            <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/70 bg-[linear-gradient(135deg,#fffdf8_0%,#ffffff_48%,#fff3cf_145%)] p-4 shadow-[0_18px_50px_rgba(106,76,20,0.08),inset_0_1px_0_rgba(255,255,255,0.94)]">
                   <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(246,201,92,0.15),transparent_36%)]" />
 
-                  <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
+                  <div className="relative grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                        <div className="min-w-0">
                               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Thu chi khác</p>
-                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Thu chi ngoài học viên</h2>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                    <h2 className="text-[25px] font-semibold tracking-tight text-[#101a2f]">Thu chi ngoài học viên</h2>
+                                    <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">{viewingLabel}</InlineBadge>
+                              </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                              <button type="button" className={cashbookActionClass("income")} onClick={() => onCreateExpense("other_income")}>
+                                    <WalletCards className="mr-2 h-4 w-4" /> Thu vào
+                              </button>
+                              <button type="button" className={cashbookActionClass("expense")} onClick={() => onCreateExpense("expense_once")}>
+                                    <CreditCard className="mr-2 h-4 w-4" /> Chi ra
+                              </button>
+                              <button type="button" className="inline-flex items-center rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200" onClick={() => onCreateExpense("expense_advance")}>
+                                    <HandCoins className="mr-2 h-4 w-4" /> Tạm ứng
+                              </button>
                         </div>
                   </div>
 
-                  <div className="relative mt-5 grid gap-3 xl:grid-cols-3">
-                        <OperationQuickCard
-                              icon={WalletCards}
-                              eyebrow="Tiền vào"
-                              title="Thu khác / tài trợ"
-                              action="Ghi nhận khoản thu"
-                              tone="blue"
-                              onClick={() => onCreateExpense("other_income")}
-                        />
-                        <OperationQuickCard
-                              icon={CreditCard}
-                              eyebrow="Tiền ra"
-                              title="Chi một lần"
-                              action="Ghi nhận khoản chi"
-                              tone="amber"
-                              onClick={() => onCreateExpense("expense_once")}
-                        />
-                        <OperationQuickCard
-                              icon={HandCoins}
-                              eyebrow="Tạm ứng"
-                              title="Tạm ứng theo kỳ"
-                              action="Xuất tạm ứng"
-                              tone="emerald"
-                              onClick={() => onCreateExpense("expense_advance")}
-                        />
-                  </div>
-
-                  <div className="relative mt-5 grid gap-3 md:grid-cols-3">
+                  <div className="relative mt-4 grid gap-3 md:grid-cols-3">
                         <ExpenseMetricCard label="Thu ngoài học viên" value={formatMoney(totalManualIncome)} tone="blue" />
                         <ExpenseMetricCard label="Chi một lần" value={formatMoney(totalOneTimeExpense)} tone="amber" />
-                        <ExpenseMetricCard label="Tiền đang tạm ứng" value={formatMoney(totalAdvanceExpense)} tone="emerald" />
+                        <ExpenseMetricCard label="Tạm ứng còn giữ" value={formatMoney(Math.max(0, totalAdvanceExpense - totalAdvanceActualSpending))} tone="emerald" />
                   </div>
 
                   <div className="relative mt-5 grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
@@ -204,7 +215,8 @@ export function FinanceExpensesPanel({
                               <div className="mb-3 flex items-center justify-between gap-3">
                                     <div>
                                           <p className="text-sm font-semibold text-slate-900">Tạm ứng đang theo dõi</p>
-                                                </div>
+                                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Theo dõi tạm ứng</p>
+                                    </div>
                                     <InlineBadge className="border-emerald-100 bg-emerald-50 text-emerald-700">{advanceExpenses.length} dòng</InlineBadge>
                               </div>
                               <div className="space-y-2">
@@ -214,12 +226,13 @@ export function FinanceExpensesPanel({
                                                       key={transaction.id}
                                                       transaction={transaction}
                                                       compact
+                                                      onPrint={setVoucherTransaction}
                                                       onDelete={onDeleteTransaction}
                                                       isDeleting={isDeletingTransaction}
                                                 />
                                           ))
                                     ) : (
-                                          <EmptyFinanceBox text="Chưa có khoản tạm ứng cần theo dõi." />
+                                          <EmptyFinanceBox text="Chưa có tạm ứng." />
                                     )}
                               </div>
                         </div>
@@ -228,7 +241,8 @@ export function FinanceExpensesPanel({
                               <div className="mb-3 flex items-center justify-between gap-3">
                                     <div>
                                           <p className="text-sm font-semibold text-slate-900">Thu chi gần đây</p>
-                                                </div>
+                                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Dòng tiền ngoài học viên</p>
+                                    </div>
                                     <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">{recentManualOperations.length} dòng</InlineBadge>
                               </div>
                               <div className="space-y-2">
@@ -238,6 +252,7 @@ export function FinanceExpensesPanel({
                                                       key={transaction.id}
                                                       transaction={transaction}
                                                       compact
+                                                      onPrint={setVoucherTransaction}
                                                       onDelete={onDeleteTransaction}
                                                       isDeleting={isDeletingTransaction}
                                                 />
@@ -248,26 +263,45 @@ export function FinanceExpensesPanel({
                               </div>
                         </div>
                   </div>
+                  {voucherTransaction ? (
+                        <FinanceVoucherPreviewModal
+                              transaction={voucherTransaction}
+                              onClose={() => setVoucherTransaction(null)}
+                        />
+                  ) : null}
             </section>
       );
 }
 
 export function FinanceExpensePlansPanel({
       transactions = [],
+      selectedPeriod,
+      selectedPeriodMonths = [],
+      selectedBillingMonth,
       onCreatePlan,
       onCreateActualExpense,
       onDeleteTransaction,
       isDeletingTransaction = false,
 }: {
       transactions?: any[];
+      selectedPeriod?: any;
+      selectedPeriodMonths?: Array<{ value: string; label?: string }>;
+      selectedBillingMonth?: string;
       onCreatePlan: () => void;
       onCreateActualExpense: () => void;
       onDeleteTransaction?: (transaction: any) => void;
       isDeletingTransaction?: boolean;
 }) {
+      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
+
+      const visibleTransactions = useMemo(
+            () => filterTransactionsByViewingPeriod(transactions, selectedPeriodMonths),
+            [transactions, selectedPeriodMonths],
+      );
+      const viewingLabel = getViewingPeriodLabel(selectedPeriod, selectedPeriodMonths, selectedBillingMonth);
       const plannedPeriodExpenses = useMemo(
-            () => transactions.filter((item: any) => isPlannedPeriodExpense(item)),
-            [transactions],
+            () => visibleTransactions.filter((item: any) => isPlannedPeriodExpense(item)),
+            [visibleTransactions],
       );
       const totalPlanned = useMemo(
             () => plannedPeriodExpenses.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount), 0),
@@ -280,8 +314,11 @@ export function FinanceExpensePlansPanel({
                   <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.10),transparent_35%),radial-gradient(circle_at_top_left,rgba(246,201,92,0.16),transparent_36%)]" />
                   <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Khoản đề xuất</p>
-                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Dự chi và nhắc chuẩn bị</h2>
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Theo dõi</p>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                    <h2 className="text-2xl font-semibold tracking-tight text-[#101a2f]">Dự chi sắp tới</h2>
+                                    <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">{viewingLabel}</InlineBadge>
+                              </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
                               <button type="button" onClick={onCreatePlan} className={cashbookActionClass("expense")}>
@@ -303,7 +340,7 @@ export function FinanceExpensePlansPanel({
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                               <div>
                                     <p className="text-sm font-semibold text-slate-900">Danh sách khoản đề xuất</p>
-                                    </div>
+                              </div>
                               <InlineBadge className="border-blue-100 bg-blue-50 text-blue-700">{upcomingPlans.length} dòng</InlineBadge>
                         </div>
                         <div className="space-y-2">
@@ -312,7 +349,8 @@ export function FinanceExpensePlansPanel({
                                           <CashbookLine
                                                 key={transaction.id}
                                                 transaction={transaction}
-                                                onDelete={onDeleteTransaction}
+onPrint={setVoucherTransaction}
+onDelete={onDeleteTransaction}
                                                 isDeleting={isDeletingTransaction}
                                           />
                                     ))
@@ -321,34 +359,54 @@ export function FinanceExpensePlansPanel({
                               )}
                         </div>
                   </div>
+                  {voucherTransaction ? (
+                        <FinanceVoucherPreviewModal
+                              transaction={voucherTransaction}
+                              onClose={() => setVoucherTransaction(null)}
+                        />
+                  ) : null}
             </section>
       );
 }
 
 export function FinanceCashbookPanel({
       transactions,
+      charges = [],
+      selectedPeriod,
+      selectedPeriodMonths = [],
+      selectedBillingMonth,
       onCreateTransaction,
       onDeleteTransaction,
       isDeletingTransaction = false,
 }: {
       transactions: any[];
+      charges?: any[];
+      selectedPeriod?: any;
+      selectedPeriodMonths?: Array<{ value: string; label?: string }>;
+      selectedBillingMonth?: string;
       onCreateTransaction: (source?: string) => void;
       onDeleteTransaction?: (transaction: any) => void;
       isDeletingTransaction?: boolean;
 }) {
       const [directionFilter, setDirectionFilter] = useState<"all" | "in" | "out">("all");
       const [searchText, setSearchText] = useState("");
+      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
+      const viewingLabel = getViewingPeriodLabel(selectedPeriod, selectedPeriodMonths, selectedBillingMonth);
+      const visibleTransactions = useMemo(
+            () => filterTransactionsByViewingPeriod(transactions, selectedPeriodMonths),
+            [transactions, selectedPeriodMonths],
+      );
 
       const normalizedTransactions = useMemo(
             () =>
-                  transactions
+                  visibleTransactions
                         .filter((transaction: any) => isTransactionAffectingCashFlow(transaction.source))
                         .filter((transaction: any) => !isPlannedPeriodExpense(transaction))
                         .map((transaction: any) => ({
                               ...transaction,
                               normalizedDirection: getTransactionDirectionForSource(transaction.source, transaction.direction),
                         })),
-            [transactions],
+            [visibleTransactions],
       );
 
       const totalIn = useMemo(
@@ -387,13 +445,28 @@ export function FinanceCashbookPanel({
             });
       }, [directionFilter, normalizedTransactions, searchText]);
 
+      const [expandedSummaryKey, setExpandedSummaryKey] = useState<string | null>(null);
+
+      const cashbookRows = useMemo(() => groupCashbookTransactions(filteredTransactions), [filteredTransactions]);
+      const periodSummary = useMemo(
+            () => buildCashbookPeriodSummary({
+                  charges,
+                  transactions: visibleTransactions,
+                  months: selectedPeriodMonths,
+            }),
+            [charges, visibleTransactions, selectedPeriodMonths],
+      );
+
       return (
             <section className="relative overflow-hidden rounded-[34px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fbf4e4_100%)] p-5 shadow-[0_22px_60px_rgba(106,76,20,0.10),inset_0_1px_0_rgba(255,255,255,0.92)]">
                   <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(246,201,92,0.14),transparent_34%)]" />
                   <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div>
                               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Sổ dòng tiền</p>
-                              <h2 className="mt-1 text-3xl font-semibold tracking-tight text-[#101a2f]">Dòng tiền phát sinh</h2>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                    <h2 className="text-2xl font-semibold tracking-tight text-[#101a2f]">Dòng tiền phát sinh</h2>
+                                    <InlineBadge className="border-amber-100 bg-amber-50 text-amber-800">{viewingLabel}</InlineBadge>
+                              </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
                               <button type="button" className={cashbookActionClass("income")} onClick={() => onCreateTransaction("other_income")}>
@@ -410,6 +483,12 @@ export function FinanceCashbookPanel({
                         <CashbookMetricCard label="Chi ra" value={formatMoney(totalOut)} icon={ArrowDownRight} tone="amber" />
                         <CashbookMetricCard label="Cân đối" value={`${balance >= 0 ? "+" : "-"}${formatMoney(Math.abs(balance))}`} icon={ReceiptText} tone={balance >= 0 ? "blue" : "rose"} />
                   </div>
+
+                  <CashbookPeriodSummary
+                        summary={periodSummary}
+                        expandedKey={expandedSummaryKey}
+                        onToggle={(key) => setExpandedSummaryKey((current) => (current === key ? null : key))}
+                  />
 
                   <div className="relative mt-5 rounded-[26px] border border-[#ead9ad]/70 bg-white/86 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                         <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -441,12 +520,13 @@ export function FinanceCashbookPanel({
                         </div>
 
                         <div className="space-y-2">
-                              {filteredTransactions.length ? (
-                                    filteredTransactions.map((transaction: any) => (
+                              {cashbookRows.length ? (
+                                    cashbookRows.map((transaction: any) => (
                                           <CashbookLine
                                                 key={transaction.id}
                                                 transaction={transaction}
-                                                onDelete={onDeleteTransaction}
+onPrint={setVoucherTransaction}
+onDelete={onDeleteTransaction}
                                                 isDeleting={isDeletingTransaction}
                                           />
                                     ))
@@ -457,6 +537,469 @@ export function FinanceCashbookPanel({
                   </div>
             </section>
       );
+}
+
+
+
+function CashbookPeriodSummary({
+      summary,
+      expandedKey,
+      onToggle,
+}: {
+      summary: CashbookPeriodSummaryData;
+      expandedKey: string | null;
+      onToggle: (key: string) => void;
+}) {
+      const visibleMonths = summary.monthRows;
+      const studentDetailOpen = expandedKey === "student-breakdown";
+      const advanceDetailOpen = expandedKey === "advance-holders";
+      const advanceRemaining = summary.advance.holders.reduce((sum, holder) => sum + holder.balance, 0);
+
+      return (
+            <div className="relative mt-5 rounded-[30px] border border-[#ead9ad]/70 bg-white/84 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Tổng hợp kỳ</p>
+                              <h3 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">Nhìn nhanh thu, chi và tạm ứng</h3>
+                        </div>
+                        <InlineBadge className="w-fit border-amber-100 bg-amber-50 text-amber-800">
+                              {summary.monthRows.length} tháng
+                        </InlineBadge>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 xl:grid-cols-[1.1fr_0.9fr_0.9fr]">
+                        <section className="rounded-[24px] border border-slate-100 bg-[linear-gradient(135deg,#ffffff_0%,#fffaf0_100%)] p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Theo tháng</p>
+                                    <p className="text-xs font-semibold text-slate-400">Thu / còn</p>
+                              </div>
+                              <div className="mt-3 max-h-[390px] space-y-2 overflow-y-auto pr-1">
+                                    {visibleMonths.length ? (
+                                          visibleMonths.map((month) => {
+                                                const key = `month:${month.month}`;
+                                                const expanded = expandedKey === key;
+                                                return (
+                                                      <div key={month.month} className="rounded-2xl border border-slate-100 bg-white/86 px-3 py-2">
+                                                            <div className="grid gap-2 sm:grid-cols-[74px_1fr_auto_auto] sm:items-center">
+                                                                  <p className="font-semibold text-slate-900">{formatMonthShort(month.month)}</p>
+                                                                  <p className="text-xs text-slate-500">
+                                                                        Thu {formatMoney(month.paidAmount)} / {formatMoney(month.receivableAmount)}
+                                                                  </p>
+                                                                  <p className={`text-right text-sm font-semibold ${month.remainingAmount > 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                                                                        Còn {formatMoney(month.remainingAmount)}
+                                                                  </p>
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => onToggle(key)}
+                                                                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-amber-200 hover:text-amber-700"
+                                                                  >
+                                                                        {expanded ? "Ẩn" : "Xem"}
+                                                                  </button>
+                                                            </div>
+                                                            {expanded ? (
+                                                                  <div className="mt-2 border-t border-slate-100 pt-2">
+                                                                        {month.details.length ? (
+                                                                              <div className="space-y-1.5">
+                                                                                    {month.details.map((item) => (
+                                                                                          <div key={item.name} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50/80 px-3 py-2">
+                                                                                                <div className="min-w-0">
+                                                                                                      <p className="truncate text-xs font-semibold text-slate-700">{item.name}</p>
+                                                                                                      <p className="text-[11px] text-slate-500">
+                                                                                                            {item.count} khoản · đã thu {formatMoney(item.paid)}
+                                                                                                      </p>
+                                                                                                </div>
+                                                                                                <p className={item.remaining > 0 ? "shrink-0 text-xs font-semibold text-rose-600" : "shrink-0 text-xs font-semibold text-emerald-700"}>
+                                                                                                      Còn {formatMoney(item.remaining)}
+                                                                                                </p>
+                                                                                          </div>
+                                                                                    ))}
+                                                                              </div>
+                                                                        ) : (
+                                                                              <p className="text-xs text-slate-400">Chưa có khoản thu.</p>
+                                                                        )}
+                                                                  </div>
+                                                            ) : null}
+                                                      </div>
+                                                );
+                                          })
+                                    ) : (
+                                          <EmptyFinanceBox text="Chưa có dữ liệu tháng." />
+                                    )}
+                              </div>
+                        </section>
+
+                        <section className="rounded-[24px] border border-emerald-100 bg-emerald-50/40 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Thu học viên</p>
+                                    <InlineBadge className="border-emerald-100 bg-white text-emerald-700">{summary.studentTotal.count} khoản</InlineBadge>
+                              </div>
+                              <p className="mt-4 text-2xl font-semibold text-slate-950">{formatMoney(summary.studentTotal.amount)}</p>
+                              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                                    <SimpleSummaryRow label="Đã thu" value={summary.studentTotal.paid} tone="emerald" />
+                                    <SimpleSummaryRow label="Còn lại" value={summary.studentTotal.remaining} tone={summary.studentTotal.remaining > 0 ? "rose" : "emerald"} />
+                              </div>
+                              <button
+                                    type="button"
+                                    onClick={() => onToggle("student-breakdown")}
+                                    className="mt-3 w-full rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:-translate-y-0.5"
+                              >
+                                    {studentDetailOpen ? "Thu gọn chi tiết" : "Xem chi tiết khoản thu"}
+                              </button>
+                              {studentDetailOpen ? (
+                                    <div className="mt-3 space-y-2">
+                                          {summary.studentBreakdown.map((item) => (
+                                                <div key={item.name} className="rounded-2xl border border-emerald-100/80 bg-white/86 px-3 py-2">
+                                                      <div className="flex items-center justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                  <p className="truncate text-sm font-semibold text-slate-700">{item.name}</p>
+                                                                  <p className="text-xs text-slate-500">{item.count} khoản · thu {formatMoney(item.paid)}</p>
+                                                            </div>
+                                                            <p className="shrink-0 text-sm font-semibold text-slate-900">{formatMoney(item.amount)}</p>
+                                                      </div>
+                                                </div>
+                                          ))}
+                                          {!summary.studentBreakdown.length ? <EmptyFinanceBox text="Chưa có khoản thu học viên." /> : null}
+                                    </div>
+                              ) : null}
+                        </section>
+
+                        <section className="rounded-[24px] border border-amber-100 bg-amber-50/38 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Chi & tạm ứng</p>
+                                    <InlineBadge className="border-amber-100 bg-white text-amber-800">{summary.expense.actualCount + summary.advance.count} dòng</InlineBadge>
+                              </div>
+                              <div className="mt-3 grid gap-2">
+                                    <SimpleSummaryRow label="Chi thật" value={summary.expense.actualAmount} sub={`${summary.expense.actualCount} dòng`} tone="amber" />
+                                    <SimpleSummaryRow label="Dự chi" value={summary.expense.plannedAmount} sub={`${summary.expense.plannedCount} dòng`} tone="blue" />
+                                    <SimpleSummaryRow label="Tạm ứng còn giữ" value={advanceRemaining} sub={`${summary.advance.holders.length} đối tượng`} tone="emerald" />
+                              </div>
+                              <button
+                                    type="button"
+                                    onClick={() => onToggle("advance-holders")}
+                                    className="mt-3 w-full rounded-2xl border border-amber-100 bg-white px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm transition hover:-translate-y-0.5"
+                              >
+                                    {advanceDetailOpen ? "Thu gọn tạm ứng" : "Xem đối tượng tạm ứng"}
+                              </button>
+                              {advanceDetailOpen ? (
+                                    <div className="mt-3 space-y-2">
+                                          {summary.advance.holders.map((holder) => (
+                                                <div key={holder.name} className="rounded-2xl border border-slate-100 bg-white/86 px-3 py-2">
+                                                      <div className="flex items-center justify-between gap-3">
+                                                            <p className="truncate text-sm font-semibold text-slate-700">{holder.name}</p>
+                                                            <p className="text-sm font-semibold text-slate-900">{formatMoney(holder.balance)}</p>
+                                                      </div>
+                                                      <p className="mt-1 text-xs text-slate-500">
+                                                            Giữ {formatMoney(holder.amount)} · đã chi {formatMoney(holder.spent)}
+                                                      </p>
+                                                </div>
+                                          ))}
+                                          {!summary.advance.holders.length ? <EmptyFinanceBox text="Chưa có tạm ứng." /> : null}
+                                    </div>
+                              ) : null}
+                        </section>
+                  </div>
+            </div>
+      );
+}
+
+function SimpleSummaryRow({
+      label,
+      value,
+      sub,
+      tone,
+}: {
+      label: string;
+      value: number;
+      sub?: string;
+      tone: "amber" | "blue" | "emerald" | "rose";
+}) {
+      const toneClass =
+            tone === "amber"
+                  ? "border-amber-100 bg-white/82 text-amber-900"
+                  : tone === "blue"
+                        ? "border-blue-100 bg-blue-50/70 text-blue-900"
+                        : tone === "rose"
+                              ? "border-rose-100 bg-rose-50/70 text-rose-900"
+                              : "border-emerald-100 bg-white/82 text-emerald-900";
+      return (
+            <div className={`rounded-2xl border px-3 py-2 ${toneClass}`}>
+                  <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold">{label}</p>
+                        <p className="text-sm font-semibold">{formatMoney(value)}</p>
+                  </div>
+                  {sub ? <p className="mt-0.5 text-xs opacity-70">{sub}</p> : null}
+            </div>
+      );
+}
+
+
+
+type CashbookPeriodSummaryData = {
+      monthRows: Array<{
+            month: string;
+            receivableCount: number;
+            receivableAmount: number;
+            paidCount: number;
+            paidAmount: number;
+            remainingAmount: number;
+            details: Array<{
+                  name: string;
+                  count: number;
+                  amount: number;
+                  paid: number;
+                  remaining: number;
+            }>;
+      }>;
+      studentTotal: {
+            count: number;
+            amount: number;
+            paid: number;
+            remaining: number;
+      };
+      studentBreakdown: Array<{
+            name: string;
+            count: number;
+            amount: number;
+            paid: number;
+            remaining: number;
+      }>;
+      expense: {
+            actualCount: number;
+            actualAmount: number;
+            plannedCount: number;
+            plannedAmount: number;
+      };
+      advance: {
+            count: number;
+            amount: number;
+            spentCount: number;
+            spentAmount: number;
+            holders: Array<{
+                  name: string;
+                  count: number;
+                  amount: number;
+                  spent: number;
+                  balance: number;
+            }>;
+      };
+};
+
+function buildCashbookPeriodSummary({
+      charges = [],
+      transactions = [],
+      months = [],
+}: {
+      charges?: any[];
+      transactions?: any[];
+      months?: Array<{ value: string; label?: string }>;
+}): CashbookPeriodSummaryData {
+      const periodMonths = getPeriodMonthValues(months);
+      const monthSet = new Set(periodMonths);
+      const relevantCharges = (charges || []).filter((charge: any) => {
+            const month = String(charge?.billingMonth || "").slice(0, 7);
+            const inMonth = !monthSet.size || !month || monthSet.has(month);
+            const isCancelled = String(charge?.status || "") === "cancelled";
+            return inMonth && !isCancelled;
+      });
+      const relevantTransactions = filterTransactionsByViewingPeriod(transactions || [], months || []);
+
+      const monthMap = new Map<string, CashbookPeriodSummaryData["monthRows"][number]>();
+      const monthBreakdownMap = new Map<string, Map<string, CashbookPeriodSummaryData["monthRows"][number]["details"][number]>>();
+      const ensureMonth = (month: string) => {
+            const normalized = /^\d{4}-\d{2}$/.test(month) ? month : "no-month";
+            const current = monthMap.get(normalized) || {
+                  month: normalized,
+                  receivableCount: 0,
+                  receivableAmount: 0,
+                  paidCount: 0,
+                  paidAmount: 0,
+                  remainingAmount: 0,
+                  details: [],
+            };
+            monthMap.set(normalized, current);
+            return current;
+      };
+
+      periodMonths.forEach((month) => ensureMonth(month));
+      const studentBreakdownMap = new Map<string, CashbookPeriodSummaryData["studentBreakdown"][number]>();
+      let studentCount = 0;
+      let studentAmount = 0;
+      let studentPaid = 0;
+      let studentRemaining = 0;
+
+      relevantCharges.forEach((charge: any) => {
+            const amount = toMoneyNumber(charge?.amount || 0);
+            const paid = toMoneyNumber(charge?.paidAmount || 0);
+            const remaining = toMoneyNumber(charge?.remainingAmount || Math.max(0, amount - paid));
+            const month = String(charge?.billingMonth || charge?.transactionDate || "").slice(0, 7);
+            const monthRow = ensureMonth(month);
+            monthRow.receivableCount += 1;
+            monthRow.receivableAmount += amount;
+            monthRow.paidAmount += paid;
+            monthRow.remainingAmount += remaining;
+            if (paid > 0) monthRow.paidCount += 1;
+
+            const name = getChargeDisplayName(charge);
+            const monthKey = /^\d{4}-\d{2}$/.test(month) ? month : "no-month";
+            const monthBreakdown = monthBreakdownMap.get(monthKey) || new Map<string, CashbookPeriodSummaryData["monthRows"][number]["details"][number]>();
+            const monthDetail = monthBreakdown.get(name) || { name, count: 0, amount: 0, paid: 0, remaining: 0 };
+            monthDetail.count += 1;
+            monthDetail.amount += amount;
+            monthDetail.paid += paid;
+            monthDetail.remaining += remaining;
+            monthBreakdown.set(name, monthDetail);
+            monthBreakdownMap.set(monthKey, monthBreakdown);
+
+            const current = studentBreakdownMap.get(name) || { name, count: 0, amount: 0, paid: 0, remaining: 0 };
+            current.count += 1;
+            current.amount += amount;
+            current.paid += paid;
+            current.remaining += remaining;
+            studentBreakdownMap.set(name, current);
+
+            studentCount += 1;
+            studentAmount += amount;
+            studentPaid += paid;
+            studentRemaining += remaining;
+      });
+
+      const actualExpenseTransactions = relevantTransactions.filter(
+            (transaction: any) =>
+                  getTransactionDirectionForSource(transaction.source, transaction.direction) === "out" &&
+                  isTransactionAffectingCashFlow(transaction.source) &&
+                  !isPlannedPeriodExpense(transaction) &&
+                  !isAdvanceExpense(transaction) &&
+                  !isAdvanceActualSpending(transaction.source),
+      );
+      const plannedExpenseTransactions = relevantTransactions.filter((transaction: any) => isPlannedPeriodExpense(transaction));
+      const advanceTransactions = relevantTransactions.filter((transaction: any) => isAdvanceExpense(transaction));
+      const advanceActualTransactions = relevantTransactions.filter((transaction: any) => isAdvanceActualSpending(transaction.source));
+
+      const holderMap = new Map<string, CashbookPeriodSummaryData["advance"]["holders"][number]>();
+      advanceTransactions.forEach((transaction: any) => {
+            const holderName = transaction?.targetName || "Đối tượng tạm ứng";
+            const current = holderMap.get(holderName) || { name: holderName, count: 0, amount: 0, spent: 0, balance: 0 };
+            current.count += 1;
+            current.amount += toMoneyNumber(transaction?.amount || 0);
+            holderMap.set(holderName, current);
+      });
+      advanceActualTransactions.forEach((transaction: any) => {
+            const holderName = transaction?.targetName || extractAdvanceActualHolderName(transaction) || "Đối tượng tạm ứng";
+            const current = holderMap.get(holderName) || { name: holderName, count: 0, amount: 0, spent: 0, balance: 0 };
+            current.spent += toMoneyNumber(transaction?.amount || 0);
+            holderMap.set(holderName, current);
+      });
+      const holders = Array.from(holderMap.values()).map((holder) => ({
+            ...holder,
+            balance: holder.amount - holder.spent,
+      }));
+
+      return {
+            monthRows: Array.from(monthMap.values())
+                  .map((row) => ({
+                        ...row,
+                        details: Array.from((monthBreakdownMap.get(row.month) || new Map()).values()).sort((a, b) => b.amount - a.amount),
+                  }))
+                  .filter((row) => row.month !== "no-month" || row.receivableAmount || row.paidAmount)
+                  .sort((a, b) => a.month.localeCompare(b.month)),
+            studentTotal: {
+                  count: studentCount,
+                  amount: studentAmount,
+                  paid: studentPaid,
+                  remaining: studentRemaining,
+            },
+            studentBreakdown: Array.from(studentBreakdownMap.values()).sort((a, b) => b.amount - a.amount),
+            expense: {
+                  actualCount: actualExpenseTransactions.length,
+                  actualAmount: actualExpenseTransactions.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount || 0), 0),
+                  plannedCount: plannedExpenseTransactions.length,
+                  plannedAmount: plannedExpenseTransactions.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount || 0), 0),
+            },
+            advance: {
+                  count: advanceTransactions.length,
+                  amount: advanceTransactions.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount || 0), 0),
+                  spentCount: advanceActualTransactions.length,
+                  spentAmount: advanceActualTransactions.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount || 0), 0),
+                  holders: holders.sort((a, b) => b.balance - a.balance),
+            },
+      };
+}
+
+function formatMonthShort(month: string) {
+      if (!/^\d{4}-\d{2}$/.test(month)) return "Khác";
+      return `T${month.slice(5, 7)}/${month.slice(0, 4)}`;
+}
+
+function getChargeDisplayName(charge: any) {
+      return (
+            charge?.periodItemName ||
+            charge?.feeTypeName ||
+            charge?.feeName ||
+            charge?.title ||
+            charge?.description ||
+            "Khoản thu học viên"
+      );
+}
+
+function extractAdvanceActualHolderName(transaction: any) {
+      const description = String(transaction?.description || "");
+      const match = description.match(/Đối tượng nhận:\s*([^·]+)/i);
+      return match?.[1]?.trim() || "";
+}
+
+
+function getPeriodMonthValues(months?: Array<{ value: string; label?: string }>) {
+      return (months || [])
+            .map((month: any) => String(month?.value || "").slice(0, 7))
+            .filter((value: string) => /^\d{4}-\d{2}$/.test(value));
+}
+
+function getViewingPeriodLabel(selectedPeriod?: any, months?: Array<{ value: string; label?: string }>, selectedBillingMonth?: string) {
+      const monthValues = getPeriodMonthValues(months);
+      if (selectedPeriod?.periodName && monthValues.length) {
+            return `${selectedPeriod.periodName} · ${monthValues[0].slice(5, 7)}-${monthValues[monthValues.length - 1].slice(5, 7)}/${monthValues[0].slice(0, 4)}`;
+      }
+      if (selectedBillingMonth) return `Tháng ${String(selectedBillingMonth).slice(5, 7)}/${String(selectedBillingMonth).slice(0, 4)}`;
+      return "Tất cả kỳ";
+}
+
+function filterTransactionsByViewingPeriod(transactions: any[], months?: Array<{ value: string; label?: string }>) {
+      const periodMonths = new Set(getPeriodMonthValues(months));
+      if (!periodMonths.size) return transactions || [];
+      return (transactions || []).filter((transaction: any) => {
+            const transactionMonths = extractTransactionMonths(transaction);
+            if (!transactionMonths.length) return true;
+            return transactionMonths.some((month) => periodMonths.has(month));
+      });
+}
+
+function extractTransactionMonths(transaction: any) {
+      const values = [
+            transaction?.transactionDate,
+            transaction?.createdAt,
+            transaction?.billingMonth,
+            transaction?.periodMonth,
+            transaction?.targetType,
+            transaction?.targetName,
+            transaction?.description,
+      ]
+            .filter(Boolean)
+            .map((value: any) => String(value));
+
+      const months = new Set<string>();
+      values.forEach((value) => {
+            const directMonth = value.match(/\b(20\d{2})-(0[1-9]|1[0-2])\b/g) || [];
+            directMonth.forEach((month) => months.add(month.slice(0, 7)));
+      });
+      return Array.from(months);
+}
+
+function isStudentFeeTransaction(transaction: any) {
+      const source = String(transaction?.source || "");
+      const targetType = String(transaction?.targetType || "");
+      if (source === "student_fee_payment") return true;
+      if (targetType === "student_fee_payment" || targetType === "student_fee" || targetType === "resident_fee") return true;
+      return false;
 }
 
 
@@ -508,16 +1051,16 @@ function OperationQuickCard({
 function ExpenseMetricCard({ label, value, tone }: { label: string; value: string; tone: "amber" | "slate" | "emerald" | "blue" }) {
       const toneClass =
             tone === "amber"
-                  ? "border-[#e6c675] bg-[#fff5d7] text-[#7c4a03]"
+                  ? "border-[#e6c675] bg-[linear-gradient(135deg,#fffaf0_0%,#fff2c0_100%)] text-[#7c4a03]"
                   : tone === "emerald"
-                        ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                        ? "border-emerald-100 bg-[linear-gradient(135deg,#f0fdf4_0%,#ffffff_100%)] text-emerald-700"
                         : tone === "blue"
-                              ? "border-blue-100 bg-blue-50 text-blue-700"
+                              ? "border-blue-100 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_100%)] text-blue-700"
                               : "border-slate-200 bg-white text-slate-700";
       return (
-            <div className={`rounded-[24px] border px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] ${toneClass}`}>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">{label}</p>
-                  <p className="mt-1 text-lg font-semibold">{value}</p>
+            <div className={`rounded-[24px] border px-4 py-3 shadow-[0_10px_26px_rgba(91,67,22,0.05),inset_0_1px_0_rgba(255,255,255,0.9)] ${toneClass}`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-65">{label}</p>
+                  <p className="mt-1 text-lg font-semibold tracking-tight">{value}</p>
             </div>
       );
 }
@@ -588,73 +1131,122 @@ function CashbookMetricCard({
 function CashbookLine({
       transaction,
       compact = false,
+      onPrint,
       onDelete,
       isDeleting = false,
 }: {
       transaction: any;
       compact?: boolean;
+      onPrint?: (transaction: any) => void;
       onDelete?: (transaction: any) => void;
       isDeleting?: boolean;
 }) {
+      const [expanded, setExpanded] = useState(false);
       const direction = getTransactionDirectionForSource(transaction.source, transaction.direction);
       const isOut = direction === "out";
       const isMemo = isAdvanceActualSpending(transaction.source) || direction === "memo";
       const meta = getTransactionSourceMeta(transaction.source);
-      const lineClass = compact ? "px-3 py-2.5" : "px-4 py-3";
-      const amountClass = isMemo ? "text-slate-600" : isOut ? "text-[#9a5f08]" : "text-emerald-700";
       const canDelete = Boolean(onDelete) && transaction.source !== "student_fee_payment";
+      const amountClass = isMemo ? "text-slate-600" : isOut ? "text-[#9a5f08]" : "text-emerald-700";
+      const shellClass = compact ? "px-3 py-2.5" : "px-4 py-3";
+      const description = getCompactTransactionDescription(transaction);
+      const details = getTransactionDetailRows(transaction);
 
       return (
-            <div className={`grid gap-3 rounded-[20px] border border-slate-100 bg-white/92 ${lineClass} shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] md:grid-cols-[1fr_auto] md:items-center`}>
-                  <div className="flex min-w-0 items-start gap-3">
-                        <div
-                              className={`shrink-0 rounded-2xl p-2 ${
-                                    isMemo
-                                          ? "bg-slate-100 text-slate-600"
-                                          : isOut
-                                                ? "bg-[#fff5d7] text-[#9a5f08]"
-                                                : "bg-emerald-50 text-emerald-700"
-                              }`}
-                        >
-                              {isMemo ? <ReceiptText className="h-4 w-4" /> : isOut ? <CreditCard className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
-                        </div>
-                        <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate font-semibold text-slate-900">
-                                          {transaction.targetName || transaction.description || "Nghiệp vụ thu chi"}
-                                    </p>
-                                    <InlineBadge className={isOut ? "border-amber-100 bg-amber-50 text-amber-800" : "border-emerald-100 bg-emerald-50 text-emerald-700"}>
-                                          {meta.shortLabel}
-                                    </InlineBadge>
-                                    {transaction.source === "expense" || transaction.source === "expense_plan" || transaction.source === "advance_out" ? (
-                                          <InlineBadge className={isPlannedPeriodExpense(transaction) ? "border-blue-100 bg-blue-50 text-blue-700" : isAdvanceExpense(transaction) ? "border-emerald-100 bg-emerald-50 text-emerald-700" : isPeriodExpense(transaction) ? "border-blue-100 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-600"}>
-                                                {getExpenseScopeLabel(transaction)}
-                                          </InlineBadge>
-                                    ) : null}
-                              </div>
-                              <p className="mt-1 text-xs text-slate-500">
-                                    {formatDate(transaction.transactionDate)}{transaction.description ? ` · ${transaction.description}` : ""}
-                              </p>
-                        </div>
-                  </div>
-                  <div className="flex items-center justify-end gap-2">
-                        <p className={`text-right text-base font-semibold ${amountClass}`}>
-                              {isMemo ? "Theo dõi " : isOut ? "-" : "+"}{formatMoney(transaction.amount)}
-                        </p>
-                        {canDelete ? (
-                              <button
-                                    type="button"
-                                    disabled={isDeleting}
-                                    onClick={() => onDelete?.(transaction)}
-                                    title="Xóa khoản này"
-                                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+            <div className={`rounded-[22px] border border-[#ead9ad]/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.96)_0%,rgba(255,251,235,0.82)_100%)] ${shellClass} shadow-[0_10px_26px_rgba(91,67,22,0.05),inset_0_1px_0_rgba(255,255,255,0.94)]`}>
+                  <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+                        <div className="flex min-w-0 items-start gap-3">
+                              <div
+                                    className={`mt-0.5 shrink-0 rounded-2xl p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
+                                          isMemo
+                                                ? "bg-slate-100 text-slate-600"
+                                                : isOut
+                                                      ? "bg-[#fff2c6] text-[#9a5f08]"
+                                                      : "bg-emerald-50 text-emerald-700"
+                                    }`}
                               >
-                                    <Trash2 className="h-4 w-4" />
-                              </button>
-                        ) : null}
+                                    {isMemo ? <ReceiptText className="h-4 w-4" /> : isOut ? <CreditCard className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+                              </div>
+                              <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                          <p className="truncate text-[15px] font-semibold text-slate-900">
+                                                {transaction.targetName || transaction.description || "Nghiệp vụ thu chi"}
+                                          </p>
+                                          <InlineBadge className={isOut ? "border-amber-100 bg-amber-50 text-amber-800" : "border-emerald-100 bg-emerald-50 text-emerald-700"}>
+                                                {meta.shortLabel}
+                                          </InlineBadge>
+                                          {isFinanceScopedTransaction(transaction) ? (
+                                                <InlineBadge className={isPlannedPeriodExpense(transaction) ? "border-blue-100 bg-blue-50 text-blue-700" : isAdvanceExpense(transaction) ? "border-emerald-100 bg-emerald-50 text-emerald-700" : isPeriodExpense(transaction) ? "border-blue-100 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-600"}>
+                                                      {getExpenseScopeLabel(transaction)}
+                                                </InlineBadge>
+                                          ) : null}
+                                    </div>
+                                    <p className="mt-1 truncate text-xs text-slate-500">
+                                          {formatDate(transaction.transactionDate)}{description ? ` · ${description}` : ""}
+                                    </p>
+                              </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                              <p className={`text-right text-base font-semibold ${amountClass}`}>
+                                    {isMemo ? "Theo dõi " : isOut ? "-" : "+"}{formatMoney(transaction.amount)}
+                              </p>
+                              {details.length ? (
+                                    <button
+                                          type="button"
+                                          onClick={() => setExpanded((value) => !value)}
+                                          className="rounded-2xl border border-slate-200 bg-white/82 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-amber-200 hover:bg-amber-50"
+                                    >
+                                          {expanded ? "Thu gọn" : "Chi tiết"}
+                                    </button>
+                              ) : null}
+                              {canDelete ? (
+                                    <button
+                                          type="button"
+                                          disabled={isDeleting}
+                                          onClick={() => onDelete?.(transaction)}
+                                          title="Xóa khoản này"
+                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-600 shadow-sm transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                          <Trash2 className="h-4 w-4" />
+                                    </button>
+                              ) : null}
+                        </div>
                   </div>
+
+                  {expanded ? (
+                        <div className="mt-3 rounded-[18px] border border-amber-100/70 bg-white/72 px-3 py-2 text-xs leading-5 text-slate-600">
+                              <div className="grid gap-1 sm:grid-cols-2">
+                                    {details.map((row) => (
+                                          <div key={row.label} className="min-w-0">
+                                                <span className="font-semibold text-slate-500">{row.label}: </span>
+                                                <span className="break-words text-slate-700">{row.value}</span>
+                                          </div>
+                                    ))}
+                              </div>
+                        </div>
+                  ) : null}
             </div>
       );
+}
+
+function isFinanceScopedTransaction(transaction: any) {
+      return transaction.source === "expense" || transaction.source === "expense_plan" || transaction.source === "advance_out" || String(transaction.targetType || "").startsWith("expense_");
+}
+
+function getCompactTransactionDescription(transaction: any) {
+      const description = String(transaction.description || "");
+      if (!description) return "";
+      return description.split("·")[0]?.trim() || description;
+}
+
+function getTransactionDetailRows(transaction: any) {
+      const rows: Array<{ label: string; value: string }> = [];
+      const targetType = String(transaction.targetType || "");
+      const description = String(transaction.description || "").trim();
+      if (description) rows.push({ label: "Nội dung", value: description });
+      if (targetType) rows.push({ label: "Phân loại", value: getExpenseScopeLabel(transaction) });
+      if (transaction.createdAt) rows.push({ label: "Ngày tạo", value: formatDate(transaction.createdAt) });
+      return rows;
 }
 
 function isPlannedPeriodExpense(transaction: any) {
@@ -731,6 +1323,58 @@ function getExpenseScopeLabel(transaction: any) {
       }
       return "Một lần";
 }
+
+
+function getStudentFeeSummary(transaction: any) {
+      const description = String(transaction?.description || "");
+      const monthMatch = description.match(/Tháng\s+(\d{2})\s*\/\s*(\d{4})/i) || description.match(/(20\d{2})-(0[1-9]|1[0-2])/);
+      if (monthMatch) {
+            if (monthMatch[1]?.length === 2) return `Tháng ${monthMatch[1]}/${monthMatch[2]}`;
+            return `Tháng ${monthMatch[2]}/${monthMatch[1]}`;
+      }
+      return "Thu học viên";
+}
+
+function getStudentFeeGroupKey(transaction: any) {
+      return [
+            transaction.targetName || "",
+            transaction.transactionDate || "",
+            getStudentFeeSummary(transaction),
+      ].join("|");
+}
+
+function groupCashbookTransactions(transactions: any[]) {
+      const grouped = new Map<string, any>();
+      const result: any[] = [];
+
+      transactions.forEach((transaction: any) => {
+            if (!isStudentFeeTransaction(transaction)) {
+                  result.push(transaction);
+                  return;
+            }
+
+            const key = getStudentFeeGroupKey(transaction);
+            const existing = grouped.get(key);
+            if (existing) {
+                  existing.amount = toMoneyNumber(existing.amount) + toMoneyNumber(transaction.amount);
+                  existing.groupCount += 1;
+                  existing.summaryDescription = `${getStudentFeeSummary(transaction)} · ${existing.groupCount} khoản`;
+            } else {
+                  const row = {
+                        ...transaction,
+                        id: `student-fee-${key}`,
+                        amount: toMoneyNumber(transaction.amount),
+                        groupCount: 1,
+                        summaryDescription: `${getStudentFeeSummary(transaction)} · 1 khoản`,
+                  };
+                  grouped.set(key, row);
+                  result.push(row);
+            }
+      });
+
+      return result;
+}
+
 
 function EmptyFinanceBox({ text }: { text: string }) {
       return (

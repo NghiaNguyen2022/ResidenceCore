@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { CheckCircle2, Pencil, Plus, Search } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, Printer, Search } from "lucide-react";
 
 import { InlineBadge } from "@/components/shared/display/InlineBadge";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
+import { FinanceVoucherPreviewModal } from "./FinanceVoucherPreviewModal";
 import type { ChargeStatus } from "./financeLiteTypes";
 import {
       formatMoney,
@@ -132,18 +134,50 @@ export function FinanceLiteStudentLedger({
       updateResidentItemAmount,
       setStudentLedgerPage,
 }: FinanceLiteStudentLedgerProps) {
+      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
+
       const ledgerTotalAmount = groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.amount || 0), 0);
       const ledgerPaidAmount = groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.paidAmount || 0), 0);
       const ledgerRemainingAmount = groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.remainingAmount || 0), 0);
+      const monthListScrollRef = useRef<HTMLDivElement | null>(null);
+
+      const defaultMonthViewTarget = useMemo(() => {
+            if (!selectedPeriodMonths.length) return currentBillingMonth;
+
+            const currentMonthNumber = getMonthNumberFromBillingMonth(currentBillingMonth);
+            const julyBillingMonth = getJulyBillingMonth(currentBillingMonth);
+            const preferredTarget = currentMonthNumber >= 8 ? julyBillingMonth : currentBillingMonth;
+            const preferredExists = selectedPeriodMonths.some((month: any) => month.value === preferredTarget);
+
+            if (preferredExists) return preferredTarget;
+
+            const currentExists = selectedPeriodMonths.some((month: any) => month.value === currentBillingMonth);
+            if (currentExists) return currentBillingMonth;
+
+            return selectedPeriodMonths[0]?.value || currentBillingMonth;
+      }, [currentBillingMonth, selectedPeriodMonths]);
+
+      useEffect(() => {
+            const container = monthListScrollRef.current;
+            const target = monthCardRefs.current[defaultMonthViewTarget];
+            if (!container || !target) return;
+
+            const frame = window.requestAnimationFrame(() => {
+                  container.scrollTop = target.offsetTop;
+            });
+
+            return () => window.cancelAnimationFrame(frame);
+      }, [defaultMonthViewTarget, selectedPeriod?.id, selectedPeriodMonths.length, monthCardRefs]);
+
       return (
-            <div className="relative grid gap-5 rounded-[34px] bg-[radial-gradient(circle_at_0%_0%,rgba(246,201,92,0.18),transparent_34%),linear-gradient(180deg,#fffdf8_0%,#fbf4e4_48%,#f6ead0_100%)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] xl:grid-cols-[308px_minmax(0,1fr)] xl:items-start">
-                  <section className="flex min-h-0 flex-col overflow-hidden rounded-[30px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(255,250,236,0.94)_100%)] p-4 shadow-[0_22px_55px_rgba(106,76,20,0.12),0_4px_12px_rgba(106,76,20,0.06),inset_0_1px_0_rgba(255,255,255,0.95)] ring-1 ring-white/70 xl:sticky xl:top-4 xl:h-[calc(100vh-5.5rem)] xl:max-h-none">
-                        <div className="mb-4 flex items-start justify-between gap-3">
-                              <div>
-                                    <h2 className="text-[30px] font-semibold leading-[1.05] tracking-tight text-[#101a2f]">
+            <div className="relative grid gap-5 rounded-[34px] bg-[radial-gradient(circle_at_0%_0%,rgba(246,201,92,0.18),transparent_34%),linear-gradient(180deg,#fffdf8_0%,#fbf4e4_48%,#f6ead0_100%)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] xl:grid-cols-[330px_minmax(0,1fr)] xl:items-start">
+                  <section className="flex min-h-0 flex-col overflow-hidden rounded-[30px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(255,250,236,0.94)_100%)] p-3.5 shadow-[0_22px_55px_rgba(106,76,20,0.12),0_4px_12px_rgba(106,76,20,0.06),inset_0_1px_0_rgba(255,255,255,0.95)] ring-1 ring-white/70 xl:sticky xl:top-[5.75rem] xl:h-[calc(100vh-6.75rem)] xl:min-h-[720px] xl:max-h-none">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                    <h2 className="text-[26px] font-semibold leading-[1.05] tracking-tight text-[#101a2f]">
                                           Chọn tháng
                                     </h2>
-                                    <p className="mt-2 max-w-[210px] text-sm leading-5 text-slate-500">
+                                    <p className="mt-2 inline-flex max-w-[210px] truncate rounded-full border border-amber-100 bg-[#fff8df] px-3 py-1 text-xs font-semibold text-amber-800">
                                           {selectedPeriod?.periodName || "Kỳ thu học viên"}
                                     </p>
                               </div>
@@ -155,29 +189,28 @@ export function FinanceLiteStudentLedger({
                                     <Plus className="mr-1.5 h-4 w-4" /> Kỳ
                               </button>
                         </div>
-                        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                        <div className="mb-2 shrink-0 rounded-[20px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(255,247,225,0.94)_100%)] px-3 py-2.5 shadow-[0_8px_18px_rgba(94,70,26,0.08),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                              <div className="flex items-center justify-between gap-2">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                                          Danh sách tháng
+                                    </p>
+                                    <button
+                                          type="button"
+                                          className="inline-flex items-center rounded-full border border-[#e0b85a]/70 bg-[linear-gradient(135deg,#fffdf6_0%,#ffe9a9_100%)] px-3 py-1.5 text-[11px] font-semibold text-[#8a5305] shadow-[0_6px_14px_rgba(184,127,24,0.12),inset_0_1px_0_rgba(255,255,255,0.9)] transition hover:-translate-y-0.5"
+                                          onClick={() => {
+                                                const periodWithCurrentMonth = periods.find((period: any) =>
+                                                      periodContainsBillingMonth(period, currentBillingMonth),
+                                                );
+                                                if (!periodWithCurrentMonth) return;
+                                                selectPeriodMonth(periodWithCurrentMonth, currentBillingMonth);
+                                          }}
+                                    >
+                                          Hiện tại
+                                    </button>
+                              </div>
+                        </div>
+                        <div ref={monthListScrollRef} className="min-h-0 flex-1 overflow-y-auto pr-1">
                               {periods.length ? (
-                                    <>
-                                          <div className="sticky top-0 z-20 mb-3 rounded-[22px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(255,247,225,0.94)_100%)] px-3 py-2.5 shadow-[0_12px_26px_rgba(94,70,26,0.10),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur">
-                                                <div className="flex items-center justify-between gap-2">
-                                                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                                            Danh sách tháng
-                                                      </p>
-                                                      <button
-                                                            type="button"
-                                                            className="inline-flex items-center rounded-full border border-[#e0b85a]/70 bg-[linear-gradient(135deg,#fffdf6_0%,#ffe9a9_100%)] px-3 py-1.5 text-[11px] font-semibold text-[#8a5305] shadow-[0_8px_18px_rgba(184,127,24,0.16),inset_0_1px_0_rgba(255,255,255,0.9)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_22px_rgba(184,127,24,0.22)]"
-                                                            onClick={() => {
-                                                                  const periodWithCurrentMonth = periods.find((period: any) =>
-                                                                        periodContainsBillingMonth(period, currentBillingMonth),
-                                                                  );
-                                                                  if (!periodWithCurrentMonth) return;
-                                                                  selectPeriodMonth(periodWithCurrentMonth, currentBillingMonth);
-                                                            }}
-                                                      >
-                                                            Tháng hiện tại
-                                                      </button>
-                                                </div>
-                                          </div>
                                           <div className="space-y-2">
                                                 {selectedPeriodMonths.map((month: any) => {
                                                       const stats = getMonthChargeStats(selectedPeriod, month.value);
@@ -210,11 +243,11 @@ export function FinanceLiteStudentLedger({
                                                                   }}
                                                                   type="button"
                                                                   onClick={() => selectPeriodMonth(selectedPeriod, month.value)}
-                                                                  className={`group w-full rounded-[22px] border px-3.5 py-3 text-left transition duration-200 hover:-translate-y-0.5 ${monthCardClass}`}
+                                                                  className={`group w-full rounded-[20px] border px-3.5 py-2.5 text-left transition duration-200 hover:-translate-y-0.5 ${monthCardClass}`}
                                                             >
                                                                   <div className="flex items-start justify-between gap-3">
                                                                         <div>
-                                                                              <span className="text-[15px] font-semibold tracking-tight">
+                                                                              <span className="text-[14px] font-semibold tracking-tight">
                                                                                     {month.label}
                                                                               </span>
                                                                         </div>
@@ -231,15 +264,26 @@ export function FinanceLiteStudentLedger({
                                                                   </div>
                                                                   <div className={`mt-2 flex items-center justify-between gap-2 text-[12px] ${metaTextClass}`}>
                                                                         <span>Thu {formatMoney(stats.paidAmount)}</span>
-                                                                        <span className={toMoneyNumber(stats.remainingAmount) > 0 ? "rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-600" : "rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-600"}>
-                                                                              {toMoneyNumber(stats.remainingAmount) > 0 ? `Còn ${formatMoney(stats.remainingAmount)}` : "Đủ"}
+                                                                        <span
+                                                                              className={
+                                                                                    toMoneyNumber(stats.remainingAmount) > 0
+                                                                                          ? "rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-600"
+                                                                                          : hasMonthCharges
+                                                                                                ? "rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-600"
+                                                                                                : "rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-500"
+                                                                              }
+                                                                        >
+                                                                              {toMoneyNumber(stats.remainingAmount) > 0
+                                                                                    ? `Còn ${formatMoney(stats.remainingAmount)}`
+                                                                                    : hasMonthCharges
+                                                                                          ? "Đã thu đủ"
+                                                                                          : "Chưa có khoản"}
                                                                         </span>
                                                                   </div>
                                                             </button>
                                                       );
                                                 })}
                                           </div>
-                                    </>
                               ) : (
                                     <p className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
                                           Chưa có kỳ thu. Bấm “Tạo kỳ thu” để bắt đầu.
@@ -258,7 +302,7 @@ export function FinanceLiteStudentLedger({
                                                       <span className="h-1 w-1 rounded-full bg-amber-400" />
                                                       <span>{groupedCharges.length} học viên</span>
                                                 </div>
-                                                <h2 className="mt-2 text-[24px] font-semibold leading-tight tracking-tight text-slate-950">
+                                                <h2 className="mt-2 text-[25px] font-semibold leading-tight tracking-tight text-slate-950">
                                                       Sổ phải thu học viên
                                                 </h2>
                                           </div>
@@ -582,7 +626,7 @@ export function FinanceLiteStudentLedger({
                                                                                     const monthRemaining = toMoneyNumber(monthStats.remainingAmount || 0);
                                                                                     return (
                                                                                           <option key={month.value} value={month.value}>
-                                                                                                {month.label} · {monthStats.residentCount} HV · {monthRemaining > 0 ? `Còn ${formatMoney(monthStats.remainingAmount)}` : "Đã ổn"}
+                                                                                                {month.label} · {monthStats.residentCount} HV · {monthRemaining > 0 ? `Còn ${formatMoney(monthStats.remainingAmount)}` : monthStats.residentCount > 0 || toMoneyNumber(monthStats.paidAmount || 0) > 0 ? "Đã thu đủ" : "Chưa có khoản"}
                                                                                           </option>
                                                                                     );
                                                                               })}
@@ -931,6 +975,17 @@ export function FinanceLiteStudentLedger({
             </div>
       );
 }
+
+function getMonthNumberFromBillingMonth(value: string) {
+      const monthNumber = Number(String(value || "").slice(5, 7));
+      return Number.isFinite(monthNumber) && monthNumber >= 1 && monthNumber <= 12 ? monthNumber : 1;
+}
+
+function getJulyBillingMonth(value: string) {
+      const year = String(value || "").slice(0, 4) || new Date().getFullYear().toString();
+      return `${year}-07`;
+}
+
 
 function SummaryStat({ label, value }: { label: string; value: string }) {
       return (

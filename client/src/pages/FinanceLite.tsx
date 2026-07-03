@@ -22,7 +22,6 @@ import {
       FinancePeriodSelector,
 } from "@/components/finance-lite/FinanceLitePanels";
 import { FinanceLiteStudentLedger } from "@/components/finance-lite/FinanceLiteStudentLedger";
-import { FinanceVoucherSettingsModal } from "@/components/finance-lite/FinanceVoucherSettingsModal";
 import type {
       ChargeStatus,
       EditChargeState,
@@ -109,7 +108,6 @@ export default function FinanceLite() {
       });
       const [transactionFormOpen, setTransactionFormOpen] = useState(false);
       const [transactionFormMessage, setTransactionFormMessage] = useState("");
-      const [voucherSettingsOpen, setVoucherSettingsOpen] = useState(false);
       const [transactionForm, setTransactionForm] = useState({
             source: "other_income",
             direction: "in",
@@ -1743,13 +1741,6 @@ export default function FinanceLite() {
                                                 <button
                                                       type="button"
                                                       className={residenceMediumStyle.buttonCard}
-                                                      onClick={() => setVoucherSettingsOpen(true)}
-                                                >
-                                                      Cấu hình phiếu
-                                                </button>
-                                                <button
-                                                      type="button"
-                                                      className={residenceMediumStyle.buttonCard}
                                                       onClick={() => openTransactionForm("other_income")}
                                                 >
                                                       Thu chi khác
@@ -1835,6 +1826,9 @@ export default function FinanceLite() {
       activeTab === "expenses" ? (
             <FinanceExpensesPanel
                   transactions={transactions}
+                  selectedPeriod={selectedPeriod}
+                  selectedPeriodMonths={selectedPeriodMonths}
+                  selectedBillingMonth={selectedBillingMonth}
                   onCreateExpense={(source = "other_income") => openTransactionForm(source)}
                   onDeleteTransaction={deleteTransaction}
                   isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
@@ -1845,6 +1839,9 @@ export default function FinanceLite() {
       activeTab === "plans" ? (
             <FinanceExpensePlansPanel
                   transactions={transactions}
+                  selectedPeriod={selectedPeriod}
+                  selectedPeriodMonths={selectedPeriodMonths}
+                  selectedBillingMonth={selectedBillingMonth}
                   onCreatePlan={() => openTransactionForm("expense_plan")}
                   onCreateActualExpense={() => openTransactionForm("expense_once")}
                   onDeleteTransaction={deleteTransaction}
@@ -1856,6 +1853,10 @@ export default function FinanceLite() {
       activeTab === "cashbook" ? (
             <FinanceCashbookPanel
                   transactions={transactions}
+                  charges={charges}
+                  selectedPeriod={selectedPeriod}
+                  selectedPeriodMonths={selectedPeriodMonths}
+                  selectedBillingMonth={selectedBillingMonth}
                   onCreateTransaction={(source = "other_income") => openTransactionForm(source === "expense" ? "expense_once" : source)}
                   onDeleteTransaction={deleteTransaction}
                   isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
@@ -1865,10 +1866,6 @@ export default function FinanceLite() {
         </div >
       </div >
 
-      {
-            voucherSettingsOpen ? (
-                  <FinanceVoucherSettingsModal onClose={() => setVoucherSettingsOpen(false)} />
-            ) : null}
       {
             periodFormOpen?(
         <FinanceCreatePeriodModal
