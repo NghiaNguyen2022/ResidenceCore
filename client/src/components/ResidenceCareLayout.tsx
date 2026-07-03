@@ -387,8 +387,9 @@ function SidebarItem({
       const [isOpen, setIsOpen] = useState(() => isItemActive(item, currentPath));
 
       const hasChildren = !!item.children?.length;
-      const active = isItemActive(item, currentPath);
-      const isDirectActive = item.path === currentPath;
+      const isDisabled = item.disabled === true;
+      const active = !isDisabled && isItemActive(item, currentPath);
+      const isDirectActive = !isDisabled && item.path === currentPath;
 
       const isParent = depth === 0;
       const isChild = depth === 1;
@@ -399,8 +400,10 @@ function SidebarItem({
             isParent ? "px-2.5 py-2 text-[14px] font-semibold" : "",
             isChild ? "px-2.5 py-1.5 text-[13px] font-medium" : "",
             isDeepChild ? "px-2.5 py-1.5 text-[13px]" : "",
-            isDirectActive
-                  ? "border-amber-200/60 bg-[linear-gradient(35deg,rgba(255,255,255,0.94)_0%,rgba(254,243,199,0.82)_38%,rgba(245,158,11,0.32)_78%,rgba(28,25,23,0.14)_100%)] text-slate-900 shadow-[0_14px_28px_rgba(12,10,9,0.10),inset_0_1px_0_rgba(255,255,255,0.78)]"
+            isDisabled
+                  ? "cursor-not-allowed border-transparent bg-white/28 text-slate-400 opacity-70"
+                  : isDirectActive
+                        ? "border-amber-200/60 bg-[linear-gradient(35deg,rgba(255,255,255,0.94)_0%,rgba(254,243,199,0.82)_38%,rgba(245,158,11,0.32)_78%,rgba(28,25,23,0.14)_100%)] text-slate-900 shadow-[0_14px_28px_rgba(12,10,9,0.10),inset_0_1px_0_rgba(255,255,255,0.78)]"
                   : active && hasChildren
                         ? "border-amber-100/70 bg-white/70 text-slate-900 shadow-[0_4px_12px_rgba(120,53,15,0.035)] shadow-slate-900/5"
                         : isChild
@@ -482,7 +485,7 @@ function SidebarItem({
                         >
                               {content}
                         </button>
-                  ) : item.path ? (
+                  ) : item.path && !isDisabled ? (
                         <Link href={item.path} className={itemClass} style={itemStyle} onClick={onNavigate}>
                               {isDeepChild && (
                                     <span
@@ -495,7 +498,14 @@ function SidebarItem({
                               {content}
                         </Link>
                   ) : (
-                        <div className={itemClass} style={itemStyle}>{content}</div>
+                        <div
+                              className={itemClass}
+                              style={itemStyle}
+                              aria-disabled={isDisabled || undefined}
+                              title={isDisabled ? "Chức năng đang được chuẩn bị" : undefined}
+                        >
+                              {content}
+                        </div>
                   )}
 
                   {hasChildren && isOpen && (

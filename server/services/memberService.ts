@@ -383,23 +383,82 @@ export class MemberService {
 
       async assignRoom(payload: {
             id: number;
-            roomId: number;
+            roomId?: number;
+            assignedDate?: Date;
             eventType: "new_entry" | "transfer" | "temporary_leave" | "left";
             reason?: string;
       }) {
+            /**
+             * Legacy compatibility path for members.assignRoom.
+             *
+             * Main UI hiện đang dùng rooms.assignResident. Tuy nhiên endpoint cũ vẫn còn expose,
+             * nên phải giữ cùng business rule để tránh tạo roomAssignments mở song song hoặc lệch
+             * residents.currentRoomId nếu có client cũ gọi vào.
+             */
             const resident = await db.getResidentById(payload.id);
 
             if (!resident) {
                   throw new Error("Member not found");
             }
 
+            const residentStatus = (resident as any).status;
+            if (residentStatus === "inactive" || residentStatus === "transferred_out") {
+                  throw new Error("Học viên đã ngừng/rời lưu xá, không thể thao tác phòng trực tiếp.");
+            }
+
+            const assignedDate = payload.assignedDate || new Date();
+            const currentAssignment = await db.getCurrentRoomAssignmentByResident(payload.id);
+
+            if (payload.eventType === "left" || payload.eventType === "temporary_leave") {
+                  if (currentAssignment?.id) {
+                        await db.closeCurrentRoomAssignment(
+                              Number(currentAssignment.id),
+                              assignedDate,
+                              payload.reason || "Trả phòng"
+                        );
+                  }
+
+                  await db.updateResidentCurrentRoom(payload.id, null);
+                  return { success: true } as const;
+            }
+
+            if (!payload.roomId) {
+                  throw new Error("Vui lòng chọn phòng.");
+            }
+
+            if (currentAssignment?.roomId && Number(currentAssignment.roomId) === Number(payload.roomId)) {
+                  throw new Error("Học viên đang ở phòng này, vui lòng chọn phòng khác.");
+            }
+
+            const room = await db.getRoomById(payload.roomId);
+            if (!room) {
+                  throw new Error("Không tìm thấy phòng.");
+            }
+
+            const occupancy = await db.getRoomCurrentOccupancy(payload.roomId);
+            const capacity = Number((room as any).capacity || 0);
+
+            if (capacity > 0 && occupancy >= capacity) {
+                  throw new Error("Phòng đã đủ sức chứa, không thể gán thêm học viên.");
+            }
+
+            if (currentAssignment?.id) {
+                  await db.closeCurrentRoomAssignment(
+                        Number(currentAssignment.id),
+                        assignedDate,
+                        payload.reason || "Chuyển phòng"
+                  );
+            }
+
             await db.assignResidentToRoom({
                   residentId: payload.id,
                   roomId: payload.roomId,
-                  assignedDate: new Date(),
+                  assignedDate,
                   eventType: payload.eventType,
                   reason: payload.reason,
             });
+
+            await db.updateResidentCurrentRoom(payload.id, payload.roomId);
 
             return { success: true } as const;
       }

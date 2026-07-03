@@ -284,14 +284,17 @@ export const membersRouter = router({
             .input(
                   z.object({
                         id: z.number(),
-                        roomId: z.number(),
+                        roomId: z.number().optional(),
+                        assignedDate: z.date().optional(),
                         eventType: z
                               .enum(["new_entry", "transfer", "temporary_leave", "left"])
                               .default("new_entry"),
                         reason: z.string().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireMemberManagementAccess(ctx.user);
+
                   try {
                         return await memberService.assignRoom(input);
                   } catch (error) {

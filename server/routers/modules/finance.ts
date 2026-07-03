@@ -1,7 +1,22 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { protectedProcedure, router } from '../../_core/trpc';
+import { isManager } from '../../_core/rbac';
 import * as financeDb from '../../db/finance';
+
+
+function requireFinanceManagementAccess(user: {
+      id?: number;
+      role?: string | null;
+      roles?: string[] | null;
+} | null | undefined) {
+      if (!isManager(user)) {
+            throw new TRPCError({
+                  code: 'FORBIDDEN',
+                  message: 'Bạn không có quyền quản lý tài chính.',
+            });
+      }
+}
 
 const periodInputSchema = z.object({
       periodName: z.string().min(1),
@@ -15,7 +30,8 @@ const periodInputSchema = z.object({
 });
 
 export const financeRouter = router({
-      summary: protectedProcedure.query(async () => {
+      summary: protectedProcedure.query(async ({ ctx }: any) => {
+            requireFinanceManagementAccess(ctx.user);
             try {
                   return await financeDb.getFinanceSummary();
             } catch (error) {
@@ -29,7 +45,8 @@ export const financeRouter = router({
 
       listFeeTypes: protectedProcedure
             .input(z.object({ isActive: z.boolean().optional() }).optional())
-            .query(async ({ input }) => {
+            .query(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.listFinanceFeeTypes(input || {});
                   } catch (error) {
@@ -51,7 +68,8 @@ export const financeRouter = router({
                         description: z.string().optional().nullable(),
                   }),
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.createFinanceFeeType(input);
                   } catch (error) {
@@ -63,7 +81,8 @@ export const financeRouter = router({
                   }
             }),
 
-      listChargePeriods: protectedProcedure.query(async () => {
+      listChargePeriods: protectedProcedure.query(async ({ ctx }: any) => {
+            requireFinanceManagementAccess(ctx.user);
             try {
                   return await financeDb.listFinanceChargePeriods();
             } catch (error) {
@@ -77,7 +96,8 @@ export const financeRouter = router({
 
       getChargePeriodDetail: protectedProcedure
             .input(z.object({ periodId: z.number() }))
-            .query(async ({ input }) => {
+            .query(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.getFinanceChargePeriodDetail(input.periodId);
                   } catch (error) {
@@ -92,6 +112,7 @@ export const financeRouter = router({
       createChargePeriod: protectedProcedure
             .input(periodInputSchema)
             .mutation(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.createFinanceChargePeriod({
                               ...input,
@@ -109,6 +130,7 @@ export const financeRouter = router({
       updateChargePeriod: protectedProcedure
             .input(periodInputSchema.extend({ id: z.number(), status: z.string().optional().nullable() }))
             .mutation(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.updateFinanceChargePeriod({
                               ...input,
@@ -125,7 +147,8 @@ export const financeRouter = router({
 
       previewChargePeriodResidents: protectedProcedure
             .input(z.object({ periodId: z.number(), billingMonth: z.string().min(7) }))
-            .query(async ({ input }) => {
+            .query(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.previewFinanceChargePeriodResidents(input);
                   } catch (error) {
@@ -157,6 +180,7 @@ export const financeRouter = router({
                   }),
             )
             .mutation(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.applyFinanceChargePeriod({
                               ...input,
@@ -185,7 +209,8 @@ export const financeRouter = router({
                         })
                         .optional(),
             )
-            .query(async ({ input }) => {
+            .query(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.listFinanceCharges(input || {});
                   } catch (error) {
@@ -217,6 +242,7 @@ export const financeRouter = router({
                   }),
             )
             .mutation(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.createFinanceChargeBatch({ ...input, createdBy: ctx?.user?.id || null });
                   } catch (error) {
@@ -245,7 +271,8 @@ export const financeRouter = router({
                         description: z.string().optional().nullable(),
                   }),
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.updateFinanceCharge(input);
                   } catch (error) {
@@ -269,7 +296,8 @@ export const financeRouter = router({
                         })
                         .optional(),
             )
-            .query(async ({ input }) => {
+            .query(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.listFinanceTransactions(input || {});
                   } catch (error) {
@@ -294,6 +322,7 @@ export const financeRouter = router({
                   }),
             )
             .mutation(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.createFinanceTransaction({ ...input, createdBy: ctx?.user?.id || null });
                   } catch (error) {
@@ -307,7 +336,8 @@ export const financeRouter = router({
 
       deleteTransaction: protectedProcedure
             .input(z.object({ id: z.number() }))
-            .mutation(async ({ input }) => {
+            .mutation(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.deleteFinanceTransaction(input);
                   } catch (error) {
@@ -331,6 +361,7 @@ export const financeRouter = router({
                   }),
             )
             .mutation(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.recordFinancePayment({ ...input, createdBy: ctx?.user?.id || null });
                   } catch (error) {
@@ -344,7 +375,8 @@ export const financeRouter = router({
 
       cancelCharge: protectedProcedure
             .input(z.object({ id: z.number(), reason: z.string().optional().nullable() }))
-            .mutation(async ({ input }) => {
+            .mutation(async ({ input, ctx }: any) => {
+                  requireFinanceManagementAccess(ctx.user);
                   try {
                         return await financeDb.cancelFinanceCharge(input);
                   } catch (error) {

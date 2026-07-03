@@ -1,9 +1,24 @@
 import { protectedProcedure, router } from "../../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { isManager } from "../../_core/rbac";
 import * as db from "../../db";
 import { dutyAssignments } from "../../../drizzle/schema";
 
+
+
+function requireDutyManagementAccess(user: {
+      id?: number;
+      role?: string | null;
+      roles?: string[] | null;
+} | null | undefined) {
+      if (!isManager(user)) {
+            throw new TRPCError({
+                  code: "FORBIDDEN",
+                  message: "Bạn không có quyền quản lý công tác.",
+            });
+      }
+}
 
 const assignmentScopeInput = z.object({
       dutyConfigId: z.number(),
@@ -85,8 +100,10 @@ export const dutiesRouter = router({
                         offset: z.number().default(0),
                   }).optional()
             )
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const configs = await db.getDutyConfigs({
                               dutyType: input?.dutyType,
                               search: input?.search,
@@ -158,8 +175,10 @@ export const dutiesRouter = router({
                         isActive: z.boolean().default(true),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         // Check if duty code already exists
                         const existing = await db.getDutyConfigByCode(input.dutyCode);
                         if (existing) {
@@ -213,8 +232,10 @@ export const dutiesRouter = router({
                         isActive: z.boolean().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const { id, ...updateData } = input;
 
                         await db.updateDutyConfig(id, updateData);
@@ -243,8 +264,10 @@ export const dutiesRouter = router({
        */
       deleteConfig: protectedProcedure
             .input(z.object({ id: z.number() }))
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         await db.deleteDutyConfig(input.id);
                         return { success: true };
                   } catch (error) {
@@ -295,8 +318,10 @@ export const dutiesRouter = router({
                         estimatedTimeMinutes: z.number().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const result = await db.addChecklistItem({
                               ...input,
                               itemOrder: input.itemOrder ?? 1,
@@ -327,8 +352,10 @@ export const dutiesRouter = router({
                         estimatedTimeMinutes: z.number().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const { id, ...updateData } = input;
                         await db.updateChecklistItem(id, updateData);
                         return { success: true };
@@ -346,8 +373,10 @@ export const dutiesRouter = router({
        */
       deleteChecklistItem: protectedProcedure
             .input(z.object({ id: z.number() }))
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         await db.deleteChecklistItem(input.id);
                         return { success: true };
                   } catch (error) {
@@ -384,8 +413,10 @@ export const dutiesRouter = router({
        */
       getResidentDutyStats: protectedProcedure
             .input(z.object({ residentId: z.number() }))
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const stats = await db.getResidentDutyStats(input.residentId);
                         return stats;
                   } catch (error) {
@@ -413,8 +444,10 @@ export const dutiesRouter = router({
                         offset: z.number().default(0),
                   })
             )
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const assignments = await db.getAssignmentsByResident(input.residentId, {
                               status: input.status,
                               limit: input.limit,
@@ -521,8 +554,10 @@ export const dutiesRouter = router({
        */
       getAssignmentsByDate: protectedProcedure
             .input(z.object({ date: z.date() }))
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const assignments = await db.getAssignmentsByDate(input.date);
                         return assignments;
                   } catch (error) {
@@ -537,8 +572,10 @@ export const dutiesRouter = router({
       /**
        * Lấy công tác hôm nay
        */
-      getTodayAssignments: protectedProcedure.query(async () => {
+      getTodayAssignments: protectedProcedure.query(async ({ ctx }) => {
             try {
+                  requireDutyManagementAccess(ctx.user);
+
                   const assignments = await db.getTodayAssignments();
                   return assignments;
             } catch (error) {
@@ -574,8 +611,10 @@ export const dutiesRouter = router({
                         assignedToId: z.number().optional(),
                   })
             )
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const assignments = await db.getAssignmentsByDateRange(
                               input.startDate,
                               input.endDate,
@@ -617,8 +656,10 @@ export const dutiesRouter = router({
                         endDate: z.date().optional(),
                   })
             )
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const assignments = await db.getAssignmentsByAssignee(
                               input.assignedToType,
                               input.assignedToId,
@@ -648,8 +689,10 @@ export const dutiesRouter = router({
                         notes: z.string().optional().nullable(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         await db.markAssignmentCompleted(input.id, input.notes);
                         return { success: true };
                   } catch (error) {
@@ -675,8 +718,10 @@ export const dutiesRouter = router({
                         notes: z.string().optional().nullable(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         await db.markAssignmentSkipped(input.id, input.reason, input.notes);
                         return { success: true };
                   } catch (error) {
@@ -697,8 +742,10 @@ export const dutiesRouter = router({
        */
       previewAssignment: protectedProcedure
             .input(assignmentScopeInput)
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         return await db.previewDutyAssignment(input);
                   } catch (error) {
                         console.error("[duties.previewAssignment] Error:", error);
@@ -717,8 +764,10 @@ export const dutiesRouter = router({
        */
       assignDutyBatch: protectedProcedure
             .input(assignmentScopeInput)
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         return await db.assignDutyBatch(input);
                   } catch (error) {
                         console.error("[duties.assignDutyBatch] Error:", error);
@@ -752,8 +801,10 @@ export const dutiesRouter = router({
                         notes: z.string().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const result = await db.assignDuty(input as any);
                         return result;
                   } catch (error) {
@@ -779,8 +830,6 @@ export const dutiesRouter = router({
             )
             .mutation(async ({ input, ctx }) => {
                   try {
-                        const staffRoles = ["admin", "manager", "supervisor", "accountant"];
-
                         if (ctx.user?.role === "resident") {
                               const resident = await db.getResidentByUserId(ctx.user.id);
                               if (!resident) {
@@ -806,12 +855,7 @@ export const dutiesRouter = router({
                               return { success: true };
                         }
 
-                        if (!ctx.user || !staffRoles.includes(ctx.user.role)) {
-                              throw new TRPCError({
-                                    code: "FORBIDDEN",
-                                    message: "Bạn không có quyền cập nhật công tác này",
-                              });
-                        }
+                        requireDutyManagementAccess(ctx.user);
 
                         const { id, ...updateData } = input;
                         await db.updateAssignment(id, updateData);
@@ -831,8 +875,10 @@ export const dutiesRouter = router({
        */
       cancelAssignment: protectedProcedure
             .input(z.object({ id: z.number(), reason: z.string().optional() }))
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         await db.cancelAssignment(input.id, input.reason);
                         return { success: true };
                   } catch (error) {
@@ -863,8 +909,10 @@ export const dutiesRouter = router({
                         notes: z.string().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const result = await db.evaluateDuty(input);
                         return result;
                   } catch (error) {
@@ -881,8 +929,10 @@ export const dutiesRouter = router({
        */
       getEvaluation: protectedProcedure
             .input(z.object({ assignmentId: z.number() }))
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const evaluation = await db.getEvaluationByAssignment(input.assignmentId);
                         return evaluation;
                   } catch (error) {
@@ -899,8 +949,10 @@ export const dutiesRouter = router({
        */
       getResidentEvaluations: protectedProcedure
             .input(z.object({ residentId: z.number() }))
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const evaluations = await db.getEvaluationsByResident(input.residentId);
                         return evaluations;
                   } catch (error) {
@@ -938,8 +990,10 @@ export const dutiesRouter = router({
                         ),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const assignmentsToInsert = input.assignments.map((assignment) => ({
                               dutyConfigId: assignment.dutyConfigId,
                               residentId: assignment.residentId,
@@ -969,8 +1023,10 @@ export const dutiesRouter = router({
                         travelMinutes: z.number().optional().default(60),
                   })
             )
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const config = await db.getDutyConfig(input.dutyConfigId);
                         if (!config) {
                               throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy cấu hình công tác" });
@@ -1025,8 +1081,10 @@ export const dutiesRouter = router({
                         notes: z.string().optional().nullable(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const date = new Date(input.assignedDate);
                         const rows = input.residentIds.map((residentId) => ({
                               dutyConfigId: input.dutyConfigId,

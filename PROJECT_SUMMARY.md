@@ -628,6 +628,204 @@ Archive (4) - Trùng ý nghĩa hoặc thiên về dev/demo, nên tách khỏi lu
 - Residents.tsx
 - Schedules.tsx
 
+## 16. Checklist ưu tiên cho main flow demo (quản trị -> tài chính)
+
+Mục tiêu của checklist này là chạy được demo full luồng cơ bản nhất, không 404, dữ liệu đi xuyên suốt từ quản trị đến tài chính.
+
+### 16.1. Trạng thái module theo code hiện tại
+
+- Members: xong mức main flow (đã có route và API chính).
+- Organization: xong và ổn định cho demo.
+- FinanceLite: khá chuẩn, đủ làm trục tài chính của demo.
+- Resident portal: đã có route và API chính, cần review lại theo user journey.
+- DailyRoutine/Duties/Assignment/Schedule: có nền API + UI, nhưng cần khóa phạm vi demo để tránh rối.
+
+### 16.2. Checklist P0 phải có để chạy demo main flow
+
+- [ ] 1) Chốt route/menu không lỗi cho các trang demo bắt buộc.
+   - Bắt buộc: `/dashboard`, `/members`, `/organization`, `/finance`, `/daily-routine`, `/resident/today`, `/resident/finance`.
+   - Với path chưa có route: tạm ẩn khỏi menu hoặc đánh dấu disabled có chủ đích.
+
+- [ ] 2) Khóa main flow quản trị cư dân -> phòng -> tổ chức.
+   - Tạo/cập nhật cư dân chạy ổn.
+   - Gán/chuyển/trả phòng chạy ổn.
+   - Bổ nhiệm/tổ chức xem và thao tác được ở luồng chính.
+
+- [ ] 3) Khóa main flow tài chính tối thiểu.
+   - Tạo kỳ thu hoặc khoản thu chung.
+   - Ghi nhận thanh toán theo học viên.
+   - Tổng quan tài chính phản ánh thay đổi sau thanh toán.
+
+- [ ] 4) Khóa main flow sinh hoạt/công tác ở mức vừa đủ.
+   - Dùng một điểm vào chính là `/daily-routine` cho demo.
+   - Demo được: tạo mẫu lịch, tạo công tác, phân công theo ngày, cập nhật trạng thái hoàn thành.
+   - Không mở rộng sang các màn nâng cao chưa cần cho bản demo.
+
+- [ ] 5) Review resident portal theo kịch bản thật.
+   - Kiểm tra `Hôm nay`, `Tài chính`, `Nội quy`, `Thông tin` theo role resident.
+   - Xác nhận dữ liệu hiển thị đúng sau thao tác ở manager side.
+
+- [ ] 6) Baseline kỹ thuật trước demo.
+   - `pnpm check`, `pnpm test`, `pnpm build` pass.
+   - Có 1 script chạy demo ngắn 10-15 phút, theo thứ tự thao tác cố định.
+
+### 16.3. Backlog (để sau demo)
+
+- Các route/menu chi tiết chưa phục vụ trực tiếp luồng demo: skills, liturgy, advanced reports, common categories, smart-assignment độc lập.
+- Chuẩn hóa sâu helper/refactor lớn không ảnh hưởng demo run.
+- Mở rộng test e2e liên module đầy đủ.
+- Tối ưu bundle/chunk nâng cao khi đã ổn định nghiệp vụ demo.
+
+### 16.4. Đề xuất scope cho phần sinh hoạt/công tác/phân công/lịch
+
+- In scope demo:
+   - `DailyRoutine` tab Hôm nay + Lịch sinh hoạt + Công tác.
+   - Tạo công tác và phân công theo ngày (1 ngày hoặc 1 tuần đơn giản).
+   - Cập nhật trạng thái công tác (hoàn thành/vắng/hủy) và thấy phản hồi ngay.
+
+- Backlog sau demo:
+   - Smart assignment nâng cao theo nhiều ràng buộc.
+   - Các biến thể lịch phức tạp theo tháng/tuần nhiều điều kiện.
+   - Dashboard/analytics chuyên sâu cho sinh hoạt.
+
+## 17. Chốt ưu tiên chỉnh sửa, phát triển, tối ưu (thực thi ngay)
+
+### 17.1. Nhóm CHỈNH SỬA trước (P0)
+
+- Đồng bộ route/menu để không còn 404 trong luồng demo.
+   - Ưu tiên xử lý path lệch: `/users`, `/reports`, `/parents`, `/settings`.
+- Chốt một điểm vào duy nhất cho sinh hoạt/công tác: giữ trọng tâm ở `/daily-routine`.
+   - Tránh phân tán sang nhiều màn cùng chức năng trong bản demo.
+- Làm rõ trạng thái test baseline.
+   - Xử lý file legacy `server/routers.test.ts` để không gây hiểu nhầm là test chính thức.
+
+### 17.2. Nhóm PHÁT TRIỂN tiếp theo (P0 -> P1)
+
+- Main flow manager: cư dân -> phòng -> tổ chức.
+   - Hoàn tất các thao tác bắt buộc để demo liên tục, không đứt bước.
+- Main flow tài chính tối thiểu trên FinanceLite.
+   - Tạo khoản thu/kỳ thu -> ghi nhận thanh toán -> phản ánh lên tổng quan.
+- Review resident portal theo dữ liệu thật.
+   - Xác nhận trang `Hôm nay`, `Tài chính`, `Thông tin`, `Nội quy` khớp dữ liệu manager-side.
+- Sinh hoạt/công tác mức demo.
+   - Tạo mẫu lịch + tạo công tác + phân công theo ngày/tuần + cập nhật trạng thái.
+
+### 17.3. Nhóm TỐI ƯU sau khi khóa main flow (P1)
+
+- Chuẩn hóa shared util theo module chính: Members, DailyRoutine, FinanceLite.
+- Giảm mismatch giữa page tồn tại và route thực tế (tiếp tục xử lý nhóm Connect).
+- Bổ sung test theo business rule trọng yếu: phòng đầy, cư dân đã rời, thanh toán/công nợ.
+
+### 17.4. Tạm đưa backlog (P2)
+
+- Skills, liturgy, advanced reports, common categories, smart-assignment nâng cao.
+- Dashboard phân tích sâu cho sinh hoạt/tài chính.
+- Tối ưu bundle/chunk sâu khi demo flow đã ổn định.
+
+### 17.5. Thứ tự triển khai đề xuất (ngắn gọn)
+
+- Bước 1: Sửa route/menu mismatch gây lỗi điều hướng.
+- Bước 2: Khóa luồng manager + finance chạy end-to-end.
+- Bước 3: Khóa luồng daily routine/công tác ở mức demo.
+- Bước 4: Review resident portal theo user journey thật.
+- Bước 5: Chuẩn hóa test và util để ổn định trước mở rộng.
+
+## 18. Cấu trúc source chi tiết (phân cấp + mô tả)
+
+### 18.1. Tổng quan phân cấp thư mục
+
+```text
+ResidenceCore/
+├─ client/
+│  ├─ src/
+│  │  ├─ App.tsx, main.tsx, index.css
+│  │  ├─ pages/
+│  │  ├─ components/
+│  │  ├─ navigation/
+│  │  ├─ contexts/
+│  │  ├─ hooks/
+│  │  ├─ lib/
+│  │  ├─ config/
+│  │  └─ _core/
+│  ├─ public/
+│  └─ docs/
+├─ server/
+│  ├─ routers/
+│  │  ├─ modules/
+│  │  └─ financial.ts
+│  ├─ services/
+│  ├─ db/
+│  ├─ seeds/
+│  ├─ _core/
+│  ├─ routers.ts
+│  ├─ db.ts
+│  └─ storage.ts
+├─ drizzle/
+│  ├─ schema.ts
+│  ├─ relations.ts
+│  ├─ core.ts, residents.ts, dailyRoutine.ts, activities.ts
+│  ├─ *.sql
+│  └─ meta/
+├─ shared/
+│  ├─ const.ts
+│  ├─ types.ts
+│  └─ _core/
+├─ docs/
+├─ scripts/
+├─ patches/
+└─ cấu hình gốc: package.json, tsconfig.json, vite.config.ts, vitest.config.ts
+```
+
+### 18.2. Frontend (`client/src`) theo lớp
+
+- `App.tsx`: trung tâm route, xác định luồng màn hình manager và resident.
+- `pages/`: page-level container cho từng module nghiệp vụ (Members, OrganizationSimple, FinanceLite, DailyRoutine, Resident portal...).
+- `components/`: các khối UI tái sử dụng và component chuyên module.
+   - `components/members/`: UI nghiệp vụ cư dân/phụ huynh/phòng.
+   - `components/organization-simple/`: UI tổ chức, nhiệm kỳ, bổ nhiệm.
+   - `components/daily-routine/`: UI lịch sinh hoạt, công tác, tab hôm nay.
+   - `components/finance-lite/`: UI khoản thu, giao dịch, thanh toán, tổng quan.
+   - `components/shared/` và `components/ui/`: nền tảng style và primitive UI dùng chung.
+- `navigation/`: định nghĩa menu theo vai trò (manager, resident, appointed resident).
+- `lib/`: utility dùng chung (`format.ts`, `days.ts`, `utils.ts`, `trpc.ts`, `formDefaults.ts`).
+- `contexts/` và `hooks/`: state/context và custom hook cho toàn app.
+
+### 18.3. Backend (`server`) theo lớp
+
+- `routers.ts`: ghép app router tổng từ các router module.
+- `routers/modules/`: lớp API theo miền nghiệp vụ.
+   - `members.ts`, `rooms.ts`, `organization.ts`, `users.ts`
+   - `dailyRoutine.ts`, `duties.ts`, `activities.ts`
+   - `finance.ts`, `residentPortal.ts`, `dashboard.ts`, `auth.ts`, `roles.ts`
+- `services/`: business service layer, gom nghiệp vụ phức tạp theo module.
+   - ví dụ: `memberService.ts`, `organizationService.ts`, `dailyRoutineService.ts`, `residentPortalService.ts`.
+- `db/`: data access layer theo bảng/chủ đề (`resident.ts`, `room.ts`, `duty.ts`, `finance.ts`...).
+- `_core/`: hạ tầng backend (context, trpc, oauth, rbac, cookies, env, sdk, systemRouter...).
+- `seeds/`: dữ liệu khởi tạo phục vụ local/demo.
+
+### 18.4. Dữ liệu và schema (`drizzle`)
+
+- `schema.ts`: schema tổng và type nguồn chân lý của dữ liệu.
+- `relations.ts`: quan hệ giữa các bảng.
+- `core.ts`, `residents.ts`, `dailyRoutine.ts`, `activities.ts`: chia schema theo miền.
+- các file `.sql`: migration và script update theo từng phase.
+- `meta/`: snapshot migration cho drizzle-kit.
+
+### 18.5. Shared và tài liệu vận hành
+
+- `shared/`: hằng số và type dùng chung giữa client/server.
+- `docs/`: tài liệu kiến trúc, API, setup, user manual.
+- `scripts/`: script hỗ trợ patch/update theo tác vụ kỹ thuật.
+- `patches/`: patch dependency (ví dụ wouter) để giữ behavior mong muốn.
+
+### 18.6. Luồng code chuẩn cần bám khi phát triển
+
+- Frontend: `client/src/App.tsx` -> `client/src/pages/*` -> `client/src/components/*` -> `client/src/lib/trpc.ts`.
+- Backend API: `server/routers/modules/*` -> `server/services/*` -> `server/db/*`.
+- Database: `drizzle/schema.ts` + migration `.sql`.
+
+Luồng này giúp giữ code rõ ràng: page gọi API, API gọi service, service gọi db, db bám schema.
+
 ---
 
 > File này được dùng như bản tóm tắt kiến trúc, nghiệp vụ, style, component và cách đọc dự án của ResidenceCore, nhằm giúp người mới hiểu được mục tiêu, cấu trúc và hướng đi tiếp theo một cách có hệ thống.

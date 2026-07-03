@@ -2,7 +2,21 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { router, protectedProcedure } from "../../_core/trpc";
+import { isManager } from "../../_core/rbac";
 import { roomService } from "../../services/roomService";
+
+function requireRoomManagementAccess(user: {
+  id?: number;
+  role?: string | null;
+  roles?: string[] | null;
+} | null | undefined) {
+  if (!isManager(user)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Bạn không có quyền quản lý phòng ở.",
+    });
+  }
+}
 
 export const roomsRouter = router({
   list: protectedProcedure
@@ -67,8 +81,10 @@ export const roomsRouter = router({
         notes: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
+        requireRoomManagementAccess(ctx.user);
+
         return await roomService.createRoom(input);
       } catch (error) {
         console.error("[rooms.create] Error:", error);
@@ -94,8 +110,10 @@ export const roomsRouter = router({
         notes: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
+        requireRoomManagementAccess(ctx.user);
+
         const { id, ...updateData } = input;
 
         return await roomService.updateRoom(id, updateData);
@@ -119,8 +137,10 @@ export const roomsRouter = router({
 
   delete: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
+        requireRoomManagementAccess(ctx.user);
+
         return await roomService.deleteRoom(input.id);
       } catch (error) {
         console.error("[rooms.delete] Error:", error);
@@ -177,8 +197,10 @@ export const roomsRouter = router({
         reason: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
+        requireRoomManagementAccess(ctx.user);
+
         return await roomService.assignResident(input);
       } catch (error) {
         console.error("[rooms.assignResident] Error:", error);
@@ -199,8 +221,10 @@ export const roomsRouter = router({
         notes: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
+        requireRoomManagementAccess(ctx.user);
+
         return await roomService.appointLeader(input);
       } catch (error) {
         console.error("[rooms.appointLeader] Error:", error);

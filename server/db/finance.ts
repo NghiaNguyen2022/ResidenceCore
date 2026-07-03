@@ -135,6 +135,35 @@ function getFirstId(result: any) {
       return Number(rows?.[0]?.id || rows?.[0]?.insertId || 0);
 }
 
+const inactiveResidentStatuses = new Set([
+      'left',
+      'transferred_out',
+      'inactive',
+      'archived',
+      'deleted',
+      'stopped',
+      'removed',
+      'suspended',
+      'left_residence',
+      'da_roi',
+      'da_ngung',
+      'ngung_luu_tru',
+      'roi_luu_xa',
+      'đã rời',
+      'da roi',
+      'đã rời lưu xá',
+      'da roi luu xa',
+      'ngừng lưu trú',
+      'ngung luu tru',
+      'tạm ngưng',
+      'tam ngung',
+]);
+
+function isInactiveResidentStatus(status?: string | null) {
+      const statusText = String(status || '').trim().toLowerCase();
+      return Boolean(statusText && inactiveResidentStatuses.has(statusText));
+}
+
 let financeSchemaReady = false;
 
 async function columnExists(db: any, tableName: string, columnName: string) {
@@ -826,30 +855,6 @@ export async function previewFinanceChargePeriodResidents(input: { periodId: num
             existingItemIdsByResident.set(residentId, existingItemIds);
       }
 
-      const inactiveStatuses = new Set([
-            'left',
-            'transferred_out',
-            'inactive',
-            'archived',
-            'deleted',
-            'stopped',
-            'removed',
-            'suspended',
-            'left_residence',
-            'da_roi',
-            'da_ngung',
-            'ngung_luu_tru',
-            'roi_luu_xa',
-            'đã rời',
-            'da roi',
-            'đã rời lưu xá',
-            'da roi luu xa',
-            'ngừng lưu trú',
-            'ngung luu tru',
-            'tạm ngưng',
-            'tam ngung',
-      ]);
-
       return rows.map((resident: any) => {
             const residentStart = resident.residenceStartDate ? String(resident.residenceStartDate).slice(0, 10) : null;
             const residentEnd = resident.residenceEndDate ? String(resident.residenceEndDate).slice(0, 10) : null;
@@ -857,7 +862,7 @@ export async function previewFinanceChargePeriodResidents(input: { periodId: num
             let eligible = true;
             let reason = '';
 
-            if (statusText && inactiveStatuses.has(statusText)) {
+            if (isInactiveResidentStatus(statusText)) {
                   eligible = false;
                   reason = 'Học viên đã rời/ngừng lưu trú';
             }
@@ -1096,13 +1101,38 @@ export async function listFinanceCharges(input: ListChargesInput = {}) {
 export async function createFinanceChargeBatch(input: CreateChargeBatchInput) {
       const db = await getFinanceDb();
       const created: number[] = [];
-      const duplicated: string[] = [];
+      const skipped: string[] = [];
+
+      const amount = Number(input.amount || 0);
+      if (!input.feeTypeId) throw new Error('Vui lòng chọn loại khoản thu.');
+      if (!Array.isArray(input.residentIds) || input.residentIds.length === 0) {
+            throw new Error('Vui lòng chọn học viên cần tạo khoản thu.');
+      }
+      if (amount <= 0) throw new Error('Số tiền khoản thu phải lớn hơn 0.');
 
       for (const residentId of input.residentIds) {
+            const residentResult = await db.execute(sql`
+                  SELECT id, fullName, residentCode, status
+                  FROM residents
+                  WHERE id = ${residentId}
+                  LIMIT 1
+            `);
+            const resident = getRows(residentResult)?.[0];
+
+            if (!resident) {
+                  skipped.push(`${residentId} - Không tìm thấy học viên`);
+                  continue;
+            }
+
+            if (isInactiveResidentStatus(resident.status)) {
+                  skipped.push(`${resident.fullName || resident.residentCode || residentId} - Học viên đã rời/ngừng lưu trú`);
+                  continue;
+            }
+
             if (input.billingMonth) {
                   const duplicate = await findDuplicateCharge(db, residentId, input.feeTypeId, input.billingMonth);
                   if (duplicate) {
-                        duplicated.push(String(residentId));
+                        skipped.push(`${resident.fullName || resident.residentCode || residentId} - Khoản thu đã tồn tại trong tháng này`);
                         continue;
                   }
             }
@@ -1135,15 +1165,15 @@ export async function createFinanceChargeBatch(input: CreateChargeBatchInput) {
                         ${chargeCode(residentId, input.feeTypeId, input.billingMonth)},
                         ${residentId},
                         ${input.feeTypeId},
-                        ${Number(input.amount || 0)},
+                        ${amount},
                         0,
-                        ${Number(input.amount || 0)},
+                        ${amount},
                         ${input.dueDate || null},
                         'open',
                         ${input.source || 'student_fee'},
                         ${input.feeMode || null},
-                        ${input.targetType || null},
-                        ${input.targetName || null},
+                        ${input.targetType || 'resident'},
+                        ${input.targetName || resident.fullName || resident.residentCode || null},
                         ${input.billingMonth || null},
                         ${input.periodStartDate || null},
                         ${input.periodEndDate || null},
@@ -1159,11 +1189,11 @@ export async function createFinanceChargeBatch(input: CreateChargeBatchInput) {
             created.push(residentId);
       }
 
-      if (created.length === 0 && duplicated.length > 0) {
-            throw new Error('Các khoản thu đã tồn tại cho kỳ này. Vui lòng sửa khoản đã có hoặc hủy khoản cũ trước khi tạo lại.');
+      if (created.length === 0 && skipped.length > 0) {
+            throw new Error(skipped.length === 1 ? skipped[0] : `Không tạo được khoản thu nào. ${skipped.slice(0, 3).join('; ')}`);
       }
 
-      return { success: true, createdCount: created.length, skippedCount: duplicated.length };
+      return { success: true, createdCount: created.length, skippedCount: skipped.length, skipped };
 }
 
 export async function updateFinanceCharge(input: UpdateChargeInput) {
@@ -1177,6 +1207,7 @@ export async function updateFinanceCharge(input: UpdateChargeInput) {
                   fee_type_id AS feeTypeId,
                   amount,
                   paid_amount AS paidAmount,
+                  billing_month AS billingMonth,
                   status
             FROM finance_charges
             WHERE id = ${input.id}
@@ -1188,6 +1219,11 @@ export async function updateFinanceCharge(input: UpdateChargeInput) {
       const feeTypeId = input.feeTypeId === undefined ? Number(current.feeTypeId || 0) || null : Number(input.feeTypeId || 0) || null;
       const amount = input.amount === undefined || input.amount === null ? Number(current.amount || 0) : Number(input.amount || 0);
       const paidAmount = Number(current.paidAmount || 0);
+      const resolvedBillingMonth = input.billingMonth === undefined ? current.billingMonth || null : input.billingMonth || null;
+
+      if (amount <= 0) throw new Error('Số tiền khoản thu phải lớn hơn 0.');
+      if (amount < paidAmount) throw new Error('Không thể giảm khoản thu nhỏ hơn số tiền đã thu.');
+
       const remainingAmount = Math.max(amount - paidAmount, 0);
       let resolvedStatus = input.status || current.status || 'open';
 
@@ -1197,8 +1233,8 @@ export async function updateFinanceCharge(input: UpdateChargeInput) {
             else resolvedStatus = 'open';
       }
 
-      if (input.billingMonth && feeTypeId) {
-            const duplicate = await findDuplicateCharge(db, Number(current.residentId), feeTypeId, input.billingMonth, input.id);
+      if (resolvedBillingMonth && feeTypeId) {
+            const duplicate = await findDuplicateCharge(db, Number(current.residentId), feeTypeId, resolvedBillingMonth, input.id);
             if (duplicate) {
                   throw new Error('Khoản thu này đã tồn tại cùng loại phí, cùng kỳ thu cho học viên.');
             }
@@ -1211,7 +1247,7 @@ export async function updateFinanceCharge(input: UpdateChargeInput) {
                   amount = ${amount},
                   remaining_amount = ${resolvedStatus === 'cancelled' ? 0 : remainingAmount},
                   due_date = ${input.dueDate || null},
-                  billing_month = ${input.billingMonth || null},
+                  billing_month = ${resolvedBillingMonth},
                   period_start_date = ${input.periodStartDate || null},
                   period_end_date = ${input.periodEndDate || null},
                   period_charge_mode = ${input.periodChargeMode || null},
