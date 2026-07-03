@@ -639,6 +639,39 @@ function CashbookPeriodSummary({
                                           {!summary.studentBreakdown.length ? <EmptyFinanceBox text="Chưa có khoản thu học viên." /> : null}
                                     </div>
                               ) : null}
+
+                              <div className="mt-4 rounded-[22px] border border-blue-100 bg-blue-50/45 p-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                          <div>
+                                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Thu khác</p>
+                                                <p className="mt-1 text-xs text-slate-500">{summary.otherIncome.count} dòng ngoài học viên</p>
+                                          </div>
+                                          <p className="text-lg font-semibold text-slate-950">{formatMoney(summary.otherIncome.amount)}</p>
+                                    </div>
+                                    <button
+                                          type="button"
+                                          onClick={() => onToggle("other-income-breakdown")}
+                                          className="mt-3 w-full rounded-2xl border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-blue-700 shadow-sm transition hover:-translate-y-0.5"
+                                    >
+                                          {expandedKey === "other-income-breakdown" ? "Thu gọn thu khác" : "Xem chi tiết thu khác"}
+                                    </button>
+                                    {expandedKey === "other-income-breakdown" ? (
+                                          <div className="mt-3 space-y-2">
+                                                {summary.otherIncome.breakdown.map((item) => (
+                                                      <div key={item.name} className="rounded-2xl border border-blue-100/80 bg-white/86 px-3 py-2">
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                  <div className="min-w-0">
+                                                                        <p className="truncate text-sm font-semibold text-slate-700">{item.name}</p>
+                                                                        <p className="text-xs text-slate-500">{item.count} dòng</p>
+                                                                  </div>
+                                                                  <p className="shrink-0 text-sm font-semibold text-slate-900">{formatMoney(item.amount)}</p>
+                                                            </div>
+                                                      </div>
+                                                ))}
+                                                {!summary.otherIncome.breakdown.length ? <EmptyFinanceBox text="Chưa có khoản thu khác." /> : null}
+                                          </div>
+                                    ) : null}
+                              </div>
                         </section>
 
                         <section className="rounded-[24px] border border-amber-100 bg-amber-50/38 p-3">
@@ -741,6 +774,15 @@ type CashbookPeriodSummaryData = {
             paid: number;
             remaining: number;
       }>;
+      otherIncome: {
+            count: number;
+            amount: number;
+            breakdown: Array<{
+                  name: string;
+                  count: number;
+                  amount: number;
+            }>;
+      };
       expense: {
             actualCount: number;
             actualAmount: number;
@@ -780,6 +822,24 @@ function buildCashbookPeriodSummary({
             return inMonth && !isCancelled;
       });
       const relevantTransactions = filterTransactionsByViewingPeriod(transactions || [], months || []);
+      const otherIncomeTransactions = relevantTransactions.filter(
+            (transaction: any) =>
+                  !isStudentFeeTransaction(transaction) &&
+                  !isPlannedPeriodExpense(transaction) &&
+                  !isAdvanceExpense(transaction) &&
+                  !isAdvanceActualSpending(transaction.source) &&
+                  isTransactionAffectingCashFlow(transaction.source) &&
+                  getTransactionDirectionForSource(transaction.source, transaction.direction) === "in",
+      );
+      const otherIncomeBreakdownMap = new Map<string, { name: string; count: number; amount: number }>();
+      otherIncomeTransactions.forEach((transaction: any) => {
+            const meta = getTransactionSourceMeta(transaction.source);
+            const name = meta.shortLabel || meta.label || "Thu khác";
+            const current = otherIncomeBreakdownMap.get(name) || { name, count: 0, amount: 0 };
+            current.count += 1;
+            current.amount += toMoneyNumber(transaction?.amount || 0);
+            otherIncomeBreakdownMap.set(name, current);
+      });
 
       const monthMap = new Map<string, CashbookPeriodSummaryData["monthRows"][number]>();
       const monthBreakdownMap = new Map<string, Map<string, CashbookPeriodSummaryData["monthRows"][number]["details"][number]>>();
@@ -887,6 +947,11 @@ function buildCashbookPeriodSummary({
                   remaining: studentRemaining,
             },
             studentBreakdown: Array.from(studentBreakdownMap.values()).sort((a, b) => b.amount - a.amount),
+            otherIncome: {
+                  count: otherIncomeTransactions.length,
+                  amount: otherIncomeTransactions.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount || 0), 0),
+                  breakdown: Array.from(otherIncomeBreakdownMap.values()).sort((a, b) => b.amount - a.amount),
+            },
             expense: {
                   actualCount: actualExpenseTransactions.length,
                   actualAmount: actualExpenseTransactions.reduce((sum: number, item: any) => sum + toMoneyNumber(item.amount || 0), 0),
