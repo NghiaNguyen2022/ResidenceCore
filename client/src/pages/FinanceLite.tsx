@@ -22,6 +22,7 @@ import {
       FinancePeriodSelector,
 } from "@/components/finance-lite/FinanceLitePanels";
 import { FinanceLiteStudentLedger } from "@/components/finance-lite/FinanceLiteStudentLedger";
+import { FinanceVoucherPreviewModal } from "@/components/finance-lite/FinanceVoucherPreviewModal";
 import type {
       ChargeStatus,
       EditChargeState,
@@ -58,7 +59,19 @@ export default function FinanceLite() {
       );
       const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
       const [selectedBillingMonth, setSelectedBillingMonth] = useState("");
+      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
       const monthCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+      useEffect(() => {
+            const handleVoucherPrint = (event: Event) => {
+                  const detail = (event as CustomEvent<any>).detail;
+                  if (detail) setVoucherTransaction(detail);
+            };
+            window.addEventListener("finance-voucher-print", handleVoucherPrint as EventListener);
+            return () => {
+                  window.removeEventListener("finance-voucher-print", handleVoucherPrint as EventListener);
+            };
+      }, []);
       const [selectionMessage, setSelectionMessage] = useState("");
       const [selectionKey, setSelectionKey] = useState("");
       const [applyPanelOpen, setApplyPanelOpen] = useState(false);
@@ -1949,6 +1962,13 @@ onSubmit = { submitCreatePeriod }
             />
       ) : null
 }
+
+{voucherTransaction ? (
+      <FinanceVoucherPreviewModal
+            transaction={voucherTransaction}
+            onClose={() => setVoucherTransaction(null)}
+      />
+) : null}
 
 {deleteTransactionTarget ? (
       <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">

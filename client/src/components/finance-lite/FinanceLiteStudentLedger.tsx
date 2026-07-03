@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { CheckCircle2, Pencil, Plus, Printer, Search } from "lucide-react";
 
 import { InlineBadge } from "@/components/shared/display/InlineBadge";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
-import { FinanceVoucherPreviewModal } from "./FinanceVoucherPreviewModal";
 import type { ChargeStatus } from "./financeLiteTypes";
 import {
       formatMoney,
@@ -134,8 +133,6 @@ export function FinanceLiteStudentLedger({
       updateResidentItemAmount,
       setStudentLedgerPage,
 }: FinanceLiteStudentLedgerProps) {
-      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
-
       const ledgerTotalAmount = groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.amount || 0), 0);
       const ledgerPaidAmount = groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.paidAmount || 0), 0);
       const ledgerRemainingAmount = groupedCharges.reduce((sum: number, group: any) => sum + toMoneyNumber(group.remainingAmount || 0), 0);
@@ -986,6 +983,42 @@ function getJulyBillingMonth(value: string) {
       return `${year}-07`;
 }
 
+
+function openStudentFeeVoucherPrint(group: any) {
+      if (typeof window === "undefined") return;
+      window.dispatchEvent(
+            new CustomEvent("finance-voucher-print", {
+                  detail: createStudentFeeVoucherTransaction(group),
+            }),
+      );
+}
+
+function createStudentFeeVoucherTransaction(group: any) {
+      const paidAmount = toMoneyNumber(group?.paidAmount || 0);
+      const amount = paidAmount > 0 ? paidAmount : toMoneyNumber(group?.amount || 0);
+      const chargeNames = Array.isArray(group?.charges)
+            ? group.charges
+                    .map((charge: any) => charge.periodItemName || charge.feeTypeName || charge.feeName)
+                    .filter(Boolean)
+            : [];
+      const uniqueChargeNames = Array.from(new Set(chargeNames));
+      const content = uniqueChargeNames.length
+            ? `Thu ${uniqueChargeNames.join(", ")} - ${getBillingMonthLabel(group?.billingMonth)}`
+            : `Thu phí học viên - ${getBillingMonthLabel(group?.billingMonth)}`;
+
+      return {
+            id: group?.paymentId || group?.receiptId || group?.key || `${group?.residentId || "student"}-${group?.billingMonth || "month"}`,
+            source: "student_fee_payment",
+            direction: "in",
+            amount,
+            transactionDate: new Date().toISOString().slice(0, 10),
+            targetType: "resident",
+            targetName: group?.residentName || "Học viên",
+            description: content,
+            residentName: group?.residentName,
+            studentName: group?.residentName,
+      };
+}
 
 function SummaryStat({ label, value }: { label: string; value: string }) {
       return (

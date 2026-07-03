@@ -16,7 +16,6 @@ import {
 
 import { InlineBadge } from "@/components/shared/display/InlineBadge";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
-import { FinanceVoucherPreviewModal } from "./FinanceVoucherPreviewModal";
 import {
       formatDate,
       formatMoney,
@@ -107,8 +106,6 @@ export function FinanceExpensesPanel({
       onDeleteTransaction?: (transaction: any) => void;
       isDeletingTransaction?: boolean;
 }) {
-      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
-
       const visibleTransactions = useMemo(
             () => filterTransactionsByViewingPeriod(transactions, selectedPeriodMonths),
             [transactions, selectedPeriodMonths],
@@ -226,7 +223,6 @@ export function FinanceExpensesPanel({
                                                       key={transaction.id}
                                                       transaction={transaction}
                                                       compact
-                                                      onPrint={setVoucherTransaction}
                                                       onDelete={onDeleteTransaction}
                                                       isDeleting={isDeletingTransaction}
                                                 />
@@ -252,7 +248,6 @@ export function FinanceExpensesPanel({
                                                       key={transaction.id}
                                                       transaction={transaction}
                                                       compact
-                                                      onPrint={setVoucherTransaction}
                                                       onDelete={onDeleteTransaction}
                                                       isDeleting={isDeletingTransaction}
                                                 />
@@ -263,12 +258,6 @@ export function FinanceExpensesPanel({
                               </div>
                         </div>
                   </div>
-                  {voucherTransaction ? (
-                        <FinanceVoucherPreviewModal
-                              transaction={voucherTransaction}
-                              onClose={() => setVoucherTransaction(null)}
-                        />
-                  ) : null}
             </section>
       );
 }
@@ -292,8 +281,6 @@ export function FinanceExpensePlansPanel({
       onDeleteTransaction?: (transaction: any) => void;
       isDeletingTransaction?: boolean;
 }) {
-      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
-
       const visibleTransactions = useMemo(
             () => filterTransactionsByViewingPeriod(transactions, selectedPeriodMonths),
             [transactions, selectedPeriodMonths],
@@ -349,8 +336,7 @@ export function FinanceExpensePlansPanel({
                                           <CashbookLine
                                                 key={transaction.id}
                                                 transaction={transaction}
-onPrint={setVoucherTransaction}
-onDelete={onDeleteTransaction}
+                                                onDelete={onDeleteTransaction}
                                                 isDeleting={isDeletingTransaction}
                                           />
                                     ))
@@ -359,12 +345,6 @@ onDelete={onDeleteTransaction}
                               )}
                         </div>
                   </div>
-                  {voucherTransaction ? (
-                        <FinanceVoucherPreviewModal
-                              transaction={voucherTransaction}
-                              onClose={() => setVoucherTransaction(null)}
-                        />
-                  ) : null}
             </section>
       );
 }
@@ -390,7 +370,6 @@ export function FinanceCashbookPanel({
 }) {
       const [directionFilter, setDirectionFilter] = useState<"all" | "in" | "out">("all");
       const [searchText, setSearchText] = useState("");
-      const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
       const viewingLabel = getViewingPeriodLabel(selectedPeriod, selectedPeriodMonths, selectedBillingMonth);
       const visibleTransactions = useMemo(
             () => filterTransactionsByViewingPeriod(transactions, selectedPeriodMonths),
@@ -525,8 +504,7 @@ export function FinanceCashbookPanel({
                                           <CashbookLine
                                                 key={transaction.id}
                                                 transaction={transaction}
-onPrint={setVoucherTransaction}
-onDelete={onDeleteTransaction}
+                                                onDelete={onDeleteTransaction}
                                                 isDeleting={isDeletingTransaction}
                                           />
                                     ))
@@ -1131,13 +1109,11 @@ function CashbookMetricCard({
 function CashbookLine({
       transaction,
       compact = false,
-      onPrint,
       onDelete,
       isDeleting = false,
 }: {
       transaction: any;
       compact?: boolean;
-      onPrint?: (transaction: any) => void;
       onDelete?: (transaction: any) => void;
       isDeleting?: boolean;
 }) {
@@ -1190,6 +1166,20 @@ function CashbookLine({
                               <p className={`text-right text-base font-semibold ${amountClass}`}>
                                     {isMemo ? "Theo dõi " : isOut ? "-" : "+"}{formatMoney(transaction.amount)}
                               </p>
+                              <button
+                                    type="button"
+                                    onClick={(event) => {
+                                          event.preventDefault();
+                                          event.stopPropagation();
+                                          openFinanceVoucherPrint(transaction);
+                                    }}
+                                    title="In phiếu"
+                                    aria-label="In phiếu"
+                                    className="inline-flex h-9 shrink-0 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50 px-3 text-xs font-semibold text-amber-700 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-100"
+                              >
+                                    <Printer className="mr-1.5 h-4 w-4" />
+                                    In
+                              </button>
                               {details.length ? (
                                     <button
                                           type="button"
@@ -1227,6 +1217,11 @@ function CashbookLine({
                   ) : null}
             </div>
       );
+}
+
+function openFinanceVoucherPrint(transaction: any) {
+      if (typeof window === "undefined") return;
+      window.dispatchEvent(new CustomEvent("finance-voucher-print", { detail: transaction }));
 }
 
 function isFinanceScopedTransaction(transaction: any) {
