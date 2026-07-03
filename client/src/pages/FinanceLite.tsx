@@ -473,6 +473,8 @@ export default function FinanceLite() {
                               advanceReceiverType: "committee",
                               advanceReceiverId: "",
                               incomeKind: "other",
+                              planDueMode: "first_day",
+                              planFixedDay: "01",
                         });
                         transactionsQuery?.refetch?.();
                         summaryQuery?.refetch?.();
@@ -1518,9 +1520,9 @@ export default function FinanceLite() {
             const expenseMonths =
                   effectiveSource === "expense" && transactionForm.expenseKind === "period"
                         ? getExpenseMonthRange(
-                                transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
-                                transactionForm.expenseToMonth || transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
-                          )
+                              transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
+                              transactionForm.expenseToMonth || transactionForm.expenseFromMonth || transactionForm.expenseBillingMonth,
+                        )
                         : [];
             if (effectiveSource === "expense" && transactionForm.expenseKind === "period" && !expenseMonths.length) {
                   setTransactionFormMessage("Vui lòng chọn kỳ bắt đầu và kỳ kết thúc hợp lệ.");
@@ -1845,169 +1847,169 @@ export default function FinanceLite() {
                                     />
                               ) : null}
 
-{
-      activeTab === "expenses" ? (
-            <FinanceExpensesPanel
-                  transactions={transactions}
-                  selectedPeriod={selectedPeriod}
-                  selectedPeriodMonths={selectedPeriodMonths}
-                  selectedBillingMonth={selectedBillingMonth}
-                  onCreateExpense={(source = "other_income") => openTransactionForm(source)}
-                  onDeleteTransaction={deleteTransaction}
-                  isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
-            />
-      ) : null
-}
-{
-      activeTab === "plans" ? (
-            <FinanceExpensePlansPanel
-                  transactions={transactions}
-                  selectedPeriod={selectedPeriod}
-                  selectedPeriodMonths={selectedPeriodMonths}
-                  selectedBillingMonth={selectedBillingMonth}
-                  onCreatePlan={() => openTransactionForm("expense_plan")}
-                  onCreateActualExpense={() => openTransactionForm("expense_once")}
-                  onDeleteTransaction={deleteTransaction}
-                  isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
-            />
-      ) : null
-}
-{
-      activeTab === "cashbook" ? (
-            <FinanceCashbookPanel
-                  transactions={transactions}
-                  charges={charges}
-                  selectedPeriod={selectedPeriod}
-                  selectedPeriodMonths={selectedPeriodMonths}
-                  selectedBillingMonth={selectedBillingMonth}
-                  onCreateTransaction={(source = "other_income") => openTransactionForm(source === "expense" ? "expense_once" : source)}
-                  onDeleteTransaction={deleteTransaction}
-                  isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
-            />
-      ) : null
-}
-        </div >
-      </div >
+                              {
+                                    activeTab === "expenses" ? (
+                                          <FinanceExpensesPanel
+                                                transactions={transactions}
+                                                selectedPeriod={selectedPeriod}
+                                                selectedPeriodMonths={selectedPeriodMonths}
+                                                selectedBillingMonth={selectedBillingMonth}
+                                                onCreateExpense={(source = "other_income") => openTransactionForm(source)}
+                                                onDeleteTransaction={deleteTransaction}
+                                                isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
+                                          />
+                                    ) : null
+                              }
+                              {
+                                    activeTab === "plans" ? (
+                                          <FinanceExpensePlansPanel
+                                                transactions={transactions}
+                                                selectedPeriod={selectedPeriod}
+                                                selectedPeriodMonths={selectedPeriodMonths}
+                                                selectedBillingMonth={selectedBillingMonth}
+                                                onCreatePlan={() => openTransactionForm("expense_plan")}
+                                                onCreateActualExpense={() => openTransactionForm("expense_once")}
+                                                onDeleteTransaction={deleteTransaction}
+                                                isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
+                                          />
+                                    ) : null
+                              }
+                              {
+                                    activeTab === "cashbook" ? (
+                                          <FinanceCashbookPanel
+                                                transactions={transactions}
+                                                charges={charges}
+                                                selectedPeriod={selectedPeriod}
+                                                selectedPeriodMonths={selectedPeriodMonths}
+                                                selectedBillingMonth={selectedBillingMonth}
+                                                onCreateTransaction={(source = "other_income") => openTransactionForm(source === "expense" ? "expense_once" : source)}
+                                                onDeleteTransaction={deleteTransaction}
+                                                isDeletingTransaction={deleteTransactionMutation?.isPending ?? false}
+                                          />
+                                    ) : null
+                              }
+                        </div >
+                  </div >
 
-      {
-            periodFormOpen?(
-        <FinanceCreatePeriodModal
-          message = { periodFormMessage }
-          form = { periodForm }
-          setForm = { setPeriodForm }
-          isSubmitting = { createPeriodMutation?.isPending }
-          onClose = {() => setPeriodFormOpen(false)}
-onSubmit = { submitCreatePeriod }
-      />
-      ) : null}
-{
-      paymentFormOpen ? (
-            <FinancePaymentModal
-                  message={paymentFormMessage}
-                  form={paymentForm}
-                  setForm={setPaymentForm}
-                  charges={charges}
-                  openCharges={openCharges}
-                  isSubmitting={recordPaymentMutation?.isPending}
-                  onClose={() => setPaymentFormOpen(false)}
-                  onSubmit={submitPayment}
-            />
-      ) : null
-}
-{
-      groupPaymentOpen ? (
-            <FinanceGroupPaymentModal
-                  message={groupPaymentMessage}
-                  form={groupPaymentForm}
-                  setForm={setGroupPaymentForm}
-                  periods={periods}
-                  months={groupPaymentMonths}
-                  residents={groupPaymentResidents}
-                  residentCharges={groupPaymentResidentCharges}
-                  selectedChargeIds={groupPaymentSelectedChargeIds}
-                  lineAmounts={groupPaymentLineAmounts}
-                  selectedCharges={groupPaymentSelectedCharges}
-                  allSelected={groupPaymentAllSelected}
-                  selectedRemainingTotal={groupPaymentSelectedRemainingTotal}
-                  inputTotal={groupPaymentInputTotal}
-                  afterRemainingTotal={groupPaymentAfterRemainingTotal}
-                  hasInvalidLineAmount={groupPaymentHasInvalidLineAmount}
-                  isSubmitting={recordGroupedPaymentMutation?.isPending}
-                  onPeriodChange={handleGroupPaymentPeriodChange}
-                  onMonthChange={handleGroupPaymentMonthChange}
-                  onResidentChange={handleGroupPaymentResidentChange}
-                  onToggleCharge={toggleGroupPaymentCharge}
-                  onUpdateLineAmount={updateGroupPaymentLineAmount}
-                  onToggleAllCharges={setAllGroupPaymentCharges}
-                  onSyncSelectedAmounts={syncGroupPaymentAmountToSelected}
-                  onClearLineAmounts={clearGroupPaymentLineAmounts}
-                  onClose={() => setGroupPaymentOpen(false)}
-                  onSubmit={submitGroupedPayment}
-            />
-      ) : null
-}
-{
-      editChargeOpen ? (
-            <FinanceEditChargeModal
-                  message={editChargeMessage}
-                  form={editChargeForm}
-                  setForm={setEditChargeForm}
-                  feeTypes={feeTypes}
-                  isSubmitting={updateChargeMutation?.isPending}
-                  onClose={() => setEditChargeOpen(false)}
-                  onSubmit={submitEditCharge}
-            />
-      ) : null
-}
-{
-      transactionFormOpen ? (
-            <FinanceTransactionModal
-                  message={transactionFormMessage}
-                  form={transactionForm}
-                  setForm={setTransactionForm}
-                  isSubmitting={createTransactionMutation?.isPending}
-                  advanceReceiverOptions={advanceReceiverOptions}
-                  onClose={() => setTransactionFormOpen(false)}
-                  onSubmit={submitTransaction}
-            />
-      ) : null
-}
-
-{voucherTransaction ? (
-      <FinanceVoucherPreviewModal
-            transaction={voucherTransaction}
-            onClose={() => setVoucherTransaction(null)}
-      />
-) : null}
-
-{voucherSettingsOpen ? (
-      <FinanceVoucherSettingsModal onClose={() => setVoucherSettingsOpen(false)} />
-) : null}
-
-{deleteTransactionTarget ? (
-      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-[28px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff7df_100%)] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24),inset_0_1px_0_rgba(255,255,255,0.92)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Xác nhận xóa</p>
-                  <h3 className="mt-2 text-xl font-semibold text-slate-950">Xóa {deleteTransactionTarget.targetName || deleteTransactionTarget.description || "khoản thu chi này"}?</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                        {deleteTransactionTarget.lockedMessage || "Khoản này sẽ được gỡ khỏi Khoản thu chi/Sổ dòng tiền. Dự chi hoặc tạm ứng nhầm có thể xóa tại đây; khoản đã quyết toán nên kiểm tra trước khi xóa."}
-                  </p>
-                  {deleteTransactionMessage ? (
-                        <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{deleteTransactionMessage}</div>
-                  ) : null}
-                  <div className="mt-5 flex justify-end gap-2">
-                        <button type="button" className={residenceMediumStyle.buttonCard} onClick={() => { setDeleteTransactionTarget(null); setDeleteTransactionMessage(""); }}>Đóng</button>
-                        {!deleteTransactionTarget.lockedMessage ? (
-                              <button type="button" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60" disabled={deleteTransactionMutation?.isPending} onClick={confirmDeleteTransaction}>
-                                    {deleteTransactionMutation?.isPending ? "Đang xóa..." : "Xóa khoản này"}
-                              </button>
+                  {
+                        periodFormOpen ? (
+                              <FinanceCreatePeriodModal
+                                    message={periodFormMessage}
+                                    form={periodForm}
+                                    setForm={setPeriodForm}
+                                    isSubmitting={createPeriodMutation?.isPending}
+                                    onClose={() => setPeriodFormOpen(false)}
+                                    onSubmit={submitCreatePeriod}
+                              />
                         ) : null}
-                  </div>
-            </div>
-      </div>
-) : null}
-    </ResidenceCareLayout >
-  );
+                  {
+                        paymentFormOpen ? (
+                              <FinancePaymentModal
+                                    message={paymentFormMessage}
+                                    form={paymentForm}
+                                    setForm={setPaymentForm}
+                                    charges={charges}
+                                    openCharges={openCharges}
+                                    isSubmitting={recordPaymentMutation?.isPending}
+                                    onClose={() => setPaymentFormOpen(false)}
+                                    onSubmit={submitPayment}
+                              />
+                        ) : null
+                  }
+                  {
+                        groupPaymentOpen ? (
+                              <FinanceGroupPaymentModal
+                                    message={groupPaymentMessage}
+                                    form={groupPaymentForm}
+                                    setForm={setGroupPaymentForm}
+                                    periods={periods}
+                                    months={groupPaymentMonths}
+                                    residents={groupPaymentResidents}
+                                    residentCharges={groupPaymentResidentCharges}
+                                    selectedChargeIds={groupPaymentSelectedChargeIds}
+                                    lineAmounts={groupPaymentLineAmounts}
+                                    selectedCharges={groupPaymentSelectedCharges}
+                                    allSelected={groupPaymentAllSelected}
+                                    selectedRemainingTotal={groupPaymentSelectedRemainingTotal}
+                                    inputTotal={groupPaymentInputTotal}
+                                    afterRemainingTotal={groupPaymentAfterRemainingTotal}
+                                    hasInvalidLineAmount={groupPaymentHasInvalidLineAmount}
+                                    isSubmitting={recordGroupedPaymentMutation?.isPending}
+                                    onPeriodChange={handleGroupPaymentPeriodChange}
+                                    onMonthChange={handleGroupPaymentMonthChange}
+                                    onResidentChange={handleGroupPaymentResidentChange}
+                                    onToggleCharge={toggleGroupPaymentCharge}
+                                    onUpdateLineAmount={updateGroupPaymentLineAmount}
+                                    onToggleAllCharges={setAllGroupPaymentCharges}
+                                    onSyncSelectedAmounts={syncGroupPaymentAmountToSelected}
+                                    onClearLineAmounts={clearGroupPaymentLineAmounts}
+                                    onClose={() => setGroupPaymentOpen(false)}
+                                    onSubmit={submitGroupedPayment}
+                              />
+                        ) : null
+                  }
+                  {
+                        editChargeOpen ? (
+                              <FinanceEditChargeModal
+                                    message={editChargeMessage}
+                                    form={editChargeForm}
+                                    setForm={setEditChargeForm}
+                                    feeTypes={feeTypes}
+                                    isSubmitting={updateChargeMutation?.isPending}
+                                    onClose={() => setEditChargeOpen(false)}
+                                    onSubmit={submitEditCharge}
+                              />
+                        ) : null
+                  }
+                  {
+                        transactionFormOpen ? (
+                              <FinanceTransactionModal
+                                    message={transactionFormMessage}
+                                    form={transactionForm}
+                                    setForm={setTransactionForm}
+                                    isSubmitting={createTransactionMutation?.isPending}
+                                    advanceReceiverOptions={advanceReceiverOptions}
+                                    onClose={() => setTransactionFormOpen(false)}
+                                    onSubmit={submitTransaction}
+                              />
+                        ) : null
+                  }
+
+                  {voucherTransaction ? (
+                        <FinanceVoucherPreviewModal
+                              transaction={voucherTransaction}
+                              onClose={() => setVoucherTransaction(null)}
+                        />
+                  ) : null}
+
+                  {voucherSettingsOpen ? (
+                        <FinanceVoucherSettingsModal onClose={() => setVoucherSettingsOpen(false)} />
+                  ) : null}
+
+                  {deleteTransactionTarget ? (
+                        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
+                              <div className="w-full max-w-md rounded-[28px] border border-[#ead9ad]/80 bg-[linear-gradient(180deg,#fffdf8_0%,#fff7df_100%)] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24),inset_0_1px_0_rgba(255,255,255,0.92)]">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Xác nhận xóa</p>
+                                    <h3 className="mt-2 text-xl font-semibold text-slate-950">Xóa {deleteTransactionTarget.targetName || deleteTransactionTarget.description || "khoản thu chi này"}?</h3>
+                                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                                          {deleteTransactionTarget.lockedMessage || "Khoản này sẽ được gỡ khỏi Khoản thu chi/Sổ dòng tiền. Dự chi hoặc tạm ứng nhầm có thể xóa tại đây; khoản đã quyết toán nên kiểm tra trước khi xóa."}
+                                    </p>
+                                    {deleteTransactionMessage ? (
+                                          <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{deleteTransactionMessage}</div>
+                                    ) : null}
+                                    <div className="mt-5 flex justify-end gap-2">
+                                          <button type="button" className={residenceMediumStyle.buttonCard} onClick={() => { setDeleteTransactionTarget(null); setDeleteTransactionMessage(""); }}>Đóng</button>
+                                          {!deleteTransactionTarget.lockedMessage ? (
+                                                <button type="button" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60" disabled={deleteTransactionMutation?.isPending} onClick={confirmDeleteTransaction}>
+                                                      {deleteTransactionMutation?.isPending ? "Đang xóa..." : "Xóa khoản này"}
+                                                </button>
+                                          ) : null}
+                                    </div>
+                              </div>
+                        </div>
+                  ) : null}
+            </ResidenceCareLayout >
+      );
 }
 
 
