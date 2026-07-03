@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CheckCircle2, Pencil, Plus, Search, Users, WalletCards, CreditCard } from "lucide-react";
+import { CalendarDays, CheckCircle2, Pencil, Plus, Search, Users, WalletCards, CreditCard, SlidersHorizontal } from "lucide-react";
 
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
@@ -23,6 +23,7 @@ import {
 } from "@/components/finance-lite/FinanceLitePanels";
 import { FinanceLiteStudentLedger } from "@/components/finance-lite/FinanceLiteStudentLedger";
 import { FinanceVoucherPreviewModal } from "@/components/finance-lite/FinanceVoucherPreviewModal";
+import { FinanceVoucherSettingsModal } from "@/components/finance-lite/FinanceVoucherSettingsModal";
 import type {
       ChargeStatus,
       EditChargeState,
@@ -60,6 +61,7 @@ export default function FinanceLite() {
       const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
       const [selectedBillingMonth, setSelectedBillingMonth] = useState("");
       const [voucherTransaction, setVoucherTransaction] = useState<any | null>(null);
+      const [voucherSettingsOpen, setVoucherSettingsOpen] = useState(false);
       const monthCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
       useEffect(() => {
@@ -1754,6 +1756,14 @@ export default function FinanceLite() {
                                                 <button
                                                       type="button"
                                                       className={residenceMediumStyle.buttonCard}
+                                                      onClick={() => setVoucherSettingsOpen(true)}
+                                                >
+                                                      <SlidersHorizontal className="mr-2 h-4 w-4" />
+                                                      Mẫu phiếu
+                                                </button>
+                                                <button
+                                                      type="button"
+                                                      className={residenceMediumStyle.buttonCard}
                                                       onClick={() => openTransactionForm("other_income")}
                                                 >
                                                       Thu chi khác
@@ -1968,6 +1978,10 @@ onSubmit = { submitCreatePeriod }
             transaction={voucherTransaction}
             onClose={() => setVoucherTransaction(null)}
       />
+) : null}
+
+{voucherSettingsOpen ? (
+      <FinanceVoucherSettingsModal onClose={() => setVoucherSettingsOpen(false)} />
 ) : null}
 
 {deleteTransactionTarget ? (
