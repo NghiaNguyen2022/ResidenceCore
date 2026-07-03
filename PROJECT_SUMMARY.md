@@ -829,3 +829,465 @@ Luồng này giúp giữ code rõ ràng: page gọi API, API gọi service, serv
 ---
 
 > File này được dùng như bản tóm tắt kiến trúc, nghiệp vụ, style, component và cách đọc dự án của ResidenceCore, nhằm giúp người mới hiểu được mục tiêu, cấu trúc và hướng đi tiếp theo một cách có hệ thống.
+
+---
+
+## 19. Cập nhật trạng thái sau chuỗi Việc 1 → Việc 8
+
+**Ngày cập nhật:** 04/07/2026  
+**Phạm vi cập nhật:** trạng thái mới nhất sau các bước cleanup/ổn định main flow đã thực hiện trong cuộc trao đổi hiện tại.  
+**Nguyên tắc áp dụng:** phần này là trạng thái mới nhất và được ưu tiên hơn các mục audit cũ ở phần 13–17 nếu có khác biệt.
+
+### 19.1. Trạng thái tổng quan hiện tại
+
+Dự án đã hoàn tất giai đoạn khóa nền vận hành chính cho demo/kiểm thử nội bộ. Các nhóm việc P0 trước đó đã được xử lý theo thứ tự từng việc một:
+
+| Việc | Nội dung | Trạng thái hiện tại | Ghi chú |
+|---|---|---|---|
+| Việc 1 | Đồng bộ Route / Menu / Page | Done / Pass | Không còn navigation path gây 404 trực tiếp trong luồng menu; path chưa có route được disabled/ẩn có chủ đích. |
+| Việc 2 | Phân loại page chưa vào route chính | Done | 33 page orphan đã phân loại theo Connect / Keep / Archive. |
+| Việc 3 | Khóa main flow Học viên → Phòng → Tổ chức | Done / Pass | Đã bổ sung guard cho endpoint legacy phòng và RBAC cho rooms router. |
+| Việc 4 | Khóa FinanceLite tối thiểu | Done / Pass | Đã bổ sung RBAC finance router và guard DB cho khoản thu/thanh toán. |
+| Việc 5 | Khóa DailyRoutine / Công tác mức demo | Done / Pass | Đã bổ sung RBAC duties router, giữ scope demo ở `/daily-routine` và MyDuties. |
+| Việc 6 | Review Resident Portal theo dữ liệu thật | Done / Pass | Đã bổ sung active guard cho resident portal service/access service. |
+| Việc 7 | Dọn test baseline | Done / Pass | `server/routers.test.ts` đã đổi thành `server/routers.legacy.ts`. |
+| Việc 8 | Chốt Definition of Done cho 5 module chính | Done | Đã chốt DoD cho Members, Rooms, Organization, DailyRoutine, FinanceLite. |
+
+### 19.2. Kết quả kỹ thuật đã được xác nhận
+
+Sau từng nhóm patch, người dùng đã xác nhận pass. Trạng thái kỹ thuật hiện tại:
+
+```txt
+pnpm check  → pass
+pnpm test   → pass
+pnpm build  → pass
+```
+
+Các patch đã được áp dụng theo nhóm:
+
+```txt
+Việc 1:
+- Route/Menu/Page: xử lý navigation path chưa có route, disabled path chưa phục vụ demo, sửa /users về /settings/users.
+
+Việc 3:
+- server/services/memberService.ts
+- server/routers/modules/members.ts
+- server/routers/modules/rooms.ts
+
+Việc 4:
+- server/routers/modules/finance.ts
+- server/db/finance.ts
+
+Việc 5:
+- server/routers/modules/duties.ts
+
+Việc 6:
+- server/db/user.ts
+- server/services/residentPortalService.ts
+- server/services/residentPortalAccessService.ts
+
+Việc 7:
+- server/routers.test.ts đổi thành server/routers.legacy.ts
+```
+
+### 19.3. Cập nhật trạng thái Route / Menu / Page
+
+Trạng thái mới sau Việc 1:
+
+- Menu không còn để người dùng bấm trực tiếp vào path chưa có route rồi gặp 404.
+- Các route bắt buộc cho demo được giữ:
+  - `/dashboard`
+  - `/members`
+  - `/organization`
+  - `/finance`
+  - `/daily-routine`
+  - `/resident/today`
+  - `/resident/finance`
+  - `/my-duties`
+- Các path chưa phục vụ demo hoặc chưa có route rõ ràng được disabled/hide có chủ đích.
+- `/users` đã được xử lý theo route thật `/settings/users`.
+
+### 19.4. Cập nhật page orphan
+
+33 page chưa vào route chính đã được phân loại:
+
+#### Connect
+
+Có nghiệp vụ rõ nhưng chưa nhất thiết nối route ngay nếu chưa phục vụ main flow demo:
+
+- ActivityPlans.tsx
+- AdminSettings.tsx
+- DisciplineCases.tsx
+- Fees.tsx
+- Financial.tsx
+- LiturgySchedule.tsx
+- Parents.tsx
+- Reports.tsx
+- SkillClasses.tsx
+- SkillResults.tsx
+- Skills.tsx
+- SmartAssignment.tsx
+
+#### Keep
+
+Giữ cho roadmap gần/trung hạn, chưa hiện trong menu chính:
+
+- AcademicEvaluations.tsx
+- AcademicInfo.tsx
+- Attendance.tsx
+- Clubs.tsx
+- EducationReferences.tsx
+- LiturgyAssignments.tsx
+- LiturgyAttendance.tsx
+- NotificationPreferences.tsx
+- OrganizationRoles.tsx
+- OrganizationStructure.tsx
+- OrganizationTerms.tsx
+- OrganizationUnits.tsx
+- ResidentLeadershipOverview.tsx
+- ResidentRoleDutiesScopePage.tsx
+- RoomDetail.tsx
+- Schedule.tsx
+- Tasks.tsx
+
+#### Archive
+
+Nên tách khỏi luồng chính hoặc archive để giảm nhiễu codebase:
+
+- ComponentShowcase.tsx
+- ResidentRolePlaceholderPage.tsx
+- Residents.tsx
+- Schedules.tsx
+
+### 19.5. Cập nhật main flow Học viên → Phòng → Tổ chức
+
+Trạng thái mới: **Done / Pass**.
+
+Đã xác nhận:
+
+- Tạo/cập nhật học viên ổn.
+- Gán/chuyển/trả phòng ổn.
+- Khi học viên rời/ngừng:
+  - không gán phòng trực tiếp;
+  - release phòng/currentRoom;
+  - khóa user liên kết nếu có.
+- Khi đăng ký lại:
+  - không tự reuse phòng cũ;
+  - có thể reactivate user theo flow.
+- Rule Tổ trưởng được scope theo từng Tổ.
+- Rule Trưởng ban được scope theo từng Ban.
+- Chuyển tổ/bổ nhiệm giữ đúng logic đã bảo vệ.
+- Endpoint legacy `members.assignRoom` được guard để không làm lệch dữ liệu phòng.
+- Rooms router đã có RBAC guard cho mutation quản lý.
+
+### 19.6. Cập nhật FinanceLite
+
+Trạng thái mới: **Done / Pass** cho flow tối thiểu.
+
+Flow đã khóa:
+
+```txt
+Tạo kỳ thu
+→ chọn kỳ/tháng
+→ áp dụng khoản thu cho học viên
+→ sinh khoản phải thu
+→ ghi nhận thanh toán
+→ cập nhật trạng thái partial/paid
+→ tổng quan tài chính phản ánh đúng
+```
+
+Đã bổ sung guard:
+
+- Finance router có RBAC manager-side.
+- DB finance guard:
+  - không tạo khoản thu cho học viên rời/ngừng;
+  - validate amount > 0;
+  - skip học viên không hợp lệ;
+  - không cho update amount nhỏ hơn paid_amount;
+  - kiểm soát trùng khoản thu theo kỳ/tháng/học viên/item.
+
+Chưa mở rộng trong giai đoạn này:
+
+- phiếu thu/phiếu chi nâng cao;
+- tạm ứng/dự chi/quyết toán sâu;
+- in chứng từ hàng loạt;
+- báo cáo tài chính nâng cao.
+
+### 19.7. Cập nhật DailyRoutine / Công tác
+
+Trạng thái mới: **Done / Pass** cho demo mức vừa đủ.
+
+Scope đã chốt:
+
+- điểm vào chính: `/daily-routine`;
+- tab Hôm nay;
+- tab Lịch sinh hoạt;
+- tab Công tác;
+- tạo mẫu lịch;
+- tạo công tác;
+- preview phân công;
+- ghi phân công;
+- cập nhật trạng thái hoàn thành/vắng/hủy;
+- resident dùng MyDuties để xem/cập nhật công tác của mình.
+
+Đã bổ sung guard:
+
+- Duties router phân biệt API quản lý và API resident.
+- Resident chỉ dùng:
+  - `getMyAssignments`
+  - `updateMyAssignment`
+- Các endpoint quản lý duties được guard manager-side.
+
+Smart Assignment nâng cao vẫn để backlog, không đưa vào demo chính.
+
+### 19.8. Cập nhật Resident Portal
+
+Trạng thái mới: **Done / Pass**.
+
+Đã xác nhận:
+
+- Resident active vào được portal.
+- Resident thấy:
+  - hồ sơ cá nhân;
+  - hôm nay;
+  - công tác;
+  - tài chính cá nhân;
+  - menu đúng theo vai trò.
+- Resident thường không thấy menu manager.
+- Resident có appointment role có thể thấy menu vai trò phù hợp.
+- Resident inactive/transferred_out được guard ở service layer.
+
+Đã bổ sung:
+
+- `getResidentLinkedToUser` trả thêm dữ liệu trạng thái cần thiết.
+- Resident Portal service/access service kiểm tra user/resident active trước khi trả dữ liệu.
+
+### 19.9. Cập nhật test baseline
+
+Trạng thái mới: **Done / Pass**.
+
+Thay đổi:
+
+```txt
+server/routers.test.ts
+→ server/routers.legacy.ts
+```
+
+Mục đích:
+
+- tránh Vitest collect nhầm file helper legacy;
+- giữ lại nội dung helper cũ để tham khảo nếu cần;
+- làm baseline test rõ ràng hơn.
+
+### 19.10. Definition of Done cho 5 module chính
+
+Áp dụng cho:
+
+- Members
+- Rooms
+- Organization
+- DailyRoutine
+- FinanceLite
+
+Một module chỉ được xem là “xong mức main flow” khi đạt đủ:
+
+```txt
+[ ] Có route thật hoặc được gọi từ route chính.
+[ ] Menu vào được hoặc bị ẩn/disabled có chủ đích nếu chưa phục vụ demo.
+[ ] Không phát sinh 404 trong luồng chính.
+[ ] UI gọi đúng API hiện hành, không phụ thuộc endpoint legacy.
+[ ] API có RBAC guard phù hợp.
+[ ] Service/DB guard bảo vệ rule nghiệp vụ chính.
+[ ] Có loading/error/empty state ở mức tối thiểu.
+[ ] check/test/build pass sau patch.
+[ ] Có runtime test theo user journey.
+[ ] Nếu có thay đổi trạng thái nghiệp vụ, phải cập nhật checklist và PROJECT_SUMMARY.
+```
+
+DoD riêng từng module được ghi ở mục 20.
+
+### 19.11. Trạng thái ưu tiên sau Việc 8
+
+Giai đoạn khóa main flow đã xong. Trọng tâm tiếp theo không nên mở module lớn ngay, mà nên đi theo thứ tự:
+
+1. Việc 9 — Chuẩn hóa helper / util / style.
+2. Việc 10 — Cleanup docs / file thừa.
+3. Sau đó mới quay lại nhóm Connect page nếu cần:
+   - Parents
+   - Reports
+   - Settings nâng cao
+   - ActivityPlans
+   - Skills
+   - Liturgy
+   - SmartAssignment nâng cao
+
+---
+
+## 20. Definition of Done chi tiết cho 5 module chính
+
+### 20.1. Members
+
+Module Members đạt Done khi:
+
+```txt
+[ ] Route `/members` chạy ổn.
+[ ] Menu vào được từ navigation manager.
+[ ] Tạo học viên mới chạy đúng.
+[ ] Cập nhật hồ sơ học viên chạy đúng.
+[ ] Thêm/sửa/xóa liên hệ gia đình đúng residentId.
+[ ] Action phòng không hiển thị sai với học viên đã rời/ngừng.
+[ ] Action tổ chức mở đúng context học viên.
+[ ] Rời/ngừng lưu xá khóa user liên kết nếu có.
+[ ] Đăng ký lại không tự reuse phòng cũ.
+[ ] UI dùng style foundation, không thêm style ad-hoc lớn.
+[ ] check/test/build pass.
+```
+
+### 20.2. Rooms
+
+Module Rooms đạt Done khi:
+
+```txt
+[ ] Gán phòng cho học viên chưa có phòng.
+[ ] Chặn gán phòng nếu học viên đã có phòng.
+[ ] Chặn gán/chuyển nếu phòng đầy.
+[ ] Chặn chuyển cùng phòng.
+[ ] Chuyển phòng đóng assignment cũ và mở assignment mới.
+[ ] Trả phòng đóng assignment hiện tại.
+[ ] currentRoomId là nguồn hiện trạng chính.
+[ ] roomAssignments giữ lịch sử truy vết.
+[ ] Mutation quản lý phòng có RBAC guard.
+[ ] check/test/build pass.
+```
+
+### 20.3. Organization
+
+Module Organization đạt Done khi:
+
+```txt
+[ ] Route `/organization` chạy ổn.
+[ ] Xem được cơ cấu hiện tại.
+[ ] Bổ nhiệm chức vụ hoạt động đúng.
+[ ] Tổ trưởng được scope theo từng Tổ.
+[ ] Trưởng ban được scope theo từng Ban.
+[ ] Fixed roles như Trưởng/Phó/Thư ký/Thủ quỹ không bị duplicate sai.
+[ ] Unit membership giữ đúng sau thêm/đổi Tổ/Ban.
+[ ] OrgChart giữ layout đã chốt.
+[ ] Học viên rời/ngừng có active appointment thì phải xử lý bàn giao/confirm đúng flow.
+[ ] check/test/build pass.
+```
+
+### 20.4. DailyRoutine
+
+Module DailyRoutine đạt Done khi:
+
+```txt
+[ ] Route `/daily-routine` là điểm vào chính cho sinh hoạt/công tác.
+[ ] Có tab Hôm nay.
+[ ] Có tab Lịch sinh hoạt.
+[ ] Có tab Công tác.
+[ ] Tạo được mẫu lịch.
+[ ] Tạo được công tác.
+[ ] Preview phân công chạy được.
+[ ] Ghi phân công chạy được.
+[ ] Cập nhật trạng thái hoàn thành/vắng/hủy chạy được.
+[ ] Cancel rồi reassign được.
+[ ] Resident chỉ cập nhật công tác của mình qua MyDuties.
+[ ] Endpoint quản lý duties có RBAC guard.
+[ ] Không mở Smart Assignment nâng cao trong demo chính.
+[ ] check/test/build pass.
+```
+
+### 20.5. FinanceLite
+
+Module FinanceLite đạt Done khi:
+
+```txt
+[ ] Route `/finance` vào đúng FinanceLite.
+[ ] Tạo kỳ thu/khoản thu chạy được.
+[ ] Áp dụng khoản thu cho học viên chạy được.
+[ ] Không sinh khoản thu cho học viên rời/ngừng.
+[ ] Không tạo amount <= 0.
+[ ] Không tạo trùng khoản thu cùng kỳ/tháng/học viên/item.
+[ ] Ghi nhận thanh toán chạy được.
+[ ] Không cho thu vượt số còn lại.
+[ ] Thanh toán một phần cập nhật partial.
+[ ] Thanh toán đủ cập nhật paid.
+[ ] Tổng quan tài chính cập nhật đúng sau apply/payment/cancel.
+[ ] Finance router có RBAC guard.
+[ ] check/test/build pass.
+```
+
+---
+
+## 21. Checklist tiếp theo sau cập nhật này
+
+### Việc 9 — Chuẩn hóa helper / util / style
+
+Mục tiêu: giảm lặp code, giữ style premium thống nhất.
+
+File nên đọc trước:
+
+```txt
+client/src/lib/utils.ts
+client/src/lib/format.ts
+client/src/lib/days.ts
+client/src/lib/formDefaults.ts
+client/src/components/shared/styleMedium.ts
+client/src/config/residenceAppearance.ts
+client/src/pages/Members.tsx
+client/src/pages/FinanceLite.tsx
+client/src/pages/DailyRoutine.tsx
+client/src/components/finance-lite/*
+client/src/components/daily-routine/*
+```
+
+Checklist:
+
+```txt
+[ ] Gom/chuẩn hóa formatMoney.
+[ ] Gom/chuẩn hóa formatVND.
+[ ] Gom/chuẩn hóa formatVNDFull.
+[ ] Gom/chuẩn hóa formatMoneyInput.
+[ ] Gom/chuẩn hóa formatDate.
+[ ] Gom/chuẩn hóa parseDateInput.
+[ ] Gom/chuẩn hóa toInputDateValue.
+[ ] Rà normalizeText.
+[ ] Rà normalizeCode.
+[ ] Đảm bảo dùng cx/cn từ client/src/lib/utils.ts.
+[ ] Đảm bảo page mới dùng residenceMediumStyle.
+[ ] Không tạo style Tailwind random ngoài token.
+```
+
+### Việc 10 — Cleanup docs / file thừa
+
+Mục tiêu: làm repo gọn và tài liệu không lỗi thời.
+
+File nên đọc trước:
+
+```txt
+PROJECT_SUMMARY.md
+README.md
+docs/*
+client/docs/*
+STYLE_SYNC_RULES.md
+client/docs/STYLE_SYNC_RULES.md
+.temp_tsc_out_utf8.txt
+.temp_tsc_out.txt
+Trình-bày.docx
+Trình-bày-Professional.docx
+client/src/components/ResidenceCore-Business.docx
+```
+
+Checklist:
+
+```txt
+[ ] Merge duplicate STYLE_SYNC_RULES.md nếu trùng.
+[ ] Xóa `.temp_tsc_out*.txt` nếu chỉ là file tạm.
+[ ] Rà các file `.docx`: giữ trong docs/archive hoặc bỏ khỏi source nếu không cần.
+[ ] Cập nhật API documentation nếu đang mô tả route cũ.
+[ ] Cập nhật Database schema documentation nếu đang mô tả schema cũ.
+[ ] Cập nhật User Manual theo Simple Mode và flow hiện tại.
+[ ] Cập nhật Architecture Diagram nếu module thực tế đã đổi tên/luồng.
+```
+

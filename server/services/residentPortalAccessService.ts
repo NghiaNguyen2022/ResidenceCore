@@ -158,6 +158,21 @@ function buildAccessFlags(roleKeys: string[]) {
       };
 }
 
+
+function isInactiveResidentStatus(status?: string | null) {
+      return ["inactive", "transferred_out", "left"].includes(String(status || "").toLowerCase());
+}
+
+function assertActiveLinkedResidentForPortal(resident: any) {
+      if (!resident?.id) {
+            return;
+      }
+
+      if (isInactiveResidentStatus(resident.status)) {
+            throw new Error("Hồ sơ học viên đã ngừng/rời lưu xá, không thể truy cập cổng học viên.");
+      }
+}
+
 function mapAssignmentToRole(row: any): ResidentPortalRoleContext | null {
       const roleKey = resolvePortalRoleKey({
             roleCode: row.roleCode,
@@ -310,6 +325,8 @@ export async function getResidentPortalAccessContext(userId: number) {
             };
       }
 
+      assertActiveLinkedResidentForPortal(linkedResident);
+
       const activeTerm = await getActiveOrganizationTerm();
       const assignments = await listOrganizationAssignments({
             residentId: linkedResident.id,
@@ -331,7 +348,10 @@ export async function getResidentPortalAccessContext(userId: number) {
             resident: {
                   id: linkedResident.id,
                   residentCode: linkedResident.residentCode,
+                  holyName: linkedResident.holyName,
                   fullName: linkedResident.fullName,
+                  status: linkedResident.status,
+                  currentRoomId: linkedResident.currentRoomId,
             },
             activeTerm: activeTerm
                   ? {

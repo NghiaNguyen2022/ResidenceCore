@@ -541,7 +541,12 @@ export async function getResidentLinkedToUser(userId: number) {
             .select({
                   id: residents.id,
                   residentCode: residents.residentCode,
+                  holyName: residents.holyName,
                   fullName: residents.fullName,
+                  status: residents.status,
+                  currentRoomId: residents.currentRoomId,
+                  admissionDate: residents.admissionDate,
+                  departureDate: residents.departureDate,
                   userId: residents.userId,
             })
             .from(residents)

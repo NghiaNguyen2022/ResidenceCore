@@ -136,6 +136,31 @@ function sanitizeContact(contact: any) {
       };
 }
 
+
+function isInactiveResidentStatus(status?: string | null) {
+      return ["inactive", "transferred_out", "left"].includes(String(status || "").toLowerCase());
+}
+
+function assertActivePortalUser(user: any) {
+      if (!user) {
+            throw new Error("Không tìm thấy tài khoản đăng nhập.");
+      }
+
+      if (!user.isActive) {
+            throw new Error("Tài khoản đang bị khóa, không thể truy cập cổng học viên.");
+      }
+}
+
+function assertActiveLinkedResident(resident: any) {
+      if (!resident?.id) {
+            throw new Error("Tài khoản chưa được liên kết với hồ sơ học viên.");
+      }
+
+      if (isInactiveResidentStatus(resident.status)) {
+            throw new Error("Hồ sơ học viên đã ngừng/rời lưu xá, không thể truy cập cổng học viên.");
+      }
+}
+
 export const residentPortalService = {
       async me(userId: number) {
             if (!userId) {
@@ -144,21 +169,18 @@ export const residentPortalService = {
 
             const user = await db.getUserById(userId);
 
-            if (!user) {
-                  throw new Error("Không tìm thấy tài khoản đăng nhập.");
-            }
+            assertActivePortalUser(user);
 
             const linkedResident = await db.getResidentLinkedToUser(userId);
-
-            if (!linkedResident?.id) {
-                  throw new Error("Tài khoản chưa được liên kết với hồ sơ học viên.");
-            }
+            assertActiveLinkedResident(linkedResident);
 
             const member = await db.getResidentById(linkedResident.id);
 
             if (!member) {
                   throw new Error("Không tìm thấy hồ sơ học viên.");
             }
+
+            assertActiveLinkedResident(member);
 
             const contacts = await db.getParentsByResidentId(member.id);
 
@@ -197,9 +219,7 @@ export const residentPortalService = {
             }
 
             const linkedResident = await db.getResidentLinkedToUser(userId);
-            if (!linkedResident?.id) {
-                  throw new Error("Tài khoản chưa được liên kết với hồ sơ học viên.");
-            }
+            assertActiveLinkedResident(linkedResident);
 
             const accessContext = await getResidentPortalAccessContext(userId);
             const unitTargets = (accessContext.roles || [])
@@ -282,13 +302,7 @@ export const residentPortalService = {
 
             const user = await db.getUserById(input.userId);
 
-            if (!user) {
-                  throw new Error("Không tìm thấy tài khoản đăng nhập.");
-            }
-
-            if (!user.isActive) {
-                  throw new Error("Tài khoản đang bị khóa, không thể đổi mật khẩu.");
-            }
+            assertActivePortalUser(user);
 
             const isCurrentPasswordValid = await verifyPassword(
                   currentPassword,
