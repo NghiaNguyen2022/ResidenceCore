@@ -415,7 +415,9 @@ export const membersRouter = router({
 
       getEducation: protectedProcedure
             .input(z.object({ residentId: z.number().int().positive() }))
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
+                  requireMemberManagementAccess(ctx.user);
+
                   try {
                         return await memberService.getEducation(input.residentId);
                   } catch (error) {
@@ -453,7 +455,9 @@ export const membersRouter = router({
 
       getStudySchedules: protectedProcedure
             .input(z.object({ residentId: z.number().int().positive() }))
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
+                  requireMemberManagementAccess(ctx.user);
+
                   try {
                         return await memberService.getStudySchedules(input.residentId);
                   } catch (error) {

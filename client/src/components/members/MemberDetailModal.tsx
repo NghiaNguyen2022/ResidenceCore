@@ -396,7 +396,7 @@ export function MemberDetailModal({
 
       return (
             <div className={residenceMediumStyle.modalOverlay}>
-                  <div className={`${residenceMediumStyle.modalShell} max-w-6xl`}>
+                  <div className={`${residenceMediumStyle.modalShell} max-w-[1180px] overflow-hidden`}>
                         <div className={residenceMediumStyle.modalHeader}>
                               <div>
                                     <p className={residenceMediumStyle.modalEyebrow}>
@@ -419,7 +419,7 @@ export function MemberDetailModal({
                               </button>
                         </div>
 
-                        <div className="max-h-[calc(92vh-96px)] overflow-y-auto">
+                        <div className="max-h-[calc(92vh-96px)] overflow-y-auto overflow-x-hidden">
                               <div className="p-4">
                                     {isLeft && (
                                           <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
@@ -432,9 +432,9 @@ export function MemberDetailModal({
                                           </div>
                                     )}
 
-                                    <div className="mb-4 flex flex-col gap-4 rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_65%,#fff4e8_100%)] p-4 shadow-[0_14px_34px_rgba(120,53,15,0.06)] lg:flex-row lg:items-center lg:justify-between">
+                                    <div className="mb-4 flex flex-col gap-3 rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_65%,#fff4e8_100%)] p-4 shadow-[0_14px_34px_rgba(120,53,15,0.06)] lg:flex-row lg:items-center lg:justify-between">
                                           <div className="flex items-center gap-4">
-                                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-amber-700 text-xl font-bold text-white shadow-md shadow-amber-900/15">
+                                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-amber-700 text-lg font-bold text-white shadow-md shadow-amber-900/15">
                                                       {member.fullName?.charAt(0)?.toUpperCase() || 'H'}
                                                 </div>
 
@@ -508,7 +508,7 @@ export function MemberDetailModal({
                                           </div>
                                     </div>
 
-                                    <div className="mb-4 overflow-x-auto rounded-2xl border border-amber-100/80 bg-white/80 p-1.5 shadow-sm shadow-amber-900/5">
+                                    <div className="mb-4 overflow-x-auto rounded-2xl border border-amber-100/80 bg-white/85 p-1 shadow-sm shadow-amber-900/5">
                                           <div className="flex min-w-max gap-1.5">
                                                 {detailTabs.map((tab) => (
                                                       <button
@@ -517,7 +517,7 @@ export function MemberDetailModal({
                                                             title={tab.description}
                                                             onClick={() => setActiveTab(tab.key)}
                                                             className={[
-                                                                  'rounded-xl px-3 py-2 text-sm font-semibold transition',
+                                                                  'rounded-xl px-3 py-1.5 text-sm font-semibold transition',
                                                                   activeTab === tab.key
                                                                         ? 'bg-slate-900 text-white shadow-[0_10px_24px_rgba(15,23,42,0.14)]'
                                                                         : 'text-slate-600 hover:bg-amber-50/70 hover:text-slate-900',
@@ -531,7 +531,7 @@ export function MemberDetailModal({
 
                                     {activeTab === 'overview' && (
                                           <div className="space-y-3">
-                                                <div className="grid gap-3 md:grid-cols-3">
+                                                <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
                                                       <DetailMiniStat
                                                             label="Phòng hiện tại"
                                                             value={getResidentRoomText(member)}
@@ -551,9 +551,14 @@ export function MemberDetailModal({
                                                             }
                                                             tone={hasOrganizationInfo ? 'normal' : 'muted'}
                                                       />
+                                                      <DetailMiniStat
+                                                            label="Tài khoản"
+                                                            value={member.userId ? accountStatus.badgeText : 'Chưa có'}
+                                                            tone={member.userId ? 'normal' : 'muted'}
+                                                      />
                                                 </div>
 
-                                                <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.05fr_0.95fr]">
+                                                <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.95fr)]">
                                                       <DetailCard title="Thông tin cá nhân">
                                                             <div className="grid gap-3 sm:grid-cols-2">
                                                                   <DetailItem
@@ -645,7 +650,7 @@ export function MemberDetailModal({
                                                                         Liên hệ gia đình
                                                                   </h3>
                                                                   <p className="mt-1 text-sm text-slate-500">
-                                                                        Quản lý cha, mẹ, người giám hộ và thông tin liên hệ khi cần.
+                                                                        Cha, mẹ, người giám hộ và số liên lạc cần dùng hằng ngày.
                                                                   </p>
                                                             </div>
 
@@ -681,7 +686,7 @@ export function MemberDetailModal({
                                                                         Phòng ở & lưu trú
                                                                   </h3>
                                                                   <p className="mt-1 text-sm text-slate-500">
-                                                                        Theo dõi phòng hiện tại, ngày vào/rời và trạng thái lưu trú.
+                                                                        Phòng hiện tại, ngày vào/rời và trạng thái lưu trú.
                                                                   </p>
                                                             </div>
 
@@ -763,26 +768,28 @@ export function MemberDetailModal({
                                     )}
 
                                     {activeTab === 'education' && (
-                                          <div className="space-y-3">
-                                                <div className="rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] px-4 py-3 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
-                                                      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                                                            <div>
-                                                                  <h3 className="text-base font-bold text-slate-950">
+                                          <div className="min-w-0 space-y-4">
+                                                <div className="overflow-hidden rounded-3xl border border-amber-100/80 bg-[linear-gradient(135deg,#ffffff_0%,#fffdf8_68%,#fff4e8_100%)] px-5 py-4 shadow-[0_14px_34px_rgba(120,53,15,0.055)]">
+                                                      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                                                            <div className="min-w-0">
+                                                                  <h3 className="text-xl font-bold text-slate-950">
                                                                         Học tập & lịch học
                                                                   </h3>
-                                                                  <p className="mt-1 text-sm text-slate-500">
-                                                                        Theo dõi trường/lớp và các khung giờ học để tránh phân công trùng lịch.
+                                                                  <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+                                                                        Theo dõi trường/lớp và các khung giờ học để tránh phân công trùng lịch. Phần lịch được gom trong một khung riêng để dễ xem, dễ mở rộng khi cần.
                                                                   </p>
                                                             </div>
 
-                                                            <span className="text-xs font-medium text-slate-400">
+                                                            <div className="flex w-fit items-center gap-2 rounded-2xl border border-amber-100 bg-white/75 px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm">
+                                                                  <CalendarDays className="h-4 w-4 text-amber-700" />
                                                                   {member.studySchedules?.length || 0} lịch học
-                                                            </span>
+                                                            </div>
                                                       </div>
                                                 </div>
 
-                                                <div className="grid gap-3 xl:grid-cols-[0.9fr_1.45fr]">
-                                                      <EducationInfoSection
+                                                <div className="grid min-w-0 items-start gap-4 2xl:grid-cols-[280px_minmax(0,1fr)]">
+                                                      <div className="min-w-0">
+                                                            <EducationInfoSection
                                                             residentId={member.id}
                                                             education={member.education}
                                                             readonly={isLeft}
@@ -794,8 +801,10 @@ export function MemberDetailModal({
                                                                   })
                                                             }
                                                       />
+                                                      </div>
 
-                                                      <StudyScheduleSection
+                                                      <div className="min-w-0 overflow-hidden">
+                                                            <StudyScheduleSection
                                                             residentId={member.id}
                                                             schedules={member.studySchedules || []}
                                                             readonly={isLeft}
@@ -814,6 +823,7 @@ export function MemberDetailModal({
                                                                   })
                                                             }
                                                       />
+                                                      </div>
                                                 </div>
                                           </div>
                                     )}
@@ -827,7 +837,7 @@ export function MemberDetailModal({
                                                                         Tổ chức lưu xá
                                                                   </h3>
                                                                   <p className="mt-1 text-sm text-slate-500">
-                                                                        Theo dõi Tổ, Ban và các chức vụ đang đảm nhiệm trong nhiệm kỳ hiện tại.
+                                                                        Tổ, Ban và chức vụ đang đảm nhiệm.
                                                                   </p>
                                                             </div>
 
@@ -921,7 +931,7 @@ export function MemberDetailModal({
                                                                         Tài khoản đăng nhập
                                                                   </h3>
                                                                   <p className="mt-1 text-sm text-slate-500">
-                                                                        Quản lý trạng thái tài khoản học viên trong hệ thống.
+                                                                        Trạng thái tài khoản đăng nhập của học viên.
                                                                   </p>
                                                             </div>
 
@@ -1023,12 +1033,12 @@ function DetailCard({
       action?: ReactNode;
 }) {
       return (
-            <div className={residenceMediumStyle.cardSection}>
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                        <h3 className="text-base font-bold text-slate-950">{title}</h3>
+            <div className={cx(residenceMediumStyle.cardSection, 'min-w-0')}>
+                  <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+                        <h3 className="min-w-0 truncate text-base font-bold text-slate-950">{title}</h3>
                         {action}
                   </div>
-                  <div className="space-y-3">{children}</div>
+                  <div className="min-w-0 space-y-3">{children}</div>
             </div>
       );
 }
@@ -1043,13 +1053,13 @@ function DetailItem({
       value: ReactNode;
 }) {
       return (
-            <div className="flex gap-3">
-                  <div className="mt-0.5 text-slate-400">{icon}</div>
-                  <div>
+            <div className="flex min-w-0 gap-2.5">
+                  <div className="mt-0.5 shrink-0 text-slate-400">{icon}</div>
+                  <div className="min-w-0">
                         <p className="text-xs font-medium text-slate-400">
                               {label}
                         </p>
-                        <p className="text-sm font-medium text-slate-800">{value}</p>
+                        <p className="break-words text-sm font-medium text-slate-800">{value}</p>
                   </div>
             </div>
       );
@@ -1071,7 +1081,7 @@ function DetailMiniStat({
       }[tone];
 
       return (
-            <div className={`rounded-2xl border px-4 py-3 shadow-sm shadow-amber-900/5 ${toneClass}`}>
+            <div className={`min-w-0 rounded-2xl border px-3 py-2.5 shadow-sm shadow-amber-900/5 ${toneClass}`}>
                   <p className="text-xs font-medium text-slate-400">{label}</p>
                   <p className="mt-1 truncate text-sm font-bold">{value}</p>
             </div>

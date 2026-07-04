@@ -1,744 +1,48 @@
-# ResidenceCore Project Summary
+# ResidenceCore / App Lưu Xá — Project Summary cập nhật đầy đủ
 
-## 1. Tổng quan sản phẩm và bối cảnh
+**Cập nhật:** 2026-07-04  
+**Trạng thái:** Sau chuỗi việc 1 → 11, chuẩn bị Việc 12  
+**Mục tiêu hiện tại:** Hoàn thiện demo full flow vận hành lưu xá với UI/UX đơn giản, đầy đủ nghiệp vụ cốt lõi.
 
-ResidenceCore là ứng dụng quản lý nội trú / lưu xá dành cho học viên, quản lý lưu xá và đội ngũ vận hành. Dự án không chỉ là một giao diện demo, mà là nền tảng để vận hành một cơ sở lưu xá thực tế: quản lý cư dân, phòng ở, người dùng, tổ chức, duties, lịch sinh hoạt, tài chính và sẵn sàng mở rộng cho phụ huynh và cổng học viên ở giai đoạn sau.
+---
 
-Tài liệu [Full-Project-context20260612.md](Full-Project-context20260612.md) là nguồn ngữ cảnh nghiệp vụ chính. Nội dung đó cho thấy dự án đang tập trung vào việc ổn định phần vận hành nội bộ trước khi mở rộng sang các phân hệ lớn hơn.
+## 1. Tổng quan sản phẩm
 
-### Mục tiêu cốt lõi
+ResidenceCore / App Lưu Xá là ứng dụng quản lý nội trú / lưu xá dành cho học viên, quản lý lưu xá và đội ngũ vận hành. Dự án hướng tới vận hành thực tế, không chỉ là giao diện demo.
 
-- quản lý học viên lưu trú một cách rõ ràng, chuyên nghiệp
-- quản lý phòng ở, gán phòng, chuyển phòng, trả phòng
-- quản lý người dùng và phân quyền theo vai trò đơn giản, dễ dùng
-- quản lý cơ cấu tổ chức lưu xá: nhiệm kỳ, chức vụ, tổ, ban, bổ nhiệm
-- quản lý lịch sinh hoạt hằng ngày và công tác trực nhật/công tác chung
-- chuẩn bị nền cho các module tiếp theo: hoạt động/sự kiện, nội quy, thông báo, tài chính, phụ huynh, cổng học viên
+Các mảng chính:
 
-### Nguyên tắc triển khai đã thống nhất
+- Quản lý học viên lưu trú.
+- Quản lý phòng ở, gán phòng, chuyển phòng, trả phòng.
+- Quản lý liên hệ gia đình / phụ huynh.
+- Quản lý thông tin học tập và lịch học.
+- Quản lý tổ chức lưu xá: nhiệm kỳ, chức vụ, tổ, ban, bổ nhiệm.
+- Quản lý công tác / trực nhật / nhiệm vụ hằng ngày.
+- Quản lý tài chính cơ bản: kỳ thu, khoản thu, thanh toán, trạng thái công nợ.
+- Resident Portal: học viên xem hồ sơ, công tác, tài chính, lịch sinh hoạt và thông tin cá nhân.
+- Chuẩn bị mở rộng: thông báo, hoạt động/sự kiện, cửa hàng/quỹ riêng, phụ huynh, báo cáo.
 
-- làm từng bước nhỏ, có thể test ngay
-- ưu tiên triển khai theo thứ tự: schema/database -> backend/router/service -> frontend page/component -> test nghiệp vụ
-- Simple Mode là baseline chính: gọn, đủ dùng, dễ hiểu cho người quản lý
-- Detailed Mode giữ lại phần nâng cao, không làm rối Simple Mode
-- UI nghiệp vụ phải dùng từ tự nhiên, chuyên nghiệp, dễ hiểu
-- các chức năng quản lý phải ổn định trước khi mở rộng cho học viên/phụ huynh
+Nguyên tắc triển khai đã thống nhất:
 
-## 2. Phạm vi người dùng và vai trò
+- Làm từng việc một, có checklist rõ.
+- Không mở rộng module mới khi main flow chưa ổn.
+- Mỗi bước pass phải cập nhật checklist và PROJECT_SUMMARY.
+- File nào người dùng đã gửi/sửa xong thì xem là bản mới nhất nếu người dùng không nói có thay đổi thêm.
+- Khi patch nhiều file, ưu tiên gửi file `.zip` có cấu trúc thư mục giống repo để giải nén chồng vào root project.
+- Không dùng code cũ làm base nếu không chắc là mới nhất.
+- Không revert các bug/rule đã fix.
 
-### 2.1. Quản lý lưu xá / Manager
+---
 
-Đây là vai trò chính trong giai đoạn hiện tại. Người quản lý cần:
-
-- quản lý danh sách học viên
-- theo dõi trạng thái học viên: đang ở, đã ngừng, đã rời
-- gán/chuyển/trả phòng
-- quản lý phòng và sức chứa
-- quản lý người dùng đăng nhập
-- quản lý cơ cấu tổ chức, nhiệm kỳ, bổ nhiệm
-- quản lý lịch sinh hoạt, công tác hằng ngày
-- theo dõi công việc chưa làm, quá giờ, đã hoàn thành
-- điều chỉnh hệ thống ở Simple Mode hoặc Detailed Mode
-
-### 2.2. Học viên lưu trú / Resident
-
-Ở giai đoạn tiếp theo, học viên cần có cổng riêng để:
-
-- xem hồ sơ cá nhân
-- xem phòng ở và bạn cùng phòng
-- xem liên hệ gia đình
-- xem lịch sinh hoạt hằng ngày
-- xem công tác được phân công
-- xem tài chính cá nhân
-- đổi mật khẩu
-- nhận thông báo và nhắc nhở
-
-### 2.3. Phụ huynh / Guardian
-
-Chưa là ưu tiên đầu tiên, nhưng đã có hướng mở rộng cho:
-
-- xem thông tin liên hệ
-- theo dõi tình trạng lưu trú và các thông tin cơ bản của con/em
-- xem thông báo quan trọng
-- theo dõi các khoản tài chính nếu hệ thống cho phép
-
-### 2.4. Vai trò bổ nhiệm trong tổ chức
-
-Vai trò quản lý nội bộ theo nhiệm kỳ có thể bao gồm:
-
-- trưởng
-- phó
-- thư ký
-- thủ quỹ
-- tổ trưởng
-- trưởng ban
-
-Các vai trò này không nên được tạo như role thông thường trong User Management, mà nên được gán qua nghiệp vụ bổ nhiệm / tổ chức.
-
-## 3. Simple Mode và Detailed Mode
-
-### 3.1. Simple Mode
-
-Simple Mode là chế độ chính để triển khai MVP. Mục tiêu là giảm rối, đủ dùng, ưu tiên nghiệp vụ quản lý thường ngày.
-
-Đặc điểm:
-
-- màn hình gọn
-- tránh quá nhiều trường cấu hình
-- không hiển thị cấu hình kỹ thuật hoặc ít dùng
-- người quản lý có thể thao tác nhanh
-- các module nâng cao có thể ẩn khỏi menu
-
-Ví dụ:
-
-- User Management chỉ quản lý user manager trong Simple Mode
-- Resident user được tạo qua flow học viên/bổ nhiệm, không tạo thủ công từ User Management
-- Tổ chức lưu xá gom thành một màn hình đơn giản
-- Sinh hoạt hằng ngày gom lịch sinh hoạt và duties trong một module, nhưng UI tách rõ từng phần
-
-### 3.2. Detailed Mode
-
-Detailed Mode dành cho cấu hình nâng cao hoặc phần chưa muốn đưa vào Simple Mode. Có thể giữ:
-
-- cấu hình vai trò chi tiết
-- màn hình duties cũ nếu cần fallback
-- các màn hình chi tiết về quyền và cấu hình nâng cao
-- báo cáo và phân tích sâu hơn
-
-### 3.3. Global display mode
-
-Chế độ Simple/Detailed là cấu hình toàn hệ thống, không phải mỗi chức năng tự chọn riêng. Frontend có thể dùng cơ chế như `useSystemDisplayMode()` để lấy `isSimple` và `isDetailed`.
-
-## 4. Nguyên tắc nghiệp vụ quan trọng
-
-### 4.1. Học viên và trạng thái lưu trú
-
-Trạng thái cần thể hiện rõ bằng tiếng Việt:
-
-- Đang ở
-- Đã ngừng
-- Đã rời
-- Chưa gán phòng
-- Có phòng
-
-Khi học viên đã rời/ngừng:
-
-- không cho gán phòng mới trực tiếp
-- không cho cập nhật thông tin không cần thiết
-- không cho thêm liên hệ từ detail nếu đã rời/ngừng
-- cho phép đăng ký lại nếu quay lại lưu xá
-- khi đăng ký lại, không tự reuse phòng cũ; phải gán lại theo hiện trạng
-- nếu có user liên kết thì user phải khóa/deactivate khi rời/ngừng
-- khi quay lại thì có thể reactivate user theo flow đăng ký lại
-
-### 4.2. Phòng ở
-
-Phòng có các thuộc tính cơ bản:
-
-- mã phòng
-- tên phòng
-- sức chứa
-- số đang ở
-- số còn trống
-
-Quy tắc:
-
-- không cho gán quá sức chứa
-- nếu học viên đã có phòng thì chỉ cho chuyển phòng hoặc trả phòng, không gán phòng mới
-- khi gán/chuyển/trả phòng phải cập nhật hiện trạng phòng và current room của học viên
-- lịch sử gán/chuyển phòng cần được lưu để truy vết
-- trong Simple Mode, tác vụ nhanh cần có: xem danh sách phòng, thêm phòng, sửa phòng
-- sửa phòng chỉ cho sửa tên phòng và sức chứa, không sửa mã phòng
-
-### 4.3. Liên hệ gia đình / phụ huynh
-
-Quy tắc:
-
-- cha/mẹ/người giám hộ là một contact riêng, không nhập lẫn
-- cần validate trùng tên/số điện thoại ở mức phù hợp
-- có view tổng hợp tất cả phụ huynh
-- khi thêm từ All Parents phải chọn học viên
-- contacts list nên truy cập từ Members page/modal, không nhất thiết là menu riêng trong Simple Mode
-
-### 4.4. Người dùng và phân quyền
-
-Vai trò đã thống nhất gồm:
-
-- manager
-- resident
-- appointment roles: team_leader, committee_head, house_leader, deputy, secretary, treasurer
-
-Quy tắc Simple Mode:
-
-- User Management chỉ cho manager tạo manager user
-- không tạo resident user trực tiếp từ User Management
-- resident user được tạo từ flow học viên
-- appointment role được gán từ flow tổ chức/bổ nhiệm
-- reset password: set `mustChangePassword = true`, trả về mật khẩu mặc định, user bắt buộc đổi mật khẩu khi đăng nhập
-- update user không được đổi role trong Simple Mode
-- manager có thể lock/unlock manager user
-- resident user hiển thị trạng thái và linked profile
-- không cho link/unlink resident từ User Management trong Simple Mode
-
-### 4.5. Chính sách mật khẩu
-
-Quy tắc:
-
-- user mặc định admin: username `admin`, role `manager`, password default `admin`, `mustChangePassword = true`
-- nếu `mustChangePassword = true`:
-  - chặn tất cả màn hình
-  - hiển thị popup đổi mật khẩu duy nhất
-  - sau khi đổi thành công, set `mustChangePassword = false`
-  - force logout
-  - user phải đăng nhập lại
-
-### 4.6. Tổ chức lưu xá và bổ nhiệm
-
-Menu Simple Mode nên bao gồm:
-
-- Cơ cấu hiện tại
-- Bổ nhiệm
-- Danh sách Tổ
-- Danh sách Ban
-- Danh sách Chức vụ
-
-Các phần này nên được tổ chức rõ để người quản lý hiểu nhanh ai đang giữ vai trò gì, nhiệm kỳ nào, và tổ/ban nào đang phụ trách gì.
-
-## 5. Kiến trúc hệ thống và flow code thực tế
-
-Để đọc hiểu dự án nhanh nhất, hãy đi theo đúng đường đi dữ liệu sau:
-
-1. Người dùng vào app qua [client/src/App.tsx](client/src/App.tsx)
-   - nơi khai báo route chính và lazy load các page
-
-2. App render layout chung qua [client/src/components/ResidenceCareLayout.tsx](client/src/components/ResidenceCareLayout.tsx)
-   - layout chịu trách nhiệm shell, navigation, phân quyền và context chung
-
-3. Mỗi chức năng đi vào một page trong [client/src/pages](client/src/pages)
-   - page chứa logic nghiệp vụ chính của một module
-
-4. Page gọi component và hook trong [client/src/components](client/src/components) và [client/src/hooks](client/src/hooks)
-   - component dùng để tách UI và logic thành các khối nhỏ
-
-5. Dữ liệu được lấy qua server layer trong [server](server)
-   - router, service, storage, db layer nối lên database
-
-6. Schema và migration nằm trong [drizzle](drizzle) và [server/db.ts](server/db.ts)
-   - đây là nguồn chân lý cho dữ liệu nghiệp vụ
-
-Một flow điển hình nên được hiểu theo mẫu:
-
-- route -> page -> component -> hook/context -> API/router -> database
-
-Nếu chỉ đọc theo kiểu “đọc file ngẫu nhiên”, người mới sẽ khó hiểu hệ thống. Cách đúng là đi theo một user journey cụ thể, ví dụ: tạo/hiện cư dân -> gán phòng -> xem duties -> xem finance.
-
-## 6. Kiến trúc frontend hiện tại
-
-Frontend đang đi theo hướng module-based, chia rõ các tầng:
-
-- routing layer: [client/src/App.tsx](client/src/App.tsx)
-- layout layer: [client/src/components/ResidenceCareLayout.tsx](client/src/components/ResidenceCareLayout.tsx)
-- page layer: [client/src/pages](client/src/pages)
-- shared component layer: [client/src/components](client/src/components)
-- helper và util layer: [client/src/lib](client/src/lib)
-- context/hook layer: [client/src/contexts](client/src/contexts) và [client/src/hooks](client/src/hooks)
-
-Điểm mạnh của cách tổ chức này là:
-
-- dễ thêm module mới
-- dễ giữ UI thống nhất
-- dễ tách logic nghiệp vụ khỏi giao diện
-- dễ thay đổi hoặc refactor một phần mà không làm ảnh hưởng toàn bộ app
-
-## 7. Style và UI system
-
-Dự án có một hệ thống style rõ ràng, tập trung vào shared foundation trong [client/src/components/shared/styleMedium.ts](client/src/components/shared/styleMedium.ts).
-
-Phong cách hiện tại có các đặc điểm:
-
-- nền nhẹ, ấm và có cảm giác premium
-- card/section/panel có viền, bóng và khoảng cách rõ ràng
-- button và action area có sự thống nhất
-- layout có cấu trúc nguyên tắc: header, toolbar, filter/search, content area, action footer
-
-Điều này cho thấy UI không phải là “random styling”, mà là một hệ thống có nguyên tắc. Khi thêm page mới, nên ưu tiên dùng lại foundation style hiện có thay vì viết style ad-hoc rải rác.
-
-## 8. Các module nghiệp vụ chính cần hiểu
-
-### 8.1. Quản lý cư dân và phòng ở
-
-Các quy tắc nghiệp vụ quan trọng:
-
-- học viên có trạng thái rõ ràng: đang ở, đã ngừng, đã rời, chưa gán phòng
-- phòng có sức chứa và số người đang ở
-- không cho gán quá sức chứa
-- gán/chuyển/trả phòng phải cập nhật trạng thái phòng và current room
-- trạng thái rời/ngừng cần xử lý khác với hồ sơ bình thường
-
-### 8.2. Người dùng và phân quyền
-
-Vai trò chính đã thống nhất gồm:
-
-- manager
-- resident
-- appointment roles như team leader, committee head, house leader, deputy, secretary, treasurer
-
-Quy tắc quan trọng:
-
-- Simple Mode không nên tạo resident user thủ công từ User Management
-- resident user nên được tạo từ flow học viên
-- appointment role nên gán từ flow tổ chức/bổ nhiệm
-- reset password và mustChangePassword là một flow riêng, không nên bỏ qua
-
-### 8.3. Tổ chức và bổ nhiệm
-
-Module tổ chức cần hiểu:
-
-- cơ cấu hiện tại
-- bổ nhiệm theo nhiệm kỳ
-- chức vụ và vai trò
-- tổ/ban và trách nhiệm phân công
-
-### 8.4. Duties và lịch sinh hoạt
-
-Đây là phần vận hành thường ngày của lưu xá:
-
-- công việc được giao
-- công việc đã làm/chưa làm/quá giờ
-- lịch sinh hoạt hằng ngày
-- nhiệm vụ trực nhật và chung
-
-### 8.5. Finance-lite
-
-Finance module là một trong những module đã có mức độ hoàn thiện khá cao. Cần hiểu các khái niệm:
-
-- kỳ thu
-- khoản phí
-- thu chi
-- tạm ứng
-- chứng từ
-
-## 9. Component và module nên đọc trước
-
-Nếu muốn nắm dự án nhanh, nên đọc theo thứ tự sau:
-
-1. [client/src/App.tsx](client/src/App.tsx)
-   - hiểu route và các module chính
-
-2. [client/src/components/ResidenceCareLayout.tsx](client/src/components/ResidenceCareLayout.tsx)
-   - hiểu layout chung, navigation, role context
-
-3. [client/src/components/shared/styleMedium.ts](client/src/components/shared/styleMedium.ts)
-   - hiểu phong cách UI chuẩn của dự án
-
-4. [client/src/pages](client/src/pages)
-   - hiểu các module nghiệp vụ chính
-
-5. [client/src/components](client/src/components)
-   - hiểu các block UI dùng lại
-
-6. [server/routers.ts](server/routers.ts) và [server/storage.ts](server/storage.ts)
-   - hiểu API và tầng dữ liệu
-
-7. [drizzle](drizzle) và [server/db.ts](server/db.ts)
-   - hiểu cấu trúc dữ liệu thật sự
-
-## 10. Cách nắm vững dự án nhất có thể
-
-Để hiểu sâu và không bị lạc khỏi bối cảnh, hãy làm theo 5 bước sau:
-
-1. Đọc trước bối cảnh nghiệp vụ từ [Full-Project-context20260612.md](Full-Project-context20260612.md)
-   - hiểu mục tiêu sản phẩm và các rule nghiệp vụ cốt lõi
-
-2. Đọc route và layout trước
-   - xem [client/src/App.tsx](client/src/App.tsx) và [client/src/components/ResidenceCareLayout.tsx](client/src/components/ResidenceCareLayout.tsx)
-
-3. Chọn 1 module duy nhất để đi từ đầu đến cuối
-   - ví dụ: cư dân -> phòng -> user -> duties
-
-4. Theo dõi từ frontend xuống backend
-   - page -> component -> hook/context -> router/service -> db schema
-
-5. Luôn hỏi 3 câu khi đọc một file:
-   - file này phục vụ mục đích gì?
-   - nó thuộc module nào?
-   - nó ảnh hưởng tới flow nào của người dùng?
-
-## 11. Nguyên tắc làm việc khi tiếp tục phát triển
-
-- ưu tiên main flow trước, không làm quá nhiều module nhỏ trước khi flow chính ổn
-- giữ UI đơn giản nhưng đủ nghiệp vụ
-- dùng shared style và shared helper thay vì lặp code
-- khi refactor, giữ logic nghiệp vụ nguyên vẹn
-- khi thêm feature mới, nên xây theo pattern: page -> component -> shared util/style -> API
-
-## 12. Tiến độ hiện tại, checklist và độ ưu tiên
-
-### 12.1. Tình trạng tổng thể
-
-Dự án đã đi được khá xa về mặt nền tảng và khung chức năng. Hiện tại có thể nhìn nhận theo 3 mức:
-
-- Đã có nền tảng: routing, layout, page chính, shared style và một số module nghiệp vụ cơ bản
-- Đã hình thành các flow chính: cư dân, phòng, tổ chức, duties, finance-lite
-- Còn cần củng cố: chuẩn hóa code, kiểm tra lỗi, làm sạch tài liệu và tăng độ ổn định của các flow chính
-
-### 12.2. Checklist công việc
-
-| Hạng mục | Trạng thái | Ưu tiên | Ghi chú |
-|---|---|---|---|
-| Xây dựng route chính và layout chung | [x] Đã làm | P0 | Đã có khung app và navigation cơ bản |
-| Xây dựng page chính cho module quản lý | [x] Đã làm | P0 | Các page nghiệp vụ đã hình thành |
-| Module cư dân và phòng ở | [x] Đã làm | P0 | Flow cơ bản đã có |
-| Module tổ chức, bổ nhiệm và duties | [x] Đã làm | P1 | Cần kiểm tra lại tính nhất quán và trải nghiệm |
-| Module finance-lite | [x] Đã làm | P1 | Có mức độ hoàn thiện khá tốt, cần rà soát logic và dữ liệu |
-| Shared style foundation | [x] Đã làm | P1 | UI đã có hệ thống chung, cần tiếp tục dùng thống nhất |
-| Gom helper/shared util | [ ] Chưa đầy đủ | P1 | Cần tiếp tục chuẩn hóa |
-| Cleanup tài liệu và file thừa | [ ] Chưa đầy đủ | P2 | Cần rà soát thêm để gọn và dễ đọc |
-| Làm sạch lỗi TypeScript / build issues | [ ] Chưa đầy đủ | P1 | Cần ưu tiên để tăng độ ổn định |
-| Kiểm tra full flow nghiệp vụ từ frontend đến backend | [ ] Chưa đầy đủ | P0 | Đây là việc cần làm ngay trước khi mở rộng |
-| Chuẩn hóa business rules trạng thái cư dân, phòng, user | [ ] Chưa đầy đủ | P0 | Rất quan trọng để tránh logic sai |
-| Kiểm thử end-to-end cho flow chính | [ ] Chưa đầy đủ | P0 | Cần có kiểm thử thực tế hơn |
-
-### 12.3. Độ ưu tiên
-
-- P0: ưu tiên cao nhất
-  - flow chính vận hành: cư dân, phòng, user, duties, finance
-  - logic nghiệp vụ và trạng thái dữ liệu
-  - kiểm thử và sửa lỗi nghiêm trọng
-
-- P1: ưu tiên trung bình
-  - chuẩn hóa UI và shared components
-  - gom helper và cấu trúc code
-  - làm sạch TypeScript và lỗi nhỏ hơn
-
-- P2: ưu tiên thấp hơn
-  - tài liệu, cleanup, file thừa, refactor không ảnh hưởng nghiệp vụ
-
-### 12.4. Cách đọc tiến độ đúng nhất
-
-Khi xem tiến độ của dự án, nên đánh giá theo 3 lớp:
-
-1. Lớp nghiệp vụ: chức năng có chạy đúng không?
-2. Lớp kỹ thuật: code có rõ ràng, có dùng chung, có ổn định không?
-3. Lớp vận hành: người quản lý có dùng được nhanh, rõ ràng và ít lỗi không?
-
-Nếu một module đã có UI nhưng chưa ổn về logic hoặc chưa test đầy đủ, thì vẫn chưa nên xem là “xong”.
-
-### 12.5. Checklist 5 việc làm trước
-
-- [ ] 1) Chuẩn hóa business rules cư dân - phòng - user (P0)
-   - Chốt rule cho trạng thái Đang ở / Đã ngừng / Đã rời.
-   - Khóa gán phòng và cập nhật không hợp lệ khi cư dân đã rời/ngừng.
-   - Đảm bảo deactivate/reactivate user đúng theo flow rời và đăng ký lại.
-
-- [ ] 2) Kiểm tra full flow nghiệp vụ chính từ frontend đến backend (P0)
-   - Đi theo flow: tạo cư dân -> gán/chuyển/trả phòng -> user -> duties -> finance-lite.
-   - Ghi lại các điểm mismatch giữa UI, router và DB để sửa dứt điểm.
-
-- [ ] 3) Bổ sung test cho các case nghiệp vụ trọng yếu (P0)
-   - Ưu tiên test các case dễ sai: phòng đầy, cư dân đã rời, reset password, khóa user.
-   - Bổ sung test hồi quy cho duties và finance-lite sau các thay đổi business rule.
-
-- [ ] 4) Hoàn tất làm sạch lỗi TypeScript/build và giữ xanh pipeline (P1)
-   - Duy trì `pnpm check`, `pnpm test`, `pnpm build` luôn pass sau mỗi nhóm chỉnh sửa.
-   - Xử lý cảnh báo/chunk lớn theo từng bước nếu ảnh hưởng vận hành.
-
-- [ ] 5) Gom helper/shared util còn phân tán (P1)
-   - Chuẩn hóa nhóm util format/date/money dùng chung để giảm lặp logic giữa page.
-   - Ưu tiên module Members, DailyRoutine, FinanceLite để tăng tính nhất quán.
-
-## 13. Review theo code hiện tại (cập nhật 2026-07-03)
-
-Phần này bám theo code đang có trong repo, không bám theo tài liệu bối cảnh cũ.
-
-### 13.1. Frontend route đang chạy thực tế
-
-- Router chính hiện khai báo 25 route trong `client/src/App.tsx`.
-- Có 59 page trong `client/src/pages`, nhưng chỉ 26 page được import/lazy load từ App.
-- Có 33 page chưa nằm trong luồng route chính (unrouted/not imported), cần phân loại rõ:
-   - nhóm giữ lại để triển khai sau
-   - nhóm cần nối route/menu
-   - nhóm cần archive/xóa nếu đã obsolete
-
-### 13.2. Navigation và route chưa đồng bộ hoàn toàn
-
-- Một số menu path trong navigation chưa có route tương ứng trong App (ví dụ các path báo cáo/cấu hình chi tiết).
-- Có path không thống nhất giữa menu và route hiện có (ví dụ route user management).
-- Hệ quả: người dùng có thể gặp màn hình 404 hoặc không đi được đúng flow từ menu.
-
-### 13.3. Backend module hiện có
-
-- App router đã tách theo module: auth, dashboard, members, rooms, duties, organization, roles, users, dailyRoutine, residentPortal, activities, finance.
-- Mặt backend đã có coverage chức năng chính tương đối tốt cho main flow.
-
-### 13.4. Test coverage hiện tại
-
-- Đang có 3 file mang tên test trong `server/`.
-- 2 file test thực sự đang chạy ổn: auth logout và duties resident permission.
-- File `server/routers.test.ts` hiện chứa code helper DB legacy, không phải test Vitest thuần, cần xử lý để tránh gây hiểu nhầm khi bảo trì.
-- Chưa có test e2e cho flow liên module.
-
-### 13.5. Kết luận ngắn theo hiện trạng code
-
-- Main flow đã có nền vận hành.
-- Điểm nghẽn hiện tại là đồng bộ route/menu/page, sau đó mới đến mở rộng tính năng.
-- Checklist tiếp theo phải ưu tiên “ổn định luồng đang có” thay vì thêm module mới.
-
-## 14. Checklist hành động theo code hiện tại
-
-### 14.1. Snapshot đối soát Route-Menu-Page (đã chạy ngày 2026-07-03)
-
-- Tổng route trong App: 25
-- Tổng path trong navigation: 37
-- Menu có path nhưng chưa có route tương ứng: 15
-- Route có trong App nhưng không nằm trong menu: 3
-
-Menu có path nhưng chưa có route tương ứng (cần xử lý trước):
-
-- /activity-plans
-- /common-categories
-- /daily-life-reports
-- /discipline-cases
-- /fees
-- /financial
-- /liturgy-schedule
-- /parents
-- /reports
-- /settings
-- /skill-classes
-- /skill-results
-- /skills
-- /smart-assignment
-- /users
-
-Route có trong App nhưng không nằm trong menu:
-
-- /
-- /login
-- /my-duties
-
-- [x] 1) Lập bảng đối soát Route-Menu-Page (P0)
-   - Đã liệt kê path từ App và navigation.
-   - Đã có snapshot mismatch để triển khai sửa ở bước 2.
-
-- [ ] 2) Sửa các mismatch điều hướng gây 404 (P0)
-   - Đồng bộ các path user management, reports, parents và các mục chi tiết chỉ có menu.
-   - Chốt nguyên tắc: có menu thì phải có route rõ ràng hoặc disabled có chủ đích.
-
-- [ ] 3) Phân loại 33 page chưa vào luồng chính (P0)
-   - Keep: sẽ đưa vào roadmap gần.
-   - Connect: cần thêm route/menu ngay.
-   - Archive: tách khỏi luồng chính để giảm nhiễu codebase.
-
-- [ ] 4) Dọn và chuẩn hóa test baseline (P1)
-   - Tách hoặc đổi tên `server/routers.test.ts` nếu không phải test.
-   - Bổ sung test cho members/rooms/users/finance theo business rule trọng yếu.
-
-- [ ] 5) Chốt “định nghĩa done” cho mỗi module chính (P1)
-   - Module chỉ được xem là xong khi: route chạy, menu tới được, API khớp, test cơ bản pass.
-   - Áp dụng trước cho Members, Rooms, Organization, DailyRoutine, FinanceLite.
-
-## 15. Compare tiến độ theo checklist (đã làm/chưa làm)
-
-### 15.1. Snapshot số liệu hiện tại
-
-- Frontend route khai báo trong App: 25
-- Navigation path khai báo: 37
-- Page được import/lazy trong App: 26
-- Tổng page trong `client/src/pages`: 59
-- Page chưa vào luồng route chính: 33
-- Menu có path nhưng chưa có route: 15
-- Route có nhưng không nằm trong menu: 3
-- Backend router module đang active: 12
-- Tổng procedure marker (public/protected): 189
-- Server test file: 3 (đang chạy pass: 2 file, 5 test)
-
-### 15.2. Trạng thái checklist hành động (mục 14)
-
-| Bước | Trạng thái | Tiến độ | Ghi chú compare |
-|---|---|---:|---|
-| 1) Đối soát Route-Menu-Page | Done | 100% | Đã có snapshot mismatch chi tiết (15 menu thiếu route, 3 route không có menu). |
-| 2) Sửa mismatch điều hướng | Not started | 0% | Chưa sửa route/menu trong code, mới dừng ở bước audit. |
-| 3) Phân loại 33 page chưa vào luồng chính | Done | 100% | Đã chốt nhãn Keep/Connect/Archive cho toàn bộ 33 page ở mục 15.6. |
-| 4) Dọn và chuẩn hóa test baseline | In progress | 35% | `pnpm check` pass, `pnpm test` pass; nhưng `server/routers.test.ts` vẫn là legacy helper cần xử lý. |
-| 5) Chốt định nghĩa done theo module | Not started | 0% | Chưa có tài liệu DoD theo module và chưa áp dụng đồng bộ. |
-
-### 15.3. Đã làm gì
-
-- Đã fix lỗi TypeScript blocking trong flow FinanceLite.
-- Đã xác nhận baseline kỹ thuật hiện tại: check/test/build pass.
-- Đã hoàn tất đối soát Route-Menu-Page bằng script và lưu snapshot vào tài liệu.
-- Đã xác định rõ điểm nghẽn hiện tại là mismatch điều hướng và page orphan.
-
-### 15.4. Chưa làm gì (phần còn thiếu)
-
-- Chưa đồng bộ 15 menu path đang thiếu route thực tế.
-- Chưa xử lý dứt điểm file test legacy `server/routers.test.ts`.
-- Chưa có định nghĩa done chính thức cho từng module trọng yếu.
-
-### 15.5. Next checklist để chạy ngay
-
-- [x] A) Chốt phân loại 33 page orphan theo 3 nhãn Keep/Connect/Archive.
-- [ ] B) Áp policy route/menu: path có trong menu phải có route hoặc disabled có chủ đích.
-- [ ] C) Thực hiện batch sửa mismatch đầu tiên (ưu tiên: `/users`, `/reports`, `/parents`, `/settings`).
-- [ ] D) Tách/đổi tên file test legacy để test baseline rõ ràng.
-- [ ] E) Viết bảng DoD 5 module chính: Members, Rooms, Organization, DailyRoutine, FinanceLite.
-
-### 15.6. Phân loại 33 page orphan (Keep/Connect/Archive)
-
-Connect (12) - Có nhu cầu nghiệp vụ rõ và đã có menu hoặc gần main flow:
-
-- ActivityPlans.tsx
-- AdminSettings.tsx
-- DisciplineCases.tsx
-- Fees.tsx
-- Financial.tsx
-- LiturgySchedule.tsx
-- Parents.tsx
-- Reports.tsx
-- SkillClasses.tsx
-- SkillResults.tsx
-- Skills.tsx
-- SmartAssignment.tsx
-
-Keep (17) - Giữ cho roadmap gần/trung hạn, chưa cần nối route ngay:
-
-- AcademicEvaluations.tsx
-- AcademicInfo.tsx
-- Attendance.tsx
-- Clubs.tsx
-- EducationReferences.tsx
-- LiturgyAssignments.tsx
-- LiturgyAttendance.tsx
-- NotificationPreferences.tsx
-- OrganizationRoles.tsx
-- OrganizationStructure.tsx
-- OrganizationTerms.tsx
-- OrganizationUnits.tsx
-- ResidentLeadershipOverview.tsx
-- ResidentRoleDutiesScopePage.tsx
-- RoomDetail.tsx
-- Schedule.tsx
-- Tasks.tsx
-
-Archive (4) - Trùng ý nghĩa hoặc thiên về dev/demo, nên tách khỏi luồng chính:
-
-- ComponentShowcase.tsx
-- ResidentRolePlaceholderPage.tsx
-- Residents.tsx
-- Schedules.tsx
-
-## 16. Checklist ưu tiên cho main flow demo (quản trị -> tài chính)
-
-Mục tiêu của checklist này là chạy được demo full luồng cơ bản nhất, không 404, dữ liệu đi xuyên suốt từ quản trị đến tài chính.
-
-### 16.1. Trạng thái module theo code hiện tại
-
-- Members: xong mức main flow (đã có route và API chính).
-- Organization: xong và ổn định cho demo.
-- FinanceLite: khá chuẩn, đủ làm trục tài chính của demo.
-- Resident portal: đã có route và API chính, cần review lại theo user journey.
-- DailyRoutine/Duties/Assignment/Schedule: có nền API + UI, nhưng cần khóa phạm vi demo để tránh rối.
-
-### 16.2. Checklist P0 phải có để chạy demo main flow
-
-- [ ] 1) Chốt route/menu không lỗi cho các trang demo bắt buộc.
-   - Bắt buộc: `/dashboard`, `/members`, `/organization`, `/finance`, `/daily-routine`, `/resident/today`, `/resident/finance`.
-   - Với path chưa có route: tạm ẩn khỏi menu hoặc đánh dấu disabled có chủ đích.
-
-- [ ] 2) Khóa main flow quản trị cư dân -> phòng -> tổ chức.
-   - Tạo/cập nhật cư dân chạy ổn.
-   - Gán/chuyển/trả phòng chạy ổn.
-   - Bổ nhiệm/tổ chức xem và thao tác được ở luồng chính.
-
-- [ ] 3) Khóa main flow tài chính tối thiểu.
-   - Tạo kỳ thu hoặc khoản thu chung.
-   - Ghi nhận thanh toán theo học viên.
-   - Tổng quan tài chính phản ánh thay đổi sau thanh toán.
-
-- [ ] 4) Khóa main flow sinh hoạt/công tác ở mức vừa đủ.
-   - Dùng một điểm vào chính là `/daily-routine` cho demo.
-   - Demo được: tạo mẫu lịch, tạo công tác, phân công theo ngày, cập nhật trạng thái hoàn thành.
-   - Không mở rộng sang các màn nâng cao chưa cần cho bản demo.
-
-- [ ] 5) Review resident portal theo kịch bản thật.
-   - Kiểm tra `Hôm nay`, `Tài chính`, `Nội quy`, `Thông tin` theo role resident.
-   - Xác nhận dữ liệu hiển thị đúng sau thao tác ở manager side.
-
-- [ ] 6) Baseline kỹ thuật trước demo.
-   - `pnpm check`, `pnpm test`, `pnpm build` pass.
-   - Có 1 script chạy demo ngắn 10-15 phút, theo thứ tự thao tác cố định.
-
-### 16.3. Backlog (để sau demo)
-
-- Các route/menu chi tiết chưa phục vụ trực tiếp luồng demo: skills, liturgy, advanced reports, common categories, smart-assignment độc lập.
-- Chuẩn hóa sâu helper/refactor lớn không ảnh hưởng demo run.
-- Mở rộng test e2e liên module đầy đủ.
-- Tối ưu bundle/chunk nâng cao khi đã ổn định nghiệp vụ demo.
-
-### 16.4. Đề xuất scope cho phần sinh hoạt/công tác/phân công/lịch
-
-- In scope demo:
-   - `DailyRoutine` tab Hôm nay + Lịch sinh hoạt + Công tác.
-   - Tạo công tác và phân công theo ngày (1 ngày hoặc 1 tuần đơn giản).
-   - Cập nhật trạng thái công tác (hoàn thành/vắng/hủy) và thấy phản hồi ngay.
-
-- Backlog sau demo:
-   - Smart assignment nâng cao theo nhiều ràng buộc.
-   - Các biến thể lịch phức tạp theo tháng/tuần nhiều điều kiện.
-   - Dashboard/analytics chuyên sâu cho sinh hoạt.
-
-## 17. Chốt ưu tiên chỉnh sửa, phát triển, tối ưu (thực thi ngay)
-
-### 17.1. Nhóm CHỈNH SỬA trước (P0)
-
-- Đồng bộ route/menu để không còn 404 trong luồng demo.
-   - Ưu tiên xử lý path lệch: `/users`, `/reports`, `/parents`, `/settings`.
-- Chốt một điểm vào duy nhất cho sinh hoạt/công tác: giữ trọng tâm ở `/daily-routine`.
-   - Tránh phân tán sang nhiều màn cùng chức năng trong bản demo.
-- Làm rõ trạng thái test baseline.
-   - Xử lý file legacy `server/routers.test.ts` để không gây hiểu nhầm là test chính thức.
-
-### 17.2. Nhóm PHÁT TRIỂN tiếp theo (P0 -> P1)
-
-- Main flow manager: cư dân -> phòng -> tổ chức.
-   - Hoàn tất các thao tác bắt buộc để demo liên tục, không đứt bước.
-- Main flow tài chính tối thiểu trên FinanceLite.
-   - Tạo khoản thu/kỳ thu -> ghi nhận thanh toán -> phản ánh lên tổng quan.
-- Review resident portal theo dữ liệu thật.
-   - Xác nhận trang `Hôm nay`, `Tài chính`, `Thông tin`, `Nội quy` khớp dữ liệu manager-side.
-- Sinh hoạt/công tác mức demo.
-   - Tạo mẫu lịch + tạo công tác + phân công theo ngày/tuần + cập nhật trạng thái.
-
-### 17.3. Nhóm TỐI ƯU sau khi khóa main flow (P1)
-
-- Chuẩn hóa shared util theo module chính: Members, DailyRoutine, FinanceLite.
-- Giảm mismatch giữa page tồn tại và route thực tế (tiếp tục xử lý nhóm Connect).
-- Bổ sung test theo business rule trọng yếu: phòng đầy, cư dân đã rời, thanh toán/công nợ.
-
-### 17.4. Tạm đưa backlog (P2)
-
-- Skills, liturgy, advanced reports, common categories, smart-assignment nâng cao.
-- Dashboard phân tích sâu cho sinh hoạt/tài chính.
-- Tối ưu bundle/chunk sâu khi demo flow đã ổn định.
-
-### 17.5. Thứ tự triển khai đề xuất (ngắn gọn)
-
-- Bước 1: Sửa route/menu mismatch gây lỗi điều hướng.
-- Bước 2: Khóa luồng manager + finance chạy end-to-end.
-- Bước 3: Khóa luồng daily routine/công tác ở mức demo.
-- Bước 4: Review resident portal theo user journey thật.
-- Bước 5: Chuẩn hóa test và util để ổn định trước mở rộng.
-
-## 18. Cấu trúc source chi tiết (phân cấp + mô tả)
-
-### 18.1. Tổng quan phân cấp thư mục
+## 2. Kiến trúc source hiện tại
 
 ```text
 ResidenceCore/
 ├─ client/
 │  ├─ src/
-│  │  ├─ App.tsx, main.tsx, index.css
+│  │  ├─ App.tsx
+│  │  ├─ main.tsx
+│  │  ├─ index.css
 │  │  ├─ pages/
 │  │  ├─ components/
 │  │  ├─ navigation/
@@ -763,325 +67,238 @@ ResidenceCore/
 ├─ drizzle/
 │  ├─ schema.ts
 │  ├─ relations.ts
-│  ├─ core.ts, residents.ts, dailyRoutine.ts, activities.ts
+│  ├─ core.ts
+│  ├─ residents.ts
+│  ├─ dailyRoutine.ts
+│  ├─ activities.ts
 │  ├─ *.sql
 │  └─ meta/
 ├─ shared/
-│  ├─ const.ts
-│  ├─ types.ts
-│  └─ _core/
 ├─ docs/
 ├─ scripts/
 ├─ patches/
-└─ cấu hình gốc: package.json, tsconfig.json, vite.config.ts, vitest.config.ts
+└─ package.json
 ```
 
-### 18.2. Frontend (`client/src`) theo lớp
+Luồng phát triển chuẩn:
 
-- `App.tsx`: trung tâm route, xác định luồng màn hình manager và resident.
-- `pages/`: page-level container cho từng module nghiệp vụ (Members, OrganizationSimple, FinanceLite, DailyRoutine, Resident portal...).
-- `components/`: các khối UI tái sử dụng và component chuyên module.
-   - `components/members/`: UI nghiệp vụ cư dân/phụ huynh/phòng.
-   - `components/organization-simple/`: UI tổ chức, nhiệm kỳ, bổ nhiệm.
-   - `components/daily-routine/`: UI lịch sinh hoạt, công tác, tab hôm nay.
-   - `components/finance-lite/`: UI khoản thu, giao dịch, thanh toán, tổng quan.
-   - `components/shared/` và `components/ui/`: nền tảng style và primitive UI dùng chung.
-- `navigation/`: định nghĩa menu theo vai trò (manager, resident, appointed resident).
-- `lib/`: utility dùng chung (`format.ts`, `days.ts`, `utils.ts`, `trpc.ts`, `formDefaults.ts`).
-- `contexts/` và `hooks/`: state/context và custom hook cho toàn app.
-
-### 18.3. Backend (`server`) theo lớp
-
-- `routers.ts`: ghép app router tổng từ các router module.
-- `routers/modules/`: lớp API theo miền nghiệp vụ.
-   - `members.ts`, `rooms.ts`, `organization.ts`, `users.ts`
-   - `dailyRoutine.ts`, `duties.ts`, `activities.ts`
-   - `finance.ts`, `residentPortal.ts`, `dashboard.ts`, `auth.ts`, `roles.ts`
-- `services/`: business service layer, gom nghiệp vụ phức tạp theo module.
-   - ví dụ: `memberService.ts`, `organizationService.ts`, `dailyRoutineService.ts`, `residentPortalService.ts`.
-- `db/`: data access layer theo bảng/chủ đề (`resident.ts`, `room.ts`, `duty.ts`, `finance.ts`...).
-- `_core/`: hạ tầng backend (context, trpc, oauth, rbac, cookies, env, sdk, systemRouter...).
-- `seeds/`: dữ liệu khởi tạo phục vụ local/demo.
-
-### 18.4. Dữ liệu và schema (`drizzle`)
-
-- `schema.ts`: schema tổng và type nguồn chân lý của dữ liệu.
-- `relations.ts`: quan hệ giữa các bảng.
-- `core.ts`, `residents.ts`, `dailyRoutine.ts`, `activities.ts`: chia schema theo miền.
-- các file `.sql`: migration và script update theo từng phase.
-- `meta/`: snapshot migration cho drizzle-kit.
-
-### 18.5. Shared và tài liệu vận hành
-
-- `shared/`: hằng số và type dùng chung giữa client/server.
-- `docs/`: tài liệu kiến trúc, API, setup, user manual.
-- `scripts/`: script hỗ trợ patch/update theo tác vụ kỹ thuật.
-- `patches/`: patch dependency (ví dụ wouter) để giữ behavior mong muốn.
-
-### 18.6. Luồng code chuẩn cần bám khi phát triển
-
-- Frontend: `client/src/App.tsx` -> `client/src/pages/*` -> `client/src/components/*` -> `client/src/lib/trpc.ts`.
-- Backend API: `server/routers/modules/*` -> `server/services/*` -> `server/db/*`.
-- Database: `drizzle/schema.ts` + migration `.sql`.
-
-Luồng này giúp giữ code rõ ràng: page gọi API, API gọi service, service gọi db, db bám schema.
+```text
+Frontend route: client/src/App.tsx
+→ Page: client/src/pages/*
+→ Component: client/src/components/*
+→ tRPC client: client/src/lib/trpc.ts
+→ Router: server/routers/modules/*
+→ Service: server/services/*
+→ DB helper: server/db/*
+→ Schema: drizzle/schema.ts / drizzle/*.ts
+```
 
 ---
 
-> File này được dùng như bản tóm tắt kiến trúc, nghiệp vụ, style, component và cách đọc dự án của ResidenceCore, nhằm giúp người mới hiểu được mục tiêu, cấu trúc và hướng đi tiếp theo một cách có hệ thống.
+## 3. Simple Mode / Detailed Mode
+
+Simple Mode là baseline chính:
+
+- Ít tab, ít field, ít thao tác.
+- Ngôn ngữ nghiệp vụ tự nhiên, dễ hiểu.
+- Phù hợp người quản lý vận hành hằng ngày.
+- Học viên chỉ thấy những phần liên quan đến bản thân.
+- Không đưa cấu hình kỹ thuật ra UI.
+
+Detailed Mode dùng cho phần nâng cao:
+
+- Cấu hình chi tiết.
+- Báo cáo sâu.
+- Phân công nâng cao.
+- Smart assignment / dashboard nâng cao / field visibility nâng cao.
+
+Protected UI principle:
+
+```text
+Date / Time / Datetime input phải có picker.
+Không để người dùng chỉ nhập text thủ công.
+DatePickerInput đã dùng portal để tránh bị modal/card cắt dropdown.
+TimePickerInput đã được thêm và dùng cho các field giờ quan trọng.
+```
 
 ---
 
-## 19. Cập nhật trạng thái sau chuỗi Việc 1 → Việc 8
+## 4. Vai trò và phân quyền
 
-**Ngày cập nhật:** 04/07/2026  
-**Phạm vi cập nhật:** trạng thái mới nhất sau các bước cleanup/ổn định main flow đã thực hiện trong cuộc trao đổi hiện tại.  
-**Nguyên tắc áp dụng:** phần này là trạng thái mới nhất và được ưu tiên hơn các mục audit cũ ở phần 13–17 nếu có khác biệt.
+Vai trò chính:
 
-### 19.1. Trạng thái tổng quan hiện tại
+- `manager`: quản trị vận hành.
+- `resident`: học viên.
+- Appointment roles:
+  - `house_leader` — Trưởng nhà.
+  - `deputy` — Phó.
+  - `secretary` — Thư ký.
+  - `treasurer` — Thủ quỹ.
+  - `team_leader` — Tổ trưởng.
+  - `committee_head` — Trưởng ban.
 
-Dự án đã hoàn tất giai đoạn khóa nền vận hành chính cho demo/kiểm thử nội bộ. Các nhóm việc P0 trước đó đã được xử lý theo thứ tự từng việc một:
+Nguyên tắc:
 
-| Việc | Nội dung | Trạng thái hiện tại | Ghi chú |
-|---|---|---|---|
-| Việc 1 | Đồng bộ Route / Menu / Page | Done / Pass | Không còn navigation path gây 404 trực tiếp trong luồng menu; path chưa có route được disabled/ẩn có chủ đích. |
-| Việc 2 | Phân loại page chưa vào route chính | Done | 33 page orphan đã phân loại theo Connect / Keep / Archive. |
-| Việc 3 | Khóa main flow Học viên → Phòng → Tổ chức | Done / Pass | Đã bổ sung guard cho endpoint legacy phòng và RBAC cho rooms router. |
-| Việc 4 | Khóa FinanceLite tối thiểu | Done / Pass | Đã bổ sung RBAC finance router và guard DB cho khoản thu/thanh toán. |
-| Việc 5 | Khóa DailyRoutine / Công tác mức demo | Done / Pass | Đã bổ sung RBAC duties router, giữ scope demo ở `/daily-routine` và MyDuties. |
-| Việc 6 | Review Resident Portal theo dữ liệu thật | Done / Pass | Đã bổ sung active guard cho resident portal service/access service. |
-| Việc 7 | Dọn test baseline | Done / Pass | `server/routers.test.ts` đã đổi thành `server/routers.legacy.ts`. |
-| Việc 8 | Chốt Definition of Done cho 5 module chính | Done | Đã chốt DoD cho Members, Rooms, Organization, DailyRoutine, FinanceLite. |
+- User Management Simple Mode chỉ tạo/quản lý manager user.
+- Resident user không tạo thủ công từ User Management, mà đi qua flow học viên.
+- Appointment role không gán như role user thường, mà qua nghiệp vụ tổ chức/bổ nhiệm.
+- Reset password phải set `mustChangePassword = true`.
+- Khi `mustChangePassword = true`, user bị chặn bởi popup đổi mật khẩu, đổi xong force logout/login lại.
+- Resident rời/ngừng lưu xá phải bị khóa/deactivate user liên kết.
+- Resident quay lại lưu xá có thể reactivate user theo flow đăng ký lại.
 
-### 19.2. Kết quả kỹ thuật đã được xác nhận
+---
 
-Sau từng nhóm patch, người dùng đã xác nhận pass. Trạng thái kỹ thuật hiện tại:
+## 5. Protected business rules
 
-```txt
-pnpm check  → pass
-pnpm test   → pass
-pnpm build  → pass
-```
+### 5.1. Học viên / phòng / user
 
-Các patch đã được áp dụng theo nhóm:
+- Học viên đã rời/ngừng không được gán phòng trực tiếp.
+- Học viên đã có phòng thì không được gán phòng mới, chỉ được chuyển/trả phòng.
+- Chuyển phòng phải đóng assignment cũ và cập nhật `currentRoomId`.
+- Trả phòng phải đóng assignment và set `currentRoomId = null`.
+- Phòng đầy phải chặn gán/chuyển.
+- Đăng ký lại không tự reuse phòng cũ.
+- Khi rời/ngừng phải release phòng và deactivate user liên kết.
 
-```txt
-Việc 1:
-- Route/Menu/Page: xử lý navigation path chưa có route, disabled path chưa phục vụ demo, sửa /users về /settings/users.
+### 5.2. Tổ chức / bổ nhiệm
 
-Việc 3:
-- server/services/memberService.ts
-- server/routers/modules/members.ts
-- server/routers/modules/rooms.ts
+- `Tổ trưởng` phải scoped theo từng Tổ, không check global.
+- `Trưởng ban` phải scoped theo từng Ban, không check global.
+- Trưởng/Phó/Thư ký/Thủ quỹ là fixed role singleton theo nhiệm kỳ.
+- Tổ trưởng tự là thành viên của Tổ tương ứng.
+- Trưởng ban tự là thành viên của Ban tương ứng.
+- Nếu học viên còn appointment active thì flow rời lưu xá phải yêu cầu bàn giao trước.
+- OrgChart layout phải giữ: Trưởng trên cùng; Phó/Thư ký/Thủ quỹ hàng hai; Tổ/Ban bên dưới.
 
-Việc 4:
-- server/routers/modules/finance.ts
-- server/db/finance.ts
+### 5.3. Công tác / lịch sinh hoạt
 
-Việc 5:
-- server/routers/modules/duties.ts
+- Công tác demo chỉ cần rõ: ngày, nơi làm, người/nhóm phụ trách, trạng thái hoàn thành.
+- Conflict với lịch học phải hoạt động.
+- Buffer lịch học 60 phút phải giữ.
+- Cancel rồi reassign phải được phép.
+- Resident chỉ được xem/cập nhật công tác của mình bằng endpoint riêng.
+- API quản lý duties phải guard manager.
 
-Việc 6:
-- server/db/user.ts
-- server/services/residentPortalService.ts
-- server/services/residentPortalAccessService.ts
+### 5.4. FinanceLite
 
-Việc 7:
-- server/routers.test.ts đổi thành server/routers.legacy.ts
-```
+- Flow tối thiểu: tạo kỳ thu → áp dụng khoản thu → ghi nhận thanh toán → cập nhật tổng quan/trạng thái.
+- Không tạo khoản thu cho học viên đã rời/ngừng.
+- Không tạo amount <= 0.
+- Không cho thu vượt số còn lại.
+- Không cho sửa amount nhỏ hơn paid amount.
+- Summary phải phản ánh đúng sau apply/payment/cancel.
+- Finance router phải guard manager.
 
-### 19.3. Cập nhật trạng thái Route / Menu / Page
+### 5.5. Học tập / lịch học
 
-Trạng thái mới sau Việc 1:
+- Tab Học tập có thông tin học tập và lịch học.
+- Giờ học phải dùng TimePicker.
+- Backend validate HH:mm.
+- End time phải lớn hơn start time.
+- Không cho lịch trùng giờ cùng ngày.
+- Học viên inactive/transferred_out/left không được cập nhật học tập/lịch học.
+- DailyRoutine conflict với lịch học vẫn phải hoạt động.
 
-- Menu không còn để người dùng bấm trực tiếp vào path chưa có route rồi gặp 404.
-- Các route bắt buộc cho demo được giữ:
-  - `/dashboard`
-  - `/members`
-  - `/organization`
-  - `/finance`
-  - `/daily-routine`
-  - `/resident/today`
-  - `/resident/finance`
-  - `/my-duties`
-- Các path chưa phục vụ demo hoặc chưa có route rõ ràng được disabled/hide có chủ đích.
-- `/users` đã được xử lý theo route thật `/settings/users`.
+---
 
-### 19.4. Cập nhật page orphan
+## 6. Trạng thái 10 việc nền đã hoàn tất
 
-33 page chưa vào route chính đã được phân loại:
+| Việc | Nội dung | Trạng thái |
+|---|---|---|
+| 1 | Đồng bộ Route / Menu / Page | Done / Pass |
+| 2 | Audit page orphan | Done |
+| 3 | Members / Rooms / Organization main flow | Done / Pass |
+| 4 | FinanceLite minimum flow | Done / Pass |
+| 5 | DailyRoutine / Công tác mức demo | Done / Pass |
+| 6 | Resident Portal theo dữ liệu thật | Done / Pass |
+| 7 | Dọn test baseline | Done / Pass |
+| 8 | Definition of Done cho module chính | Done |
+| 9 | Helper / Style / Picker standardization | Done / Pass |
+| 10 | Docs cleanup / file thừa | Done / Pass |
 
-#### Connect
+### 6.1. Việc 1 — Route/Menu/Page
 
-Có nghiệp vụ rõ nhưng chưa nhất thiết nối route ngay nếu chưa phục vụ main flow demo:
+Đã xử lý route/menu mismatch:
 
-- ActivityPlans.tsx
-- AdminSettings.tsx
-- DisciplineCases.tsx
-- Fees.tsx
-- Financial.tsx
-- LiturgySchedule.tsx
-- Parents.tsx
-- Reports.tsx
-- SkillClasses.tsx
-- SkillResults.tsx
-- Skills.tsx
-- SmartAssignment.tsx
+- `/users` trỏ đúng về route thật `/settings/users`.
+- Các menu chưa có route được disabled/ẩn có chủ đích để tránh 404.
+- Policy: có menu thì phải có route thật hoặc disabled có chủ đích.
 
-#### Keep
+### 6.2. Việc 2 — Page orphan audit
 
-Giữ cho roadmap gần/trung hạn, chưa hiện trong menu chính:
+Đã audit 59 page:
 
-- AcademicEvaluations.tsx
-- AcademicInfo.tsx
-- Attendance.tsx
-- Clubs.tsx
-- EducationReferences.tsx
-- LiturgyAssignments.tsx
-- LiturgyAttendance.tsx
-- NotificationPreferences.tsx
-- OrganizationRoles.tsx
-- OrganizationStructure.tsx
-- OrganizationTerms.tsx
-- OrganizationUnits.tsx
-- ResidentLeadershipOverview.tsx
-- ResidentRoleDutiesScopePage.tsx
-- RoomDetail.tsx
-- Schedule.tsx
-- Tasks.tsx
+- 26 page đã được import/lazy route trong `App.tsx`.
+- 33 page orphan đã phân loại `Connect / Keep / Archive`.
 
-#### Archive
+Nhóm Archive:
 
-Nên tách khỏi luồng chính hoặc archive để giảm nhiễu codebase:
+- `ComponentShowcase.tsx`
+- `ResidentRolePlaceholderPage.tsx`
+- `Residents.tsx`
+- `Schedules.tsx`
 
-- ComponentShowcase.tsx
-- ResidentRolePlaceholderPage.tsx
-- Residents.tsx
-- Schedules.tsx
+### 6.3. Việc 3 — Members / Rooms / Organization
 
-### 19.5. Cập nhật main flow Học viên → Phòng → Tổ chức
+Đã pass main flow:
 
-Trạng thái mới: **Done / Pass**.
+- Tạo/cập nhật học viên.
+- Liên hệ gia đình.
+- Gán/chuyển/trả phòng.
+- Rời/ngừng/đăng ký lại.
+- Tổ/Ban/bổ nhiệm.
+- Guard legacy endpoint room assignment.
+- Guard rooms router mutation theo manager.
 
-Đã xác nhận:
+### 6.4. Việc 4 — FinanceLite
 
-- Tạo/cập nhật học viên ổn.
-- Gán/chuyển/trả phòng ổn.
-- Khi học viên rời/ngừng:
-  - không gán phòng trực tiếp;
-  - release phòng/currentRoom;
-  - khóa user liên kết nếu có.
-- Khi đăng ký lại:
-  - không tự reuse phòng cũ;
-  - có thể reactivate user theo flow.
-- Rule Tổ trưởng được scope theo từng Tổ.
-- Rule Trưởng ban được scope theo từng Ban.
-- Chuyển tổ/bổ nhiệm giữ đúng logic đã bảo vệ.
-- Endpoint legacy `members.assignRoom` được guard để không làm lệch dữ liệu phòng.
-- Rooms router đã có RBAC guard cho mutation quản lý.
+Đã pass minimum flow:
 
-### 19.6. Cập nhật FinanceLite
+- RBAC finance router.
+- Guard DB finance.
+- Create charge batch skip resident inactive.
+- Validate amount.
+- Payment partial/paid đúng.
+- Summary cập nhật đúng.
 
-Trạng thái mới: **Done / Pass** cho flow tối thiểu.
+### 6.5. Việc 5 — DailyRoutine / Công tác
 
-Flow đã khóa:
+Đã pass demo flow:
 
-```txt
-Tạo kỳ thu
-→ chọn kỳ/tháng
-→ áp dụng khoản thu cho học viên
-→ sinh khoản phải thu
-→ ghi nhận thanh toán
-→ cập nhật trạng thái partial/paid
-→ tổng quan tài chính phản ánh đúng
-```
+- Manager tạo lịch sinh hoạt/công tác.
+- Preview phân công.
+- Ghi phân công.
+- Cập nhật hoàn thành/vắng/hủy.
+- Resident xem/cập nhật công tác của mình.
+- Guard duties router cho các endpoint quản lý.
 
-Đã bổ sung guard:
+### 6.6. Việc 6 — Resident Portal
 
-- Finance router có RBAC manager-side.
-- DB finance guard:
-  - không tạo khoản thu cho học viên rời/ngừng;
-  - validate amount > 0;
-  - skip học viên không hợp lệ;
-  - không cho update amount nhỏ hơn paid_amount;
-  - kiểm soát trùng khoản thu theo kỳ/tháng/học viên/item.
+Đã pass:
 
-Chưa mở rộng trong giai đoạn này:
-
-- phiếu thu/phiếu chi nâng cao;
-- tạm ứng/dự chi/quyết toán sâu;
-- in chứng từ hàng loạt;
-- báo cáo tài chính nâng cao.
-
-### 19.7. Cập nhật DailyRoutine / Công tác
-
-Trạng thái mới: **Done / Pass** cho demo mức vừa đủ.
-
-Scope đã chốt:
-
-- điểm vào chính: `/daily-routine`;
-- tab Hôm nay;
-- tab Lịch sinh hoạt;
-- tab Công tác;
-- tạo mẫu lịch;
-- tạo công tác;
-- preview phân công;
-- ghi phân công;
-- cập nhật trạng thái hoàn thành/vắng/hủy;
-- resident dùng MyDuties để xem/cập nhật công tác của mình.
-
-Đã bổ sung guard:
-
-- Duties router phân biệt API quản lý và API resident.
-- Resident chỉ dùng:
-  - `getMyAssignments`
-  - `updateMyAssignment`
-- Các endpoint quản lý duties được guard manager-side.
-
-Smart Assignment nâng cao vẫn để backlog, không đưa vào demo chính.
-
-### 19.8. Cập nhật Resident Portal
-
-Trạng thái mới: **Done / Pass**.
-
-Đã xác nhận:
-
-- Resident active vào được portal.
-- Resident thấy:
-  - hồ sơ cá nhân;
-  - hôm nay;
-  - công tác;
-  - tài chính cá nhân;
-  - menu đúng theo vai trò.
+- Resident active vào portal.
+- Resident inactive/transferred_out bị guard.
 - Resident thường không thấy menu manager.
-- Resident có appointment role có thể thấy menu vai trò phù hợp.
-- Resident inactive/transferred_out được guard ở service layer.
+- Resident có chức vụ thấy menu/phạm vi phù hợp.
+- Portal đọc dữ liệu profile/today/finance đúng.
 
-Đã bổ sung:
+### 6.7. Việc 7 — Test baseline
 
-- `getResidentLinkedToUser` trả thêm dữ liệu trạng thái cần thiết.
-- Resident Portal service/access service kiểm tra user/resident active trước khi trả dữ liệu.
+Đã đổi:
 
-### 19.9. Cập nhật test baseline
-
-Trạng thái mới: **Done / Pass**.
-
-Thay đổi:
-
-```txt
-server/routers.test.ts
-→ server/routers.legacy.ts
+```text
+server/routers.test.ts → server/routers.legacy.ts
 ```
 
-Mục đích:
+Mục tiêu:
 
-- tránh Vitest collect nhầm file helper legacy;
-- giữ lại nội dung helper cũ để tham khảo nếu cần;
-- làm baseline test rõ ràng hơn.
+- Không để Vitest collect nhầm legacy helper.
+- `pnpm check`, `pnpm test`, `pnpm build` pass.
 
-### 19.10. Definition of Done cho 5 module chính
+### 6.8. Việc 8 — Definition of Done
 
-Áp dụng cho:
+Đã tạo/chốt DoD cho 5 module chính:
 
 - Members
 - Rooms
@@ -1089,328 +306,269 @@ Mục đích:
 - DailyRoutine
 - FinanceLite
 
-Một module chỉ được xem là “xong mức main flow” khi đạt đủ:
+Một module chỉ xem là done khi:
 
-```txt
-[ ] Có route thật hoặc được gọi từ route chính.
-[ ] Menu vào được hoặc bị ẩn/disabled có chủ đích nếu chưa phục vụ demo.
-[ ] Không phát sinh 404 trong luồng chính.
-[ ] UI gọi đúng API hiện hành, không phụ thuộc endpoint legacy.
-[ ] API có RBAC guard phù hợp.
-[ ] Service/DB guard bảo vệ rule nghiệp vụ chính.
-[ ] Có loading/error/empty state ở mức tối thiểu.
-[ ] check/test/build pass sau patch.
-[ ] Có runtime test theo user journey.
-[ ] Nếu có thay đổi trạng thái nghiệp vụ, phải cập nhật checklist và PROJECT_SUMMARY.
+- Có route/menu đúng.
+- API khớp UI.
+- Business rule đúng.
+- Có loading/error/empty state tối thiểu.
+- Check/test/build pass.
+- Runtime demo pass.
+
+### 6.9. Việc 9 — Helper / Style / Picker
+
+Đã chuẩn hóa:
+
+- Shared helper foundation trong `client/src/lib/format.ts` và `client/src/lib/utils.ts`.
+- FinanceLite utility reuse helper chung.
+- Thêm `TimePickerInput`.
+- Chuyển các time field quan trọng sang TimePicker.
+- Fix `DatePickerInput` bị cắt dưới bằng portal.
+
+Protected rule:
+
+```text
+Date/time/datetime input không được chỉ là input text trần.
 ```
 
-DoD riêng từng module được ghi ở mục 20.
+### 6.10. Việc 10 — Docs cleanup
 
-### 19.11. Trạng thái ưu tiên sau Việc 8
+Đã cleanup:
 
-Giai đoạn khóa main flow đã xong. Trọng tâm tiếp theo không nên mở module lớn ngay, mà nên đi theo thứ tự:
-
-1. Việc 9 — Chuẩn hóa helper / util / style.
-2. Việc 10 — Cleanup docs / file thừa.
-3. Sau đó mới quay lại nhóm Connect page nếu cần:
-   - Parents
-   - Reports
-   - Settings nâng cao
-   - ActivityPlans
-   - Skills
-   - Liturgy
-   - SmartAssignment nâng cao
+- Xóa `.temp_tsc_out*.txt`.
+- Archive tài liệu cũ/legacy Manus v1.
+- Archive `.docx` trình bày.
+- Cập nhật README / STYLE_SYNC_RULES / PROJECT_SUMMARY / documentation status.
 
 ---
 
-## 20. Definition of Done chi tiết cho 5 module chính
+## 7. Việc 11 — Học tập / Lịch học
 
-### 20.1. Members
+**Trạng thái:** Done / Pass.
 
-Module Members đạt Done khi:
+Mục tiêu:
 
-```txt
-[ ] Route `/members` chạy ổn.
-[ ] Menu vào được từ navigation manager.
-[ ] Tạo học viên mới chạy đúng.
-[ ] Cập nhật hồ sơ học viên chạy đúng.
-[ ] Thêm/sửa/xóa liên hệ gia đình đúng residentId.
-[ ] Action phòng không hiển thị sai với học viên đã rời/ngừng.
-[ ] Action tổ chức mở đúng context học viên.
-[ ] Rời/ngừng lưu xá khóa user liên kết nếu có.
-[ ] Đăng ký lại không tự reuse phòng cũ.
-[ ] UI dùng style foundation, không thêm style ad-hoc lớn.
-[ ] check/test/build pass.
-```
+- Review và hoàn thiện tab Học tập trong chi tiết học viên.
+- Đảm bảo thông tin học tập/lịch học dùng được cho demo.
+- Đảm bảo công tác conflict với lịch học.
 
-### 20.2. Rooms
+Đã pass:
 
-Module Rooms đạt Done khi:
+- Thông tin học tập.
+- Tạo/sửa/xóa lịch học.
+- TimePicker cho giờ học.
+- Validate HH:mm.
+- Chặn end <= start.
+- Chặn trùng lịch cùng ngày.
+- Guard học viên inactive/transferred_out/left.
+- DailyRoutine conflict với lịch học vẫn hoạt động.
 
-```txt
-[ ] Gán phòng cho học viên chưa có phòng.
-[ ] Chặn gán phòng nếu học viên đã có phòng.
-[ ] Chặn gán/chuyển nếu phòng đầy.
-[ ] Chặn chuyển cùng phòng.
-[ ] Chuyển phòng đóng assignment cũ và mở assignment mới.
-[ ] Trả phòng đóng assignment hiện tại.
-[ ] currentRoomId là nguồn hiện trạng chính.
-[ ] roomAssignments giữ lịch sử truy vết.
-[ ] Mutation quản lý phòng có RBAC guard.
-[ ] check/test/build pass.
-```
+### 7.1. Việc 11B — Polish layout tab Học tập
 
-### 20.3. Organization
+Đã quay lại polish UI/layout tab Học tập do modal bị kéo ngang và toolbar lịch học chen chúc.
 
-Module Organization đạt Done khi:
+Lưu ý:
 
-```txt
-[ ] Route `/organization` chạy ổn.
-[ ] Xem được cơ cấu hiện tại.
-[ ] Bổ nhiệm chức vụ hoạt động đúng.
-[ ] Tổ trưởng được scope theo từng Tổ.
-[ ] Trưởng ban được scope theo từng Ban.
-[ ] Fixed roles như Trưởng/Phó/Thư ký/Thủ quỹ không bị duplicate sai.
-[ ] Unit membership giữ đúng sau thêm/đổi Tổ/Ban.
-[ ] OrgChart giữ layout đã chốt.
-[ ] Học viên rời/ngừng có active appointment thì phải xử lý bàn giao/confirm đúng flow.
-[ ] check/test/build pass.
-```
+- Patch 11B từng gây lỗi JSX adjacent elements trong `MemberDetailModal.tsx` quanh line ~673.
+- Người dùng đã xử lý/revert/fix xong.
+- Khi chỉnh lại `MemberDetailModal.tsx`, phải đọc bản mới nhất hiện tại trong repo và rất cẩn thận với wrapper JSX.
+- Ưu tiên polish `StudyScheduleSection.tsx` nếu có thể, tránh sửa sâu `MemberDetailModal.tsx` nếu không cần.
 
-### 20.4. DailyRoutine
+---
 
-Module DailyRoutine đạt Done khi:
+## 8. Demo full flow cần đạt
 
-```txt
-[ ] Route `/daily-routine` là điểm vào chính cho sinh hoạt/công tác.
-[ ] Có tab Hôm nay.
-[ ] Có tab Lịch sinh hoạt.
-[ ] Có tab Công tác.
-[ ] Tạo được mẫu lịch.
-[ ] Tạo được công tác.
-[ ] Preview phân công chạy được.
-[ ] Ghi phân công chạy được.
-[ ] Cập nhật trạng thái hoàn thành/vắng/hủy chạy được.
-[ ] Cancel rồi reassign được.
-[ ] Resident chỉ cập nhật công tác của mình qua MyDuties.
-[ ] Endpoint quản lý duties có RBAC guard.
-[ ] Không mở Smart Assignment nâng cao trong demo chính.
-[ ] check/test/build pass.
-```
+Người dùng đang muốn bổ sung để demo full:
 
-### 20.5. FinanceLite
+| Nhóm | Nội dung | Trạng thái hiện tại |
+|---|---|---|
+| 1 | Tạo học viên | Done |
+| 2 | Gán/chuyển phòng | Done |
+| 3 | Tạo liên hệ | Done |
+| 4 | Tạo lịch học/thông tin học tập | Done / cần polish UI nếu còn rối |
+| 5 | Cơ cấu tổ chức, bổ nhiệm, phân nhiệm, Tổ, Ban | Done / cần review demo |
+| 6 | Công tác | Done / cần review demo |
+| 7 | Tài chính | Done |
+| 8 | Link portal học viên theo chức vụ | Done / cần review demo |
+| 9 | Thông báo | Need build/review |
+| 10 | Hoạt động khác | Need build/review |
+| 11 | Portal học viên: công tác, hoàn thành, tạm ứng/chi | Need expand |
+| 12 | Hoạt động cửa hàng: thu chi riêng/sổ riêng | Need lite module |
 
-Module FinanceLite đạt Done khi:
+Yêu cầu chung:
 
-```txt
-[ ] Route `/finance` vào đúng FinanceLite.
-[ ] Tạo kỳ thu/khoản thu chạy được.
-[ ] Áp dụng khoản thu cho học viên chạy được.
-[ ] Không sinh khoản thu cho học viên rời/ngừng.
-[ ] Không tạo amount <= 0.
-[ ] Không tạo trùng khoản thu cùng kỳ/tháng/học viên/item.
-[ ] Ghi nhận thanh toán chạy được.
-[ ] Không cho thu vượt số còn lại.
-[ ] Thanh toán một phần cập nhật partial.
-[ ] Thanh toán đủ cập nhật paid.
-[ ] Tổng quan tài chính cập nhật đúng sau apply/payment/cancel.
-[ ] Finance router có RBAC guard.
-[ ] check/test/build pass.
+```text
+Chức năng đầy đủ, UI/UX đơn giản.
 ```
 
 ---
 
-## 21. Checklist tiếp theo sau cập nhật này
+## 9. Việc 12 — Bước tiếp theo
 
-### Việc 9 — Chuẩn hóa helper / util / style
+**Tên việc:** Review Organization + Công tác + Portal theo chức vụ thành một kịch bản demo.
 
-Mục tiêu: giảm lặp code, giữ style premium thống nhất.
+Mục tiêu:
 
-File nên đọc trước:
+```text
+Tổ/Ban → Bổ nhiệm → Phân công công tác → Portal học viên → Portal người có chức vụ
+```
 
-```txt
-client/src/lib/utils.ts
-client/src/lib/format.ts
-client/src/lib/days.ts
-client/src/lib/formDefaults.ts
-client/src/components/shared/styleMedium.ts
-client/src/config/residenceAppearance.ts
-client/src/pages/Members.tsx
-client/src/pages/FinanceLite.tsx
+Checklist Việc 12:
+
+- [ ] Tạo/chọn nhiệm kỳ demo.
+- [ ] Tạo Tổ.
+- [ ] Tạo Ban.
+- [ ] Thêm học viên vào Tổ.
+- [ ] Thêm học viên vào Ban.
+- [ ] Bổ nhiệm Trưởng/Phó/Thư ký/Thủ quỹ.
+- [ ] Bổ nhiệm Tổ trưởng theo từng Tổ.
+- [ ] Bổ nhiệm Trưởng ban theo từng Ban.
+- [ ] Kiểm tra OrgChart layout.
+- [ ] Tạo công tác theo học viên.
+- [ ] Tạo công tác theo phòng.
+- [ ] Tạo công tác theo Tổ.
+- [ ] Tạo công tác theo Ban.
+- [ ] Resident thường thấy công tác của mình.
+- [ ] Tổ trưởng thấy phạm vi tổ nếu có.
+- [ ] Trưởng ban thấy phạm vi ban nếu có.
+- [ ] Resident không thấy menu/API quản lý.
+- [ ] Appointed resident không thấy dữ liệu ngoài phạm vi.
+- [ ] Có checklist demo 10–15 phút.
+
+File cần cho Việc 12:
+
+```text
+client/src/pages/OrganizationSimple.tsx
+client/src/components/organization-simple/*
 client/src/pages/DailyRoutine.tsx
-client/src/components/finance-lite/*
 client/src/components/daily-routine/*
+client/src/pages/MyDuties.tsx
+client/src/pages/resident/*
+client/src/navigation/*
+client/src/components/ResidenceCareLayout.tsx
+server/routers/modules/organization.ts
+server/services/organizationService.ts
+server/routers/modules/duties.ts
+server/routers/modules/dailyRoutine.ts
+server/services/dailyRoutineService.ts
+server/db/duty.ts
+server/routers/modules/residentPortal.ts
+server/services/residentPortalService.ts
+server/services/residentPortalAccessService.ts
+drizzle/schema.ts
+drizzle/residents.ts
+drizzle/dailyRoutine.ts
 ```
 
-Checklist:
-
-```txt
-[ ] Gom/chuẩn hóa formatMoney.
-[ ] Gom/chuẩn hóa formatVND.
-[ ] Gom/chuẩn hóa formatVNDFull.
-[ ] Gom/chuẩn hóa formatMoneyInput.
-[ ] Gom/chuẩn hóa formatDate.
-[ ] Gom/chuẩn hóa parseDateInput.
-[ ] Gom/chuẩn hóa toInputDateValue.
-[ ] Rà normalizeText.
-[ ] Rà normalizeCode.
-[ ] Đảm bảo dùng cx/cn từ client/src/lib/utils.ts.
-[ ] Đảm bảo page mới dùng residenceMediumStyle.
-[ ] Không tạo style Tailwind random ngoài token.
-```
-
-### Việc 10 — Cleanup docs / file thừa
-
-Mục tiêu: làm repo gọn và tài liệu không lỗi thời.
-
-File nên đọc trước:
-
-```txt
-PROJECT_SUMMARY.md
-README.md
-docs/*
-client/docs/*
-STYLE_SYNC_RULES.md
-client/docs/STYLE_SYNC_RULES.md
-.temp_tsc_out_utf8.txt
-.temp_tsc_out.txt
-Trình-bày.docx
-Trình-bày-Professional.docx
-client/src/components/ResidenceCore-Business.docx
-```
-
-Checklist:
-
-```txt
-[ ] Merge duplicate STYLE_SYNC_RULES.md nếu trùng.
-[ ] Xóa `.temp_tsc_out*.txt` nếu chỉ là file tạm.
-[ ] Rà các file `.docx`: giữ trong docs/archive hoặc bỏ khỏi source nếu không cần.
-[ ] Cập nhật API documentation nếu đang mô tả route cũ.
-[ ] Cập nhật Database schema documentation nếu đang mô tả schema cũ.
-[ ] Cập nhật User Manual theo Simple Mode và flow hiện tại.
-[ ] Cập nhật Architecture Diagram nếu module thực tế đã đổi tên/luồng.
-```
-
-## 22. Cập nhật sau Việc 9 - Chuẩn hóa helper / util / style
-
-### 22.1. Trạng thái
-
-Việc 9 đã hoàn tất và pass.
-
-- Patch 9A: chuẩn hóa shared helper foundation.
-- Patch 9B: bổ sung `TimePickerInput` và thay các input giờ rời rạc ở DailyRoutine / StudySchedule.
-- Patch 9C: sửa `DatePickerInput` render calendar bằng portal/fixed để không bị cắt dưới trong modal/card/scroll container.
-- `pnpm check`, `pnpm test`, `pnpm build` đã pass.
-- Runtime FinanceLite, Members, DailyRoutine và StudySchedule không phát sinh regression theo xác nhận.
-
-### 22.2. File/chủ đề đã tác động
-
-- `client/src/lib/format.ts`
-- `client/src/lib/utils.ts`
-- `client/src/components/finance-lite/financeLiteUtils.ts`
-- `client/src/components/shared/form/TimePickerInput.tsx`
-- `client/src/components/shared/form/DatePickerInput.tsx`
-- `client/src/components/daily-routine/duties/DutyAssignmentForm.tsx`
-- `client/src/components/daily-routine/routine/RoutineItemModal.tsx`
-- `client/src/components/members/StudyScheduleModal.tsx`
-- `client/src/components/members/StudyScheduleSection.tsx`
-
-### 22.3. Rule UI mới cần bảo vệ
-
-- Input kiểu ngày/giờ/datetime phải có picker phù hợp, không để chỉ nhập text thủ công.
-- Date picker/time picker phải dùng shared component nếu đã có.
-- Date picker trong modal/card phải render không bị cắt bởi container cha.
-- Helper format tiền/ngày/text nên ưu tiên lấy từ shared lib thay vì viết lặp lại trong page/component.
-
-### 22.4. Trạng thái tổng sau Việc 9
-
-| Nhóm việc | Trạng thái |
-|---|---|
-| Route/Menu/Page | Done / Pass |
-| Page orphan audit | Done |
-| Members/Rooms/Organization main flow | Done / Pass |
-| FinanceLite minimum flow | Done / Pass |
-| DailyRoutine demo flow | Done / Pass |
-| Resident Portal theo dữ liệu thật | Done / Pass |
-| Test baseline | Done / Pass |
-| Definition of Done | Done |
-| Helper / util / style foundation | Done / Pass |
-| Cleanup docs / file thừa | Next |
-
-### 22.5. Next step
-
-Chuyển sang Việc 10 - Cleanup docs / file thừa.
-
-Ưu tiên Việc 10:
-
-1. Cập nhật tài liệu chính để không còn trạng thái cũ.
-2. Merge/xóa tài liệu style bị trùng nếu có.
-3. Xóa file tạm build/compile.
-4. Rà `.docx` và đưa vào `docs/archive` nếu cần giữ.
-5. Rà các tài liệu cũ như API docs, DB schema, user manual, architecture diagram để đánh dấu cần update sâu theo Simple Mode / FinanceLite / Resident Portal.
-
+Không cần gửi lại file đã có nếu không đổi, nhưng nếu có chỉnh sau patch thì gửi bản mới.
 
 ---
 
-## 23. Cập nhật sau Việc 10 - Cleanup docs / file thừa
+## 10. Roadmap sau Việc 12
 
-### 23.1. Trạng thái hiện tại
+### Việc 13 — Thông báo nội bộ lite
 
-Việc 10 đã được audit và đã chuẩn bị patch tài liệu/cleanup. Chưa xem là hoàn tất cho tới khi patch được apply trong repo thật.
+Scope demo:
 
-Phạm vi audit:
+- Icon chuông.
+- Danh sách thông báo.
+- Đã đọc/chưa đọc.
+- Tạo thông báo khi giao công tác.
+- Tạo thông báo khi tạo khoản thu.
+- Resident thấy thông báo của mình.
+- Manager thấy thông báo quản trị nếu cần.
+- Không cần realtime trong demo.
 
-- `PROJECT_SUMMARY.md` bản mới nhất đã có trong phiên làm việc.
-- `README.md` hiện còn theo template kỹ thuật gốc, chưa phản ánh ResidenceCore/App Lưu Xá hiện tại.
-- `STYLE_SYNC_RULES.md` đã có ở root, cần dùng làm nguồn style rule chính; nếu còn bản duplicate ở `client/docs/STYLE_SYNC_RULES.md` thì chỉ giữ nếu khác nội dung.
-- Các tài liệu `02_API_DOCUMENTATION.md`, `03_DATABASE_SCHEMA.md`, `04_SETUP_DEPLOYMENT.md`, `05_USER_MANUAL.md`, `ARCHITECTURE_DIAGRAM.md` đang mang phong cách tài liệu cũ từ tháng 5/2026, nhiều nội dung chưa khớp Simple Mode, FinanceLite, DailyRoutine và Resident Portal hiện tại.
-- `.temp_tsc_out.txt` và `.temp_tsc_out_utf8.txt` là output tạm, không nên giữ trong source.
-- Các file `.docx` trình bày nên đưa vào `docs/archive/presentation/` nếu còn cần giữ, không để rải ở root hoặc `client/src/components/`.
+### Việc 14 — Hoạt động / sự kiện lite
 
-### 23.2. Patch Việc 10 đã chuẩn bị
+Scope demo:
 
-Patch Việc 10 gồm:
+- Tên hoạt động.
+- Ngày/giờ.
+- Địa điểm.
+- Người/Ban phụ trách.
+- Ghi chú.
+- Trạng thái: dự kiến / đã diễn ra / hủy.
+- Hiển thị portal nếu công khai.
 
-- Cập nhật `PROJECT_SUMMARY.md` để ghi nhận trạng thái sau Việc 9 và audit Việc 10.
-- Cập nhật `README.md` thành README định hướng ResidenceCore/App Lưu Xá thay vì template chung.
-- Cập nhật `STYLE_SYNC_RULES.md` để bổ sung rule picker ngày/giờ/datetime.
-- Thêm `docs/DOCUMENTATION_STATUS.md` để đánh dấu tài liệu nào là hiện hành, tài liệu nào là legacy cần cập nhật sau.
-- Thêm `docs/worklog/RESIDENCECORE_VIEC10_DOC_CLEANUP_AUDIT.md` để lưu kết quả audit.
-- Thêm `scripts/cleanup-docs-viec10.sh` để xóa file tạm và di chuyển tài liệu legacy/archive theo cấu trúc đề xuất.
+### Việc 15 — Portal học viên mở rộng
 
-### 23.3. Trạng thái tổng sau Việc 10 audit
+Scope:
 
-| Nhóm việc | Trạng thái |
-|---|---|
-| Route/Menu/Page | Done / Pass |
-| Page orphan audit | Done |
-| Members/Rooms/Organization main flow | Done / Pass |
-| FinanceLite minimum flow | Done / Pass |
-| DailyRoutine demo flow | Done / Pass |
-| Resident Portal theo dữ liệu thật | Done / Pass |
-| Test baseline | Done / Pass |
-| Definition of Done | Done |
-| Helper / util / style foundation | Done / Pass |
-| Cleanup docs / file thừa | Audit done / chờ apply patch |
+- Lịch học.
+- Thông báo.
+- Hoạt động.
+- Tài chính cá nhân.
+- Công tác và hoàn thành.
+- Xem tạm ứng/chi hộ nếu có.
 
-### 23.4. Sau khi apply Việc 10
+Tạm thời không cho học viên tự tạo đề nghị tạm ứng trong demo, trừ khi chốt nghiệp vụ.
 
-Chạy tối thiểu:
+### Việc 16 — Cửa hàng / quỹ riêng lite
 
-```bash
-pnpm check
-pnpm test
-pnpm build
+Scope demo:
+
+- Sổ thu chi riêng.
+- Khoản thu.
+- Khoản chi.
+- Ngày phát sinh.
+- Người ghi nhận.
+- Nội dung.
+- Số tiền.
+- Tổng thu / tổng chi / số dư.
+- Lọc theo tháng.
+- Không trộn với khoản thu học viên.
+
+### Việc 17 — Demo script 15 phút
+
+Tạo kịch bản thao tác cố định:
+
+```text
+Tạo học viên → gán phòng → liên hệ → học tập/lịch học → tổ chức/bổ nhiệm → công tác → tài chính → portal học viên → thông báo/hoạt động nếu có
 ```
 
-Với cleanup tài liệu, nếu chỉ thay README/docs/script và xóa file tạm thì khả năng ảnh hưởng runtime thấp. Tuy nhiên vẫn giữ nguyên quy trình kiểm tra để bảo vệ baseline.
+### Việc 18 — Polish UI/UX demo
 
-### 23.5. Việc tiếp theo sau Việc 10
+- Rút gọn màn rối.
+- Ưu tiên Simple view.
+- Chống overflow ngang.
+- Thống nhất picker/date/time.
+- Không hiển thị thuật ngữ kỹ thuật.
 
-Sau khi Việc 10 pass, hướng tiếp theo nên là:
+---
 
-1. Cập nhật sâu lại `02_API_DOCUMENTATION.md` theo router thực tế hiện tại.
-2. Cập nhật `03_DATABASE_SCHEMA.md` theo Drizzle schema mới.
-3. Viết lại `05_USER_MANUAL.md` theo Simple Mode, flow manager và Resident Portal hiện tại.
-4. Cập nhật `ARCHITECTURE_DIAGRAM.md` theo module thực tế: Members, Rooms, Organization, DailyRoutine, FinanceLite, Resident Portal.
-5. Bổ sung test nghiệp vụ chuyên sâu cho các case đã bảo vệ: phòng đầy, cư dân đã rời, finance payment, resident portal access, duties RBAC.
+## 11. Checklist trạng thái hiện tại
+
+- [x] Việc 1 Route/Menu/Page
+- [x] Việc 2 Page orphan audit
+- [x] Việc 3 Members/Rooms/Organization main flow
+- [x] Việc 4 FinanceLite
+- [x] Việc 5 DailyRoutine/Công tác
+- [x] Việc 6 Resident Portal
+- [x] Việc 7 Test baseline
+- [x] Việc 8 Definition of Done
+- [x] Việc 9 Helper/Style/Picker
+- [x] Việc 10 Docs cleanup
+- [x] Việc 11 Học tập/Lịch học
+- [ ] Việc 12 Organization + Công tác + Portal theo chức vụ demo review
+- [ ] Việc 13 Thông báo nội bộ lite
+- [ ] Việc 14 Hoạt động / sự kiện lite
+- [ ] Việc 15 Portal học viên mở rộng
+- [ ] Việc 16 Cửa hàng / quỹ riêng lite
+- [ ] Việc 17 Demo script 15 phút
+- [ ] Việc 18 UI/UX polish demo
+
+---
+
+## 12. Ghi chú vận hành cho các lần làm tiếp
+
+- Làm từng việc một.
+- Mỗi việc có audit/checklist/runtime checklist.
+- Patch nên gửi dạng zip theo cấu trúc repo.
+- Sau pass phải cập nhật checklist và PROJECT_SUMMARY.
+- Không hỏi lại file đã gửi nếu người dùng không nói có chỉnh thêm.
+- Nếu thiếu file thật sự thì hỏi đúng file thiếu, không hỏi lại cả nhóm.
+- Không patch từ file cũ.
+- Không làm lan sang module khác nếu scope không yêu cầu.
+- Không reintroduce các bug đã fix.
+

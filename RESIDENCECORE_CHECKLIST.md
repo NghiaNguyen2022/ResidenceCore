@@ -1,100 +1,85 @@
-# ResidenceCore / App Lưu Xá - Checklist cập nhật sau Việc 9
+# ResidenceCore / App Lưu Xá — Context Update 2026-07-04
 
-**Ngày cập nhật:** 2026-07-04  
-**Trạng thái:** Việc 9 đã pass  
-**Nguyên tắc:** Làm từng việc một; sau mỗi việc pass phải cập nhật checklist và PROJECT_SUMMARY.md.
+## Trạng thái đã chốt
 
----
+### Nền dự án / cleanup
 
-## Tổng trạng thái Việc 1 -> Việc 9
+- Việc 1 — Route / Menu / Page: Done / Pass
+- Việc 2 — Page orphan audit: Done
+- Việc 3 — Members / Rooms / Organization main flow: Done / Pass
+- Việc 4 — FinanceLite tối thiểu: Done / Pass
+- Việc 5 — DailyRoutine / Công tác mức demo: Done / Pass
+- Việc 6 — Resident Portal theo dữ liệu thật: Done / Pass
+- Việc 7 — Test baseline: Done / Pass
+- Việc 8 — Definition of Done cho module chính: Done
+- Việc 9 — Helper / Style / Picker: Done / Pass
+- Việc 10 — Docs cleanup / file thừa: Done / Pass
 
-| Việc | Nội dung | Trạng thái | Ghi chú |
-|---|---|---|---|
-| Việc 1 | Đồng bộ Route / Menu / Page | ✅ Done / Pass | Menu không còn dẫn tới route 404; path chưa có route được disabled/ẩn có chủ đích. |
-| Việc 2 | Phân loại page chưa vào route chính | ✅ Done | 33 page orphan đã phân loại Connect / Keep / Archive. |
-| Việc 3 | Khóa main flow Học viên -> Phòng -> Tổ chức | ✅ Done / Pass | Đã guard legacy room endpoint, bổ sung RBAC rooms router, runtime pass. |
-| Việc 4 | Khóa FinanceLite tối thiểu | ✅ Done / Pass | Đã guard RBAC finance router và DB finance rule; runtime pass. |
-| Việc 5 | Khóa DailyRoutine / Công tác mức demo | ✅ Done / Pass | Đã guard RBAC duties router; manager/resident runtime pass. |
-| Việc 6 | Review Resident Portal theo dữ liệu thật | ✅ Done / Pass | Đã guard active resident/user cho resident portal; runtime pass. |
-| Việc 7 | Dọn test baseline | ✅ Done / Pass | Đã đổi `server/routers.test.ts` thành `server/routers.legacy.ts`; check/test/build pass. |
-| Việc 8 | Definition of Done cho 5 module chính | ✅ Done | Đã tạo/cập nhật DoD cho Members, Rooms, Organization, DailyRoutine, FinanceLite. |
-| Việc 9 | Chuẩn hóa helper / util / style | ✅ Done / Pass | Đã chuẩn hóa helper, TimePicker, DatePicker portal fix; check/test/build/runtime pass. |
+### Demo full flow
 
----
+- Việc 11 — Học tập / Lịch học: Done / Pass
+  - Tab Học tập trong hồ sơ học viên đã review.
+  - Lịch học dùng TimePicker theo rule picker.
+  - Backend guard đã bổ sung cho học tập/lịch học.
+  - Validate HH:mm và start/end time đã được bảo vệ.
+  - Conflict công tác với lịch học vẫn hoạt động.
 
-## Chi tiết Việc 9 đã hoàn tất
+## Rule đã chốt và cần bảo vệ
 
-### Patch 9A - Shared helper foundation
+1. File nào user đã gửi và assistant đã patch xong thì xem là bản mới nhất, trừ khi user nói có chỉnh thêm bên ngoài.
+2. Không yêu cầu user gửi lại cùng một file nhiều lần nếu không cần thiết.
+3. Mọi input date/time/datetime phải có picker phù hợp, không dùng text input trần.
+4. DatePickerInput đã được fix portal để không bị cắt trong modal/card.
+5. TimePickerInput đã được thêm và dùng cho lịch học / công tác / routine.
+6. Các flow đã pass không được refactor lan rộng nếu không có bug rõ ràng.
+7. Sau mỗi việc pass phải cập nhật checklist và PROJECT_SUMMARY.md/context tương ứng.
 
-- Cập nhật `client/src/lib/format.ts`.
-- Cập nhật `client/src/lib/utils.ts`.
-- Chuẩn hóa helper tiền/ngày dùng chung.
-- Điều chỉnh `client/src/components/finance-lite/financeLiteUtils.ts` để dùng helper nền, không đổi behavior FinanceLite.
+## Ghi chú Việc 11B — Polish layout Học tập
 
-### Patch 9B - TimePicker chuẩn hóa
+- Đã thử patch layout/style cho tab Học tập & Lịch học.
+- Patch gây lỗi JSX trong `MemberDetailModal.tsx` quanh line ~673: Adjacent JSX elements must be wrapped.
+- User đã xử lý xong bên repo và yêu cầu update context.
+- Với các bước sau, phải xem bản repo hiện tại của user là bản mới nhất.
+- Nếu cần polish lại layout học tập, ưu tiên sửa trong `StudyScheduleSection.tsx`; khi đụng `MemberDetailModal.tsx` phải kiểm tra kỹ cặp JSX wrapper.
 
-- Tạo `client/src/components/shared/form/TimePickerInput.tsx`.
-- Áp dụng picker giờ cho các khu vực DailyRoutine và StudySchedule.
-- Giữ output `HH:mm`.
-- Không để input time chỉ là text/input rời rạc.
+## Bước tiếp theo đề xuất
 
-### Patch 9C - DatePicker portal fix
+### Việc 12 — Review Organization + Công tác + Portal theo chức vụ
 
-- Cập nhật `client/src/components/shared/form/DatePickerInput.tsx`.
-- Calendar render bằng portal/fixed để không bị cắt dưới trong modal/card/scroll container.
-- Giữ behavior nhập/chọn ngày hiện tại.
+Mục tiêu: tạo được kịch bản demo xuyên suốt theo vai trò.
 
-### Runtime đã xác nhận pass
+Checklist chính:
 
-- `pnpm check` pass.
-- `pnpm test` pass.
-- `pnpm build` pass.
-- FinanceLite không regression tiền/ngày.
-- Members/Ngày sinh mở calendar đầy đủ, không bị cắt dưới.
-- DailyRoutine/StudySchedule chọn giờ bằng picker ổn.
+- Tạo nhiệm kỳ / cơ cấu hiện tại.
+- Tạo Tổ / Ban.
+- Thêm học viên vào Tổ / Ban.
+- Bổ nhiệm Trưởng, Phó, Thư ký, Thủ quỹ.
+- Bổ nhiệm Tổ trưởng theo từng Tổ.
+- Bổ nhiệm Trưởng ban theo từng Ban.
+- Phân công công tác theo học viên / phòng / tổ / ban.
+- Học viên thường thấy công tác của mình trên portal.
+- Học viên có chức vụ thấy đúng phạm vi phụ trách.
+- Resident không thấy menu manager và không gọi được API quản trị.
 
----
+## File nên dùng cho Việc 12
 
-## Rule mới cần bảo vệ từ Việc 9
-
-- Các input kiểu `date`, `time`, `datetime` phải có picker phù hợp.
-- Không tạo input date/time chỉ nhập text thủ công.
-- Nếu đã có shared component thì phải dùng lại:
-  - `DatePickerInput`
-  - `FormDateInput`
-  - `TimePickerInput`
-- Popup picker phải không bị cắt bởi modal/card/scroll container.
-- Helper format tiền/ngày nên lấy từ shared lib trước khi tự viết trong page/component.
-
----
-
-## Việc 10 - Cleanup docs / file thừa (sẵn sàng bắt đầu)
-
-### Mục tiêu
-
-Làm repo gọn, tài liệu không còn lệch trạng thái mới, không để file tạm/doc cũ gây nhiễu.
-
-### Checklist dự kiến
-
-- [ ] So sánh và merge `STYLE_SYNC_RULES.md` nếu bị trùng giữa root và `client/docs`.
-- [ ] Xóa `.temp_tsc_out_utf8.txt` nếu chỉ là file tạm.
-- [ ] Xóa `.temp_tsc_out.txt` nếu chỉ là file tạm.
-- [ ] Rà các file `.docx` trong source:
-  - `Trình-bày.docx`
-  - `Trình-bày-Professional.docx`
-  - `client/src/components/ResidenceCore-Business.docx`
-- [ ] Nếu `.docx` cần giữ thì chuyển vào `docs/archive` hoặc nơi tài liệu phù hợp, không để lẫn trong source component.
-- [ ] Cập nhật `PROJECT_SUMMARY.md` để phản ánh Việc 9 đã pass.
-- [ ] Rà `02_API_DOCUMENTATION.md`, `03_DATABASE_SCHEMA.md`, `05_USER_MANUAL.md`, `ARCHITECTURE_DIAGRAM.md` xem phần nào còn quá cũ so với Simple Mode / FinanceLite / Resident Portal.
-- [ ] Chốt danh sách tài liệu cần update sâu sau cleanup.
-
-### File cần cho Việc 10
-
-- `PROJECT_SUMMARY.md` bản mới nhất.
-- `STYLE_SYNC_RULES.md`.
-- `client/docs/STYLE_SYNC_RULES.md`.
-- `.temp_tsc_out_utf8.txt` nếu còn.
-- `.temp_tsc_out.txt` nếu còn.
-- Các file `.docx` cần rà.
-- `docs/*` hiện tại.
-
+- `client/src/pages/OrganizationSimple.tsx`
+- `client/src/components/organization-simple/*`
+- `client/src/pages/DailyRoutine.tsx`
+- `client/src/components/daily-routine/*`
+- `client/src/pages/MyDuties.tsx`
+- `client/src/pages/resident/*`
+- `client/src/navigation/*`
+- `client/src/components/ResidenceCareLayout.tsx`
+- `server/routers/modules/organization.ts`
+- `server/services/organizationService.ts`
+- `server/routers/modules/duties.ts`
+- `server/routers/modules/dailyRoutine.ts`
+- `server/services/dailyRoutineService.ts`
+- `server/db/duty.ts`
+- `server/routers/modules/residentPortal.ts`
+- `server/services/residentPortalService.ts`
+- `server/services/residentPortalAccessService.ts`
+- `drizzle/schema.ts`
+- `drizzle/residents.ts`
+- `drizzle/dailyRoutine.ts`

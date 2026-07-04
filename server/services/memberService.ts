@@ -194,7 +194,43 @@ export type UpdateResidentStudyScheduleData = ResidentStudyScheduleData & {
 };
 
 function normalizeStudyTime(value?: string | null) {
-      return String(value || "").slice(0, 5);
+      return String(value || "").trim().slice(0, 5);
+}
+
+function isValidStudyTime(value: string) {
+      if (!/^\d{2}:\d{2}$/.test(value)) {
+            return false;
+      }
+
+      const [hours, minutes] = value.split(":").map(Number);
+
+      return (
+            Number.isInteger(hours) &&
+            Number.isInteger(minutes) &&
+            hours >= 0 &&
+            hours <= 23 &&
+            minutes >= 0 &&
+            minutes <= 59
+      );
+}
+
+function studyTimeToMinutes(value: string) {
+      const [hours, minutes] = value.split(":").map(Number);
+      return hours * 60 + minutes;
+}
+
+function isInactiveResidentStatus(status?: string | null) {
+      return status === "inactive" || status === "transferred_out" || status === "left";
+}
+
+function assertResidentCanManageEducation(resident: any) {
+      if (!resident) {
+            throw new Error("Không tìm thấy học viên.");
+      }
+
+      if (isInactiveResidentStatus(resident.status || resident.residenceStatus)) {
+            throw new Error("Học viên đã ngừng/rời lưu xá, không thể cập nhật thông tin học tập.");
+      }
 }
 
 function validateStudySchedulePayload(data: {
@@ -208,7 +244,11 @@ function validateStudySchedulePayload(data: {
             throw new Error("Vui lòng nhập giờ bắt đầu và giờ kết thúc.");
       }
 
-      if (startTime >= endTime) {
+      if (!isValidStudyTime(startTime) || !isValidStudyTime(endTime)) {
+            throw new Error("Giờ học không hợp lệ. Vui lòng chọn đúng định dạng HH:mm.");
+      }
+
+      if (studyTimeToMinutes(startTime) >= studyTimeToMinutes(endTime)) {
             throw new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
       }
 
@@ -477,9 +517,7 @@ export class MemberService {
       async upsertEducation(data: ResidentEducationData) {
             const resident = await db.getResidentById(data.residentId);
 
-            if (!resident) {
-                  throw new Error("Không tìm thấy học viên.");
-            }
+            assertResidentCanManageEducation(resident);
 
             if (!data.schoolName?.trim()) {
                   throw new Error("Vui lòng nhập trường đang học.");
@@ -508,9 +546,7 @@ export class MemberService {
       async createStudySchedule(data: ResidentStudyScheduleData) {
             const resident = await db.getResidentById(data.residentId);
 
-            if (!resident) {
-                  throw new Error("Không tìm thấy học viên.");
-            }
+            assertResidentCanManageEducation(resident);
 
             const timeRange = validateStudySchedulePayload(data);
 
@@ -528,9 +564,7 @@ export class MemberService {
       async updateStudySchedule(data: UpdateResidentStudyScheduleData) {
             const resident = await db.getResidentById(data.residentId);
 
-            if (!resident) {
-                  throw new Error("Không tìm thấy học viên.");
-            }
+            assertResidentCanManageEducation(resident);
 
             const timeRange = validateStudySchedulePayload(data);
 
@@ -549,9 +583,7 @@ export class MemberService {
       async deleteStudySchedule(input: { id: number; residentId: number }) {
             const resident = await db.getResidentById(input.residentId);
 
-            if (!resident) {
-                  throw new Error("Không tìm thấy học viên.");
-            }
+            assertResidentCanManageEducation(resident);
 
             return db.deactivateResidentStudySchedule(input);
       }

@@ -618,7 +618,24 @@ export type UpdateResidentStudyScheduleInput = ResidentStudyScheduleInput & {
 };
 
 function normalizeTimeForDb(value: string) {
-      return String(value || "").slice(0, 5);
+      return String(value || "").trim().slice(0, 5);
+}
+
+function isValidTimeForDb(value: string) {
+      if (!/^\d{2}:\d{2}$/.test(value)) {
+            return false;
+      }
+
+      const [hours, minutes] = value.split(":").map(Number);
+
+      return (
+            Number.isInteger(hours) &&
+            Number.isInteger(minutes) &&
+            hours >= 0 &&
+            hours <= 23 &&
+            minutes >= 0 &&
+            minutes <= 59
+      );
 }
 
 function validateStudyScheduleTimeRange(startTime: string, endTime: string) {
@@ -629,7 +646,14 @@ function validateStudyScheduleTimeRange(startTime: string, endTime: string) {
             throw new Error("Vui lòng nhập giờ bắt đầu và giờ kết thúc.");
       }
 
-      if (start >= end) {
+      if (!isValidTimeForDb(start) || !isValidTimeForDb(end)) {
+            throw new Error("Giờ học không hợp lệ. Vui lòng chọn đúng định dạng HH:mm.");
+      }
+
+      const startMinutes = timeToMinutes(start);
+      const endMinutes = timeToMinutes(end);
+
+      if (startMinutes === null || endMinutes === null || startMinutes >= endMinutes) {
             throw new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
       }
 

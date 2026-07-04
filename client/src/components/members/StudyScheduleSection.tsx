@@ -225,8 +225,8 @@ type ScheduleViewMode = "day" | "week" | "month";
 
 const STUDY_HOUR_START = 5;
 const STUDY_HOUR_END = 23;
-const STUDY_HOUR_HEIGHT = 54;
-const STUDY_HOUR_EXPANDED_HEIGHT = 74;
+const STUDY_HOUR_HEIGHT = 46;
+const STUDY_HOUR_EXPANDED_HEIGHT = 72;
 
 function getScheduleTopOffset(startTime?: string | null, hourHeight = STUDY_HOUR_HEIGHT) {
       const minutes = timeToMinutes(startTime);
@@ -442,8 +442,8 @@ export function StudyScheduleSection({
                         : dayTitle;
 
       const calendarHourHeight = STUDY_HOUR_HEIGHT;
-      const calendarMinWidth = "820px";
-      const calendarMaxHeight = "520px";
+      const calendarMinWidth = "720px";
+      const calendarMaxHeight = "430px";
       const expandedCalendarHourHeight = STUDY_HOUR_EXPANDED_HEIGHT;
       const expandedCalendarMinWidth = "1180px";
       const expandedCalendarMaxHeight = "calc(100vh - 220px)";
@@ -593,24 +593,25 @@ export function StudyScheduleSection({
                         compact
                         action={
                               !readonly && (
-                                    <Button type="button" size="sm" onClick={handleAdd}>
+                                    <Button type="button" size="sm" onClick={handleAdd} className="shrink-0">
                                           <Plus className="mr-2 h-4 w-4" />
                                           Thêm lịch học
                                     </Button>
                               )
                         }
                   >
-                        <div className="mb-3 flex flex-col gap-3 border-b border-amber-100/80 pb-3 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
+                        <div className="min-w-0 overflow-hidden">
+                        <div className="mb-3 flex flex-col gap-3 border-b border-amber-100/80 pb-3 xl:flex-row xl:items-start xl:justify-between">
+                              <div className="min-w-0">
                                     <p className="text-sm font-semibold text-slate-900">
                                           Lịch học theo ngày/tuần/tháng
                                     </p>
-                                    <p className="text-xs text-slate-500">
-                                          Dùng để cảnh báo khi phân công công tác trùng giờ.
+                                    <p className="text-xs leading-5 text-slate-500">
+                                          Dùng để cảnh báo khi phân công công tác trùng giờ. Có thể xem gọn trong hồ sơ hoặc mở rộng khi cần.
                                     </p>
                               </div>
 
-                              <div className="flex flex-wrap items-center justify-end gap-2">
+                              <div className="flex min-w-0 flex-wrap items-center gap-2 xl:justify-end">
                                     <div className="inline-flex w-fit rounded-2xl bg-amber-50/80 p-1 ring-1 ring-amber-100">
                                           {([
                                                 ["day", "Ngày"],
@@ -665,7 +666,7 @@ export function StudyScheduleSection({
                                                       </button>
                                                 </div>
 
-                                                <span className="rounded-2xl border border-amber-100 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm">
+                                                <span className="max-w-full truncate rounded-2xl border border-amber-100 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm sm:max-w-[220px]">
                                                       {calendarPeriodTitle}
                                                 </span>
 
@@ -793,7 +794,7 @@ export function StudyScheduleSection({
                               >
                                     <div className="overflow-x-auto">
                                           <div
-                                                className="grid grid-cols-[72px_repeat(7,minmax(120px,1fr))] border-b border-slate-200 bg-slate-50"
+                                                className="grid grid-cols-[64px_repeat(7,minmax(94px,1fr))] border-b border-slate-200 bg-slate-50"
                                                 style={{ minWidth: calendarMinWidth }}
                                           >
                                                 <div className="px-3 py-3 text-xs font-bold uppercase text-slate-400">
@@ -822,7 +823,7 @@ export function StudyScheduleSection({
                                           style={{ maxHeight: calendarMaxHeight }}
                                     >
                                           <div
-                                                className="grid grid-cols-[72px_repeat(7,minmax(120px,1fr))]"
+                                                className="grid grid-cols-[64px_repeat(7,minmax(94px,1fr))]"
                                                 style={{
                                                       minWidth: calendarMinWidth,
                                                       height: `${(STUDY_HOUR_END - STUDY_HOUR_START) * calendarHourHeight}px`,
@@ -868,7 +869,7 @@ export function StudyScheduleSection({
                                                                         key={item.id}
                                                                         type="button"
                                                                         onClick={() => handleEdit(item)}
-                                                                        className="group absolute left-2 right-2 overflow-visible rounded-xl border border-blue-200 bg-blue-50 px-2 py-1 text-left shadow-sm transition hover:z-20 hover:bg-blue-100"
+                                                                        className="group absolute left-1.5 right-1.5 overflow-visible rounded-xl border border-blue-200 bg-blue-50 px-2 py-1 text-left shadow-sm transition hover:z-20 hover:bg-blue-100"
                                                                         style={{
                                                                               top: `${getScheduleTopOffset(item.startTime, calendarHourHeight)}px`,
                                                                               height: `${getScheduleBlockHeight(item.startTime, item.endTime, calendarHourHeight)}px`,
@@ -876,14 +877,14 @@ export function StudyScheduleSection({
                                                                         title={`${DAY_LABELS[item.dayOfWeek]} ${formatTime(item.startTime)} - ${formatTime(item.endTime)} · ${item.subjectName || "Khung giờ học"}${item.location ? ` · ${item.location}` : ""}`}
                                                                   >
                                                                         <div className="overflow-hidden">
-                                                                              <div className="text-[11px] font-bold text-blue-700">
+                                                                              <div className="text-[10px] font-bold text-blue-700">
                                                                                     {formatTime(item.startTime)} - {formatTime(item.endTime)}
                                                                               </div>
-                                                                              <div className="mt-0.5 line-clamp-2 text-xs font-semibold text-slate-900">
+                                                                              <div className="mt-0.5 line-clamp-2 text-[11px] font-semibold leading-4 text-slate-900">
                                                                                     {item.subjectName || "Khung giờ học"}
                                                                               </div>
                                                                               {item.location && (
-                                                                                    <div className="mt-0.5 truncate text-[11px] text-slate-500">
+                                                                                    <div className="mt-0.5 truncate text-[10px] text-slate-500">
                                                                                           {item.location}
                                                                                     </div>
                                                                               )}
@@ -919,7 +920,7 @@ export function StudyScheduleSection({
                                     <div className="flex flex-col gap-1 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                           <div className="font-bold text-slate-900">{monthTitle}</div>
                                           <div className="text-xs text-slate-500">
-                                                Lịch tháng được sinh theo lịch học lặp hằng tuần. Dùng Next/Prev để xem các tháng khác. Dùng Next/Prev để xem các tháng khác.
+                                                Lịch tháng được sinh theo lịch học lặp hằng tuần. Dùng Prev/Next để xem các tháng khác.
                                           </div>
                                     </div>
 
@@ -984,7 +985,7 @@ export function StudyScheduleSection({
                                     </div>
                               </div>
                         )}
-
+                        </div>
                   </AppSection>
 
 
@@ -1202,7 +1203,7 @@ export function StudyScheduleSection({
                                                 <div className="flex flex-col gap-1 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                                       <div className="font-bold text-slate-900">{monthTitle}</div>
                                                       <div className="text-xs text-slate-500">
-                                                            Lịch tháng được sinh theo lịch học lặp hằng tuần. Dùng Next/Prev để xem các tháng khác. Dùng Next/Prev để xem các tháng khác.
+                                                            Lịch tháng được sinh theo lịch học lặp hằng tuần. Dùng Prev/Next để xem các tháng khác.
                                                       </div>
                                                 </div>
 
