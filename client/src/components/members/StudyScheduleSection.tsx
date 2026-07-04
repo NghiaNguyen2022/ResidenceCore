@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { CalendarClock, ChevronLeft, ChevronRight, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { formatTime } from '@/lib/format';
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
+import { TimePickerInput } from "@/components/shared/form/TimePickerInput";
 
 import {
       AppSection,
@@ -1333,8 +1334,7 @@ export function StudyScheduleSection({
                                                       <span className="text-sm font-bold text-slate-800">
                                                             Giờ bắt đầu <span className="text-rose-500">*</span>
                                                       </span>
-                                                      <input
-                                                            type="time"
+                                                      <TimePickerInput
                                                             value={formData.startTime}
                                                             onChange={(event) =>
                                                                   setFormData((current) => ({
@@ -1342,7 +1342,7 @@ export function StudyScheduleSection({
                                                                         startTime: event.target.value,
                                                                   }))
                                                             }
-                                                            className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                                                            className="h-11 rounded-2xl border-slate-200 bg-white text-sm font-semibold text-slate-800"
                                                       />
                                                 </label>
 
@@ -1350,8 +1350,7 @@ export function StudyScheduleSection({
                                                       <span className="text-sm font-bold text-slate-800">
                                                             Giờ kết thúc <span className="text-rose-500">*</span>
                                                       </span>
-                                                      <input
-                                                            type="time"
+                                                      <TimePickerInput
                                                             value={formData.endTime}
                                                             onChange={(event) =>
                                                                   setFormData((current) => ({
@@ -1359,7 +1358,7 @@ export function StudyScheduleSection({
                                                                         endTime: event.target.value,
                                                                   }))
                                                             }
-                                                            className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                                                            className="h-11 rounded-2xl border-slate-200 bg-white text-sm font-semibold text-slate-800"
                                                       />
                                                 </label>
 

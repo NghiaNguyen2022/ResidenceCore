@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { CalendarIcon, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -106,7 +107,38 @@ export function DatePickerInput({
             return d ? toDMY(d) : "";
       });
       const wrapperRef = React.useRef<HTMLDivElement>(null);
+      const dropdownRef = React.useRef<HTMLDivElement>(null);
       const inputRef = React.useRef<HTMLInputElement>(null);
+      const [dropdownStyle, setDropdownStyle] = React.useState<React.CSSProperties>({});
+
+      const updateDropdownPosition = React.useCallback(() => {
+            const anchor = wrapperRef.current;
+            if (!anchor) return;
+
+            const rect = anchor.getBoundingClientRect();
+            const dropdownWidth = 292;
+            const dropdownHeight = 360;
+            const viewportGap = 12;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const shouldOpenUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+
+            const left = Math.min(
+                  Math.max(viewportGap, rect.left),
+                  Math.max(viewportGap, window.innerWidth - dropdownWidth - viewportGap)
+            );
+
+            const top = shouldOpenUp
+                  ? Math.max(viewportGap, rect.top - dropdownHeight - 6)
+                  : Math.min(rect.bottom + 6, window.innerHeight - viewportGap);
+
+            setDropdownStyle({
+                  position: "fixed",
+                  top,
+                  left,
+                  width: dropdownWidth,
+                  zIndex: 100000,
+            });
+      }, []);
 
       // Sync khi value thay đổi từ bên ngoài (không phải do user đang gõ)
       const lastEmitted = React.useRef(value);
@@ -118,16 +150,33 @@ export function DatePickerInput({
             }
       }, [value]);
 
-      // Đóng calendar khi click ngoài
+      // Đóng calendar khi click ngoài, kể cả dropdown đang render qua portal.
       React.useEffect(() => {
             if (!open) return;
+
+            updateDropdownPosition();
+
             function onPointerDown(e: PointerEvent) {
-                  if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node))
-                        setOpen(false);
+                  const target = e.target as Node;
+                  if (wrapperRef.current?.contains(target)) return;
+                  if (dropdownRef.current?.contains(target)) return;
+                  setOpen(false);
             }
+
+            function onViewportChange() {
+                  updateDropdownPosition();
+            }
+
             document.addEventListener("pointerdown", onPointerDown);
-            return () => document.removeEventListener("pointerdown", onPointerDown);
-      }, [open]);
+            window.addEventListener("resize", onViewportChange);
+            window.addEventListener("scroll", onViewportChange, true);
+
+            return () => {
+                  document.removeEventListener("pointerdown", onPointerDown);
+                  window.removeEventListener("resize", onViewportChange);
+                  window.removeEventListener("scroll", onViewportChange, true);
+            };
+      }, [open, updateDropdownPosition]);
 
       // Chọn từ calendar
       const handleCalendarSelect = (date: Date | undefined) => {
@@ -197,9 +246,13 @@ export function DatePickerInput({
                         </button>
                   </div>
 
-                  {/* Calendar dropdown */}
-                  {open && (
-                        <div className="absolute left-0 top-full z-[9999] mt-1 rounded-lg border border-slate-200 bg-white p-3 shadow-2xl">
+                  {/* Calendar dropdown render bằng portal để không bị cắt bởi modal/card có overflow hidden. */}
+                  {open && createPortal(
+                        <div
+                              ref={dropdownRef}
+                              style={dropdownStyle}
+                              className="rounded-lg border border-slate-200 bg-white p-3 shadow-2xl"
+                        >
                               {/* Header: năm + tháng */}
                               <div className="mb-3 flex items-center justify-between gap-1">
                                     <button type="button" tabIndex={-1}
@@ -260,7 +313,8 @@ export function DatePickerInput({
                                           nav: "hidden",
                                     }}
                               />
-                        </div>
+                        </div>,
+                        document.body
                   )}
             </div>
       );

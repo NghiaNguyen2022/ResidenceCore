@@ -98,3 +98,37 @@ export function formatVNDFull(amount?: number | string | null): string {
             maximumFractionDigits: 0,
       }).format(n);
 }
+
+/**
+ * Normalize a stored/input money value to integer VND text.
+ * Keeps existing FinanceLite behavior: accepts "1.200.000", "1200000", "1200000.00" and strips separators.
+ */
+export function normalizeStoredMoneyValue(value?: string | number | null): string {
+      if (typeof value === 'number') {
+            return Number.isFinite(value) ? String(Math.round(value)) : '';
+      }
+
+      const raw = String(value ?? '').trim();
+      if (!raw) return '';
+      if (/^-?\d+\.\d{1,2}$/.test(raw)) return String(Math.round(Number(raw)));
+
+      return raw.replace(/[^0-9]/g, '');
+}
+
+/** Convert stored/input money value to a number, preserving FinanceLite zero fallback. */
+export function toMoneyNumber(value?: string | number | null): number {
+      const normalized = normalizeStoredMoneyValue(value);
+      return normalized ? Number(normalized) : 0;
+}
+
+/** Full VND display without Intl currency spacing: "1.500.000đ". */
+export function formatMoney(value?: number | string | null): string {
+      return `${new Intl.NumberFormat('vi-VN').format(toMoneyNumber(value))}đ`;
+}
+
+/** Format money for form inputs: "1.500.000"; empty input remains empty. */
+export function formatMoneyInput(value?: string | number | null): string {
+      const normalized = normalizeStoredMoneyValue(value);
+      return normalized ? new Intl.NumberFormat('vi-VN').format(Number(normalized)) : '';
+}
+

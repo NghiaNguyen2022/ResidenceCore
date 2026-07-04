@@ -1,0 +1,139 @@
+--- client/src/lib/format.ts
++++ client/src/lib/format.ts
+@@ -98,3 +98,37 @@
+             maximumFractionDigits: 0,
+       }).format(n);
+ }
++
++/**
++ * Normalize a stored/input money value to integer VND text.
++ * Keeps existing FinanceLite behavior: accepts "1.200.000", "1200000", "1200000.00" and strips separators.
++ */
++export function normalizeStoredMoneyValue(value?: string | number | null): string {
++      if (typeof value === 'number') {
++            return Number.isFinite(value) ? String(Math.round(value)) : '';
++      }
++
++      const raw = String(value ?? '').trim();
++      if (!raw) return '';
++      if (/^-?\d+\.\d{1,2}$/.test(raw)) return String(Math.round(Number(raw)));
++
++      return raw.replace(/[^0-9]/g, '');
++}
++
++/** Convert stored/input money value to a number, preserving FinanceLite zero fallback. */
++export function toMoneyNumber(value?: string | number | null): number {
++      const normalized = normalizeStoredMoneyValue(value);
++      return normalized ? Number(normalized) : 0;
++}
++
++/** Full VND display without Intl currency spacing: "1.500.000đ". */
++export function formatMoney(value?: number | string | null): string {
++      return `${new Intl.NumberFormat('vi-VN').format(toMoneyNumber(value))}đ`;
++}
++
++/** Format money for form inputs: "1.500.000"; empty input remains empty. */
++export function formatMoneyInput(value?: string | number | null): string {
++      const normalized = normalizeStoredMoneyValue(value);
++      return normalized ? new Intl.NumberFormat('vi-VN').format(Number(normalized)) : '';
++}
++
+
+--- client/src/lib/utils.ts
++++ client/src/lib/utils.ts
+@@ -6,3 +6,48 @@
+ }
+ 
+ export const cx = cn;
++
++/** Normalize Vietnamese text for search/matching while keeping spaces. */
++export function normalizeText(value?: unknown): string {
++      return String(value ?? '')
++            .trim()
++            .toLowerCase()
++            .normalize('NFD')
++            .replace(/[\u0300-\u036f]/g, '')
++            .replace(/đ/g, 'd')
++            .replace(/Đ/g, 'd')
++            .replace(/\s+/g, ' ');
++}
++
++/** Normalize text to an uppercase code key: "Tổ 1" -> "TO_1". */
++export function normalizeCode(value?: unknown): string {
++      return String(value ?? '')
++            .trim()
++            .toUpperCase()
++            .normalize('NFD')
++            .replace(/[\u0300-\u036f]/g, '')
++            .replace(/đ/g, 'D')
++            .replace(/Đ/g, 'D')
++            .replace(/[^A-Z0-9]+/g, '_')
++            .replace(/^_+|_+$/g, '');
++}
++
++/** Date value for HTML date input, avoiding timezone shifts for existing YYYY-MM-DD strings. */
++export function toInputDateValue(value?: string | Date | null): string {
++      if (!value) return '';
++      if (value instanceof Date) {
++            if (Number.isNaN(value.getTime())) return '';
++            const year = value.getFullYear();
++            const month = String(value.getMonth() + 1).padStart(2, '0');
++            const day = String(value.getDate()).padStart(2, '0');
++            return `${year}-${month}-${day}`;
++      }
++
++      const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
++      if (match) return `${match[1]}-${match[2]}-${match[3]}`;
++
++      const parsed = new Date(value);
++      if (Number.isNaN(parsed.getTime())) return '';
++      return toInputDateValue(parsed);
++}
++
+
+--- client/src/components/finance-lite/financeLiteUtils.ts
++++ client/src/components/finance-lite/financeLiteUtils.ts
+@@ -1,6 +1,11 @@
++import {
++  formatMoney as formatSharedMoney,
++  formatMoneyInput as formatSharedMoneyInput,
++  normalizeStoredMoneyValue,
++  toMoneyNumber,
++} from "@/lib/format";
+ import type { PeriodFormState } from "./financeLiteTypes";
+ 
+-const moneyFormatter = new Intl.NumberFormat("vi-VN");
+ 
+ export const monthNames = [
+   "Tháng 01",
+@@ -44,27 +49,14 @@
+   return getVietnamDateParts().year;
+ }
+ 
+-export function normalizeStoredMoneyValue(value?: string | number | null) {
+-  if (typeof value === "number")
+-    return Number.isFinite(value) ? String(Math.round(value)) : "";
+-  const raw = String(value ?? "").trim();
+-  if (!raw) return "";
+-  if (/^-?\d+\.\d{1,2}$/.test(raw)) return String(Math.round(Number(raw)));
+-  return raw.replace(/[^0-9]/g, "");
+-}
+-
+-export function toMoneyNumber(value?: string | number | null) {
+-  const normalized = normalizeStoredMoneyValue(value);
+-  return normalized ? Number(normalized) : 0;
+-}
++export { normalizeStoredMoneyValue, toMoneyNumber };
+ 
+ export function formatMoney(value?: number | string | null) {
+-  return `${moneyFormatter.format(toMoneyNumber(value))}đ`;
++  return formatSharedMoney(value);
+ }
+ 
+ export function formatMoneyInput(value?: string | number | null) {
+-  const normalized = normalizeStoredMoneyValue(value);
+-  return normalized ? moneyFormatter.format(Number(normalized)) : "";
++  return formatSharedMoneyInput(value);
+ }
+ 
+ export function formatDate(value?: string | Date | null) {

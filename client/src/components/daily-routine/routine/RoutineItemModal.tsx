@@ -3,6 +3,7 @@
 import { Save, X } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
+import { TimePickerInput } from '@/components/shared/form/TimePickerInput';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -83,8 +84,7 @@ export function RoutineItemModal({
 
                               <label className="space-y-1.5">
                                     <Label>Giờ bắt đầu</Label>
-                                    <Input
-                                          type="time"
+                                    <TimePickerInput
                                           value={form.startTime}
                                           onChange={(event) =>
                                                 updateForm({ startTime: event.target.value })
@@ -95,8 +95,7 @@ export function RoutineItemModal({
 
                               <label className="space-y-1.5">
                                     <Label>Giờ kết thúc</Label>
-                                    <Input
-                                          type="time"
+                                    <TimePickerInput
                                           value={form.endTime}
                                           onChange={(event) =>
                                                 updateForm({ endTime: event.target.value })

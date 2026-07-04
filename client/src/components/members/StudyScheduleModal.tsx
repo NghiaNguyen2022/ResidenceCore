@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AppModal, FormField } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimePickerInput } from "@/components/shared/form/TimePickerInput";
 import { Textarea } from "@/components/ui/textarea";
 import { DAY_OPTIONS, type DayOfWeek } from "@/lib/days";
 import { DEFAULT_TIME } from "@/lib/formDefaults";
@@ -159,8 +160,7 @@ export function StudyScheduleModal({
                         </FormField>
 
                         <FormField label="Giờ bắt đầu" required>
-                              <Input
-                                    type="time"
+                              <TimePickerInput
                                     value={startTime}
                                     onChange={(event) =>
                                           setStartTime(event.target.value)
@@ -169,8 +169,7 @@ export function StudyScheduleModal({
                         </FormField>
 
                         <FormField label="Giờ kết thúc" required>
-                              <Input
-                                    type="time"
+                              <TimePickerInput
                                     value={endTime}
                                     onChange={(event) =>
                                           setEndTime(event.target.value)

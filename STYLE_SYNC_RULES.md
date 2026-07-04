@@ -99,3 +99,13 @@ Các module sau bắt buộc theo rule này:
 - User Management
 - Rooms
 - Organization sub-pages
+
+
+## Input ngày / giờ / datetime
+
+- Field kiểu date/time/datetime phải có picker phù hợp để chọn nhanh.
+- Không để người dùng chỉ nhập text thủ công cho ngày/giờ nếu đã có shared picker.
+- Date picker dùng shared `DatePickerInput` / `FormDateInput`.
+- Time picker dùng shared `TimePickerInput`.
+- Date picker trong modal/card/scroll container phải render không bị cắt dưới; ưu tiên portal/fixed positioning nếu cần.
+- Giá trị lưu vẫn phải giữ format chuẩn của hệ thống, ví dụ `YYYY-MM-DD` cho date và `HH:mm` cho time.

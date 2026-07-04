@@ -1,6 +1,11 @@
+import {
+  formatMoney as formatSharedMoney,
+  formatMoneyInput as formatSharedMoneyInput,
+  normalizeStoredMoneyValue,
+  toMoneyNumber,
+} from "@/lib/format";
 import type { PeriodFormState } from "./financeLiteTypes";
 
-const moneyFormatter = new Intl.NumberFormat("vi-VN");
 
 export const monthNames = [
   "Tháng 01",
@@ -44,27 +49,14 @@ export function getVietnamCurrentYear() {
   return getVietnamDateParts().year;
 }
 
-export function normalizeStoredMoneyValue(value?: string | number | null) {
-  if (typeof value === "number")
-    return Number.isFinite(value) ? String(Math.round(value)) : "";
-  const raw = String(value ?? "").trim();
-  if (!raw) return "";
-  if (/^-?\d+\.\d{1,2}$/.test(raw)) return String(Math.round(Number(raw)));
-  return raw.replace(/[^0-9]/g, "");
-}
-
-export function toMoneyNumber(value?: string | number | null) {
-  const normalized = normalizeStoredMoneyValue(value);
-  return normalized ? Number(normalized) : 0;
-}
+export { normalizeStoredMoneyValue, toMoneyNumber };
 
 export function formatMoney(value?: number | string | null) {
-  return `${moneyFormatter.format(toMoneyNumber(value))}đ`;
+  return formatSharedMoney(value);
 }
 
 export function formatMoneyInput(value?: string | number | null) {
-  const normalized = normalizeStoredMoneyValue(value);
-  return normalized ? moneyFormatter.format(Number(normalized)) : "";
+  return formatSharedMoneyInput(value);
 }
 
 export function formatDate(value?: string | Date | null) {

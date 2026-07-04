@@ -1291,3 +1291,126 @@ Checklist:
 [ ] Cập nhật Architecture Diagram nếu module thực tế đã đổi tên/luồng.
 ```
 
+## 22. Cập nhật sau Việc 9 - Chuẩn hóa helper / util / style
+
+### 22.1. Trạng thái
+
+Việc 9 đã hoàn tất và pass.
+
+- Patch 9A: chuẩn hóa shared helper foundation.
+- Patch 9B: bổ sung `TimePickerInput` và thay các input giờ rời rạc ở DailyRoutine / StudySchedule.
+- Patch 9C: sửa `DatePickerInput` render calendar bằng portal/fixed để không bị cắt dưới trong modal/card/scroll container.
+- `pnpm check`, `pnpm test`, `pnpm build` đã pass.
+- Runtime FinanceLite, Members, DailyRoutine và StudySchedule không phát sinh regression theo xác nhận.
+
+### 22.2. File/chủ đề đã tác động
+
+- `client/src/lib/format.ts`
+- `client/src/lib/utils.ts`
+- `client/src/components/finance-lite/financeLiteUtils.ts`
+- `client/src/components/shared/form/TimePickerInput.tsx`
+- `client/src/components/shared/form/DatePickerInput.tsx`
+- `client/src/components/daily-routine/duties/DutyAssignmentForm.tsx`
+- `client/src/components/daily-routine/routine/RoutineItemModal.tsx`
+- `client/src/components/members/StudyScheduleModal.tsx`
+- `client/src/components/members/StudyScheduleSection.tsx`
+
+### 22.3. Rule UI mới cần bảo vệ
+
+- Input kiểu ngày/giờ/datetime phải có picker phù hợp, không để chỉ nhập text thủ công.
+- Date picker/time picker phải dùng shared component nếu đã có.
+- Date picker trong modal/card phải render không bị cắt bởi container cha.
+- Helper format tiền/ngày/text nên ưu tiên lấy từ shared lib thay vì viết lặp lại trong page/component.
+
+### 22.4. Trạng thái tổng sau Việc 9
+
+| Nhóm việc | Trạng thái |
+|---|---|
+| Route/Menu/Page | Done / Pass |
+| Page orphan audit | Done |
+| Members/Rooms/Organization main flow | Done / Pass |
+| FinanceLite minimum flow | Done / Pass |
+| DailyRoutine demo flow | Done / Pass |
+| Resident Portal theo dữ liệu thật | Done / Pass |
+| Test baseline | Done / Pass |
+| Definition of Done | Done |
+| Helper / util / style foundation | Done / Pass |
+| Cleanup docs / file thừa | Next |
+
+### 22.5. Next step
+
+Chuyển sang Việc 10 - Cleanup docs / file thừa.
+
+Ưu tiên Việc 10:
+
+1. Cập nhật tài liệu chính để không còn trạng thái cũ.
+2. Merge/xóa tài liệu style bị trùng nếu có.
+3. Xóa file tạm build/compile.
+4. Rà `.docx` và đưa vào `docs/archive` nếu cần giữ.
+5. Rà các tài liệu cũ như API docs, DB schema, user manual, architecture diagram để đánh dấu cần update sâu theo Simple Mode / FinanceLite / Resident Portal.
+
+
+---
+
+## 23. Cập nhật sau Việc 10 - Cleanup docs / file thừa
+
+### 23.1. Trạng thái hiện tại
+
+Việc 10 đã được audit và đã chuẩn bị patch tài liệu/cleanup. Chưa xem là hoàn tất cho tới khi patch được apply trong repo thật.
+
+Phạm vi audit:
+
+- `PROJECT_SUMMARY.md` bản mới nhất đã có trong phiên làm việc.
+- `README.md` hiện còn theo template kỹ thuật gốc, chưa phản ánh ResidenceCore/App Lưu Xá hiện tại.
+- `STYLE_SYNC_RULES.md` đã có ở root, cần dùng làm nguồn style rule chính; nếu còn bản duplicate ở `client/docs/STYLE_SYNC_RULES.md` thì chỉ giữ nếu khác nội dung.
+- Các tài liệu `02_API_DOCUMENTATION.md`, `03_DATABASE_SCHEMA.md`, `04_SETUP_DEPLOYMENT.md`, `05_USER_MANUAL.md`, `ARCHITECTURE_DIAGRAM.md` đang mang phong cách tài liệu cũ từ tháng 5/2026, nhiều nội dung chưa khớp Simple Mode, FinanceLite, DailyRoutine và Resident Portal hiện tại.
+- `.temp_tsc_out.txt` và `.temp_tsc_out_utf8.txt` là output tạm, không nên giữ trong source.
+- Các file `.docx` trình bày nên đưa vào `docs/archive/presentation/` nếu còn cần giữ, không để rải ở root hoặc `client/src/components/`.
+
+### 23.2. Patch Việc 10 đã chuẩn bị
+
+Patch Việc 10 gồm:
+
+- Cập nhật `PROJECT_SUMMARY.md` để ghi nhận trạng thái sau Việc 9 và audit Việc 10.
+- Cập nhật `README.md` thành README định hướng ResidenceCore/App Lưu Xá thay vì template chung.
+- Cập nhật `STYLE_SYNC_RULES.md` để bổ sung rule picker ngày/giờ/datetime.
+- Thêm `docs/DOCUMENTATION_STATUS.md` để đánh dấu tài liệu nào là hiện hành, tài liệu nào là legacy cần cập nhật sau.
+- Thêm `docs/worklog/RESIDENCECORE_VIEC10_DOC_CLEANUP_AUDIT.md` để lưu kết quả audit.
+- Thêm `scripts/cleanup-docs-viec10.sh` để xóa file tạm và di chuyển tài liệu legacy/archive theo cấu trúc đề xuất.
+
+### 23.3. Trạng thái tổng sau Việc 10 audit
+
+| Nhóm việc | Trạng thái |
+|---|---|
+| Route/Menu/Page | Done / Pass |
+| Page orphan audit | Done |
+| Members/Rooms/Organization main flow | Done / Pass |
+| FinanceLite minimum flow | Done / Pass |
+| DailyRoutine demo flow | Done / Pass |
+| Resident Portal theo dữ liệu thật | Done / Pass |
+| Test baseline | Done / Pass |
+| Definition of Done | Done |
+| Helper / util / style foundation | Done / Pass |
+| Cleanup docs / file thừa | Audit done / chờ apply patch |
+
+### 23.4. Sau khi apply Việc 10
+
+Chạy tối thiểu:
+
+```bash
+pnpm check
+pnpm test
+pnpm build
+```
+
+Với cleanup tài liệu, nếu chỉ thay README/docs/script và xóa file tạm thì khả năng ảnh hưởng runtime thấp. Tuy nhiên vẫn giữ nguyên quy trình kiểm tra để bảo vệ baseline.
+
+### 23.5. Việc tiếp theo sau Việc 10
+
+Sau khi Việc 10 pass, hướng tiếp theo nên là:
+
+1. Cập nhật sâu lại `02_API_DOCUMENTATION.md` theo router thực tế hiện tại.
+2. Cập nhật `03_DATABASE_SCHEMA.md` theo Drizzle schema mới.
+3. Viết lại `05_USER_MANUAL.md` theo Simple Mode, flow manager và Resident Portal hiện tại.
+4. Cập nhật `ARCHITECTURE_DIAGRAM.md` theo module thực tế: Members, Rooms, Organization, DailyRoutine, FinanceLite, Resident Portal.
+5. Bổ sung test nghiệp vụ chuyên sâu cho các case đã bảo vệ: phòng đầy, cư dân đã rời, finance payment, resident portal access, duties RBAC.

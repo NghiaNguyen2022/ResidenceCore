@@ -10,6 +10,7 @@ import DutyPreviewBox from './DutyPreviewBox';
 import { formatTime } from '@/lib/format';
 import { DAY_OPTIONS, type DayOfWeek } from '@/lib/days';
 import { DatePickerInput } from '@/components/shared/form/DatePickerInput';
+import { TimePickerInput } from '@/components/shared/form/TimePickerInput';
 
 type AssignToType = 'resident' | 'team' | 'room' | 'committee';
 
@@ -457,8 +458,7 @@ export function DutyAssignmentForm({
 
                               <label className="space-y-1.5">
                                     <Label>Giờ bắt đầu</Label>
-                                    <Input
-                                          type="time"
+                                    <TimePickerInput
                                           value={form.startTime}
                                           onChange={(event) =>
                                                 updateForm({ startTime: event.target.value })
@@ -469,8 +469,7 @@ export function DutyAssignmentForm({
 
                               <label className="space-y-1.5">
                                     <Label>Giờ kết thúc</Label>
-                                    <Input
-                                          type="time"
+                                    <TimePickerInput
                                           value={form.endTime}
                                           onChange={(event) =>
                                                 updateForm({ endTime: event.target.value })
