@@ -152,7 +152,18 @@ export async function updateAssignmentForResident(
             const result = await db
                   .update(dutyAssignments)
                   .set(data)
-                  .where(and(eq(dutyAssignments.id, assignmentId), eq(dutyAssignments.residentId, residentId)));
+                  .where(
+                        and(
+                              eq(dutyAssignments.id, assignmentId),
+                              or(
+                                    eq(dutyAssignments.residentId, residentId),
+                                    and(
+                                          eq(dutyAssignments.assignedToType, "resident" as any),
+                                          eq(dutyAssignments.assignedToId, residentId)
+                                    )
+                              )
+                        )
+                  );
 
             return result;
       } catch (error) {
@@ -626,12 +637,16 @@ export async function getAssignmentsByResident(
       if (!db) throw new Error("Database not available");
 
       try {
-            let query: any = db
-                  .select()
-                  .from(dutyAssignments)
-                  .where(eq(dutyAssignments.residentId, residentId));
+            const conditions = [
+                  or(
+                        eq(dutyAssignments.residentId, residentId),
+                        and(
+                              eq(dutyAssignments.assignedToType, "resident" as any),
+                              eq(dutyAssignments.assignedToId, residentId)
+                        )
+                  ),
+            ];
 
-            const conditions = [];
             if (filters?.status) {
                   conditions.push(eq(dutyAssignments.status, filters.status as any));
             }
@@ -639,13 +654,15 @@ export async function getAssignmentsByResident(
                   conditions.push(between(dutyAssignments.assignedDate, filters.startDate, filters.endDate));
             }
 
-            if (conditions.length > 0) {
-                  query = query.where(and(...conditions));
-            }
+            let query: any = db
+                  .select()
+                  .from(dutyAssignments)
+                  .where(and(...conditions))
+                  .orderBy(dutyAssignments.assignedDate);
 
-            query = query.orderBy(dutyAssignments.assignedDate);
             if (filters?.limit) query = query.limit(filters.limit);
             if (filters?.offset) query = query.offset(filters.offset);
+
             const result = await query;
             return result;
       } catch (error) {
@@ -688,12 +705,8 @@ export async function getAssignmentsByDuty(
       if (!db) throw new Error("Database not available");
 
       try {
-            let query: any = db
-                  .select()
-                  .from(dutyAssignments)
-                  .where(eq(dutyAssignments.dutyConfigId, dutyConfigId));
+            const conditions = [eq(dutyAssignments.dutyConfigId, dutyConfigId)];
 
-            const conditions = [];
             if (filters?.status) {
                   conditions.push(eq(dutyAssignments.status, filters.status as any));
             }
@@ -701,11 +714,12 @@ export async function getAssignmentsByDuty(
                   conditions.push(between(dutyAssignments.assignedDate, filters.startDate, filters.endDate));
             }
 
-            if (conditions.length > 0) {
-                  query = query.where(and(...conditions));
-            }
+            const result = await db
+                  .select()
+                  .from(dutyAssignments)
+                  .where(and(...conditions))
+                  .orderBy(dutyAssignments.assignedDate);
 
-            const result = await query.orderBy(dutyAssignments.assignedDate);
             return result;
       } catch (error) {
             console.error("[Database] Failed to get assignments by duty:", error);

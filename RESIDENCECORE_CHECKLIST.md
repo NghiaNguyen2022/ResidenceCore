@@ -1,85 +1,154 @@
-# ResidenceCore / App Lưu Xá — Context Update 2026-07-04
+# ResidenceCore / App Lưu Xá — Checklist Việc 12
 
-## Trạng thái đã chốt
+Ngày cập nhật: 2026-07-04
 
-### Nền dự án / cleanup
+## Việc 12 — Organization + Công tác + Portal theo chức vụ
 
-- Việc 1 — Route / Menu / Page: Done / Pass
-- Việc 2 — Page orphan audit: Done
-- Việc 3 — Members / Rooms / Organization main flow: Done / Pass
-- Việc 4 — FinanceLite tối thiểu: Done / Pass
-- Việc 5 — DailyRoutine / Công tác mức demo: Done / Pass
-- Việc 6 — Resident Portal theo dữ liệu thật: Done / Pass
-- Việc 7 — Test baseline: Done / Pass
-- Việc 8 — Definition of Done cho module chính: Done
-- Việc 9 — Helper / Style / Picker: Done / Pass
-- Việc 10 — Docs cleanup / file thừa: Done / Pass
+### Mục tiêu demo
 
-### Demo full flow
+Demo được luồng xuyên suốt:
 
-- Việc 11 — Học tập / Lịch học: Done / Pass
-  - Tab Học tập trong hồ sơ học viên đã review.
-  - Lịch học dùng TimePicker theo rule picker.
-  - Backend guard đã bổ sung cho học tập/lịch học.
-  - Validate HH:mm và start/end time đã được bảo vệ.
-  - Conflict công tác với lịch học vẫn hoạt động.
+```txt
+Tạo Tổ/Ban
+→ Thêm học viên vào Tổ/Ban
+→ Bổ nhiệm chức vụ
+→ Phân công công tác theo học viên/phòng/tổ/ban
+→ Học viên thường xem công tác của mình
+→ Học viên có chức vụ xem đúng phạm vi phụ trách
+```
 
-## Rule đã chốt và cần bảo vệ
+### Trạng thái file
 
-1. File nào user đã gửi và assistant đã patch xong thì xem là bản mới nhất, trừ khi user nói có chỉnh thêm bên ngoài.
-2. Không yêu cầu user gửi lại cùng một file nhiều lần nếu không cần thiết.
-3. Mọi input date/time/datetime phải có picker phù hợp, không dùng text input trần.
-4. DatePickerInput đã được fix portal để không bị cắt trong modal/card.
-5. TimePickerInput đã được thêm và dùng cho lịch học / công tác / routine.
-6. Các flow đã pass không được refactor lan rộng nếu không có bug rõ ràng.
-7. Sau mỗi việc pass phải cập nhật checklist và PROJECT_SUMMARY.md/context tương ứng.
+Đã nhận bộ file hiện tại cho Việc 12. Từ bước này, nếu user không nói có chỉnh thêm, dùng bộ file này làm base hiện tại và không hỏi lại.
 
-## Ghi chú Việc 11B — Polish layout Học tập
+#### Frontend
 
-- Đã thử patch layout/style cho tab Học tập & Lịch học.
-- Patch gây lỗi JSX trong `MemberDetailModal.tsx` quanh line ~673: Adjacent JSX elements must be wrapped.
-- User đã xử lý xong bên repo và yêu cầu update context.
-- Với các bước sau, phải xem bản repo hiện tại của user là bản mới nhất.
-- Nếu cần polish lại layout học tập, ưu tiên sửa trong `StudyScheduleSection.tsx`; khi đụng `MemberDetailModal.tsx` phải kiểm tra kỹ cặp JSX wrapper.
+```txt
+client/src/pages/OrganizationSimple.tsx
+client/src/pages/DailyRoutine.tsx
+client/src/pages/MyDuties.tsx
+client/src/components/ResidenceCareLayout.tsx
+client/src/components/organization-simple/*        (organization-simple.zip)
+client/src/navigation/*
+```
 
-## Bước tiếp theo đề xuất
+#### Backend
 
-### Việc 12 — Review Organization + Công tác + Portal theo chức vụ
+```txt
+server/routers/modules/organization.ts
+server/services/organizationService.ts
+server/routers/modules/duties.ts
+server/routers/modules/dailyRoutine.ts
+server/services/dailyRoutineService.ts
+server/db/duty.ts
+server/routers/modules/residentPortal.ts
+server/services/residentPortalService.ts
+server/services/residentPortalAccessService.ts
+```
 
-Mục tiêu: tạo được kịch bản demo xuyên suốt theo vai trò.
+#### Schema/context liên quan
 
-Checklist chính:
+```txt
+drizzle/schema.ts
+drizzle/residents.ts
+drizzle/dailyRoutine.ts
+```
 
-- Tạo nhiệm kỳ / cơ cấu hiện tại.
-- Tạo Tổ / Ban.
-- Thêm học viên vào Tổ / Ban.
-- Bổ nhiệm Trưởng, Phó, Thư ký, Thủ quỹ.
-- Bổ nhiệm Tổ trưởng theo từng Tổ.
-- Bổ nhiệm Trưởng ban theo từng Ban.
-- Phân công công tác theo học viên / phòng / tổ / ban.
-- Học viên thường thấy công tác của mình trên portal.
-- Học viên có chức vụ thấy đúng phạm vi phụ trách.
-- Resident không thấy menu manager và không gọi được API quản trị.
+---
 
-## File nên dùng cho Việc 12
+## Checklist audit
 
-- `client/src/pages/OrganizationSimple.tsx`
-- `client/src/components/organization-simple/*`
-- `client/src/pages/DailyRoutine.tsx`
-- `client/src/components/daily-routine/*`
-- `client/src/pages/MyDuties.tsx`
-- `client/src/pages/resident/*`
-- `client/src/navigation/*`
-- `client/src/components/ResidenceCareLayout.tsx`
-- `server/routers/modules/organization.ts`
-- `server/services/organizationService.ts`
-- `server/routers/modules/duties.ts`
-- `server/routers/modules/dailyRoutine.ts`
-- `server/services/dailyRoutineService.ts`
-- `server/db/duty.ts`
-- `server/routers/modules/residentPortal.ts`
-- `server/services/residentPortalService.ts`
-- `server/services/residentPortalAccessService.ts`
-- `drizzle/schema.ts`
-- `drizzle/residents.ts`
-- `drizzle/dailyRoutine.ts`
+### A. Organization — Tổ/Ban/Bổ nhiệm
+
+```txt
+[ ] Rà tạo/sửa/xem Tổ
+[ ] Rà tạo/sửa/xem Ban
+[ ] Rà thêm học viên vào Tổ
+[ ] Rà thêm học viên vào Ban
+[ ] Rà đổi Tổ cho học viên
+[ ] Rà bổ nhiệm chức vụ nhà: Trưởng / Phó / Thư ký / Thủ quỹ
+[ ] Rà bổ nhiệm Tổ trưởng theo từng Tổ
+[ ] Rà bổ nhiệm Trưởng ban theo từng Ban
+[ ] Kiểm tra rule max 1 cho chức vụ cố định
+[ ] Kiểm tra rule Tổ trưởng/Trưởng ban scoped theo unit, không global
+[ ] Kiểm tra học viên rời/ngừng không được bổ nhiệm mới
+[ ] Không phá layout OrgChart đã được bảo vệ
+```
+
+### B. DailyRoutine / Công tác
+
+```txt
+[ ] Rà tạo công tác đơn giản: ngày, nơi làm, trạng thái hoàn thành/chưa hoàn thành
+[ ] Rà phân công theo học viên
+[ ] Rà phân công theo phòng
+[ ] Rà phân công theo Tổ
+[ ] Rà phân công theo Ban
+[ ] Rà preview trước khi ghi
+[ ] Rà conflict với lịch học và buffer 60 phút
+[ ] Rà conflict với công tác khác
+[ ] Rà cancel rồi reassign vẫn được
+[ ] Rà học viên cập nhật hoàn thành/chưa hoàn thành trên portal/MyDuties
+[ ] UI công tác phải đơn giản, không quá nhiều trường chi tiết
+```
+
+### C. Resident Portal — học viên thường
+
+```txt
+[ ] Portal học viên chỉ thấy dữ liệu của mình
+[ ] Thấy công tác của mình
+[ ] Cập nhật trạng thái hoàn thành/chưa hoàn thành nếu được phép
+[ ] Thấy hôm nay/lịch sinh hoạt liên quan
+[ ] Không thấy menu/API quản trị
+[ ] Tài chính cá nhân vẫn hoạt động
+```
+
+### D. Resident Portal — theo chức vụ
+
+```txt
+[ ] Học viên có chức vụ thấy menu/entry phù hợp
+[ ] Tổ trưởng thấy phạm vi Tổ của mình nếu đã có chức năng
+[ ] Trưởng ban thấy phạm vi Ban của mình nếu đã có chức năng
+[ ] Không vượt phạm vi sang Tổ/Ban khác
+[ ] Nếu chức vụ hết hiệu lực thì quyền portal hết hiệu lực
+```
+
+### E. Navigation/Layout
+
+```txt
+[ ] Navigation manager không có link 404
+[ ] Navigation resident không có link 404
+[ ] Navigation appointed resident không có link 404
+[ ] Layout không hiển thị menu sai vai trò
+[ ] Không làm thay đổi route đã pass ở Việc 1
+```
+
+---
+
+## Nguyên tắc patch Việc 12
+
+```txt
+[ ] Audit trước, không patch mù
+[ ] Chỉ patch bug/demo-blocker hoặc UX nhỏ cần thiết
+[ ] Không mở rộng nghiệp vụ ngoài scope demo
+[ ] Không đổi OrgChart layout protected
+[ ] Không phá DailyRoutine conflict rules đã pass
+[ ] Không phá Resident Portal guard đã pass
+[ ] Sau patch phải xuất zip theo cấu trúc repo
+[ ] Sau patch phải cập nhật checklist này
+[ ] Sau patch/pass phải cập nhật PROJECT_SUMMARY.md/status append
+```
+
+---
+
+## Runtime checklist sau patch
+
+```txt
+[ ] pnpm check
+[ ] pnpm test
+[ ] pnpm build
+[ ] Demo tạo Tổ/Ban
+[ ] Demo bổ nhiệm
+[ ] Demo phân công công tác
+[ ] Demo portal học viên thường
+[ ] Demo portal học viên có chức vụ
+```

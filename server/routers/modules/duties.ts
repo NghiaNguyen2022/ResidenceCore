@@ -20,6 +20,28 @@ function requireDutyManagementAccess(user: {
       }
 }
 
+function isInactiveResidentStatus(status?: string | null) {
+      return ["inactive", "transferred_out", "left"].includes(
+            String(status || "").toLowerCase()
+      );
+}
+
+function assertActiveResidentForDuty(resident: any) {
+      if (!resident?.id) {
+            throw new TRPCError({
+                  code: "NOT_FOUND",
+                  message: "Hồ sơ resident không tìm thấy",
+            });
+      }
+
+      if (isInactiveResidentStatus(resident.status)) {
+            throw new TRPCError({
+                  code: "FORBIDDEN",
+                  message: "Hồ sơ học viên đã ngừng/rời lưu xá, không thể cập nhật công tác.",
+            });
+      }
+}
+
 const assignmentScopeInput = z.object({
       dutyConfigId: z.number(),
       assignedDates: z.array(z.string()).min(1),
@@ -45,8 +67,10 @@ export const dutiesRouter = router({
       /**
        * Lấy danh sách công tác mẫu
        */
-      listTemplates: protectedProcedure.query(async () => {
+      listTemplates: protectedProcedure.query(async ({ ctx }) => {
             try {
+                  requireDutyManagementAccess(ctx.user);
+
                   const templates = await db.getDutyTemplates();
                   return templates;
             } catch (error) {
@@ -63,8 +87,10 @@ export const dutiesRouter = router({
        */
       getTemplate: protectedProcedure
             .input(z.object({ templateCode: z.string() }))
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const template = await db.getDutyTemplateByCode(input.templateCode);
                         if (!template) {
                               throw new TRPCError({
@@ -126,8 +152,10 @@ export const dutiesRouter = router({
        */
       getConfig: protectedProcedure
             .input(z.object({ id: z.number() }))
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const config = await db.getDutyConfig(input.id);
                         if (!config) {
                               throw new TRPCError({
@@ -395,8 +423,10 @@ export const dutiesRouter = router({
       /**
        * Lấy thống kê công tác
        */
-      getDutyStats: protectedProcedure.query(async () => {
+      getDutyStats: protectedProcedure.query(async ({ ctx }) => {
             try {
+                  requireDutyManagementAccess(ctx.user);
+
                   const stats = await db.getDutyStats();
                   return stats;
             } catch (error) {
@@ -476,12 +506,7 @@ export const dutiesRouter = router({
                   }
 
                   const resident = await db.getResidentByUserId(ctx.user.id);
-                  if (!resident) {
-                        throw new TRPCError({
-                              code: "NOT_FOUND",
-                              message: "Hồ sơ resident không tìm thấy",
-                        });
-                  }
+                  assertActiveResidentForDuty(resident);
 
                   const assignments = await db.getAssignmentsByResident(resident.id);
                   return assignments;
@@ -517,15 +542,17 @@ export const dutiesRouter = router({
                         }
 
                         const resident = await db.getResidentByUserId(ctx.user.id);
-                        if (!resident) {
-                              throw new TRPCError({
-                                    code: "NOT_FOUND",
-                                    message: "Hồ sơ resident không tìm thấy",
-                              });
-                        }
+                        assertActiveResidentForDuty(resident);
 
                         const assignment = await db.getAssignmentById(input.id);
-                        if (!assignment || assignment.residentId !== resident.id) {
+                        const assignmentResidentId = Number(
+                              (assignment as any)?.residentId ||
+                                    ((assignment as any)?.assignedToType === "resident"
+                                          ? (assignment as any)?.assignedToId
+                                          : 0)
+                        );
+
+                        if (!assignment || assignmentResidentId !== Number(resident.id)) {
                               throw new TRPCError({
                                     code: "FORBIDDEN",
                                     message: "Bạn không có quyền cập nhật công tác này",
@@ -840,7 +867,14 @@ export const dutiesRouter = router({
                               }
 
                               const assignment = await db.getAssignmentById(input.id);
-                              if (!assignment || assignment.residentId !== resident.id) {
+                              const assignmentResidentId = Number(
+                                    (assignment as any)?.residentId ||
+                                          ((assignment as any)?.assignedToType === "resident"
+                                                ? (assignment as any)?.assignedToId
+                                                : 0)
+                              );
+
+                              if (!assignment || assignmentResidentId !== Number(resident.id)) {
                                     throw new TRPCError({
                                           code: "FORBIDDEN",
                                           message: "Bạn không có quyền cập nhật công tác này",
@@ -965,8 +999,10 @@ export const dutiesRouter = router({
             }),
       getTemplatesByType: protectedProcedure
             .input(z.object({ dutyType: z.enum(["daily", "weekly", "monthly", "event"]) }))
-            .query(async ({ input }) => {
+            .query(async ({ ctx, input }) => {
                   try {
+                        requireDutyManagementAccess(ctx.user);
+
                         const templates = await db.getDutyTemplatesByType(input.dutyType);
                         return templates;
                   } catch (error) {

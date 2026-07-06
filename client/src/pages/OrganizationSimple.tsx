@@ -1362,6 +1362,7 @@ export default function OrganizationSimple() {
             returnTab: SimpleTab;
       } | null>(null);
       const [assignmentFormReturnTab, setAssignmentFormReturnTab] = useState<SimpleTab>('assignments');
+      const [assignmentFormError, setAssignmentFormError] = useState<string | null>(null);
       const [unitForm, setUnitForm] = useState<UnitForm | null>(null);
       const [selectedUnitForMembers, setSelectedUnitForMembers] = useState<OrganizationUnit | null>(null);
       const [selectedResidentToAdd, setSelectedResidentToAdd] = useState<string>("");
@@ -1800,6 +1801,7 @@ export default function OrganizationSimple() {
 
       const openAssignmentCreate = (residentId?: number) => {
             setMessage(null);
+            setAssignmentFormError(null);
             setAssignmentRoleLock(null);
             setAssignmentFormReturnTab('assignments');
             setAssignmentForm({
@@ -1812,6 +1814,7 @@ export default function OrganizationSimple() {
 
       const openAssignmentEdit = (assignment: OrganizationAssignment) => {
             setMessage(null);
+            setAssignmentFormError(null);
             setAssignmentFormReturnTab(activeTab);
             setAssignmentRoleLock({
                   roleId: String(assignment.roleId),
@@ -1835,6 +1838,7 @@ export default function OrganizationSimple() {
       const closeAssignmentForm = () => {
             setAssignmentForm(null);
             setAssignmentRoleLock(null);
+            setAssignmentFormError(null);
             setActiveTab(assignmentFormReturnTab);
             if (returnToMembersPath) returnToMembers();
       };
@@ -1931,11 +1935,13 @@ export default function OrganizationSimple() {
             const error = validateAssignment();
 
             if (error) {
-                  setMessage({ type: 'error', text: error });
+                  setAssignmentFormError(error);
                   return;
             }
 
             if (!assignmentForm) return;
+
+            setAssignmentFormError(null);
 
             const roomId = getCurrentRoomIdFromMember(selectedMember);
 
@@ -1966,6 +1972,7 @@ export default function OrganizationSimple() {
 
                   setAssignmentForm(null);
                   setAssignmentRoleLock(null);
+                  setAssignmentFormError(null);
                   await refetchOrganization();
                   setActiveTab(assignmentFormReturnTab);
 
@@ -1973,10 +1980,7 @@ export default function OrganizationSimple() {
                         window.setTimeout(returnToMembers, 160);
                   }
             } catch (err: any) {
-                  setMessage({
-                        type: 'error',
-                        text: err?.message || 'Không thể lưu phân công.',
-                  });
+                  setAssignmentFormError(err?.message || 'Không thể lưu phân công.');
             }
       };
 
@@ -3084,6 +3088,12 @@ export default function OrganizationSimple() {
                                                       <X className="h-4 w-4" />
                                                 </button>
                                           </div>
+
+                                          {assignmentFormError && (
+                                                <div className="mx-5 mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                                                      {assignmentFormError}
+                                                </div>
+                                          )}
 
                                           <div className="grid gap-3 overflow-y-auto px-5 py-4 md:grid-cols-2">
                                                 <label className="space-y-1.5">

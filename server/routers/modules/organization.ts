@@ -1,6 +1,8 @@
 import { z } from "zod";
 
+import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../../_core/trpc";
+import { isManager } from "../../_core/rbac";
 import { organizationService } from "../../services/organizationService";
 
 const organizationRoleCategorySchema = z.enum([
@@ -33,6 +35,19 @@ const organizationAssignmentStatusSchema = z.enum([
       "ended",
 ]);
 const organizationUnitTypeSchema = z.enum(["team", "committee"]);
+
+function requireOrganizationManagementAccess(user: {
+      id?: number;
+      role?: string | null;
+      roles?: string[] | null;
+} | null | undefined) {
+      if (!isManager(user)) {
+            throw new TRPCError({
+                  code: "FORBIDDEN",
+                  message: "Bạn không có quyền quản lý cơ cấu tổ chức.",
+            });
+      }
+}
 
 
 const listUnitMembersSchema = z.object({
@@ -71,7 +86,8 @@ const transferTeamMemberSchema = z.object({
 });
 
 export const organizationRouter = router({
-      ensureDefaultRoles: protectedProcedure.mutation(async () => {
+      ensureDefaultRoles: protectedProcedure.mutation(async ({ ctx }) => {
+            requireOrganizationManagementAccess(ctx.user);
             return await organizationService.ensureDefaultOrganizationRoles();
       }),
 
@@ -122,7 +138,8 @@ export const organizationRouter = router({
                         requiresUnit: z.boolean().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.createRole(input);
             }),
 
@@ -146,7 +163,8 @@ export const organizationRouter = router({
                         requiresUnit: z.boolean().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.updateRole(input);
             }),
 
@@ -156,7 +174,8 @@ export const organizationRouter = router({
                         id: z.number().min(1),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.deleteRole(input.id);
             }),
 
@@ -166,7 +185,8 @@ export const organizationRouter = router({
                         id: z.number().min(1),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.toggleRoleActive(input.id);
             }),
 
@@ -212,7 +232,8 @@ export const organizationRouter = router({
                         description: z.string().nullable().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.createTerm(input);
             }),
 
@@ -228,7 +249,8 @@ export const organizationRouter = router({
                         description: z.string().nullable().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.updateTerm(input);
             }),
 
@@ -238,7 +260,8 @@ export const organizationRouter = router({
                         id: z.number().min(1),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.deleteTerm(input.id);
             }),
 
@@ -248,7 +271,8 @@ export const organizationRouter = router({
                         id: z.number().min(1),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.setActiveTerm(input.id);
             }),
       listAssignments: protectedProcedure
@@ -309,7 +333,8 @@ export const organizationRouter = router({
                         notes: z.string().nullable().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.createAssignment(input);
             }),
 
@@ -329,7 +354,8 @@ export const organizationRouter = router({
                         notes: z.string().nullable().optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.updateAssignment(input);
             }),
 
@@ -339,7 +365,8 @@ export const organizationRouter = router({
                         id: z.number().min(1),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.endAssignment(input.id);
             }),
 
@@ -349,7 +376,8 @@ export const organizationRouter = router({
                         id: z.number().min(1),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.deleteAssignment(input.id);
             }),
       /* =========================================================
@@ -395,7 +423,8 @@ export const organizationRouter = router({
                         sortOrder: z.number().min(0).optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.createUnit(input);
             }),
 
@@ -411,7 +440,8 @@ export const organizationRouter = router({
                         sortOrder: z.number().min(0).optional(),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.updateUnit(input);
             }),
 
@@ -421,7 +451,8 @@ export const organizationRouter = router({
                         id: z.number().min(1),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.deleteUnit(input.id);
             }),
 
@@ -431,7 +462,8 @@ export const organizationRouter = router({
                         id: z.number().min(1),
                   })
             )
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.toggleUnitActive(input.id);
             }),
 
@@ -462,24 +494,28 @@ export const organizationRouter = router({
 
       addUnitMember: protectedProcedure
             .input(addUnitMemberSchema)
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.addUnitMember(input);
             }),
 
       removeUnitMember: protectedProcedure
             .input(removeUnitMemberSchema)
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.removeUnitMember(input);
             }),
 
       transferTeamMember: protectedProcedure
             .input(transferTeamMemberSchema)
-            .mutation(async ({ input }) => {
+            .mutation(async ({ ctx, input }) => {
+                  requireOrganizationManagementAccess(ctx.user);
                   return await organizationService.transferTeamMember(input);
             }),
 
 
-      syncUnitLeadersToMembers: protectedProcedure.mutation(async () => {
+      syncUnitLeadersToMembers: protectedProcedure.mutation(async ({ ctx }) => {
+            requireOrganizationManagementAccess(ctx.user);
             return await organizationService.syncUnitLeadersToMembers();
       }),
 });
