@@ -18,6 +18,8 @@ type MyDutyAssignment = {
       startTime?: string | null;
       endTime?: string | null;
       timeRange?: string | null;
+      assignmentScopeLabel?: string | null;
+      assignmentScope?: string | null;
       canComplete?: boolean;
 };
 
@@ -160,7 +162,7 @@ export default function MyDuties() {
                                                 {todayQuery.error.message || "Không tải được công tác."}
                                           </Card>
                                     ) : assignments.length === 0 ? (
-                                          <Card className="rounded-[26px] border border-dashed border-amber-100 bg-white/75 p-8 text-center text-sm text-slate-500 shadow-sm">Hôm nay chưa có công tác được giao trực tiếp.</Card>
+                                          <Card className="rounded-[26px] border border-dashed border-amber-100 bg-white/75 p-8 text-center text-sm text-slate-500 shadow-sm">Hôm nay chưa có công tác cá nhân/phòng/tổ/ban được giao.</Card>
                                     ) : (
                                           assignments.map((assignment) => (
                                                 <Card
@@ -170,7 +172,7 @@ export default function MyDuties() {
                                                       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                                                             <div className="min-w-0">
                                                                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                                                                        {formatDateText(assignment.assignedDate)}
+                                                                        {assignment.assignmentScopeLabel || "Cá nhân"} · {formatDateText(assignment.assignedDate)}
                                                                   </p>
                                                                   <div className="mt-1 truncate text-[18px] font-semibold tracking-tight text-[#17335f]">
                                                                         {assignment.dutyName || `Công tác #${assignment.id}`}

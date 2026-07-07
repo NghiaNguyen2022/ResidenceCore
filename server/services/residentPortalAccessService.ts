@@ -55,6 +55,13 @@ type OrganizationScopeUnit = {
       members: OrganizationScopeMember[];
 };
 
+type ResidentPortalDutyTarget = {
+      assignedToType: "resident" | "team" | "committee" | "room";
+      assignedToId: number;
+      scopeLabel: string;
+      source: "direct" | "team" | "committee" | "room";
+};
+
 function normalizeText(value?: string | null) {
       return (value || "")
             .normalize("NFD")
@@ -791,6 +798,149 @@ function getResidentRoomText(resident: any) {
       );
 }
 
+function getDutyTargetKey(target: Pick<ResidentPortalDutyTarget, "assignedToType" | "assignedToId">) {
+      return `${target.assignedToType}:${Number(target.assignedToId || 0)}`;
+}
+
+function getDutyAssignmentTargetKey(row: any) {
+      const assignedToType = String(row?.assignedToType || (row?.residentId ? "resident" : ""));
+      const assignedToId = Number(row?.assignedToId || row?.residentId || 0);
+
+      if (!assignedToType || !assignedToId) return "";
+
+      return `${assignedToType}:${assignedToId}`;
+}
+
+async function getResidentPortalDutyTargets(input: {
+      residentId: number;
+      currentRoomId?: number | null;
+}): Promise<ResidentPortalDutyTarget[]> {
+      const targets: ResidentPortalDutyTarget[] = [
+            {
+                  assignedToType: "resident",
+                  assignedToId: Number(input.residentId),
+                  scopeLabel: "Cá nhân",
+                  source: "direct",
+            },
+      ];
+
+      if (input.currentRoomId) {
+            targets.push({
+                  assignedToType: "room",
+                  assignedToId: Number(input.currentRoomId),
+                  scopeLabel: "Phòng hiện tại",
+                  source: "room",
+            });
+      }
+
+      try {
+            const memberships = await organizationService.listResidentUnitMemberships({
+                  residentId: Number(input.residentId),
+                  status: "active",
+            } as any);
+
+            for (const membership of memberships || []) {
+                  const unitId = Number((membership as any).unitId || 0);
+                  const unitType = String((membership as any).unitType || "");
+
+                  if (!unitId) continue;
+
+                  if (unitType === "team") {
+                        targets.push({
+                              assignedToType: "team",
+                              assignedToId: unitId,
+                              scopeLabel: `Tổ: ${(membership as any).unitName || unitId}`,
+                              source: "team",
+                        });
+                  }
+
+                  if (unitType === "committee") {
+                        targets.push({
+                              assignedToType: "committee",
+                              assignedToId: unitId,
+                              scopeLabel: `Ban: ${(membership as any).unitName || unitId}`,
+                              source: "committee",
+                        });
+                  }
+            }
+      } catch (error) {
+            console.warn(
+                  "[residentPortalAccessService] Cannot load resident duty membership targets.",
+                  error
+            );
+      }
+
+      const unique = new Map<string, ResidentPortalDutyTarget>();
+      for (const target of targets) {
+            if (!target.assignedToId) continue;
+            unique.set(getDutyTargetKey(target), target);
+      }
+
+      return Array.from(unique.values());
+}
+
+async function getAssignmentsForResidentDutyTargets(input: {
+      residentId: number;
+      currentRoomId?: number | null;
+      startDate: Date;
+      endDate: Date;
+}) {
+      const dutyDb = await import("../db/duty");
+      const targets = await getResidentPortalDutyTargets({
+            residentId: input.residentId,
+            currentRoomId: input.currentRoomId,
+      });
+      const targetMap = new Map(targets.map((target) => [getDutyTargetKey(target), target]));
+      const rows: any[] = [];
+
+      for (const target of targets) {
+            const scopedRows =
+                  target.assignedToType === "resident"
+                        ? await dutyDb.getAssignmentsByResident(input.residentId, {
+                                startDate: input.startDate,
+                                endDate: input.endDate,
+                          } as any)
+                        : await dutyDb.getAssignmentsByAssignee(
+                                target.assignedToType,
+                                target.assignedToId,
+                                {
+                                      startDate: input.startDate,
+                                      endDate: input.endDate,
+                                } as any
+                          );
+
+            for (const row of scopedRows || []) {
+                  rows.push(row);
+            }
+      }
+
+      const normalized = await normalizeDutyAssignmentRows(rows);
+      const unique = new Map<number, any>();
+
+      for (const assignment of normalized) {
+            const id = Number(assignment.id || 0);
+            if (!id) continue;
+
+            const target = targetMap.get(getDutyAssignmentTargetKey(assignment));
+            unique.set(id, {
+                  ...assignment,
+                  assignmentScopeLabel: target?.scopeLabel || "Công tác",
+                  assignmentScope: target?.source || "direct",
+                  isAssignedToMe: Boolean(target),
+                  canComplete:
+                        Boolean(target) &&
+                        !["completed", "skipped", "absent", "cancelled"].includes(
+                              String(assignment.status || "pending")
+                        ),
+            });
+      }
+
+      return {
+            assignments: Array.from(unique.values()),
+            targets,
+      };
+}
+
 export async function getResidentPortalTodayOverview(userId: number) {
       const accessContext = await getResidentPortalAccessContext(userId);
       const today = new Date();
@@ -840,12 +990,13 @@ export async function getResidentPortalTodayOverview(userId: number) {
 
       let duties: any[] = [];
       try {
-            const dutyDb = await import("../db/duty");
-            const rows = await dutyDb.getAssignmentsByResident(residentId, {
+            const targetResult = await getAssignmentsForResidentDutyTargets({
+                  residentId,
+                  currentRoomId: Number(accessContext.resident.currentRoomId || 0) || null,
                   startDate: today,
                   endDate: today,
-            } as any);
-            duties = await normalizeDutyAssignmentRows(rows as any[]);
+            });
+            duties = targetResult.assignments;
       } catch (error) {
             console.warn(
                   "[residentPortalAccessService] Cannot load resident duties for today overview.",
@@ -853,17 +1004,7 @@ export async function getResidentPortalTodayOverview(userId: number) {
             );
       }
 
-      const activeDuties = duties
-            .filter((duty: any) => duty.status !== "cancelled")
-            .map((duty: any) => ({
-                  ...duty,
-                  isAssignedToMe: Number(duty.residentId || duty.assignedToId || 0) === residentId,
-                  canComplete:
-                        Number(duty.residentId || duty.assignedToId || 0) === residentId &&
-                        !["completed", "skipped", "absent", "cancelled"].includes(
-                              String(duty.status || "pending")
-                        ),
-            }));
+      const activeDuties = duties.filter((duty: any) => duty.status !== "cancelled");
 
       const dutyStats = {
             total: activeDuties.length,
@@ -973,7 +1114,14 @@ export async function completeResidentPortalTodayDuty(input: {
             throw new Error("Không tìm thấy hồ sơ học viên được liên kết với tài khoản này.");
       }
 
+      assertActiveLinkedResidentForPortal(linkedResident);
+
       const residentId = Number(linkedResident.id);
+      const dutyTargets = await getResidentPortalDutyTargets({
+            residentId,
+            currentRoomId: Number((linkedResident as any).currentRoomId || 0) || null,
+      });
+      const dutyTargetKeys = new Set(dutyTargets.map(getDutyTargetKey));
       const dutyDb = await import("../db/duty");
       const assignment = await dutyDb.getAssignmentById(input.assignmentId);
 
@@ -981,15 +1129,10 @@ export async function completeResidentPortalTodayDuty(input: {
             throw new Error("Không tìm thấy phân công công tác.");
       }
 
-      const assignmentResidentId = Number(
-            (assignment as any).residentId ||
-                  ((assignment as any).assignedToType === "resident"
-                        ? (assignment as any).assignedToId
-                        : 0)
-      );
+      const assignmentTargetKey = getDutyAssignmentTargetKey(assignment);
 
-      if (assignmentResidentId !== residentId) {
-            throw new Error("Bạn chỉ có thể hoàn thành công tác được phân công trực tiếp cho mình.");
+      if (!dutyTargetKeys.has(assignmentTargetKey)) {
+            throw new Error("Bạn chỉ có thể hoàn thành công tác được giao cho cá nhân, phòng, tổ hoặc ban của mình.");
       }
 
       const today = new Date();
