@@ -53,3 +53,51 @@ Patch 13A chuẩn bị:
 - Thêm menu `Thông báo` vào `client/src/navigation/residentNavigation.ts`.
 
 Phạm vi vẫn giữ lite: không realtime, không push notification, không email/SMS/Zalo, không template engine phức tạp.
+
+---
+
+## 2026-07-04 — 13A: PASS
+
+User xác nhận 13A pass. Chức năng danh sách thông báo nội bộ lite đã hoạt động ở mức cơ bản:
+
+- Resident có menu/trang Thông báo.
+- Resident xem được thông báo của mình.
+- Có đánh dấu đã đọc.
+- Công tác/khoản thu có thể phát sinh notification.
+
+Sau 13A, user yêu cầu bổ sung chức năng tự popup thông báo.
+
+---
+
+## 2026-07-04 — 13B: Popup thông báo mới trong layout
+
+Bổ sung popup thông báo lite ngay trong `ResidenceCareLayout`.
+
+Nội dung patch 13B:
+
+- `ResidenceCareLayout` query danh sách thông báo chưa đọc của resident bằng `residentPortal.getMyNotifications`.
+- Dùng polling nhẹ 30 giây, không dùng WebSocket/realtime phức tạp.
+- Khi có thông báo chưa đọc, hiển thị popup góc phải phía trên.
+- Popup có tiêu đề/nội dung ngắn, nút ẩn, nút `Đã đọc`, nút `Xem tất cả`.
+- Nút `Đã đọc` gọi `residentPortal.markMyNotificationRead` và invalidate cache notification.
+- Nút `Xem tất cả` điều hướng tới `/resident/notifications`.
+- Popup chỉ bật cho user có role `resident`, không hiển thị cho manager hoặc khi đang bị bắt buộc đổi mật khẩu.
+
+Patch này không đổi schema, không đổi API, không thêm WebSocket/push/email.
+
+---
+
+## 2026-07-04 — 13C: Badge số thông báo chưa đọc trên menu portal
+
+Sau 13A và 13B, bổ sung polish nhỏ cho trải nghiệm portal: menu `Thông báo` hiển thị badge số lượng chưa đọc.
+
+Nội dung patch 13C:
+
+- `ResidenceCareLayout` gọi `residentPortal.getMyUnreadNotificationCount` cho resident user.
+- Gắn badge động vào navigation item `/resident/notifications`.
+- Badge tự ẩn khi số chưa đọc bằng 0.
+- Badge hiển thị `99+` nếu số thông báo chưa đọc quá lớn.
+- Query dùng polling nhẹ 30 giây, đồng bộ với popup thông báo 13B.
+- Không đổi schema, không đổi API/backend, không thêm realtime/WebSocket/push.
+
+Patch này giúp demo rõ hơn: học viên vừa có popup khi có thông báo mới, vừa luôn nhìn thấy số lượng thông báo chưa đọc trên menu portal.

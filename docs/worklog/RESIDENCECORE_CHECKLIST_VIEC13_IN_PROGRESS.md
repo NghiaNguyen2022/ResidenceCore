@@ -27,6 +27,7 @@ Luồng demo cần hỗ trợ:
 - Notification cho công tác được giao.
 - Notification cho khoản thu mới nếu route/service finance hiện tại hỗ trợ dễ nối.
 - Portal học viên xem thông báo cá nhân.
+- Popup thông báo mới ở mức lite trong layout portal.
 
 ### Không làm trong Việc 13
 
@@ -41,98 +42,98 @@ Luồng demo cần hỗ trợ:
 
 ## Checklist audit
 
-- [ ] Kiểm tra schema/bảng notification hiện có.
-- [ ] Kiểm tra router/service notification hiện có nếu có.
-- [ ] Kiểm tra navigation manager/resident có menu thông báo chưa.
-- [ ] Kiểm tra Resident Portal có trang/khối thông báo chưa.
-- [ ] Kiểm tra notification có liên kết target module/targetId chưa.
-- [ ] Kiểm tra quyền: resident chỉ xem thông báo của mình.
-- [ ] Kiểm tra quyền: manager xem/quản trị thông báo phù hợp.
+- [x] Kiểm tra schema/bảng notification hiện có.
+- [x] Kiểm tra router/service notification hiện có nếu có.
+- [x] Kiểm tra navigation manager/resident có menu thông báo chưa.
+- [x] Kiểm tra Resident Portal có trang/khối thông báo chưa.
+- [x] Kiểm tra notification có liên kết target module/targetId chưa.
+- [x] Kiểm tra quyền: resident chỉ xem thông báo của mình.
+- [ ] Kiểm tra quyền: manager xem/quản trị thông báo phù hợp. Ghi chú: chưa làm manager notification center ở 13A/13B.
 
 ---
 
-## Checklist patch dự kiến
+## 13A — Notification lite API/page/menu
 
-- [ ] Thêm hoặc chuẩn hóa notification service/db tối thiểu.
-- [ ] Thêm API list my notifications.
-- [ ] Thêm API mark as read.
-- [ ] Thêm helper tạo notification nội bộ.
-- [ ] Gắn notification khi phân công công tác nếu phù hợp.
-- [ ] Gắn notification khi tạo khoản thu nếu phù hợp.
-- [ ] Thêm/chuẩn hóa UI thông báo lite.
-- [ ] Cập nhật portal học viên.
-- [ ] Cập nhật checklist và PROJECT_SUMMARY theo append-only.
+### Trạng thái
 
----
+- [x] User apply patch 13A.
+- [x] User xác nhận 13A pass.
 
-## Runtime test
+### Nội dung đã làm
 
-- [ ] Resident login thấy danh sách thông báo của mình.
-- [ ] Resident không thấy thông báo của người khác.
-- [ ] Phân công công tác phát sinh thông báo hoặc hiển thị rõ trong portal.
-- [ ] Khoản thu mới phát sinh thông báo nếu scope được chốt.
-- [ ] Click/mark read cập nhật trạng thái.
-- [ ] Empty state đẹp khi chưa có thông báo.
-- [ ] UI không rối, không modal chồng không cần thiết.
-
----
-
-## Trạng thái
-
-- 2026-07-04: Bắt đầu Việc 13 sau khi Việc 12 Done/Pass.
-
----
-
-## 2026-07-04 — 13A: Notification lite audit + patch chuẩn bị
-
-### Audit kết quả
-
-- [x] Schema hiện đã có bảng `notifications` trong `drizzle/schema.ts`.
-- [x] Đã có `server/services/notificationService.ts` nhưng đang thiên về helper cũ.
-- [x] `notifications.recipientId` reference `users.id`, vì vậy thông báo cho học viên phải resolve từ `resident.userId`, không dùng nhầm `resident.id`.
-- [x] Resident Portal hiện chưa có API list/mark-read notification.
-- [x] Resident Portal navigation hiện chưa có menu Thông báo.
-- [x] Phân công công tác chưa phát sinh thông báo nội bộ rõ ràng.
-- [x] Áp dụng kỳ thu có thể gắn thông báo lite theo từng học viên nếu tính được số tiền áp dụng.
-
-### Patch 13A
-
-- [x] Chuẩn hóa `notificationService` theo hướng recipient là `userId`.
+- [x] Chuẩn hóa notification recipient theo `users.id`.
 - [x] Thêm API resident portal:
-  - `getMyNotifications`
-  - `getMyUnreadNotificationCount`
-  - `markMyNotificationRead`
-- [x] Gắn thông báo khi phân công công tác:
-  - cá nhân
-  - phòng
-  - tổ
-  - ban
-- [x] Gắn thông báo khi áp dụng kỳ thu, nếu dòng học viên có tổng tiền > 0.
-- [x] Thêm trang portal `ResidentNotifications`.
-- [x] Thêm route `/resident/notifications`.
-- [x] Thêm menu `Thông báo` cho resident portal.
-- [x] Không làm realtime/WebSocket/push.
+  - [x] `getMyNotifications`
+  - [x] `getMyUnreadNotificationCount`
+  - [x] `markMyNotificationRead`
+- [x] Thêm trang `/resident/notifications`.
+- [x] Thêm menu `Thông báo` trong resident navigation.
+- [x] Tạo thông báo khi phân công công tác theo cá nhân/phòng/tổ/ban.
+- [x] Tạo thông báo khi áp dụng kỳ thu cho học viên.
+- [x] Không làm realtime/WebSocket/push/email.
 
-### File patch 13A
+---
 
-- `server/services/notificationService.ts`
-- `server/routers/modules/residentPortal.ts`
-- `server/routers/modules/duties.ts`
-- `server/routers/modules/finance.ts`
-- `client/src/pages/ResidentNotifications.tsx`
-- `client/src/navigation/residentNavigation.ts`
-- `client/src/App.tsx`
+## 13B — Popup thông báo mới trong layout
 
-### Runtime test cần chạy
+### Lý do bổ sung
 
-- [ ] Apply patch 13A.
-- [ ] `pnpm check`
-- [ ] `pnpm test`
-- [ ] `pnpm build`
-- [ ] Resident login thấy menu `Thông báo`.
-- [ ] Resident mở `/resident/notifications` thấy empty state nếu chưa có thông báo.
-- [ ] Manager phân công công tác cho cá nhân → resident nhận thông báo.
-- [ ] Manager phân công công tác cho phòng → resident trong phòng nhận thông báo.
-- [ ] Manager phân công công tác cho tổ/ban → thành viên tổ/ban nhận thông báo.
-- [ ] Manager áp dụng kỳ thu → resident có tài khoản nhận thông báo tài chính.
-- [ ] Resident đánh dấu đã đọc → trạng thái cập nhật, không thấy thông báo của người khác.
+Sau 13A, user xác nhận chức năng danh sách thông báo đã pass nhưng còn thiếu khả năng tự popup thông báo mới. Cần bổ sung popup lite, không dùng realtime phức tạp.
+
+### Checklist patch
+
+- [x] Thêm query unread notifications trong `ResidenceCareLayout` cho resident user.
+- [x] Tự hiển thị popup khi có thông báo chưa đọc.
+- [x] Popup hiển thị tiêu đề/nội dung ngắn.
+- [x] Có nút ẩn popup trong phiên hiện tại.
+- [x] Có nút đánh dấu đã đọc.
+- [x] Có nút mở trang Thông báo.
+- [x] Không hiển thị khi bắt buộc đổi mật khẩu.
+- [x] Không ảnh hưởng manager navigation.
+- [x] Không dùng WebSocket/realtime nâng cao; dùng polling nhẹ.
+
+### Runtime test 13B
+
+- [ ] Resident login khi có thông báo chưa đọc sẽ thấy popup.
+- [ ] Bấm X thì popup ẩn, thông báo vẫn chưa đọc.
+- [ ] Bấm Đã đọc thì popup mất và notification chuyển trạng thái đã đọc.
+- [ ] Bấm Xem tất cả đi tới `/resident/notifications`.
+- [ ] Popup không che modal đổi mật khẩu.
+- [ ] Manager không thấy popup resident notification.
+
+---
+
+## Trạng thái hiện tại
+
+- 13A: PASS.
+- 13B: Patch chuẩn bị, chờ user apply/test.
+
+---
+
+## 13C — Badge số thông báo chưa đọc trên menu portal
+
+### Lý do bổ sung
+
+Sau 13A có trang thông báo và 13B có popup thông báo mới, portal vẫn cần một dấu hiệu nhẹ trên menu để học viên biết còn bao nhiêu thông báo chưa đọc ngay cả khi đã tắt popup trong phiên hiện tại.
+
+### Checklist patch
+
+- [x] Dùng `residentPortal.getMyUnreadNotificationCount` trong `ResidenceCareLayout`.
+- [x] Polling nhẹ 30 giây, đồng bộ với popup 13B.
+- [x] Gắn badge số chưa đọc vào menu `/resident/notifications`.
+- [x] Ẩn badge khi không còn thông báo chưa đọc.
+- [x] Giới hạn hiển thị `99+` nếu số lượng lớn.
+- [x] Không hiện badge cho manager.
+- [x] Không đổi schema/API/backend.
+
+### Runtime test 13C
+
+- [ ] Resident có 0 thông báo chưa đọc: menu Thông báo không có badge.
+- [ ] Resident có 1+ thông báo chưa đọc: menu Thông báo hiện badge số.
+- [ ] Bấm `Đã đọc` trong popup: badge giảm/mất sau khi cache invalidate.
+- [ ] Đánh dấu đã đọc ở trang Thông báo: badge cập nhật.
+- [ ] Manager không thấy badge thông báo resident.
+
+### Trạng thái
+
+- 13C: Patch chuẩn bị, chờ user apply/test.

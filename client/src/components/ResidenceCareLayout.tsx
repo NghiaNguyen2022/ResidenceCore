@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X } from "lucide-react";
+import { Bell, CheckCircle2, Menu, X } from "lucide-react";
 import {
       appointedResidentNavigation,
       detailedManagerNavigation,
@@ -373,6 +373,32 @@ function isItemActive(item: NavigationItem, currentPath: string): boolean {
       return item.children?.some((child) => isItemActive(child, currentPath)) ?? false;
 }
 
+function withResidentNotificationBadge(
+      items: NavigationItem[],
+      unreadCount: number
+): NavigationItem[] {
+      return items.map((item) => {
+            const children = item.children
+                  ? withResidentNotificationBadge(item.children, unreadCount)
+                  : undefined;
+
+            if (item.path === "/resident/notifications") {
+                  const badge = unreadCount > 99 ? "99+" : unreadCount > 0 ? String(unreadCount) : undefined;
+
+                  return {
+                        ...item,
+                        children,
+                        badge,
+                  };
+            }
+
+            return {
+                  ...item,
+                  children,
+            };
+      });
+}
+
 function SidebarItem({
       item,
       currentPath,
@@ -532,7 +558,7 @@ function SidebarItem({
 }
 
 export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
-      const [currentPath] = useLocation();
+      const [currentPath, navigate] = useLocation();
       const authQuery = trpc.auth.me.useQuery(undefined, {
             retry: false,
             refetchOnWindowFocus: false,
@@ -677,6 +703,114 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
             });
       }
 
+      const isResidentUser = Boolean(enhancedUser?.id) && hasRole(enhancedUser, "resident") && !mustChangePassword;
+
+      const unreadNotificationCountQuery = trpc.residentPortal.getMyUnreadNotificationCount.useQuery(
+            undefined,
+            {
+                  enabled: isResidentUser,
+                  retry: false,
+                  refetchOnWindowFocus: true,
+                  refetchInterval: isResidentUser ? 30000 : false,
+            }
+      );
+
+      const unreadNotificationCount = Number(unreadNotificationCountQuery.data || 0);
+
+      const navigationItemsWithNotificationBadge = useMemo(() => {
+            if (!isResidentUser) return visibleNavigationItems;
+
+            return withResidentNotificationBadge(
+                  visibleNavigationItems,
+                  unreadNotificationCount
+            );
+      }, [isResidentUser, visibleNavigationItems, unreadNotificationCount]);
+
+      const unreadNotificationsQuery = trpc.residentPortal.getMyNotifications.useQuery(
+            { limit: 5, unreadOnly: true },
+            {
+                  enabled: isResidentUser,
+                  retry: false,
+                  refetchOnWindowFocus: true,
+                  refetchInterval: isResidentUser ? 30000 : false,
+            }
+      );
+
+      const markNotificationReadMutation = trpc.residentPortal.markMyNotificationRead.useMutation({
+            onSuccess: async () => {
+                  await Promise.allSettled([
+                        utils.residentPortal.getMyNotifications.invalidate(),
+                        utils.residentPortal.getMyUnreadNotificationCount.invalidate(),
+                  ]);
+            },
+      });
+
+      const [dismissedNotificationIds, setDismissedNotificationIds] = useState<number[]>(() => {
+            if (typeof window === "undefined") return [];
+
+            try {
+                  const raw = window.sessionStorage.getItem("resident.dismissedNotificationIds");
+                  const parsed = raw ? JSON.parse(raw) : [];
+
+                  return Array.isArray(parsed)
+                        ? parsed
+                              .map((value) => Number(value))
+                              .filter((value) => Number.isFinite(value) && value > 0)
+                        : [];
+            } catch {
+                  return [];
+            }
+      });
+
+      const unreadNotifications = Array.isArray(unreadNotificationsQuery.data)
+            ? unreadNotificationsQuery.data
+            : [];
+
+      const popupNotification = unreadNotifications.find((notification: any) => {
+            const notificationId = Number(notification?.id);
+
+            return notificationId > 0 && !dismissedNotificationIds.includes(notificationId);
+      });
+
+      function rememberDismissedNotification(notificationId: number) {
+            setDismissedNotificationIds((current) => {
+                  const next = Array.from(new Set([...current, notificationId]));
+
+                  if (typeof window !== "undefined") {
+                        try {
+                              window.sessionStorage.setItem(
+                                    "resident.dismissedNotificationIds",
+                                    JSON.stringify(next.slice(-50))
+                              );
+                        } catch {
+                              // Ignore storage errors. The popup can still be dismissed in memory.
+                        }
+                  }
+
+                  return next;
+            });
+      }
+
+      function dismissPopupNotification() {
+            const notificationId = Number((popupNotification as any)?.id);
+            if (notificationId > 0) {
+                  rememberDismissedNotification(notificationId);
+            }
+      }
+
+      async function markPopupNotificationRead() {
+            const notificationId = Number((popupNotification as any)?.id);
+            if (!notificationId) return;
+
+            await markNotificationReadMutation.mutateAsync({ notificationId });
+            rememberDismissedNotification(notificationId);
+      }
+
+      function openNotificationPage() {
+            dismissPopupNotification();
+            navigate("/resident/notifications");
+      }
+
       const sidebarContent = (
             <>
                   <div className="border-b border-amber-100/70 px-4 py-4">
@@ -687,7 +821,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                   </div>
 
                   <nav className="flex-1 space-y-1.5 overflow-y-auto px-2.5 py-3">
-                        {visibleNavigationItems.map((item) => (
+                        {navigationItemsWithNotificationBadge.map((item) => (
                               <SidebarItem
                                     key={`${item.label}-${item.path ?? "group"}`}
                                     item={item}
@@ -842,6 +976,62 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
 
                         <main className="px-4 py-5 lg:px-6">{mustChangePassword ? null : children}</main>
                   </div>
+
+                  {popupNotification && !mustChangePassword && (
+                        <div className="fixed right-4 top-4 z-[10000] w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-3xl border border-amber-100/80 bg-white/96 shadow-[0_22px_60px_rgba(15,23,42,0.18)] backdrop-blur">
+                              <div className="border-b border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,251,235,0.96)_0%,rgba(255,255,255,0.98)_58%,rgba(254,243,199,0.76)_100%)] px-4 py-3">
+                                    <div className="flex items-start gap-3">
+                                          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 ring-1 ring-amber-200/70">
+                                                <Bell className="h-5 w-5" />
+                                          </div>
+
+                                          <div className="min-w-0 flex-1">
+                                                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                                                      Thông báo mới
+                                                </div>
+                                                <div className="mt-1 line-clamp-2 text-sm font-bold text-slate-900">
+                                                      {(popupNotification as any).title || "Bạn có thông báo mới"}
+                                                </div>
+                                          </div>
+
+                                          <button
+                                                type="button"
+                                                onClick={dismissPopupNotification}
+                                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-transparent text-slate-400 transition hover:border-amber-100 hover:bg-white hover:text-slate-700"
+                                                aria-label="Ẩn thông báo"
+                                          >
+                                                <X className="h-4 w-4" />
+                                          </button>
+                                    </div>
+                              </div>
+
+                              <div className="space-y-3 px-4 py-3">
+                                    <p className="line-clamp-3 text-sm leading-6 text-slate-600">
+                                          {(popupNotification as any).content || "Mở trang thông báo để xem chi tiết."}
+                                    </p>
+
+                                    <div className="flex flex-wrap justify-end gap-2">
+                                          <button
+                                                type="button"
+                                                onClick={markPopupNotificationRead}
+                                                disabled={markNotificationReadMutation.isPending}
+                                                className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-100 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-amber-50 disabled:opacity-60"
+                                          >
+                                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                                Đã đọc
+                                          </button>
+
+                                          <button
+                                                type="button"
+                                                onClick={openNotificationPage}
+                                                className="rounded-2xl bg-slate-900 px-3 py-2 text-xs font-bold text-amber-50 shadow-sm transition hover:bg-slate-800"
+                                          >
+                                                Xem tất cả
+                                          </button>
+                                    </div>
+                              </div>
+                        </div>
+                  )}
 
                   {mustChangePassword && (
                         <MandatoryChangePasswordModal

@@ -2,6 +2,11 @@ import { z } from "zod";
 import { router, protectedProcedure } from "../../_core/trpc";
 import { residentPortalService } from "../../services/residentPortalService";
 import { residentPortalAccessService } from "../../services/residentPortalAccessService";
+import {
+      getUnreadNotificationCountForUser,
+      listNotificationsForUser,
+      markNotificationAsReadForUser,
+} from "../../services/notificationService";
 
 function getUserIdFromContext(ctx: any) {
       const userId =
@@ -66,6 +71,38 @@ export const residentPortalRouter = router({
                         assignmentId: input.assignmentId,
                         notes: input.notes,
                   });
+            }),
+
+
+      getMyNotifications: protectedProcedure
+            .input(
+                  z
+                        .object({
+                              limit: z.number().int().min(1).max(100).optional(),
+                              unreadOnly: z.boolean().optional().nullable(),
+                        })
+                        .optional()
+            )
+            .query(async ({ ctx, input }) => {
+                  const userId = getUserIdFromContext(ctx);
+                  return listNotificationsForUser(userId, input || {});
+            }),
+
+      getMyUnreadNotificationCount: protectedProcedure.query(async ({ ctx }) => {
+            const userId = getUserIdFromContext(ctx);
+            return getUnreadNotificationCountForUser(userId);
+      }),
+
+      markMyNotificationRead: protectedProcedure
+            .input(
+                  z.object({
+                        notificationId: z.number().int().positive(),
+                  })
+            )
+            .mutation(async ({ ctx, input }) => {
+                  const userId = getUserIdFromContext(ctx);
+                  await markNotificationAsReadForUser(input.notificationId, userId);
+                  return { success: true };
             }),
 
 

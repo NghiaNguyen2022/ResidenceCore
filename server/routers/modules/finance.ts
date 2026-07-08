@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { protectedProcedure, router } from '../../_core/trpc';
 import { isManager } from '../../_core/rbac';
 import * as financeDb from '../../db/finance';
+import { notifyDebtGenerated } from '../../services/notificationService';
 
 
 function requireFinanceManagementAccess(user: {
@@ -182,10 +183,22 @@ export const financeRouter = router({
             .mutation(async ({ input, ctx }: any) => {
                   requireFinanceManagementAccess(ctx.user);
                   try {
-                        return await financeDb.applyFinanceChargePeriod({
+                        const result = await financeDb.applyFinanceChargePeriod({
                               ...input,
                               createdBy: ctx?.user?.id || null,
                         });
+
+                        for (const line of input.lines) {
+                              const amount = line.items
+                                    .filter((item) => item.selected)
+                                    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+                              if (amount > 0) {
+                                    await notifyDebtGenerated(line.residentId, amount, input.billingMonth);
+                              }
+                        }
+
+                        return result;
                   } catch (error) {
                         console.error('[finance.applyChargePeriod] Error:', error);
                         throw new TRPCError({

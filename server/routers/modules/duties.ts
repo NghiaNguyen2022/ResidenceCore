@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { isManager } from "../../_core/rbac";
 import * as db from "../../db";
 import { dutyAssignments } from "../../../drizzle/schema";
+import { notifyDutyAssigned } from "../../services/notificationService";
 
 
 
@@ -795,7 +796,18 @@ export const dutiesRouter = router({
                   try {
                         requireDutyManagementAccess(ctx.user);
 
-                        return await db.assignDutyBatch(input);
+                        const result = await db.assignDutyBatch(input);
+
+                        await notifyDutyAssigned({
+                              dutyConfigId: input.dutyConfigId,
+                              assignedToType: input.assignedToType,
+                              assignedToId: input.assignedToId,
+                              assignedToIds: input.assignedToIds,
+                              assignedDates: input.assignedDates,
+                              notes: input.notes,
+                        });
+
+                        return result;
                   } catch (error) {
                         console.error("[duties.assignDutyBatch] Error:", error);
                         throw new TRPCError({
@@ -833,6 +845,15 @@ export const dutiesRouter = router({
                         requireDutyManagementAccess(ctx.user);
 
                         const result = await db.assignDuty(input as any);
+
+                        await notifyDutyAssigned({
+                              dutyConfigId: input.dutyConfigId,
+                              assignedToType: (input.assignedToType || "resident") as any,
+                              assignedToId: Number(input.assignedToId || input.residentId || 0),
+                              assignedDates: [input.assignedDate],
+                              notes: input.notes,
+                        });
+
                         return result;
                   } catch (error) {
                         console.error("[duties.assignDuty] Error:", error);
