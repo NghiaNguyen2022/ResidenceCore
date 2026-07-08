@@ -137,3 +137,37 @@ Sau 13A có trang thông báo và 13B có popup thông báo mới, portal vẫn 
 ### Trạng thái
 
 - 13C: Patch chuẩn bị, chờ user apply/test.
+
+---
+
+## 13D — Polish trang `/resident/notifications`
+
+### Lý do bổ sung
+
+Sau 13A/13B/13C, trang thông báo đã đủ chức năng nhưng UI còn nặng: card quá cao, tiêu đề lặp lớn, action chiếm diện tích và thiếu bộ lọc nhanh. User yêu cầu chỉnh lại trang cho chuyên nghiệp hơn.
+
+### Checklist patch
+
+- [x] Chuyển trang thông báo về kiểu notification center / inbox gọn.
+- [x] Giảm chiều cao card thông báo.
+- [x] Giảm kích thước title item, tránh cảm giác landing page.
+- [x] Thêm filter bar: Tất cả / Chưa đọc / Công tác / Tài chính / Hệ thống.
+- [x] Thêm summary nhỏ: số chưa đọc và tổng thông báo.
+- [x] Thêm icon theo loại thông báo.
+- [x] Nút đánh dấu đã đọc chuyển thành action nhỏ.
+- [x] Giữ nguyên API residentPortal.getMyNotifications / markMyNotificationRead.
+- [x] Không đổi backend/schema/navigation.
+
+### Runtime test 13D
+
+- [ ] Trang `/resident/notifications` nhìn gọn, chuyên nghiệp hơn.
+- [ ] Filter `Tất cả` hiển thị đủ thông báo.
+- [ ] Filter `Chưa đọc` chỉ hiển thị thông báo chưa đọc.
+- [ ] Filter `Công tác` chỉ hiển thị thông báo công tác.
+- [ ] Filter `Tài chính` chỉ hiển thị thông báo tài chính.
+- [ ] Bấm `Đánh dấu` cập nhật trạng thái đọc và invalidate badge/popup.
+- [ ] Empty state đúng khi chưa có thông báo hoặc filter không có kết quả.
+
+### Trạng thái
+
+- 13D: Patch chuẩn bị, chờ user apply/test.

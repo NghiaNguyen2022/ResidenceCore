@@ -101,3 +101,19 @@ Nội dung patch 13C:
 - Không đổi schema, không đổi API/backend, không thêm realtime/WebSocket/push.
 
 Patch này giúp demo rõ hơn: học viên vừa có popup khi có thông báo mới, vừa luôn nhìn thấy số lượng thông báo chưa đọc trên menu portal.
+
+---
+
+## 2026-07-08 — 13D: Polish trang thông báo portal học viên
+
+User phản hồi trang `/resident/notifications` đã có chức năng nhưng UI chưa chuyên nghiệp: card quá lớn, lặp tiêu đề nhiều, nút đánh dấu đọc chiếm nhiều diện tích và thiếu bộ lọc nhanh.
+
+Patch 13D chuẩn bị:
+
+- Chuyển trang thông báo thành notification center dạng inbox gọn.
+- Header giữ tone premium nhưng gọn hơn, có thống kê nhỏ `chưa đọc` và `tổng thông báo`.
+- Thêm filter bar client-side: `Tất cả`, `Chưa đọc`, `Công tác`, `Tài chính`, `Hệ thống`.
+- Mỗi thông báo hiển thị dạng row/card compact: icon loại, badge loại, trạng thái đọc, title, nội dung, thời gian, action nhỏ.
+- Giữ nguyên API/backend/schema; chỉ chỉnh `client/src/pages/ResidentNotifications.tsx`.
+
+Patch này tiếp tục giữ phạm vi Việc 13 ở mức lite, không thêm realtime/WebSocket/push.
