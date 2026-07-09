@@ -44,9 +44,9 @@ export const simpleManagerNavigation: NavigationItem[] = [
                         roles: ["manager"],
                   },
                   {
-                        label: "Công tác & Hoạt động",
+                        label: "Hoạt động / Sự kiện",
                         path: "/activities",
-                        icon: "✅",
+                        icon: "🎯",
                         roles: ["manager"],
                   },
                   {
@@ -150,11 +150,10 @@ export const detailedManagerNavigation: NavigationItem[] = [
                         disabled: true,
                   },
                   {
-                        label: "Hoạt động",
+                        label: "Hoạt động / Sự kiện",
+                        path: "/activities",
                         icon: "🎯",
                         roles: ["manager"],
-                        badge: "Sau",
-                        disabled: true,
                   },
                   {
                         label: "Nội quy",

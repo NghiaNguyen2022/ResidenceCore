@@ -42,6 +42,12 @@ export const residentNavigation: NavigationItem[] = [
                         icon: "💰",
                         roles: ["resident"],
                   },
+                  {
+                        label: "Hoạt động",
+                        path: "/resident/activities",
+                        icon: "🎯",
+                        roles: ["resident"],
+                  },
             ],
       },
 ];

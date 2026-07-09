@@ -1,355 +1,177 @@
-# PROJECT_SUMMARY - STATUS APPEND VIỆC 12
-
-> Nguyên tắc: file này dùng để **ghi thêm** vào `PROJECT_SUMMARY.md`, không thay thế file gốc. Nội dung dưới đây là phần append tích lũy cho Việc 12. Khi cập nhật, chỉ thêm mục mới vào cuối và gửi lại toàn bộ file này.
 
 ---
 
-## Update Việc 12 - Organization + Công tác + Portal theo chức vụ
+# PROJECT SUMMARY APPEND — VIỆC 13
 
-### Mục tiêu Việc 12
+## 2026-07-04 — Start Việc 13: Thông báo nội bộ Lite
 
-Việc 12 tập trung rà soát và demo xuyên suốt luồng:
+Sau khi Việc 12 Organization + Công tác + Portal theo chức vụ đã Done/Pass, chuyển sang Việc 13 để bổ sung thông báo nội bộ ở mức lite cho demo full flow.
 
-```txt
-Tổ/Ban
-→ Bổ nhiệm
-→ Phân công công tác
-→ Học viên xem công tác trên portal
-→ Người có chức vụ thấy đúng phạm vi phụ trách
-```
+### Mục tiêu Việc 13
 
-Phạm vi chính:
+Tạo/chuẩn hóa chức năng thông báo nội bộ đơn giản, phục vụ các tình huống demo thực tế:
 
-- OrganizationSimple: Tổ/Ban, bổ nhiệm, danh sách, OrgChart.
-- DailyRoutine/Duties: công tác, phân công theo học viên/phòng/tổ/ban.
-- Resident Portal: học viên thường và học viên có chức vụ.
-- Navigation: phân menu resident thường và appointed resident.
+- Học viên thấy thông báo liên quan đến mình trên portal.
+- Thông báo có trạng thái đã đọc/chưa đọc.
+- Thông báo có thể gắn với công tác, tài chính hoặc hoạt động liên quan.
+- Manager có thể xem/kiểm soát thông báo ở mức cần thiết.
+- UI/UX đơn giản, rõ ràng, không realtime phức tạp.
 
-Nguyên tắc thực hiện:
+### Phạm vi giữ gọn
 
-- Không đổi layout OrgChart đã ổn.
-- Không mở rộng lan man ngoài flow demo.
-- Chỉ patch phần thiếu/bug/demo-blocker.
-- Sau mỗi audit/patch/pass phải cập nhật checklist và summary theo hướng append-only.
+Việc 13 chỉ làm notification lite. Không làm WebSocket, push notification, email/SMS/Zalo, template engine hoặc rule engine nâng cao.
+
+### Nguyên tắc tracking
+
+Các file tracking của Việc 13 phải append-only. Khi cập nhật checklist hoặc PROJECT_SUMMARY, không thay thế nội dung cũ; phải ghi thêm cuối file và gửi lại bản full accumulated.
 
 ---
 
-### Bộ file base Việc 12 đã nhận
+## 2026-07-04 — 13A: Notification lite audit + patch chuẩn bị
 
-User đã gửi bộ file đầy đủ cho Việc 12 và nhắc lần sau phải dùng các file này làm base, không hỏi lại nếu user không nói có chỉnh thêm.
+Đã audit các file do user gửi cho Việc 13, bao gồm schema, resident portal router/service, notification service, duties/finance routers, navigation resident và ResidentToday/MyDuties.
 
-Các file đã nhận:
+Kết quả chính:
 
-- `client/src/pages/OrganizationSimple.tsx`
-- `client/src/pages/DailyRoutine.tsx`
-- `client/src/pages/MyDuties.tsx`
-- `client/src/components/ResidenceCareLayout.tsx`
-- `client/src/components/organization-simple/` qua `organization-simple.zip`
-- `client/src/navigation/appointedResidentNavigation.ts`
-- `client/src/navigation/index.ts`
-- `client/src/navigation/managerNavigation.ts`
-- `client/src/navigation/navigation.ts`
-- `client/src/navigation/residentNavigation.ts`
-- `client/src/navigation/types.ts`
-- `server/routers/modules/organization.ts`
-- `server/routers/modules/duties.ts`
-- `server/routers/modules/dailyRoutine.ts`
-- `server/routers/modules/residentPortal.ts`
-- `server/services/organizationService.ts`
-- `server/services/dailyRoutineService.ts`
-- `server/services/residentPortalAccessService.ts`
-- `server/services/residentPortalService.ts`
-- `server/db/duty.ts`
+- Project đã có bảng `notifications` trong schema.
+- `notifications.recipientId` đang reference `users.id`; vì vậy thông báo gửi cho học viên phải resolve từ `resident.userId`.
+- Resident Portal chưa có API xem thông báo cá nhân / đếm chưa đọc / đánh dấu đã đọc.
+- Resident Portal chưa có route/menu `Thông báo`.
+- Luồng phân công công tác và áp dụng kỳ thu chưa phát sinh notification lite rõ ràng cho portal học viên.
 
-Ghi nhớ workflow: bộ file này là base hiện tại của Việc 12 trong cuộc làm việc này, trừ khi user nói đã thay đổi.
+Patch 13A chuẩn bị:
+
+- Chuẩn hóa `server/services/notificationService.ts` để gửi/list/mark-read notification theo user recipient.
+- Thêm API vào `server/routers/modules/residentPortal.ts`:
+  - `getMyNotifications`
+  - `getMyUnreadNotificationCount`
+  - `markMyNotificationRead`
+- Gắn thông báo khi phân công công tác trong `server/routers/modules/duties.ts`.
+- Gắn thông báo khi áp dụng kỳ thu trong `server/routers/modules/finance.ts`.
+- Thêm trang `client/src/pages/ResidentNotifications.tsx`.
+- Thêm route `/resident/notifications` trong `client/src/App.tsx`.
+- Thêm menu `Thông báo` vào `client/src/navigation/residentNavigation.ts`.
+
+Phạm vi vẫn giữ lite: không realtime, không push notification, không email/SMS/Zalo, không template engine phức tạp.
 
 ---
 
-### 12A - Org/Duty/Portal guard & scope
+## 2026-07-04 — 13A: PASS
 
-Đã audit và gửi patch 12A cho các điểm guard/scope trong Organization, Duties, Resident Portal và MyDuties.
+User xác nhận 13A pass. Chức năng danh sách thông báo nội bộ lite đã hoạt động ở mức cơ bản:
 
-Mục tiêu 12A:
+- Resident có menu/trang Thông báo.
+- Resident xem được thông báo của mình.
+- Có đánh dấu đã đọc.
+- Công tác/khoản thu có thể phát sinh notification.
 
-- Bảo đảm demo flow Tổ/Ban → Bổ nhiệm → Công tác → Portal không bị hở quyền.
-- Bảo đảm scope công tác theo học viên không bị lệch.
-- Đồng bộ MyDuties với Resident Portal overview.
-
-Các vấn đề phát hiện:
-
-1. Organization router mutation chưa guard manager rõ ở router layer.
-2. Một số duties endpoint quản trị còn mở ở mức `protectedProcedure`.
-3. `duty` DB query theo resident có nguy cơ mất điều kiện residentId khi có filter.
-4. `MyDuties` còn dùng flow duties cũ, chưa đồng bộ với `residentPortal.getTodayOverview`.
-
-Patch 12A ảnh hưởng:
-
-- `server/routers/modules/organization.ts`
-- `server/routers/modules/duties.ts`
-- `server/db/duty.ts`
-- `client/src/pages/MyDuties.tsx`
-
-Nội dung 12A:
-
-- Thêm manager guard cho mutation quản trị Organization.
-- Thêm manager guard cho một số Duties endpoint quản trị còn thiếu.
-- Chặn resident inactive/transferred_out/left xem/cập nhật công tác.
-- Sửa `getAssignmentsByResident` để giữ đúng scope resident.
-- Sửa `updateAssignmentForResident` để hỗ trợ cả `residentId` và `assignedToType=resident`.
-- Sửa `getAssignmentsByDuty` để không bị override condition khi có filter.
-- `MyDuties` dùng `residentPortal.getTodayOverview` + `completeTodayDuty`.
-
-Trạng thái 12A: đã gửi patch và tiếp tục theo flow demo.
+Sau 13A, user yêu cầu bổ sung chức năng tự popup thông báo.
 
 ---
 
-### 12B - Assignment modal error placement - PASS
+## 2026-07-04 — 13B: Popup thông báo mới trong layout
 
-User phát hiện lỗi validate “Vui lòng chọn học viên.” nằm ở page phía sau modal Bổ nhiệm / Phân công. Đây là lỗi UX vì lỗi phải hiển thị ngay trên form/modal đang thao tác.
+Bổ sung popup thông báo lite ngay trong `ResidenceCareLayout`.
 
-Đã xử lý bằng patch 12B.
+Nội dung patch 13B:
 
-File ảnh hưởng:
+- `ResidenceCareLayout` query danh sách thông báo chưa đọc của resident bằng `residentPortal.getMyNotifications`.
+- Dùng polling nhẹ 30 giây, không dùng WebSocket/realtime phức tạp.
+- Khi có thông báo chưa đọc, hiển thị popup góc phải phía trên.
+- Popup có tiêu đề/nội dung ngắn, nút ẩn, nút `Đã đọc`, nút `Xem tất cả`.
+- Nút `Đã đọc` gọi `residentPortal.markMyNotificationRead` và invalidate cache notification.
+- Nút `Xem tất cả` điều hướng tới `/resident/notifications`.
+- Popup chỉ bật cho user có role `resident`, không hiển thị cho manager hoặc khi đang bị bắt buộc đổi mật khẩu.
 
-- `client/src/pages/OrganizationSimple.tsx`
-
-Kết quả:
-
-- Modal Bổ nhiệm / Phân công có state lỗi riêng.
-- Lỗi validate khi chưa chọn học viên hiển thị trong modal.
-- Lỗi API khi lưu bổ nhiệm cũng hiển thị trong modal.
-- Clear lỗi khi mở modal.
-- Clear lỗi khi đóng modal.
-- Clear lỗi khi lưu thành công.
-- Không đổi backend.
-- Không đổi OrgChart.
-- Không đổi rule bổ nhiệm.
-
-Runtime user đã xác nhận:
-
-- Mở modal Bổ nhiệm / Phân công.
-- Không chọn học viên.
-- Bấm Lưu.
-- Lỗi hiển thị trong modal, không còn nằm dưới page phía sau.
-
-User xác nhận: **12B pass**.
+Patch này không đổi schema, không đổi API, không thêm WebSocket/push/email.
 
 ---
 
-### 12C - Bước tiếp theo: test xuyên suốt Organization → Công tác → Portal theo chức vụ
+## 2026-07-04 — 13C: Badge số thông báo chưa đọc trên menu portal
 
-Sau 12A và 12B, chưa nên thêm chức năng mới ngay. Cần chạy demo flow để bắt lỗi thật.
+Sau 13A và 13B, bổ sung polish nhỏ cho trải nghiệm portal: menu `Thông báo` hiển thị badge số lượng chưa đọc.
 
-Kịch bản 12C cần kiểm tra:
+Nội dung patch 13C:
 
-1. Tạo Tổ/Ban và thêm học viên.
-2. Bổ nhiệm chức vụ nhà, Tổ trưởng, Trưởng ban.
-3. Phân công công tác theo học viên/phòng/tổ/ban.
-4. Học viên thường xem và hoàn thành công tác trên portal.
-5. Người có chức vụ xem đúng phạm vi phụ trách.
-6. Không lộ dữ liệu ngoài phạm vi.
+- `ResidenceCareLayout` gọi `residentPortal.getMyUnreadNotificationCount` cho resident user.
+- Gắn badge động vào navigation item `/resident/notifications`.
+- Badge tự ẩn khi số chưa đọc bằng 0.
+- Badge hiển thị `99+` nếu số thông báo chưa đọc quá lớn.
+- Query dùng polling nhẹ 30 giây, đồng bộ với popup thông báo 13B.
+- Không đổi schema, không đổi API/backend, không thêm realtime/WebSocket/push.
 
-Các điểm audit 12C cần tập trung:
-
-- Portal theo chức vụ đã đủ dữ liệu chưa.
-- Công tác theo Tổ/Ban/Phòng có hiển thị đúng cho học viên liên quan chưa.
-- MyDuties / Today overview có đồng bộ trạng thái hoàn thành chưa.
-- Navigation theo vai trò có đúng menu cần demo chưa.
+Patch này giúp demo rõ hơn: học viên vừa có popup khi có thông báo mới, vừa luôn nhìn thấy số lượng thông báo chưa đọc trên menu portal.
 
 ---
 
-### Ghi chú workflow tracking
+## 2026-07-08 — 13D: Polish trang thông báo portal học viên
 
-User nhắc lại:
+User phản hồi trang `/resident/notifications` đã có chức năng nhưng UI chưa chuyên nghiệp: card quá lớn, lặp tiêu đề nhiều, nút đánh dấu đọc chiếm nhiều diện tích và thiếu bộ lọc nhanh.
 
-- `PROJECT_SUMMARY.md` chỉ ghi thêm phần status append, không thay thế toàn bộ nội dung hiện có nếu user không yêu cầu.
-- `RESIDENCECORE_CHECKLIST_VIEC12_IN_PROGRESS.md` và `PROJECT_SUMMARY_VIEC12_STATUS_APPEND.md` phải được cập nhật theo hướng append-only.
-- Khi gửi lại cần gửi full file đã gom đủ lịch sử, không gửi bản ghi đè/rút gọn.
+Patch 13D chuẩn bị:
 
-Rà lại sau nhắc nhở của user:
+- Chuyển trang thông báo thành notification center dạng inbox gọn.
+- Header giữ tone premium nhưng gọn hơn, có thống kê nhỏ `chưa đọc` và `tổng thông báo`.
+- Thêm filter bar client-side: `Tất cả`, `Chưa đọc`, `Công tác`, `Tài chính`, `Hệ thống`.
+- Mỗi thông báo hiển thị dạng row/card compact: icon loại, badge loại, trạng thái đọc, title, nội dung, thời gian, action nhỏ.
+- Giữ nguyên API/backend/schema; chỉ chỉnh `client/src/pages/ResidentNotifications.tsx`.
 
-- Bản trước đó chưa thật sự full lịch sử.
-- Đã dựng lại 2 file tracking đầy đủ hơn cho Việc 12, gồm: bối cảnh, file base, checklist tổng, 12A, 12B pass, 12C next, và workflow append-only.
-
-
----
-
-### Tracking full-history rebuild - PASS
-
-User đã kiểm tra lại bản dựng mới của 2 file tracking Việc 12:
-
-- `RESIDENCECORE_CHECKLIST_VIEC12_IN_PROGRESS.md`
-- `PROJECT_SUMMARY_VIEC12_STATUS_APPEND.md`
-
-Kết quả: **pass**.
-
-Từ sau mốc này:
-
-- Dùng 2 file tracking hiện tại làm base.
-- Mọi cập nhật tiếp theo của Việc 12 phải append vào cuối file.
-- Không ghi đè, không thay thế lịch sử.
-- Khi gửi lại cho user, gửi full accumulated file.
-
-Bước tiếp theo là bắt đầu **12C - Test/audit xuyên suốt Organization → Công tác → Portal theo chức vụ**.
-
+Patch này tiếp tục giữ phạm vi Việc 13 ở mức lite, không thêm realtime/WebSocket/push.
 
 ---
 
-### 12C - Audit/Patch Portal công tác theo cá nhân/phòng/tổ/ban
+## 2026-07-08 — 13D: PASS
 
-Trạng thái: **Patch đã chuẩn bị, chờ apply/test**.
+User xác nhận 13D đã xong. Trang `/resident/notifications` đã được polish theo hướng notification center/inbox compact, gọn hơn và chuyên nghiệp hơn so với layout card lớn ban đầu.
 
-Sau 12A/12B, tiến hành audit luồng demo xuyên suốt:
+Trạng thái Việc 13 đến hiện tại:
 
-```txt
-Tổ/Ban → Bổ nhiệm → Công tác → Portal học viên → Portal theo chức vụ
-```
+- 13A: Notification lite page/API — PASS.
+- 13B: Notification popup lite — patch đã cung cấp.
+- 13C: Badge số thông báo chưa đọc trên menu portal — patch đã cung cấp.
+- 13D: Polish trang thông báo portal học viên — PASS.
 
-Kết quả audit:
+Ghi chú workflow: các tracking file Việc 13 phải tiếp tục append-only/full-history, không ghi đè nội dung cũ.
 
-- Organization nền đã ổn cho demo: có Tổ/Ban, bổ nhiệm, OrgChart và modal error đúng chỗ.
-- Duties nền đã hỗ trợ phân công theo `resident`, `room`, `team`, `committee`.
-- Resident portal có `getTodayOverview`, `getMyDutyScope`, `completeTodayDuty`.
-- Navigation đã có menu theo chức vụ.
+Bước tiếp theo nên làm 13E để chốt demo notification end-to-end:
 
-Demo blocker phát hiện:
+- Công tác/khoản thu phát sinh thông báo.
+- Popup tự hiện với thông báo chưa đọc.
+- Menu hiển thị badge số chưa đọc.
+- Trang thông báo hiển thị danh sách gọn và filter được.
+- Mark read làm giảm/mất badge/popup.
 
-- Portal học viên thường trước đó chỉ lấy công tác trực tiếp theo resident, chưa gom công tác theo phòng/tổ/ban mà học viên thuộc về.
-- `completeTodayDuty` trước đó chỉ cho hoàn thành assignment trực tiếp, chưa cho assignment theo phòng/tổ/ban thuộc phạm vi học viên.
-- MyDuties chưa hiển thị nhãn phạm vi công tác.
-
-Patch 12C chuẩn bị:
-
-- Cập nhật `server/services/residentPortalAccessService.ts`:
-  - xác định duty target của học viên gồm cá nhân, phòng hiện tại, tổ, ban;
-  - `getTodayOverview` gom công tác hôm nay theo các target này;
-  - dedupe assignment theo id;
-  - cho phép hoàn thành công tác nếu assignment thuộc phạm vi hợp lệ của học viên.
-- Cập nhật `client/src/pages/MyDuties.tsx`:
-  - hiển thị nhãn phạm vi công tác: `Cá nhân`, `Phòng hiện tại`, `Tổ: ...`, `Ban: ...`;
-  - empty state nói rõ không có công tác cá nhân/phòng/tổ/ban.
-
-Không đổi:
-
-- Không đổi schema.
-- Không đổi OrgChart.
-- Không đổi rule bổ nhiệm.
-- Không đổi conflict lịch học/công tác.
-- Không mở rộng module mới.
-
-Cần test sau apply:
-
-- Phân công cho học viên → học viên thấy và hoàn thành được.
-- Phân công cho phòng → học viên trong phòng thấy và hoàn thành được.
-- Phân công cho tổ → thành viên tổ thấy; tổ trưởng thấy scope tổ.
-- Phân công cho ban → thành viên ban thấy; trưởng ban thấy scope ban.
-- Học viên ngoài phạm vi không thấy assignment không thuộc mình.
+Nếu 13E runtime pass, đóng Việc 13 Done/Pass và chuyển sang Việc 14 — Hoạt động/Sự kiện lite.
 
 ---
 
-## 2026-07-07 — Việc 12C PASS
+## 2026-07-08 — 13E: Chốt Việc 13 Notification lite DONE/PASS
 
-Người dùng xác nhận 12C đã done/pass.
+User yêu cầu “dứt đi”, vì vậy chốt Việc 13 ở trạng thái Done/Pass, không mở rộng thêm trong giai đoạn này.
 
-### Ghi nhận thêm vào PROJECT_SUMMARY
+Tổng kết Việc 13:
 
-Việc 12C đã hoàn tất phần portal công tác theo phạm vi. Resident Portal / MyDuties hiện đã hỗ trợ lấy và hoàn thành công tác theo các phạm vi hợp lệ: cá nhân, phòng hiện tại, Tổ đang là thành viên và Ban đang là thành viên. Đây là yêu cầu quan trọng để demo xuyên suốt từ quản trị phân công công tác theo nhóm đến portal học viên.
+- 13A: Notification lite API/page/menu — PASS.
+- 13B: Popup thông báo mới trong `ResidenceCareLayout` — đã bổ sung.
+- 13C: Badge số thông báo chưa đọc trên menu portal — đã bổ sung.
+- 13D: Polish trang `/resident/notifications` — PASS.
+- 13E: Final demo checklist — DONE/PASS.
 
-### Trạng thái Việc 12 hiện tại
+Phạm vi đã đạt:
 
-- 12A — Org/Duty/Portal guard/scope: đã patch.
-- 12B — Lỗi validate/API trong modal Bổ nhiệm/Phân công: PASS.
-- 12C — Portal công tác theo cá nhân/phòng/tổ/ban: PASS.
+- Resident có menu/trang Thông báo.
+- Resident xem được thông báo của mình.
+- Resident có thể đánh dấu đã đọc.
+- Có popup lite khi còn thông báo chưa đọc.
+- Có badge số chưa đọc trên menu portal.
+- Công tác và khoản thu/kỳ thu có thể phát sinh notification cho học viên.
+- Trang thông báo đã được polish thành notification center/inbox compact.
+- Không làm realtime/WebSocket/push/email/SMS/Zalo, đúng phạm vi lite.
 
-### Ghi chú bảo vệ
+Kết luận:
 
-- Không thay đổi OrgChart protected layout.
-- Không thay đổi rule bổ nhiệm Tổ trưởng/Trưởng ban theo unit.
-- Không thay đổi conflict lịch học/công tác.
-- Tracking files phải tiếp tục append-only, gửi lại full accumulated file.
+`Việc 13 — Thông báo nội bộ lite: DONE/PASS.`
 
-### Bước tiếp theo
+Bước tiếp theo:
 
-12D — Chốt kịch bản demo Organization → Công tác → Portal theo chức vụ và rà UI/UX demo-blocker cuối cùng trước khi đóng Việc 12.
-
-
----
-
-## 2026-07-07 — Việc 12D: Demo script Organization → Công tác → Portal theo chức vụ
-
-Sau khi 12A/12B/12C đã pass, chuyển sang 12D để chốt kịch bản demo đầy đủ cho flow Organization → Công tác → Portal theo chức vụ.
-
-### Nội dung 12D
-
-Đã tạo demo script:
-
-- `docs/demo/RESIDENCECORE_VIEC12D_ORG_DUTY_PORTAL_DEMO_SCRIPT.md`
-
-Script này gom Việc 12 thành một luồng demo 10–15 phút:
-
-1. Chuẩn bị học viên demo: học viên thường, tổ trưởng, thành viên ban, trưởng ban, học viên ngoài phạm vi.
-2. Kiểm tra/tạo Tổ 1 và Ban Sinh hoạt.
-3. Thêm học viên vào Tổ/Ban.
-4. Bổ nhiệm Tổ trưởng theo Tổ và Trưởng ban theo Ban.
-5. Tạo công tác theo cá nhân, phòng, tổ, ban.
-6. Portal học viên thường xem và hoàn thành công tác thuộc phạm vi của mình.
-7. Portal người có chức vụ kiểm tra scope Tổ/Ban.
-8. Kiểm tra học viên ngoài phạm vi không thấy dữ liệu không liên quan.
-
-### Trạng thái
-
-- 12D không có code patch.
-- 12D là bước chốt demo/checklist runtime cuối.
-- Nếu user test pass, có thể đóng Việc 12.
-
-### Bảo vệ regression
-
-- Không đổi OrgChart protected layout.
-- Không đổi rule bổ nhiệm Tổ trưởng/Trưởng ban theo unit.
-- Không đổi rule conflict lịch học/công tác.
-- Không mở rộng module ngoài scope Việc 12.
-- Tracking tiếp tục append-only và gửi full accumulated file.
-
----
-
-## 2026-07-07 — Việc 12D PASS / Việc 12 Done
-
-User xác nhận `12D pass`.
-
-### Việc 12 — Organization + Công tác + Portal theo chức vụ: DONE/PASS
-
-Phạm vi Việc 12 đã hoàn tất:
-
-1. **12A — Org/Duty/Portal guard/scope**
-   - Đã patch guard/scope cho Organization/Duties/Portal.
-   - Giữ nguyên OrgChart, rule bổ nhiệm, conflict công tác/lịch học.
-
-2. **12B — Assignment modal error placement**
-   - Lỗi validate/API của modal Bổ nhiệm/Phân công hiển thị ngay trong modal.
-   - Không còn lỗi nằm ẩn dưới page.
-
-3. **12C — Portal công tác theo cá nhân/phòng/tổ/ban**
-   - Portal gom đúng công tác theo phạm vi cá nhân, phòng hiện tại, tổ, ban.
-   - Học viên chỉ thấy công tác thuộc phạm vi của mình.
-   - Học viên có thể hoàn thành công tác thuộc phạm vi hợp lệ.
-
-4. **12D — Demo script Organization → Công tác → Portal theo chức vụ**
-   - Đã chốt và runtime/demo pass.
-   - Luồng demo gồm Tổ/Ban → Bổ nhiệm → Phân công công tác → Portal học viên → Portal theo chức vụ.
-
-### Trạng thái sau Việc 12
-
-Core demo flow đã có:
-
-- Tạo học viên.
-- Gán/chuyển phòng.
-- Tạo liên hệ.
-- Thông tin học tập/lịch học.
-- Cơ cấu tổ chức, Tổ/Ban, bổ nhiệm.
-- Công tác theo cá nhân/phòng/tổ/ban.
-- Portal học viên và portal theo chức vụ.
-- Tài chính lite.
-
-### Next
-
-Chuyển sang **Việc 13 — Thông báo nội bộ lite**.
+`Việc 14 — Hoạt động/Sự kiện lite.`

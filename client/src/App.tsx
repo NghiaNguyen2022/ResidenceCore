@@ -25,6 +25,7 @@ const ResidentInformation = lazy(() => import("@/pages/ResidentInformation"));
 const ResidentFinance = lazy(() => import("@/pages/ResidentFinance"));
 const ResidentRules = lazy(() => import("@/pages/ResidentRules"));
 const ResidentNotifications = lazy(() => import("@/pages/ResidentNotifications"));
+const ResidentActivities = lazy(() => import("@/pages/ResidentActivities"));
 const ResidentRoleOverview = lazy(() => import("@/pages/ResidentRoleOverview"));
 const ResidentLeadershipOrganization = lazy(() => import("@/pages/ResidentLeadershipOrganization"));
 const ResidentLeadershipDuties = lazy(() => import("@/pages/ResidentLeadershipDuties"));
@@ -81,6 +82,7 @@ function Router() {
                   <Route path="/resident/information" component={ResidentInformation} />
                   <Route path="/resident/rules" component={ResidentRules} />
                   <Route path="/resident/notifications" component={ResidentNotifications} />
+                  <Route path="/resident/activities" component={ResidentActivities} />
                   <Route path="/resident/finance" component={ResidentFinance} />
                   <Route path="/resident/roles" component={ResidentRoleOverview} />
                   <Route path="/resident/organization" component={ResidentLeadershipOrganization} />
