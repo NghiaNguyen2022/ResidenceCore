@@ -1,100 +1,74 @@
 # RESIDENCECORE_CHECKLIST_VIEC14_IN_PROGRESS
 
+## Nguyên tắc tracking
+- File này ghi theo kiểu append-only / full-history.
+- Không ghi đè các mục cũ; mỗi bước mới thêm vào cuối.
+- Việc 14 tập trung module Hoạt động / Sự kiện lite, phục vụ demo full flow.
+
 ## Việc 14 — Hoạt động / Sự kiện lite
 
 ### Mục tiêu
-Tạo module hoạt động/sự kiện nội bộ ở mức lite để demo full flow App Lưu Xá:
+- Manager tạo/sửa/hủy/xóa mềm hoạt động.
+- Hoạt động có thể bật/tắt hiển thị trên portal học viên.
+- Resident xem hoạt động công khai.
+- UI/UX đơn giản, cùng style premium của hệ thống.
+- Không làm đăng ký tham gia, điểm danh, workflow duyệt phức tạp ở bản lite.
 
-- Manager quản lý hoạt động chung của lưu xá.
-- Có danh sách hoạt động.
-- Có tạo/sửa/hủy hoạt động.
-- Có trạng thái hoạt động.
-- Có thể đánh dấu hoạt động công khai để hiển thị cho học viên trên portal.
-- UI/UX đơn giản, gọn, không làm quá sâu.
+### 14 Start — Checklist / file request
+- [x] Tạo checklist khởi động Việc 14.
+- [x] Xác định scope lite.
+- [x] Yêu cầu các file nền: App, layout, navigation, schema.
 
-### Không làm trong Việc 14
+### 14A — Activities lite
+- [x] Thêm/chuẩn hóa table activities và activityParticipants.
+- [x] Thêm cờ isPublicOnPortal.
+- [x] Manager xem/tạo/sửa/hủy/xóa mềm hoạt động.
+- [x] Manager lọc theo trạng thái/loại/tìm kiếm.
+- [x] Resident xem hoạt động công khai ở /resident/activities.
+- [x] Hoạt động nội bộ không hiện trên portal.
+- [x] Date dùng FormDateInput.
+- [x] Time dùng TimePickerInput.
+- [x] Manager menu bật Hoạt động / Sự kiện.
+- [x] Resident portal menu thêm Hoạt động.
 
-- Không làm đăng ký tham gia phức tạp.
-- Không làm điểm danh sự kiện.
-- Không làm duyệt hoạt động nhiều bước.
-- Không làm lịch hoạt động nâng cao kiểu calendar lớn.
-- Không làm notification nâng cao ngoài scope nếu chưa cần.
+### 14B — Activities DB migration fix
+- [x] Phát hiện DB runtime lỗi do bảng/cột activities chưa align schema 14A.
+- [x] Tạo SQL migration bổ sung bảng/cột/index cần thiết.
+- [x] User chạy SQL nhưng MySQL không hỗ trợ ADD COLUMN IF NOT EXISTS.
 
----
+### 14B2 — Activities DB migration compatible MySQL
+- [x] Tạo migration tương thích MySQL cũ hơn bằng INFORMATION_SCHEMA.
+- [x] Tránh dùng ALTER TABLE ADD COLUMN IF NOT EXISTS.
+- [x] User chạy xong migration.
 
-## Checklist tổng
+### 14C — Activities layout polish
+- [x] Gọn lại header/list/filter.
+- [x] Chuyển card hoạt động sang row compact.
+- [x] Nút action gọn hơn.
+- [x] Không đổi API/schema/service/router.
 
-### 14A — Audit nền hiện có
+### 14D — Activity modal compact
+- [x] Modal tạo/sửa hoạt động bớt dài.
+- [x] Gom form vào grid 12 cột.
+- [x] Giảm textarea xuống 2 dòng.
+- [x] Checkbox portal chuyển thành block compact.
+- [x] Không đổi date/time picker.
 
-- [x] Kiểm tra có schema/table hoạt động chưa.
-- [x] Kiểm tra có route/page hoạt động chưa.
-- [x] Kiểm tra có menu manager/portal liên quan chưa.
-- [x] Kiểm tra có service/router hiện có để tái sử dụng không.
-- [x] Xác định patch tối thiểu cho demo.
+### 14E — Align Activities page with Daily Routine style
+- [x] User phản hồi trang Hoạt động chưa bám style chung, cần nhìn theo Sinh hoạt hằng ngày.
+- [x] Chỉnh header thành khối hero premium giống DailyRoutine: centered title, action góc phải, background gradient nhẹ.
+- [x] Chuyển summary stats thành card nhỏ gọn dưới header.
+- [x] Thêm quick status segmented filter giống tab/pill của DailyRoutine.
+- [x] Search/filter panel gọn hơn, tone trắng/kem/amber.
+- [x] List section đổi title và khoảng cách cho đồng bộ.
+- [x] Không đổi API, schema, migration, service, router.
 
-### 14B — Backend lite
-
-- [x] Table/model hoạt động nếu chưa có.
-- [x] API list hoạt động cho manager.
-- [x] API create hoạt động.
-- [x] API update hoạt động.
-- [x] API cancel hoạt động.
-- [x] API portal list hoạt động công khai.
-- [x] Guard manager cho mutation.
-- [x] Guard resident portal cho portal list.
-
-### 14C — Manager UI
-
-- [x] Trang Hoạt động/Sự kiện lite.
-- [x] Danh sách hoạt động gọn.
-- [x] Tạo hoạt động.
-- [x] Sửa hoạt động.
-- [x] Hủy hoạt động.
-- [x] Trạng thái: dự kiến / đã diễn ra / hủy.
-- [x] Field công khai portal.
-- [x] Style đồng bộ App Lưu Xá.
-
-### 14D — Resident Portal UI
-
-- [x] Menu/route portal nếu cần.
-- [x] Học viên xem hoạt động công khai.
-- [x] Empty state rõ.
-- [x] Không thấy hoạt động nội bộ không công khai.
-
-### 14E — Demo/pass
-
-- [ ] Manager tạo hoạt động công khai.
-- [ ] Resident thấy hoạt động trên portal.
-- [ ] Manager tạo hoạt động nội bộ.
-- [ ] Resident không thấy hoạt động nội bộ.
-- [ ] Manager hủy hoạt động.
-- [ ] Portal cập nhật trạng thái/ẩn đúng theo rule.
-- [ ] pnpm check pass.
-- [ ] pnpm test pass.
-- [ ] pnpm build pass.
-
----
-
-## Log append-only
-
-### Start
-
-- Bắt đầu Việc 14 sau khi Việc 13 Thông báo nội bộ lite đã DONE/PASS.
-- Phạm vi: Hoạt động / Sự kiện lite, đủ demo, UI/UX đơn giản.
-
-### 14A — Audit + patch lite
-
-- User gửi các file base: `App.tsx`, `ResidenceCareLayout.tsx`, `managerNavigation.ts`, `residentNavigation.ts`, `schema.ts`.
-- Audit thấy `App.tsx` đã có route manager `/activities`; `managerNavigation` simple đã trỏ `/activities`; `schema.ts` đã export `./activities`, nhưng cần chuẩn hóa lite để demo hoạt động/sự kiện và portal công khai.
-- Patch 14A chuẩn bị đầy đủ một module lite:
-  - `drizzle/activities.ts`.
-  - `server/db/activities.ts`.
-  - `server/services/activityService.ts`.
-  - `server/routers/modules/activities.ts`.
-  - `client/src/pages/Activities.tsx`.
-  - `client/src/pages/ResidentActivities.tsx`.
-  - cập nhật `client/src/App.tsx`.
-  - cập nhật `client/src/navigation/managerNavigation.ts`.
-  - cập nhật `client/src/navigation/residentNavigation.ts`.
-- Scope giữ lite: tạo/sửa/hủy/xóa mềm hoạt động, trạng thái, loại hoạt động, thời gian, địa điểm, người/ban phụ trách, mô tả, cờ công khai portal.
-- Chưa chốt pass cho đến khi user apply và chạy runtime.
+### Test cần chạy sau 14E
+- [ ] pnpm check
+- [ ] pnpm test
+- [ ] pnpm build
+- [ ] Mở /activities, kiểm tra header bám style DailyRoutine hơn.
+- [ ] Quick filter Tất cả/Dự kiến/Đang diễn ra/Đã diễn ra hoạt động.
+- [ ] Search/filter loại vẫn hoạt động.
+- [ ] Tạo/sửa/hủy/xóa hoạt động vẫn hoạt động.
+- [ ] Portal học viên vẫn chỉ thấy hoạt động public.

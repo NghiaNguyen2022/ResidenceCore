@@ -25,7 +25,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { TimePickerInput } from '@/components/shared/form/TimePickerInput';
 import {
-      AppCard,
       AppModal,
       ConfirmDialog,
       EmptyState,
@@ -148,15 +147,78 @@ function formatTimeRange(activity: Activity) {
 
 function StatPill({ label, value, icon }: { label: string; value: number | string; icon: ReactNode }) {
       return (
-            <div className="rounded-3xl border border-amber-100 bg-white/85 p-4 shadow-sm shadow-amber-950/5">
-                  <div className="flex items-center justify-between gap-3">
-                        <div>
-                              <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700/70">{label}</p>
-                              <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
-                        </div>
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+            <div className="rounded-[1.35rem] border border-white/70 bg-white/80 px-4 py-3 shadow-sm shadow-slate-950/5 backdrop-blur">
+                  <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
                               {icon}
                         </div>
+                        <div className="min-w-0 text-left">
+                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
+                              <p className="text-2xl font-black leading-7 text-slate-950">{value}</p>
+                        </div>
+                  </div>
+            </div>
+      );
+}
+
+function ActivityToolbarButton({
+      children,
+      tone = 'default',
+      onClick,
+}: {
+      children: ReactNode;
+      tone?: 'default' | 'danger';
+      onClick: () => void;
+}) {
+      return (
+            <button
+                  type="button"
+                  onClick={onClick}
+                  className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition ${
+                        tone === 'danger'
+                              ? 'border-red-100 bg-white text-red-600 hover:bg-red-50 hover:text-red-700'
+                              : 'border-slate-200 bg-white text-slate-700 hover:border-amber-200 hover:bg-amber-50 hover:text-slate-950'
+                  }`}
+            >
+                  {children}
+            </button>
+      );
+}
+
+function StatusQuickFilter({
+      value,
+      onChange,
+}: {
+      value: 'all' | ActivityStatus;
+      onChange: (value: 'all' | ActivityStatus) => void;
+}) {
+      const items: Array<{ value: 'all' | ActivityStatus; label: string }> = [
+            { value: 'all', label: 'Tất cả' },
+            { value: 'scheduled', label: 'Dự kiến' },
+            { value: 'in_progress', label: 'Đang diễn ra' },
+            { value: 'completed', label: 'Đã diễn ra' },
+      ];
+
+      return (
+            <div className="rounded-[1.75rem] border border-white/70 bg-white/45 p-2 shadow-inner shadow-white/70 backdrop-blur">
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                        {items.map((item) => {
+                              const active = value === item.value;
+                              return (
+                                    <button
+                                          key={item.value}
+                                          type="button"
+                                          onClick={() => onChange(item.value)}
+                                          className={`h-11 rounded-2xl px-4 text-sm font-black transition ${
+                                                active
+                                                      ? 'bg-white text-amber-700 shadow-sm ring-1 ring-amber-100'
+                                                      : 'text-slate-500 hover:bg-white/70 hover:text-slate-800'
+                                          }`}
+                                    >
+                                          {item.label}
+                                    </button>
+                              );
+                        })}
                   </div>
             </div>
       );
@@ -177,70 +239,66 @@ function ActivityRow({
       const isPublic = Boolean(activity.isPublicOnPortal);
 
       return (
-            <div className="group rounded-3xl border border-slate-200/80 bg-white/90 p-4 shadow-sm shadow-slate-950/5 transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-lg hover:shadow-amber-950/10">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm shadow-slate-950/[0.03] transition hover:border-amber-200 hover:bg-amber-50/20">
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                         <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-50 text-lg">
+                                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-base ring-1 ring-amber-100">
                                           {typeMeta.icon}
                                     </span>
-                                    <div className="min-w-0">
-                                          <h3 className="truncate text-base font-black text-slate-950">{activity.title}</h3>
-                                          <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                                                {activity.code}
-                                          </p>
-                                    </div>
+                                    <h3 className="min-w-0 flex-1 truncate text-[15px] font-black text-slate-950">{activity.title}</h3>
                                     <StatusBadge tone={getStatusTone(activity.status)}>{getStatusLabel(activity.status)}</StatusBadge>
                                     <span
-                                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+                                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
                                                 isPublic
                                                       ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
                                                       : 'bg-slate-100 text-slate-600 ring-1 ring-slate-200'
                                           }`}
                                     >
                                           {isPublic ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                                          {isPublic ? 'Công khai portal' : 'Nội bộ'}
+                                          {isPublic ? 'Portal' : 'Nội bộ'}
                                     </span>
                               </div>
 
-                              <div className="mt-3 grid gap-2 text-sm text-slate-600 md:grid-cols-3">
-                                    <span className="inline-flex min-w-0 items-center gap-2">
-                                          <CalendarDays className="h-4 w-4 shrink-0 text-amber-600" />
-                                          <span className="truncate">{formatDate(activity.activityDate)}</span>
+                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-500">
+                                    <span className="inline-flex items-center gap-1.5">
+                                          <CalendarDays className="h-3.5 w-3.5 text-amber-600" />
+                                          {formatDate(activity.activityDate)}
                                     </span>
-                                    <span className="inline-flex min-w-0 items-center gap-2">
-                                          <Clock className="h-4 w-4 shrink-0 text-amber-600" />
-                                          <span className="truncate">{formatTimeRange(activity)}</span>
+                                    <span className="inline-flex items-center gap-1.5">
+                                          <Clock className="h-3.5 w-3.5 text-amber-600" />
+                                          {formatTimeRange(activity)}
                                     </span>
-                                    <span className="inline-flex min-w-0 items-center gap-2">
-                                          <MapPin className="h-4 w-4 shrink-0 text-amber-600" />
+                                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                                          <MapPin className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                                           <span className="truncate">{activity.location || 'Chưa ghi địa điểm'}</span>
                                     </span>
+                                    <span className="text-slate-400">{activity.code}</span>
                               </div>
 
                               {(activity.ownerGroup || activity.description) && (
-                                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">
-                                          {activity.ownerGroup ? `Phụ trách: ${activity.ownerGroup}. ` : ''}
-                                          {activity.description || ''}
+                                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
+                                          {activity.ownerGroup ? <span className="font-semibold text-slate-700">{activity.ownerGroup}: </span> : null}
+                                          {activity.description || 'Chưa có mô tả.'}
                                     </p>
                               )}
                         </div>
 
-                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                              <Button variant="outline" size="sm" onClick={() => onEdit(activity)}>
-                                    <Edit2 className="mr-1.5 h-4 w-4" />
+                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 xl:justify-start">
+                              <ActivityToolbarButton onClick={() => onEdit(activity)}>
+                                    <Edit2 className="h-3.5 w-3.5" />
                                     Sửa
-                              </Button>
+                              </ActivityToolbarButton>
                               {activity.status !== 'cancelled' && (
-                                    <Button variant="outline" size="sm" onClick={() => onCancel(activity)}>
-                                          <XCircle className="mr-1.5 h-4 w-4" />
+                                    <ActivityToolbarButton onClick={() => onCancel(activity)}>
+                                          <XCircle className="h-3.5 w-3.5" />
                                           Hủy
-                                    </Button>
+                                    </ActivityToolbarButton>
                               )}
-                              <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => onDelete(activity)}>
-                                    <Trash2 className="mr-1.5 h-4 w-4" />
+                              <ActivityToolbarButton tone="danger" onClick={() => onDelete(activity)}>
+                                    <Trash2 className="h-3.5 w-3.5" />
                                     Xóa
-                              </Button>
+                              </ActivityToolbarButton>
                         </div>
                   </div>
             </div>
@@ -389,87 +447,110 @@ export default function Activities() {
 
       return (
             <ResidenceCareLayout>
-                  <div className="space-y-6">
-                        <section className="relative overflow-hidden rounded-[2rem] border border-amber-100 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_54%,#fffbeb_100%)] p-6 shadow-lg shadow-amber-950/10">
-                              <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-amber-200/20 blur-3xl" />
-                              <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                                    <div>
-                                          <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-700/80">
-                                                Hoạt động / Sự kiện lite
-                                          </p>
-                                          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                  <div className="space-y-5">
+                        <section className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-gradient-to-br from-amber-50 via-white to-slate-100 p-5 shadow-sm shadow-slate-950/5 md:p-8">
+                              <div className="pointer-events-none absolute -left-20 -top-24 h-56 w-56 rounded-full bg-amber-200/25 blur-3xl" />
+                              <div className="pointer-events-none absolute right-0 top-0 h-44 w-72 rounded-full bg-slate-300/20 blur-3xl" />
+
+                              <div className="relative min-h-[132px]">
+                                    <div className="absolute right-0 top-0 hidden md:block">
+                                          <Button onClick={openCreate} className="h-11 rounded-2xl bg-slate-950 px-5 font-bold text-white shadow-lg shadow-slate-950/10 hover:bg-slate-800">
+                                                <Plus className="mr-2 h-4 w-4" />
+                                                Tạo hoạt động
+                                          </Button>
+                                    </div>
+
+                                    <div className="mx-auto max-w-3xl text-center">
+                                          <div className="inline-flex items-center gap-2 rounded-full border border-amber-100 bg-white/80 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-amber-700 shadow-sm">
+                                                <Sparkles className="h-3.5 w-3.5" />
+                                                Hoạt động / Sự kiện
+                                          </div>
+                                          <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
                                                 Quản lý hoạt động lưu xá
                                           </h1>
-                                          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                                                Tạo hoạt động chung, hẹn thời gian, ghi địa điểm và quyết định hoạt động nào hiển thị trên portal học viên.
+                                          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600 md:text-base">
+                                                Theo dõi sinh hoạt, họp, học tập, phục vụ và chọn hoạt động nào hiển thị cho học viên.
                                           </p>
                                     </div>
-                                    <Button onClick={openCreate} className="rounded-2xl px-4 font-bold">
+
+                                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                          <StatPill label="Tổng" value={stats?.total ?? 0} icon={<Sparkles className="h-5 w-5" />} />
+                                          <StatPill label="Dự kiến" value={stats?.scheduled ?? 0} icon={<CalendarDays className="h-5 w-5" />} />
+                                          <StatPill label="Đang diễn ra" value={stats?.inProgress ?? 0} icon={<Clock className="h-5 w-5" />} />
+                                          <StatPill label="Đã diễn ra" value={stats?.completed ?? 0} icon={<CheckCircle2 className="h-5 w-5" />} />
+                                    </div>
+
+                                    <Button onClick={openCreate} className="mt-4 h-11 w-full rounded-2xl bg-slate-950 px-5 font-bold text-white hover:bg-slate-800 md:hidden">
                                           <Plus className="mr-2 h-4 w-4" />
                                           Tạo hoạt động
                                     </Button>
                               </div>
                         </section>
 
-                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                              <StatPill label="Tổng" value={stats?.total ?? 0} icon={<Sparkles className="h-5 w-5" />} />
-                              <StatPill label="Dự kiến" value={stats?.scheduled ?? 0} icon={<CalendarDays className="h-5 w-5" />} />
-                              <StatPill label="Đang diễn ra" value={stats?.inProgress ?? 0} icon={<Clock className="h-5 w-5" />} />
-                              <StatPill label="Đã diễn ra" value={stats?.completed ?? 0} icon={<CheckCircle2 className="h-5 w-5" />} />
-                        </div>
+                        <StatusQuickFilter value={statusFilter} onChange={setStatusFilter} />
 
-                        <AppCard className="rounded-3xl border-slate-200/80 bg-white/90 shadow-sm">
-                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <section className="rounded-[1.75rem] border border-white/70 bg-white/70 p-4 shadow-sm shadow-slate-950/5 backdrop-blur">
+                              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                                     <div className="relative min-w-0 flex-1">
-                                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                           <Input
                                                 value={search}
                                                 onChange={(event) => setSearch(event.target.value)}
                                                 placeholder="Tìm theo tên, mã, địa điểm, ban phụ trách..."
-                                                className="h-10 rounded-2xl pl-9"
+                                                className="h-12 rounded-2xl border-slate-200 bg-white/90 pl-11 text-sm shadow-inner shadow-slate-950/[0.02]"
                                           />
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:w-[420px]">
                                           <FormSelect
                                                 value={statusFilter}
                                                 onValueChange={(value) => setStatusFilter(value as 'all' | ActivityStatus)}
                                                 options={[{ value: 'all', label: 'Tất cả trạng thái' }, ...ACTIVITY_STATUS_OPTIONS]}
-                                                className="h-10 w-44 rounded-2xl"
+                                                className="h-12 rounded-2xl border-slate-200 bg-white"
                                           />
                                           <FormSelect
                                                 value={typeFilter}
                                                 onValueChange={(value) => setTypeFilter(value as 'all' | ActivityType)}
                                                 options={[{ value: 'all', label: 'Tất cả loại' }, ...ACTIVITY_TYPE_OPTIONS]}
-                                                className="h-10 w-48 rounded-2xl"
+                                                className="h-12 rounded-2xl border-slate-200 bg-white"
                                           />
                                     </div>
                               </div>
-                        </AppCard>
+                        </section>
 
-                        {activitiesQuery.isLoading ? (
-                              <LoadingState />
-                        ) : activitiesQuery.isError ? (
-                              <ErrorState message={activitiesQuery.error.message} onRetry={() => activitiesQuery.refetch()} />
-                        ) : activities.length === 0 ? (
-                              <EmptyState
-                                    title="Chưa có hoạt động nào"
-                                    description="Tạo hoạt động đầu tiên để demo lịch sinh hoạt, họp, thiện nguyện hoặc sự kiện chung của lưu xá."
-                                    actionLabel="Tạo hoạt động"
-                                    onAction={openCreate}
-                              />
-                        ) : (
-                              <div className="space-y-3">
-                                    {activities.map((activity) => (
-                                          <ActivityRow
-                                                key={activity.id}
-                                                activity={activity}
-                                                onEdit={openEdit}
-                                                onCancel={setActivityToCancel}
-                                                onDelete={setActivityToDelete}
-                                          />
-                                    ))}
+                        <section className="rounded-[1.85rem] border border-white/70 bg-white/80 p-4 shadow-sm shadow-slate-950/5 backdrop-blur">
+                              <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                                    <div>
+                                          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">Danh sách</p>
+                                          <h2 className="mt-1 text-2xl font-black text-slate-950">Hoạt động lưu xá</h2>
+                                          <p className="mt-1 text-sm text-slate-500">{activities.length} hoạt động theo bộ lọc hiện tại.</p>
+                                    </div>
                               </div>
-                        )}
+
+                              {activitiesQuery.isLoading ? (
+                                    <LoadingState />
+                              ) : activitiesQuery.isError ? (
+                                    <ErrorState message={activitiesQuery.error.message} onRetry={() => activitiesQuery.refetch()} />
+                              ) : activities.length === 0 ? (
+                                    <EmptyState
+                                          title="Chưa có hoạt động nào"
+                                          description="Tạo hoạt động đầu tiên để demo lịch sinh hoạt, họp, thiện nguyện hoặc sự kiện chung của lưu xá."
+                                          actionLabel="Tạo hoạt động"
+                                          onAction={openCreate}
+                                    />
+                              ) : (
+                                    <div className="space-y-2">
+                                          {activities.map((activity) => (
+                                                <ActivityRow
+                                                      key={activity.id}
+                                                      activity={activity}
+                                                      onEdit={openEdit}
+                                                      onCancel={setActivityToCancel}
+                                                      onDelete={setActivityToDelete}
+                                                />
+                                          ))}
+                                    </div>
+                              )}
+                        </section>
                   </div>
 
                   <AppModal
@@ -479,9 +560,9 @@ export default function Activities() {
                         description="Giữ thông tin gọn để demo, có thể mở rộng đăng ký/điểm danh sau."
                         size="lg"
                         footer={
-                              <div className="flex justify-end gap-2">
-                                    <Button variant="outline" onClick={closeForm} disabled={isSaving}>Hủy</Button>
-                                    <Button onClick={saveForm} disabled={isSaving}>{isSaving ? 'Đang lưu...' : editingActivity ? 'Cập nhật' : 'Tạo hoạt động'}</Button>
+                              <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                                    <Button variant="outline" className="h-10 rounded-2xl px-4 font-bold" onClick={closeForm} disabled={isSaving}>Hủy</Button>
+                                    <Button className="h-10 rounded-2xl bg-slate-950 px-5 font-bold text-white hover:bg-slate-800" onClick={saveForm} disabled={isSaving}>{isSaving ? 'Đang lưu...' : editingActivity ? 'Cập nhật' : 'Tạo hoạt động'}</Button>
                               </div>
                         }
                   >
@@ -492,121 +573,131 @@ export default function Activities() {
                                     </div>
                               )}
 
-                              <div className="grid gap-4 sm:grid-cols-2">
-                                    {!editingActivity && (
-                                          <FormField label="Mã hoạt động" required>
+                              <div className="rounded-3xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
+                                    <div className="grid gap-3 lg:grid-cols-12">
+                                          {!editingActivity && (
+                                                <FormField label="Mã hoạt động" required className="lg:col-span-4">
+                                                      <Input
+                                                            value={form.code}
+                                                            onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))}
+                                                            onBlur={() => setForm((prev) => ({ ...prev, code: normalizeCode(prev.code) }))}
+                                                            placeholder="VD: SINH-HOAT-07"
+                                                            className="h-11 rounded-2xl bg-white"
+                                                      />
+                                                </FormField>
+                                          )}
+
+                                          <FormField label="Tên hoạt động" required className={editingActivity ? 'lg:col-span-12' : 'lg:col-span-8'}>
                                                 <Input
-                                                      value={form.code}
-                                                      onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))}
-                                                      onBlur={() => setForm((prev) => ({ ...prev, code: normalizeCode(prev.code) }))}
-                                                      placeholder="VD: SINH-HOAT-THANG-07"
+                                                      value={form.title}
+                                                      onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+                                                      placeholder="VD: Sinh hoạt cộng đoàn tháng 7"
+                                                      className="h-11 rounded-2xl bg-white"
                                                 />
                                           </FormField>
-                                    )}
 
-                                    <FormField label="Tên hoạt động" required className={editingActivity ? 'sm:col-span-2' : ''}>
-                                          <Input
-                                                value={form.title}
-                                                onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                                                placeholder="VD: Sinh hoạt cộng đoàn tháng 7"
-                                          />
-                                    </FormField>
+                                          <FormField label="Loại" className="lg:col-span-4">
+                                                <FormSelect
+                                                      value={form.activityType}
+                                                      onValueChange={(value) => setForm((prev) => ({ ...prev, activityType: value as ActivityType }))}
+                                                      options={ACTIVITY_TYPE_OPTIONS}
+                                                      className="h-11 rounded-2xl bg-white"
+                                                />
+                                          </FormField>
 
-                                    <FormField label="Loại hoạt động">
-                                          <FormSelect
-                                                value={form.activityType}
-                                                onValueChange={(value) => setForm((prev) => ({ ...prev, activityType: value as ActivityType }))}
-                                                options={ACTIVITY_TYPE_OPTIONS}
-                                          />
-                                    </FormField>
+                                          <FormField label="Trạng thái" className="lg:col-span-4">
+                                                <FormSelect
+                                                      value={form.status}
+                                                      onValueChange={(value) => setForm((prev) => ({ ...prev, status: value as ActivityStatus }))}
+                                                      options={ACTIVITY_STATUS_OPTIONS}
+                                                      className="h-11 rounded-2xl bg-white"
+                                                />
+                                          </FormField>
 
-                                    <FormField label="Trạng thái">
-                                          <FormSelect
-                                                value={form.status}
-                                                onValueChange={(value) => setForm((prev) => ({ ...prev, status: value as ActivityStatus }))}
-                                                options={ACTIVITY_STATUS_OPTIONS}
-                                          />
-                                    </FormField>
-
-                                    <FormField label="Ngày tổ chức" required>
-                                          <FormDateInput
-                                                value={form.activityDate}
-                                                onChange={(event) => setForm((prev) => ({ ...prev, activityDate: event.target.value }))}
-                                          />
-                                    </FormField>
-
-                                    <FormField label="Số người dự kiến">
-                                          <Input
-                                                type="number"
-                                                min={0}
-                                                value={form.expectedParticipants}
-                                                onChange={(event) => setForm((prev) => ({ ...prev, expectedParticipants: event.target.value }))}
-                                          />
-                                    </FormField>
-
-                                    <FormField label="Giờ bắt đầu">
-                                          <TimePickerInput
-                                                value={form.startTime}
-                                                onChange={(value) => setForm((prev) => ({ ...prev, startTime: value }))}
-                                                placeholder="Chọn giờ bắt đầu"
-                                          />
-                                    </FormField>
-
-                                    <FormField label="Giờ kết thúc">
-                                          <TimePickerInput
-                                                value={form.endTime}
-                                                onChange={(value) => setForm((prev) => ({ ...prev, endTime: value }))}
-                                                placeholder="Chọn giờ kết thúc"
-                                          />
-                                    </FormField>
-
-                                    <FormField label="Địa điểm" className="sm:col-span-2">
-                                          <Input
-                                                value={form.location}
-                                                onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-                                                placeholder="VD: Phòng sinh hoạt chung"
-                                          />
-                                    </FormField>
-
-                                    <FormField label="Người/Ban phụ trách" className="sm:col-span-2">
-                                          <Input
-                                                value={form.ownerGroup}
-                                                onChange={(event) => setForm((prev) => ({ ...prev, ownerGroup: event.target.value }))}
-                                                placeholder="VD: Ban Sinh hoạt"
-                                          />
-                                    </FormField>
-
-                                    <FormField label="Mô tả" className="sm:col-span-2">
-                                          <Textarea
-                                                value={form.description}
-                                                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                                                rows={3}
-                                                placeholder="Mô tả ngắn về nội dung hoạt động..."
-                                          />
-                                    </FormField>
-
-                                    <FormField label="Ghi chú" className="sm:col-span-2">
-                                          <Input
-                                                value={form.notes}
-                                                onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
-                                                placeholder="Ghi chú thêm nếu có"
-                                          />
-                                    </FormField>
-
-                                    <label className="sm:col-span-2 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-                                          <input
-                                                type="checkbox"
-                                                checked={form.isPublicOnPortal}
-                                                onChange={(event) => setForm((prev) => ({ ...prev, isPublicOnPortal: event.target.checked }))}
-                                                className="mt-1 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
-                                          />
-                                          <span>
-                                                <span className="block text-sm font-black text-slate-900">Hiển thị trên portal học viên</span>
-                                                <span className="mt-1 block text-xs leading-5 text-slate-500">
-                                                      Bật lựa chọn này nếu hoạt động cần thông báo công khai cho học viên.
+                                          <label className="lg:col-span-4 flex h-full min-h-[68px] cursor-pointer items-center gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3">
+                                                <input
+                                                      type="checkbox"
+                                                      checked={form.isPublicOnPortal}
+                                                      onChange={(event) => setForm((prev) => ({ ...prev, isPublicOnPortal: event.target.checked }))}
+                                                      className="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                                                />
+                                                <span className="min-w-0">
+                                                      <span className="block text-sm font-black text-slate-900">Hiển thị portal</span>
+                                                      <span className="block truncate text-xs text-slate-500">Cho học viên xem hoạt động này</span>
                                                 </span>
-                                          </span>
-                                    </label>
+                                          </label>
+
+                                          <FormField label="Ngày" required className="lg:col-span-3">
+                                                <FormDateInput
+                                                      value={form.activityDate}
+                                                      onChange={(event) => setForm((prev) => ({ ...prev, activityDate: event.target.value }))}
+                                                />
+                                          </FormField>
+
+                                          <FormField label="Bắt đầu" className="lg:col-span-3">
+                                                <TimePickerInput
+                                                      value={form.startTime}
+                                                      onChange={(value) => setForm((prev) => ({ ...prev, startTime: value }))}
+                                                      placeholder="Bắt đầu"
+                                                />
+                                          </FormField>
+
+                                          <FormField label="Kết thúc" className="lg:col-span-3">
+                                                <TimePickerInput
+                                                      value={form.endTime}
+                                                      onChange={(value) => setForm((prev) => ({ ...prev, endTime: value }))}
+                                                      placeholder="Kết thúc"
+                                                />
+                                          </FormField>
+
+                                          <FormField label="Dự kiến" className="lg:col-span-3">
+                                                <Input
+                                                      type="number"
+                                                      min={0}
+                                                      value={form.expectedParticipants}
+                                                      onChange={(event) => setForm((prev) => ({ ...prev, expectedParticipants: event.target.value }))}
+                                                      className="h-11 rounded-2xl bg-white"
+                                                />
+                                          </FormField>
+
+                                          <FormField label="Địa điểm" className="lg:col-span-6">
+                                                <Input
+                                                      value={form.location}
+                                                      onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
+                                                      placeholder="VD: Phòng sinh hoạt chung"
+                                                      className="h-11 rounded-2xl bg-white"
+                                                />
+                                          </FormField>
+
+                                          <FormField label="Phụ trách" className="lg:col-span-6">
+                                                <Input
+                                                      value={form.ownerGroup}
+                                                      onChange={(event) => setForm((prev) => ({ ...prev, ownerGroup: event.target.value }))}
+                                                      placeholder="VD: Ban Sinh hoạt"
+                                                      className="h-11 rounded-2xl bg-white"
+                                                />
+                                          </FormField>
+
+                                          <FormField label="Mô tả" className="lg:col-span-7">
+                                                <Textarea
+                                                      value={form.description}
+                                                      onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+                                                      rows={2}
+                                                      placeholder="Nội dung chính của hoạt động..."
+                                                      className="min-h-[82px] rounded-2xl bg-white"
+                                                />
+                                          </FormField>
+
+                                          <FormField label="Ghi chú" className="lg:col-span-5">
+                                                <Textarea
+                                                      value={form.notes}
+                                                      onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+                                                      rows={2}
+                                                      placeholder="Ghi chú thêm nếu có"
+                                                      className="min-h-[82px] rounded-2xl bg-white"
+                                                />
+                                          </FormField>
+                                    </div>
                               </div>
                         </div>
                   </AppModal>
