@@ -53,3 +53,55 @@ Sau khi apply 14E cần chạy:
 - `pnpm test`
 - `pnpm build`
 - Runtime test manager `/activities` và resident `/resident/activities`.
+
+### 14F — Activities premium style refinement
+User phản hồi sau 14E rằng trang Hoạt động vẫn chưa theo premium style chung của hệ thống, đặc biệt màu nền, component và card chưa đồng bộ với Finance/DailyRoutine. Đã tạo patch 14F:
+- Giữ layout 14E nhưng chỉnh visual theo tone trắng/kem/amber premium.
+- Hero đổi sang gradient/radial nhẹ, action button vẫn ở góc phải.
+- Summary cards đổi thành gradient vàng/kem, có icon box trắng và shadow nhẹ giống Finance.
+- Quick filter/search/list panel thêm ring amber nhẹ, shadow mềm, giảm cảm giác phẳng.
+- Activity row thêm accent vàng nhẹ, vẫn compact.
+- Modal tạo/sửa giữ layout compact 14D nhưng container đổi sang gradient trắng/kem nhẹ.
+- Không đổi backend, schema, service, router, migration, DatePicker hay TimePicker.
+
+Next sau 14F: chạy check/test/build và runtime test `/activities` + `/resident/activities`; nếu ổn thì chốt 14F pass và chuẩn bị đóng Việc 14.
+
+---
+
+## 2026-07-09 — Việc 14G: Activities style bám FinanceLite
+
+Người dùng yêu cầu trang Hoạt động/Sự kiện phải tham khảo trực tiếp trang Tài chính (`FinanceLite.tsx`) và bám theo style premium chung hơn. 14F đã cải thiện màu/card nhưng vẫn còn cảm giác tự dựng riêng, chưa cùng hệ thống.
+
+Thực hiện 14G:
+- Chỉnh `client/src/pages/Activities.tsx` dùng `residenceMediumStyle` giống FinanceLite.
+- Page wrapper dùng `residenceMediumStyle.page`, `pageAura`, `standardPageContent`.
+- Header dùng `standardHeader`, title centered, actions góc phải như FinanceLite.
+- Summary cards đổi sang premium token chung.
+- Filter panel và search/select bám `filterPanel`, `searchInput`, tone amber/white.
+- Quick filter dùng `standardTabRail`.
+- List section dùng `section`, `sectionHeader`, `sectionBody`.
+- Activity row giữ compact nhưng đổi shadow/border/gradient gần style Finance.
+
+Không thay đổi nghiệp vụ:
+- API/router/service/schema/migration giữ nguyên.
+- DatePicker/TimePicker giữ nguyên.
+- Public portal flag giữ nguyên.
+
+Trạng thái: PATCH READY, chờ user apply/test.
+
+
+---
+
+## 2026-07-09 - Việc 14H: Activity modal controls fix
+
+Sau 14G, user kiểm tra modal Tạo hoạt động và phát hiện các control trong modal còn bị chồng nhau, đặc biệt dropdown Loại/Trạng thái, ngày/giờ và icon control chen vào field kế bên.
+
+Patch 14H tập trung riêng vào `client/src/pages/Activities.tsx`:
+- Giữ layout/page style FinanceLite của 14G.
+- Giữ modal compact 14D.
+- Thay control select trong modal bằng native select styled để tránh dropdown custom overlap trong modal.
+- Chia lại grid modal cho các nhóm field: thông tin chính, loại/trạng thái/dự kiến/portal, ngày/giờ, địa điểm/phụ trách, mô tả/ghi chú.
+- Bọc DatePicker/FormDateInput và TimePickerInput bằng wrapper width/min-width để hạn chế icon/input chồng sang control bên cạnh.
+- Không thay đổi API/schema/backend/migration.
+
+Kết luận: 14H là patch UI/control placement cho modal Hoạt động; cần test `pnpm check`, `pnpm test`, `pnpm build` và runtime tạo/sửa hoạt động.
