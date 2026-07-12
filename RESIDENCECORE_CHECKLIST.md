@@ -1,242 +1,337 @@
-# RESIDENCECORE CHECKLIST - VIỆC 13
+# RESIDENCECORE_CHECKLIST — Full Checklist
 
-## Việc 13 — Thông báo nội bộ Lite
-
-### Mục tiêu
-
-Xây dựng/rá soát module thông báo nội bộ ở mức lite để phục vụ demo full flow, không làm realtime phức tạp.
-
-Luồng demo cần hỗ trợ:
-
-- Manager tạo hoặc hệ thống phát sinh thông báo.
-- Học viên thấy thông báo của mình trên portal.
-- Thông báo liên quan công tác/khoản thu có thể dẫn về màn phù hợp.
-- Có trạng thái đã đọc/chưa đọc.
-- UI đơn giản, dễ hiểu, không làm nặng hệ thống.
+> Bản full cập nhật đến Việc 15I — 2026-07-12.  
+> Quy tắc: checklist này được cập nhật theo hướng **append-only/full-history**, không xóa các bước đã pass.
 
 ---
 
-## Nguyên tắc phạm vi
+## A. Quy tắc chung bắt buộc
 
-### Làm trong Việc 13
-
-- Notification nội bộ cơ bản.
-- Danh sách thông báo.
-- Đếm chưa đọc nếu đã có nền.
-- Mark as read.
-- Notification cho công tác được giao.
-- Notification cho khoản thu mới nếu route/service finance hiện tại hỗ trợ dễ nối.
-- Portal học viên xem thông báo cá nhân.
-- Popup thông báo mới ở mức lite trong layout portal.
-
-### Không làm trong Việc 13
-
-- Realtime WebSocket.
-- Push notification/mobile push.
-- Email/SMS/Zalo.
-- Notification template phức tạp.
-- Rule engine nâng cao.
-- Lịch nhắc nhiều cấp.
+- [x] Làm từng việc nhỏ, không gom patch quá lớn khi không cần.
+- [x] Mỗi việc có audit/checklist/status.
+- [x] Sau mỗi pass cập nhật `PROJECT_SUMMARY.md` và checklist.
+- [x] Tracking file append-only/full-history, không ghi đè.
+- [x] Nếu user đã gửi file cho một việc, xem là base hiện tại.
+- [x] Không hỏi lại file đã có nếu user không nói đã thay đổi.
+- [x] Nếu không chắc base mới nhất, hỏi user gửi lại file.
+- [x] Không lấy patch cũ/file cũ làm base để tránh revert.
+- [x] Date/time/datetime phải dùng picker shared.
+- [x] Style ưu tiên token/shared style, không Tailwind rời rạc.
 
 ---
 
-## Checklist audit
+## B. Protected regression checklist
 
-- [x] Kiểm tra schema/bảng notification hiện có.
-- [x] Kiểm tra router/service notification hiện có nếu có.
-- [x] Kiểm tra navigation manager/resident có menu thông báo chưa.
-- [x] Kiểm tra Resident Portal có trang/khối thông báo chưa.
-- [x] Kiểm tra notification có liên kết target module/targetId chưa.
-- [x] Kiểm tra quyền: resident chỉ xem thông báo của mình.
-- [ ] Kiểm tra quyền: manager xem/quản trị thông báo phù hợp. Ghi chú: chưa làm manager notification center ở 13A/13B.
+### Members / Contacts / Rooms
+
+- [x] Contact list filter theo residentId.
+- [x] Room source of truth dùng currentRoomId/currentRoom fields.
+- [x] Gán phòng check capacity.
+- [x] Chuyển phòng cập nhật current room.
+- [x] Trả phòng release current room.
+- [x] Học viên rời/ngừng bị khóa thao tác không hợp lệ.
+
+### Organization
+
+- [x] Tổ trưởng scope theo từng Tổ.
+- [x] Trưởng ban scope theo từng Ban.
+- [x] Không validate Tổ trưởng/Trưởng ban theo global role.
+- [x] OrgChart layout giữ: Trưởng top, Phó/Thư ký/Thủ quỹ hàng 2, Tổ/Ban bên dưới.
+- [x] Bổ nhiệm lỗi hiển thị trong modal, không hiện sau page.
+
+### Study / Duties
+
+- [x] Lịch học validate start < end.
+- [x] Lịch học validate HH:mm backend.
+- [x] Không trùng lịch học cùng ngày.
+- [x] Công tác check conflict lịch học.
+- [x] Công tác phân công được theo học viên/phòng/tổ/ban.
+- [x] Resident portal hiển thị công tác thuộc phạm vi cá nhân/phòng/tổ/ban.
+- [x] Resident chỉ complete công tác thuộc scope của mình.
+
+### Finance
+
+- [x] Tạo kỳ thu chung.
+- [x] Apply kỳ/tháng cho học viên.
+- [x] Không tạo khoản thu invalid amount.
+- [x] Không thu vượt còn lại.
+- [x] Portal học viên thấy tài chính cá nhân.
+- [x] Input tiền ở portal finance format `1.000.000`.
+
+### Picker/UI
+
+- [x] DatePicker portal fix.
+- [x] TimePickerInput added.
+- [x] Study schedule dùng TimePicker.
+- [x] DailyRoutine time dùng TimePicker.
+- [x] ResidentFinance `Ngày chi` dùng FormDateInput.
 
 ---
 
-## 13A — Notification lite API/page/menu
+## C. Việc 1–10
 
-### Trạng thái
+### Việc 1 — Route/Menu/Page sync
 
-- [x] User apply patch 13A.
+- [x] Audit route/menu.
+- [x] Map `/users` về `/settings/users`.
+- [x] Disable/ẩn menu chưa có route.
+- [x] User xác nhận pass.
+
+### Việc 2 — Page orphan audit
+
+- [x] Audit pages orphan/imported.
+- [x] Phân loại connect/keep/archive.
+- [x] Không patch code.
+
+### Việc 3 — Members/Rooms/Organization main flow
+
+- [x] Guard assign room.
+- [x] Check resident inactive/left.
+- [x] Check capacity.
+- [x] Rooms mutation RBAC.
+- [x] User xác nhận pass.
+
+### Việc 4 — FinanceLite minimal flow
+
+- [x] Finance router RBAC.
+- [x] Validate amount.
+- [x] Skip inactive/left residents on batch create.
+- [x] Duplicate guard.
+- [x] User xác nhận pass.
+
+### Việc 5 — DailyRoutine/Công tác
+
+- [x] Duties management RBAC.
+- [x] Resident endpoints giữ đúng.
+- [x] Demo flow pass.
+
+### Việc 6 — Resident Portal real data
+
+- [x] Resident linked user active guard.
+- [x] Portal access context.
+- [x] Today overview.
+- [x] Finance overview.
+- [x] Duty/org scope.
+- [x] User xác nhận pass.
+
+### Việc 7 — Test baseline cleanup
+
+- [x] Rename legacy router helper test.
+- [x] User xác nhận pass.
+
+### Việc 8 — Definition of Done
+
+- [x] DoD cho Members.
+- [x] DoD cho Rooms.
+- [x] DoD cho Organization.
+- [x] DoD cho DailyRoutine.
+- [x] DoD cho FinanceLite.
+
+### Việc 9 — Helper/style/picker
+
+- [x] Shared helper foundation.
+- [x] TimePickerInput.
+- [x] DatePicker portal fix.
+- [x] Picker rule protected.
+
+### Việc 10 — Docs cleanup
+
+- [x] Docs cleanup plan.
+- [x] Archive/legacy docs note.
+- [x] Status zip.
+- [x] User xác nhận pass.
+
+---
+
+## D. Việc 11 — Học tập / Lịch học
+
+- [x] 11A backend guard/validate.
+- [x] getEducation/getStudySchedules manager guard.
+- [x] Chặn resident inactive/left update study.
+- [x] Validate HH:mm.
+- [x] User xác nhận Việc 11 pass.
+- [x] 11B layout Học tập attempted.
+- [x] Lỗi JSX trong MemberDetailModal đã được xử lý theo repo user.
+- [x] 11C/11D/11E polish hướng tab Học tập.
+- [x] Lưu ý protected: sửa MemberDetailModal phải kiểm tra wrapper JSX kỹ.
+
+---
+
+## E. Việc 12 — Organization + Công tác + Portal theo chức vụ
+
+- [x] Bộ file base Việc 12 đã nhận.
+- [x] 12A Org/Duty/Portal guard/scope patch.
+- [x] 12B modal error placement.
+- [x] User xác nhận 12B pass.
+- [x] Tracking full-history rebuilt.
+- [x] 12C portal duty scope cá nhân/phòng/tổ/ban.
+- [x] User xác nhận 12C pass.
+- [x] 12D demo script Organization → Công tác → Portal theo chức vụ.
+- [x] User xác nhận 12D pass.
+- [x] Việc 12 DONE/PASS.
+
+---
+
+## F. Việc 13 — Thông báo nội bộ lite
+
+- [x] 13A Notification API/page/menu.
 - [x] User xác nhận 13A pass.
+- [x] 13B Popup thông báo mới.
+- [x] 13C Badge số chưa đọc trên menu portal.
+- [x] 13D Polish trang thông báo.
+- [x] User xác nhận 13D pass.
+- [x] 13E Final demo checklist.
+- [x] Việc 13 DONE/PASS.
 
-### Nội dung đã làm
+Scope không làm:
 
-- [x] Chuẩn hóa notification recipient theo `users.id`.
-- [x] Thêm API resident portal:
-  - [x] `getMyNotifications`
-  - [x] `getMyUnreadNotificationCount`
-  - [x] `markMyNotificationRead`
-- [x] Thêm trang `/resident/notifications`.
-- [x] Thêm menu `Thông báo` trong resident navigation.
-- [x] Tạo thông báo khi phân công công tác theo cá nhân/phòng/tổ/ban.
-- [x] Tạo thông báo khi áp dụng kỳ thu cho học viên.
-- [x] Không làm realtime/WebSocket/push/email.
-
----
-
-## 13B — Popup thông báo mới trong layout
-
-### Lý do bổ sung
-
-Sau 13A, user xác nhận chức năng danh sách thông báo đã pass nhưng còn thiếu khả năng tự popup thông báo mới. Cần bổ sung popup lite, không dùng realtime phức tạp.
-
-### Checklist patch
-
-- [x] Thêm query unread notifications trong `ResidenceCareLayout` cho resident user.
-- [x] Tự hiển thị popup khi có thông báo chưa đọc.
-- [x] Popup hiển thị tiêu đề/nội dung ngắn.
-- [x] Có nút ẩn popup trong phiên hiện tại.
-- [x] Có nút đánh dấu đã đọc.
-- [x] Có nút mở trang Thông báo.
-- [x] Không hiển thị khi bắt buộc đổi mật khẩu.
-- [x] Không ảnh hưởng manager navigation.
-- [x] Không dùng WebSocket/realtime nâng cao; dùng polling nhẹ.
-
-### Runtime test 13B
-
-- [ ] Resident login khi có thông báo chưa đọc sẽ thấy popup.
-- [ ] Bấm X thì popup ẩn, thông báo vẫn chưa đọc.
-- [ ] Bấm Đã đọc thì popup mất và notification chuyển trạng thái đã đọc.
-- [ ] Bấm Xem tất cả đi tới `/resident/notifications`.
-- [ ] Popup không che modal đổi mật khẩu.
-- [ ] Manager không thấy popup resident notification.
+- [x] Không WebSocket realtime.
+- [x] Không push/email/SMS/Zalo.
+- [x] Không template engine phức tạp.
 
 ---
 
-## Trạng thái hiện tại
+## G. Việc 14 — Hoạt động / Sự kiện lite
 
-- 13A: PASS.
-- 13B: Patch chuẩn bị, chờ user apply/test.
+- [x] 14A Activities lite module patch.
+- [x] Manager CRUD hoạt động.
+- [x] Resident xem hoạt động public.
+- [x] Hoạt động nội bộ không hiện portal.
+- [x] 14B migration fix phát hiện MySQL không hỗ trợ `ADD COLUMN IF NOT EXISTS`.
+- [x] 14B2 migration compatible MySQL.
+- [x] User chạy migration done.
+- [x] 14C layout polish.
+- [x] 14D compact modal.
+- [x] 14E match DailyRoutine style.
+- [x] 14F premium style refinement.
+- [x] 14G follow FinanceLite style.
+- [x] 14H modal controls fix.
+- [x] 14I modal premium compact.
+- [x] 14J modal simplify.
+- [x] 14K filter/layout fix.
+- [x] User xác nhận 14K pass.
+- [ ] 14L final runtime checklist pass chưa được user xác nhận chính thức.
 
----
+Checklist 14L cần test để đóng:
 
-## 13C — Badge số thông báo chưa đọc trên menu portal
-
-### Lý do bổ sung
-
-Sau 13A có trang thông báo và 13B có popup thông báo mới, portal vẫn cần một dấu hiệu nhẹ trên menu để học viên biết còn bao nhiêu thông báo chưa đọc ngay cả khi đã tắt popup trong phiên hiện tại.
-
-### Checklist patch
-
-- [x] Dùng `residentPortal.getMyUnreadNotificationCount` trong `ResidenceCareLayout`.
-- [x] Polling nhẹ 30 giây, đồng bộ với popup 13B.
-- [x] Gắn badge số chưa đọc vào menu `/resident/notifications`.
-- [x] Ẩn badge khi không còn thông báo chưa đọc.
-- [x] Giới hạn hiển thị `99+` nếu số lượng lớn.
-- [x] Không hiện badge cho manager.
-- [x] Không đổi schema/API/backend.
-
-### Runtime test 13C
-
-- [ ] Resident có 0 thông báo chưa đọc: menu Thông báo không có badge.
-- [ ] Resident có 1+ thông báo chưa đọc: menu Thông báo hiện badge số.
-- [ ] Bấm `Đã đọc` trong popup: badge giảm/mất sau khi cache invalidate.
-- [ ] Đánh dấu đã đọc ở trang Thông báo: badge cập nhật.
-- [ ] Manager không thấy badge thông báo resident.
-
-### Trạng thái
-
-- 13C: Patch chuẩn bị, chờ user apply/test.
-
----
-
-## 13D — Polish trang `/resident/notifications`
-
-### Lý do bổ sung
-
-Sau 13A/13B/13C, trang thông báo đã đủ chức năng nhưng UI còn nặng: card quá cao, tiêu đề lặp lớn, action chiếm diện tích và thiếu bộ lọc nhanh. User yêu cầu chỉnh lại trang cho chuyên nghiệp hơn.
-
-### Checklist patch
-
-- [x] Chuyển trang thông báo về kiểu notification center / inbox gọn.
-- [x] Giảm chiều cao card thông báo.
-- [x] Giảm kích thước title item, tránh cảm giác landing page.
-- [x] Thêm filter bar: Tất cả / Chưa đọc / Công tác / Tài chính / Hệ thống.
-- [x] Thêm summary nhỏ: số chưa đọc và tổng thông báo.
-- [x] Thêm icon theo loại thông báo.
-- [x] Nút đánh dấu đã đọc chuyển thành action nhỏ.
-- [x] Giữ nguyên API residentPortal.getMyNotifications / markMyNotificationRead.
-- [x] Không đổi backend/schema/navigation.
-
-### Runtime test 13D
-
-- [ ] Trang `/resident/notifications` nhìn gọn, chuyên nghiệp hơn.
-- [ ] Filter `Tất cả` hiển thị đủ thông báo.
-- [ ] Filter `Chưa đọc` chỉ hiển thị thông báo chưa đọc.
-- [ ] Filter `Công tác` chỉ hiển thị thông báo công tác.
-- [ ] Filter `Tài chính` chỉ hiển thị thông báo tài chính.
-- [ ] Bấm `Đánh dấu` cập nhật trạng thái đọc và invalidate badge/popup.
-- [ ] Empty state đúng khi chưa có thông báo hoặc filter không có kết quả.
-
-### Trạng thái
-
-- 13D: Patch chuẩn bị, chờ user apply/test.
+- [ ] Manager mở `/activities` không lỗi query/migration.
+- [ ] Tạo hoạt động công khai portal.
+- [ ] Tạo hoạt động nội bộ.
+- [ ] Sửa hoạt động.
+- [ ] Hủy hoạt động.
+- [ ] Xóa mềm hoạt động.
+- [ ] Resident mở `/resident/activities` thấy hoạt động công khai.
+- [ ] Resident không thấy hoạt động nội bộ.
+- [ ] Filter/search hoạt động, không dropdown chồng layout.
+- [ ] DatePicker/TimePicker đúng rule picker.
 
 ---
 
-## 13D — PASS
+## H. Việc 15 — Portal học viên mở rộng / gom trải nghiệm
 
-User xác nhận patch 13D đã apply/test xong.
+### 15A — Portal activities route
 
-### Runtime status 13D
+- [x] Nhận bộ file portal.
+- [x] Audit phát hiện menu `/resident/activities` có nguy cơ thiếu route.
+- [x] Patch route `/resident/activities`.
 
-- [x] Trang `/resident/notifications` nhìn gọn và chuyên nghiệp hơn.
-- [x] Danh sách thông báo chuyển về kiểu notification center/inbox compact.
-- [x] Filter nhanh hoạt động ở mức demo: Tất cả / Chưa đọc / Công tác / Tài chính / Hệ thống.
-- [x] Action `Đánh dấu` hoạt động và cập nhật trạng thái đọc.
-- [x] Badge/popup có thể đồng bộ sau khi mark read.
+### 15B — Portal Today polish nhẹ
 
-### Trạng thái Việc 13 hiện tại
+- [x] Patch thử polish nhẹ.
+- [x] User phản hồi chưa thấy thay đổi style rõ.
+- [x] Không chốt pass, thay bằng 15C.
 
-- 13A — Notification lite page/API: PASS.
-- 13B — Notification popup lite: đã patch, user cho tiếp tục sau khi bổ sung.
-- 13C — Menu badge unread: đã patch.
-- 13D — Notification page polish: PASS.
+### 15C — Portal Today visible premium restyle
 
-### Bước tiếp theo đề xuất
+- [x] Hero centered.
+- [x] Nền trắng/kem/amber.
+- [x] Summary cards premium.
+- [x] Panel lịch học/công tác/vai trò đồng bộ hơn.
+- [x] User xác nhận 15C pass.
 
-Trước khi đóng Việc 13 hoàn toàn, nên làm một bước chốt ngắn:
+### 15D — MyDuties polish ban đầu
 
-- 13E — Notification final demo checklist, không code nếu runtime đã ổn.
-- Kiểm tra end-to-end: công tác/khoản thu phát sinh notification → popup → badge → trang thông báo → mark read.
-- Nếu 13B/13C đã runtime ổn, chốt Việc 13 Done/Pass.
-- Sau đó chuyển sang Việc 14 — Hoạt động/Sự kiện lite.
+- [x] Patch polish MyDuties.
+- [x] Phát hiện route/menu chưa rõ.
+- [x] Không chốt pass, chuyển sang gom menu.
+
+### 15E — Gọn menu bước đầu
+
+- [x] Gọn menu portal bước đầu.
+- [x] User xác nhận pass nhưng vẫn thấy rời rạc.
+
+### 15F — Gom tiếp menu portal học viên
+
+- [x] Menu học viên thường chỉ còn `Hôm nay` và `Lưu xá của tôi`.
+- [x] `Lưu xá của tôi` gồm Hồ sơ/Công tác/Tài chính/Thông báo/Hoạt động.
+- [x] Học viên có chức vụ có nhóm `Phụ trách`.
+- [x] User xác nhận 15F pass.
+
+### 15G — Công tác trong menu mới
+
+- [x] Chuẩn hóa MyDuties theo ngữ cảnh `Lưu xá của tôi > Công tác`.
+- [x] Style đồng bộ Portal Today 15C.
+- [x] Giữ logic cá nhân/phòng/tổ/ban.
+- [x] User nói done/tiếp, xem là pass theo flow.
+
+### 15H — Resident Finance DatePicker fix
+
+- [x] Audit ResidentFinance.
+- [x] Phát hiện `Ngày chi` dùng input date thô.
+- [x] Patch sang `FormDateInput`.
+- [x] Không đổi backend/API/schema/logic.
+
+### 15I — Resident Finance currency input
+
+- [x] Field `Số tiền thực chi` format tiền Việt khi nhập.
+- [x] `1000000` hiển thị `1.000.000`.
+- [x] Submit vẫn là numeric.
+- [x] User xác nhận 15I pass.
+
+### 15J — Next suggested
+
+- [ ] Rà/polish trang Hồ sơ portal.
+- [ ] Rà/polish trang Hoạt động public portal.
+- [ ] Rà/polish trang Thông báo portal sau 13D.
+- [ ] Rà Tài chính portal sau 15H/15I.
+- [ ] Final demo flow Portal học viên.
 
 ---
 
-## 13E — Final demo checklist / Chốt Việc 13
+## I. Roadmap còn lại
 
-### Mục tiêu
+### Việc 16 — Cửa hàng / quỹ riêng lite
 
-Chốt luồng notification end-to-end ở mức lite để đóng Việc 13, không thêm code nếu runtime hiện tại đã ổn.
+- [ ] Sổ thu chi riêng.
+- [ ] Khoản thu.
+- [ ] Khoản chi.
+- [ ] Ngày phát sinh.
+- [ ] Người ghi nhận.
+- [ ] Nội dung.
+- [ ] Số tiền.
+- [ ] Tổng thu / tổng chi / tồn quỹ.
+- [ ] Không trộn với tài chính học viên.
 
-### Checklist end-to-end
+### Việc 17 — Demo script full 15 phút
 
-- [x] 13A Notification lite API/page/menu đã PASS.
-- [x] 13B Popup thông báo mới đã được bổ sung.
-- [x] 13C Badge số thông báo chưa đọc trên menu portal đã được bổ sung.
-- [x] 13D Polish trang `/resident/notifications` đã PASS.
-- [x] Công tác có thể phát sinh notification cho resident.
-- [x] Khoản thu/kỳ thu có thể phát sinh notification tài chính cho resident.
-- [x] Resident có trang thông báo riêng.
-- [x] Resident chỉ xem thông báo của chính mình.
-- [x] Resident có thể đánh dấu đã đọc.
-- [x] Popup/badge/trang thông báo đủ cho demo lite.
-- [x] Không thêm realtime/WebSocket/push/email/SMS/Zalo.
+- [ ] Manager tạo học viên.
+- [ ] Gán phòng.
+- [ ] Tạo liên hệ.
+- [ ] Nhập học tập/lịch học.
+- [ ] Tạo Tổ/Ban/bổ nhiệm.
+- [ ] Tạo công tác.
+- [ ] Tạo kỳ thu/tài chính.
+- [ ] Tạo thông báo.
+- [ ] Tạo hoạt động.
+- [ ] Resident login portal.
+- [ ] Resident xem hôm nay/công tác/tài chính/thông báo/hoạt động.
 
-### Runtime demo chốt
+### Việc 18 — Polish UI/UX toàn demo
 
-- [x] Manager phân công công tác cho học viên/phòng/tổ/ban → resident có notification.
-- [x] Manager áp dụng khoản thu/kỳ thu → resident có notification tài chính.
-- [x] Resident login → popup có thể hiện nếu còn thông báo chưa đọc.
-- [x] Menu portal → badge chưa đọc hiển thị đúng.
-- [x] Trang `/resident/notifications` → danh sách gọn, filter nhanh, mark read được.
-- [x] Mark read → trạng thái đọc cập nhật, popup/badge giảm hoặc mất theo cache invalidate/polling.
-
-### Kết luận
-
-- [x] Việc 13 — Thông báo nội bộ lite: DONE/PASS.
-
-### Bước kế tiếp
-
-- Chuyển sang Việc 14 — Hoạt động/Sự kiện lite.
+- [ ] Header/action đồng bộ.
+- [ ] Card/list/filter đồng bộ.
+- [ ] Modal gọn, không mất nội dung.
+- [ ] Không dropdown chồng layout.
+- [ ] Không scroll ngang ngoài ý muốn.
+- [ ] Empty/loading/error state đẹp.
+- [ ] Full check/test/build.

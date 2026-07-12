@@ -20,7 +20,7 @@ export const appointedResidentRoleKeys: AppRole[] = [
 
 export const appointedResidentNavigation: NavigationItem[] = [
       {
-            label: "Vai trò của tôi",
+            label: "Phụ trách",
             icon: "⭐",
             roles: appointedResidentRoleKeys,
             children: [
@@ -31,39 +31,21 @@ export const appointedResidentNavigation: NavigationItem[] = [
                         roles: appointedResidentRoleKeys,
                   },
                   {
-                        label: "Cơ cấu lưu xá",
-                        path: "/resident/organization",
-                        icon: "🏛️",
-                        roles: executiveRoleKeys,
-                  },
-                  {
-                        label: "Công tác điều hành",
+                        label: "Điều hành",
                         path: "/resident/role-duties",
                         icon: "✅",
                         roles: executiveRoleKeys,
                   },
                   {
-                        label: "Thành viên tổ",
+                        label: "Tổ phụ trách",
                         path: "/resident/my-team",
                         icon: "👥",
                         roles: teamLeaderRoleKeys,
                   },
                   {
-                        label: "Công tác tổ",
-                        path: "/resident/team-duties",
-                        icon: "✅",
-                        roles: teamLeaderRoleKeys,
-                  },
-                  {
-                        label: "Thành viên ban",
+                        label: "Ban phụ trách",
                         path: "/resident/my-committee",
                         icon: "👥",
-                        roles: committeeHeadRoleKeys,
-                  },
-                  {
-                        label: "Công tác ban",
-                        path: "/resident/committee-duties",
-                        icon: "✅",
                         roles: committeeHeadRoleKeys,
                   },
             ],

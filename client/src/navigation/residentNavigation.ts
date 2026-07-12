@@ -8,38 +8,32 @@ export const residentNavigation: NavigationItem[] = [
             roles: ["resident"],
       },
       {
-            label: "Hồ sơ",
-            path: "/my-profile",
-            icon: "👤",
-            roles: ["resident"],
-      },
-      {
-            label: "Thông báo",
-            path: "/resident/notifications",
-            icon: "🔔",
-            roles: ["resident"],
-      },
-      {
-            label: "Lưu xá",
+            label: "Lưu xá của tôi",
             icon: "🏠",
             roles: ["resident"],
             children: [
                   {
-                        label: "Thông tin chung",
-                        path: "/resident/information",
-                        icon: "ℹ️",
+                        label: "Hồ sơ",
+                        path: "/my-profile",
+                        icon: "👤",
                         roles: ["resident"],
                   },
                   {
-                        label: "Nội quy & nhắc nhở",
-                        path: "/resident/rules",
-                        icon: "📌",
+                        label: "Công tác",
+                        path: "/my-duties",
+                        icon: "✅",
                         roles: ["resident"],
                   },
                   {
                         label: "Tài chính",
                         path: "/resident/finance",
                         icon: "💰",
+                        roles: ["resident"],
+                  },
+                  {
+                        label: "Thông báo",
+                        path: "/resident/notifications",
+                        icon: "🔔",
                         roles: ["resident"],
                   },
                   {

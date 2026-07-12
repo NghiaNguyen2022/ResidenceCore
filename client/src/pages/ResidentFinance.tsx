@@ -12,11 +12,22 @@ import {
 } from "lucide-react";
 
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
+import { FormDateInput } from "@/components/shared";
 import { trpc } from "@/lib/trpc";
 
 function formatMoney(value: unknown) {
       const numberValue = Number(value || 0);
       return `${new Intl.NumberFormat("vi-VN").format(Number.isFinite(numberValue) ? numberValue : 0)}đ`;
+}
+
+function formatCurrencyInput(value: string) {
+      const digits = String(value || "").replace(/\D/g, "");
+      if (!digits) return "";
+      return new Intl.NumberFormat("vi-VN").format(Number(digits));
+}
+
+function parseCurrencyInput(value: string) {
+      return Number(String(value || "").replace(/\D/g, ""));
 }
 
 function getVietnamDateInputValue() {
@@ -572,7 +583,7 @@ function AdvanceEntryModal({
                                           <span className="text-sm font-semibold text-slate-700">Số tiền thực chi</span>
                                           <input
                                                 value={amount}
-                                                onChange={(event) => onAmountChange(event.target.value)}
+                                                onChange={(event) => onAmountChange(formatCurrencyInput(event.target.value))}
                                                 inputMode="numeric"
                                                 className="mt-2 w-full rounded-2xl border border-[#e4d8bf] bg-white px-4 py-3 text-right text-base font-semibold text-slate-900 outline-none focus:border-[#d6a63d] focus:ring-4 focus:ring-amber-100"
                                                 placeholder="0"
@@ -580,12 +591,12 @@ function AdvanceEntryModal({
                                     </label>
                                     <label className="block">
                                           <span className="text-sm font-semibold text-slate-700">Ngày chi</span>
-                                          <input
-                                                type="date"
-                                                value={transactionDate}
-                                                onChange={(event) => onDateChange(event.target.value)}
-                                                className="mt-2 w-full rounded-2xl border border-[#e4d8bf] bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-[#d6a63d] focus:ring-4 focus:ring-amber-100"
-                                          />
+                                          <div className="mt-2">
+                                                <FormDateInput
+                                                      value={transactionDate}
+                                                      onChange={(event) => onDateChange(event.target.value)}
+                                                />
+                                          </div>
                                     </label>
                               </div>
 
@@ -769,7 +780,7 @@ export default function ResidentFinance() {
 
       function submitAdvanceEntry() {
             if (!selectedAdvance) return;
-            const amount = Number(String(entryAmount || "").replace(/[^0-9.-]/g, ""));
+            const amount = parseCurrencyInput(entryAmount);
             if (!amount || amount <= 0) {
                   setEntryError("Vui lòng nhập số tiền thực chi hợp lệ.");
                   return;
