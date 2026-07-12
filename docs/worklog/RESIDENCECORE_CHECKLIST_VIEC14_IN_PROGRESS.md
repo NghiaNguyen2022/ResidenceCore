@@ -155,3 +155,123 @@ Runtime test:
 - [ ] Tạo hoạt động thành công.
 - [ ] Sửa hoạt động thành công.
 - [ ] Public portal flag vẫn đúng.
+
+---
+
+## Việc 14I — Activity modal premium compact refinement
+
+**Ngày:** 2026-07-10  
+**Trạng thái:** Đã tạo patch, chờ user apply/test.
+
+### Lý do
+
+Sau 14H, modal tạo/sửa hoạt động đã hết chồng control nhưng vẫn còn dày, rối và chưa đủ premium:
+
+- Card portal chiếm diện tích, chữ bị cắt/dồn ở mép phải.
+- Grid còn nhiều ô kích thước khác nhau làm form nặng mắt.
+- Input/select/textarea còn cao và shadow dày.
+- Modal chưa giống tinh thần premium compact của Finance/DailyRoutine.
+
+### File chỉnh
+
+- `client/src/pages/Activities.tsx`
+
+### Nội dung chỉnh
+
+- Giảm chiều cao input/select/textarea trong modal.
+- Đổi bo góc control từ quá lớn sang rounded-xl gọn hơn.
+- Đưa checkbox `Hiển thị portal` lên thanh header nhỏ của form thay vì một card riêng.
+- Chia lại form thành grid 12 cột rõ nhịp:
+  - Mã + Tên.
+  - Loại + Trạng thái + Ngày + Dự kiến.
+  - Bắt đầu + Kết thúc + Địa điểm + Phụ trách.
+  - Mô tả + Ghi chú.
+- Giữ DatePicker/TimePicker, không revert về input text.
+- Footer modal gọn hơn, có divider nhẹ.
+- Không đổi API/schema/service/router.
+
+### Test cần chạy
+
+- `pnpm check`
+- `pnpm test`
+- `pnpm build`
+
+### Runtime checklist
+
+- [ ] Mở modal Tạo hoạt động không còn cảm giác quá dày/rối.
+- [ ] Không còn chữ `Hiển thị portal` bị cắt hoặc chồng layout.
+- [ ] Dropdown Loại/Trạng thái không chồng control bên dưới.
+- [ ] DatePicker hoạt động.
+- [ ] TimePicker hoạt động.
+- [ ] Tạo hoạt động thành công.
+- [ ] Sửa hoạt động thành công.
+- [ ] Public portal flag vẫn đúng.
+
+---
+
+## Việc 14J — Activity modal simplify / less cluttered
+
+Trạng thái: PATCH READY
+
+Lý do:
+- Sau 14I modal đã bớt lỗi chồng control nhưng vẫn còn rối, nhiều field nặng mắt.
+- Người dùng yêu cầu layout premium hơn, ít dày hơn, ít rối hơn.
+
+Phạm vi:
+- Chỉ chỉnh `client/src/pages/Activities.tsx`.
+- Không đổi API/schema/router/service/migration.
+- Không đổi DatePicker/TimePicker logic.
+
+Thay đổi:
+- Giữ style theo FinanceLite nhưng đơn giản hóa form.
+- Bỏ card “Hiển thị portal” lớn; giữ thành pill nhỏ ở header form.
+- Nhóm form chính chỉ còn các trường cần cho demo:
+  - Mã, tên hoạt động
+  - Loại, ngày, khung giờ
+  - Địa điểm, phụ trách
+  - Mô tả ngắn
+- Chuyển các trường ít dùng vào `Thông tin bổ sung` dạng collapsible:
+  - Trạng thái
+  - Dự kiến
+  - Ghi chú
+- Giảm chiều cao input/select/textarea xuống `h-9`.
+- Giảm shadow, bo góc, padding để modal nhẹ hơn.
+
+Checklist test:
+- [ ] Mở modal Tạo hoạt động không còn cảm giác dày/rối.
+- [ ] Không còn control chồng nhau.
+- [ ] DatePicker/TimePicker hoạt động.
+- [ ] Tạo hoạt động public portal vẫn đúng.
+- [ ] Sửa hoạt động vẫn đúng dữ liệu.
+- [ ] Mở `Thông tin bổ sung` thấy Trạng thái/Dự kiến/Ghi chú.
+- [ ] `pnpm check` pass.
+- [ ] `pnpm test` pass.
+- [ ] `pnpm build` pass.
+
+
+---
+
+## 2026-07-12 — Việc 14K: Activities layout filter/control fix
+
+Trạng thái: **PATCH READY**
+
+Lý do:
+- Sau 14J, trang `/activities` còn lỗi layout khi mở dropdown filter trạng thái/loại: dropdown chồng lên quick filter/list và nút tạo hoạt động, nhìn không premium.
+- Trang cần tiếp tục bám style FinanceLite nhưng tránh control overlay/chồng nhau.
+
+Thay đổi 14K:
+- Bỏ dropdown trạng thái/loại ở filter panel của trang quản lý hoạt động.
+- Giữ trạng thái bằng segmented quick filter phía trên.
+- Chuyển loại hoạt động thành pill filter dạng wrap, không dùng dropdown nên không còn menu đè layout.
+- Search giữ trong filter panel premium.
+- Chỉ giữ nút “Tạo hoạt động” ở header/action chính, tránh nút trùng ở khu danh sách.
+- Không đổi API/schema/service/router/migration.
+- Không đổi modal tạo/sửa hoạt động, DatePicker/TimePicker.
+
+Test sau apply:
+- `pnpm check`
+- `pnpm test`
+- `pnpm build`
+- Mở `/activities`, bấm các filter trạng thái/loại không còn dropdown đè layout.
+- Search/filter/list vẫn hoạt động.
+- Tạo/sửa/hủy/xóa hoạt động vẫn hoạt động.

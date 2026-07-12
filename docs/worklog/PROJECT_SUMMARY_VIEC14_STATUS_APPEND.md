@@ -105,3 +105,45 @@ Patch 14H tập trung riêng vào `client/src/pages/Activities.tsx`:
 - Không thay đổi API/schema/backend/migration.
 
 Kết luận: 14H là patch UI/control placement cho modal Hoạt động; cần test `pnpm check`, `pnpm test`, `pnpm build` và runtime tạo/sửa hoạt động.
+
+---
+
+## Append — Việc 14I: Activity modal premium compact refinement
+
+**Trạng thái:** Đã tạo patch, chờ apply/test.
+
+Sau khi user phản hồi modal tạo hoạt động vẫn còn dày/rối dù đã hết chồng control, Việc 14I tinh chỉnh tiếp `client/src/pages/Activities.tsx`:
+
+- Giảm chiều cao và độ nặng visual của input/select/textarea.
+- Đưa `Hiển thị portal` thành checkbox pill ở header form, không còn card riêng chiếm cột.
+- Chia form theo grid 12 cột đều hơn để modal gọn và premium hơn.
+- Giữ DatePicker/TimePicker đúng rule hệ thống.
+- Không đổi API/schema/backend/navigation.
+
+Patch 14I tiếp nối 14H, không thay thế lịch sử tracking.
+
+---
+
+## Việc 14J — Activity modal simplify / less cluttered
+
+- Context: sau 14H/14I, modal Tạo hoạt động vẫn còn dày và rối về thị giác.
+- Patch 14J chỉ chỉnh FE `client/src/pages/Activities.tsx`.
+- Mục tiêu: giữ style premium theo FinanceLite nhưng giảm số field hiển thị ban đầu.
+- Các trường chính còn hiển thị trực tiếp: Mã, Tên, Loại, Ngày, Khung giờ, Địa điểm, Phụ trách, Mô tả ngắn, Portal.
+- Các trường ít dùng chuyển vào collapsible `Thông tin bổ sung`: Trạng thái, Dự kiến, Ghi chú.
+- Không đổi backend, API, schema, migration, DatePicker/TimePicker.
+- Chờ user apply/test và báo 14J pass.
+
+
+---
+
+## 2026-07-12 — Việc 14K: Activities layout filter/control fix
+
+- Tiếp tục refinement Việc 14 sau phản hồi layout filter còn lỗi.
+- Vấn đề: filter status/type dạng dropdown trên `/activities` dễ bung menu chồng lên quick filter/list/nút tạo hoạt động, làm trang mất cảm giác premium và rối.
+- Patch 14K đổi hướng filter:
+  - Trạng thái dùng segmented quick filter đã có.
+  - Loại hoạt động dùng pill chips wrap, không dùng dropdown.
+  - Search giữ trong filter panel.
+  - Nút “Tạo hoạt động” chỉ giữ ở header/action chính.
+- Không thay đổi backend/schema/router/service/migration và không thay đổi modal form/picker.

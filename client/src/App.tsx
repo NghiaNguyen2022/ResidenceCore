@@ -82,8 +82,8 @@ function Router() {
                   <Route path="/resident/information" component={ResidentInformation} />
                   <Route path="/resident/rules" component={ResidentRules} />
                   <Route path="/resident/notifications" component={ResidentNotifications} />
-                  <Route path="/resident/activities" component={ResidentActivities} />
                   <Route path="/resident/finance" component={ResidentFinance} />
+                  <Route path="/resident/activities" component={ResidentActivities} />
                   <Route path="/resident/roles" component={ResidentRoleOverview} />
                   <Route path="/resident/organization" component={ResidentLeadershipOrganization} />
                   <Route path="/resident/role-duties" component={ResidentLeadershipDuties} />
