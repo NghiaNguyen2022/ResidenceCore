@@ -30,12 +30,6 @@ export const simpleManagerNavigation: NavigationItem[] = [
                         icon: "💰",
                         roles: ["manager"],
                   },
-                  {
-                        label: "Cửa hàng / Quỹ riêng",
-                        path: "/store-ledger",
-                        icon: "🧾",
-                        roles: ["manager"],
-                  },
             ],
       },
       {
@@ -59,6 +53,37 @@ export const simpleManagerNavigation: NavigationItem[] = [
                         label: "Nội quy & Nhắc nhở",
                         path: "/discipline-rules",
                         icon: "📌",
+                        roles: ["manager"],
+                  },
+            ],
+      },
+      {
+            label: "Quản lý cửa hàng",
+            icon: "🛒",
+            roles: ["manager"],
+            children: [
+                  {
+                        label: "Dữ liệu sản phẩm",
+                        path: "/store-ledger?tab=products",
+                        icon: "🏷️",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Mua hàng / Nhập kho",
+                        path: "/store-ledger?tab=purchase",
+                        icon: "📦",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Bán hàng",
+                        path: "/store-ledger?tab=sales",
+                        icon: "🧾",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Tổng hợp thu chi",
+                        path: "/store-ledger?tab=cashflow",
+                        icon: "📒",
                         roles: ["manager"],
                   },
             ],
@@ -212,6 +237,37 @@ export const detailedManagerNavigation: NavigationItem[] = [
             ],
       },
       {
+            label: "Quản lý cửa hàng",
+            icon: "🛒",
+            roles: ["manager"],
+            children: [
+                  {
+                        label: "Dữ liệu sản phẩm",
+                        path: "/store-ledger?tab=products",
+                        icon: "🏷️",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Mua hàng / Nhập kho",
+                        path: "/store-ledger?tab=purchase",
+                        icon: "📦",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Bán hàng",
+                        path: "/store-ledger?tab=sales",
+                        icon: "🧾",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Tổng hợp thu chi",
+                        path: "/store-ledger?tab=cashflow",
+                        icon: "📒",
+                        roles: ["manager"],
+                  },
+            ],
+      },
+      {
             label: "Tài chính",
             icon: "💰",
             roles: ["manager"],
@@ -220,12 +276,6 @@ export const detailedManagerNavigation: NavigationItem[] = [
                         label: "Tài chính lưu xá",
                         path: "/finance",
                         icon: "💰",
-                        roles: ["manager"],
-                  },
-                  {
-                        label: "Cửa hàng / Quỹ riêng",
-                        path: "/store-ledger",
-                        icon: "🧾",
                         roles: ["manager"],
                   },
                   {

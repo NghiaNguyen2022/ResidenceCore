@@ -21,7 +21,51 @@ function getUserId(ctx: any) {
 const ledgerTypeSchema = z.enum(["store", "fund", "other"]);
 const directionSchema = z.enum(["in", "out"]);
 
+const productInputSchema = z.object({
+      productCode: z.string().trim().min(1),
+      productName: z.string().trim().min(1),
+      category: z.string().optional().nullable(),
+      unit: z.string().optional().nullable(),
+      defaultCostPrice: z.number().min(0).optional().nullable(),
+      defaultSalePrice: z.number().min(0).optional().nullable(),
+      minStock: z.number().min(0).optional().nullable(),
+      currentStock: z.number().min(0).optional().nullable(),
+      description: z.string().optional().nullable(),
+});
+
+
+
 export const storeLedgerRouter = router({
+
+      listProducts: protectedProcedure
+            .input(
+                  z.object({
+                        search: z.string().optional().nullable(),
+                        category: z.string().optional().nullable(),
+                        isActive: z.boolean().optional().nullable(),
+                        lowStockOnly: z.boolean().optional().nullable(),
+                  }).optional(),
+            )
+            .query(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.listProducts(input || { isActive: true });
+            }),
+
+      createProduct: protectedProcedure
+            .input(productInputSchema)
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.createProduct({ ...input, createdBy: getUserId(ctx) });
+            }),
+
+      updateProduct: protectedProcedure
+            .input(productInputSchema.partial().extend({ id: z.number().int().positive(), isActive: z.boolean().optional() }))
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  const { id, ...data } = input;
+                  return storeLedgerService.updateProduct(id, data);
+            }),
+
       listLedgers: protectedProcedure
             .input(z.object({ search: z.string().optional().nullable(), isActive: z.boolean().optional().nullable() }).optional())
             .query(async ({ ctx, input }) => {
@@ -89,6 +133,65 @@ export const storeLedgerRouter = router({
             .query(async ({ ctx, input }) => {
                   requireStoreLedgerAccess(ctx.user);
                   return storeLedgerService.listTransactions(input || {});
+            }),
+
+
+
+      listDailyClosings: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive().optional().nullable(),
+                        fromDate: z.string().optional().nullable(),
+                        toDate: z.string().optional().nullable(),
+                        limit: z.number().int().min(1).max(120).optional(),
+                        offset: z.number().int().min(0).optional(),
+                  }).optional(),
+            )
+            .query(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.listDailyClosings(input || {});
+            }),
+
+      closeDaily: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive(),
+                        closingDate: z.string().trim().min(1),
+                        notes: z.string().optional().nullable(),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.closeDaily({ ...input, createdBy: getUserId(ctx) });
+            }),
+
+
+      getDailyClosingDetail: protectedProcedure
+            .input(z.object({ id: z.number().int().positive() }))
+            .query(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.getDailyClosingDetail(input.id);
+            }),
+
+      reviewDailyClosing: protectedProcedure
+            .input(z.object({ id: z.number().int().positive() }))
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.reviewDailyClosing(input.id, getUserId(ctx));
+            }),
+
+      approveDailyClosing: protectedProcedure
+            .input(z.object({ id: z.number().int().positive() }))
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.approveDailyClosing(input.id, getUserId(ctx));
+            }),
+
+      cancelDailyClosing: protectedProcedure
+            .input(z.object({ id: z.number().int().positive() }))
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.cancelDailyClosing(input.id);
             }),
 
       createTransaction: protectedProcedure

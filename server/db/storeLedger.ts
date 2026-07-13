@@ -1,15 +1,36 @@
-import { and, desc, eq, gte, like, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, like, lte, or, sql } from "drizzle-orm";
 import { getDb } from "./connection";
 import {
+      storeDailyClosings,
       storeLedgers,
+      storeProducts,
       storeLedgerTransactions,
+      type InsertStoreDailyClosing,
       type InsertStoreLedger,
+      type InsertStoreProduct,
       type InsertStoreLedgerTransaction,
 } from "../../drizzle/schema";
+
+
+export type StoreProductListInput = {
+      search?: string | null;
+      category?: string | null;
+      isActive?: boolean | null;
+      lowStockOnly?: boolean | null;
+};
 
 export type StoreLedgerListInput = {
       search?: string | null;
       isActive?: boolean | null;
+};
+
+
+export type StoreDailyClosingListInput = {
+      ledgerId?: number | null;
+      fromDate?: string | null;
+      toDate?: string | null;
+      limit?: number;
+      offset?: number;
 };
 
 export type StoreLedgerTransactionListInput = {
@@ -26,6 +47,59 @@ async function dbOrThrow() {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
       return db;
+}
+
+
+export async function listStoreProducts(input: StoreProductListInput = {}) {
+      const db = await dbOrThrow();
+      const conditions = [];
+
+      if (input.isActive !== null && input.isActive !== undefined) {
+            conditions.push(eq(storeProducts.isActive, input.isActive));
+      }
+      if (input.category && input.category !== "all") {
+            conditions.push(eq(storeProducts.category, input.category));
+      }
+      if (input.lowStockOnly) {
+            conditions.push(sql`${storeProducts.currentStock} <= ${storeProducts.minStock}` as any);
+      }
+
+      const search = input.search?.trim();
+      if (search) {
+            const keyword = `%${search}%`;
+            conditions.push(or(like(storeProducts.productCode, keyword), like(storeProducts.productName, keyword), like(storeProducts.category, keyword)));
+      }
+
+      return db
+            .select()
+            .from(storeProducts)
+            .where(conditions.length ? and(...conditions) : undefined)
+            .orderBy(desc(storeProducts.updatedAt), desc(storeProducts.id));
+}
+
+export async function getStoreProductById(id: number) {
+      const db = await dbOrThrow();
+      const rows = await db.select().from(storeProducts).where(eq(storeProducts.id, id)).limit(1);
+      return rows[0] ?? null;
+}
+
+export async function getStoreProductByCode(productCode: string) {
+      const db = await dbOrThrow();
+      const rows = await db.select().from(storeProducts).where(eq(storeProducts.productCode, productCode)).limit(1);
+      return rows[0] ?? null;
+}
+
+export async function createStoreProduct(data: InsertStoreProduct) {
+      const db = await dbOrThrow();
+      const [result]: any = await db.insert(storeProducts).values(data);
+      const insertId = result?.insertId;
+      return insertId ? getStoreProductById(Number(insertId)) : result;
+}
+
+export async function updateStoreProduct(id: number, data: Partial<InsertStoreProduct>) {
+      const db = await dbOrThrow();
+      await db.update(storeProducts).set(data).where(eq(storeProducts.id, id));
+      return getStoreProductById(id);
 }
 
 export async function listStoreLedgers(input: StoreLedgerListInput = {}) {
@@ -119,6 +193,15 @@ export async function getStoreLedgerTransactionById(id: number) {
       return rows[0] ?? null;
 }
 
+export async function listStoreLedgerTransactionsByClosing(closingId: number) {
+      const db = await dbOrThrow();
+      return db
+            .select()
+            .from(storeLedgerTransactions)
+            .where(and(eq(storeLedgerTransactions.dailyClosingId, closingId), eq(storeLedgerTransactions.isActive, true)))
+            .orderBy(desc(storeLedgerTransactions.id));
+}
+
 export async function createStoreLedgerTransaction(data: InsertStoreLedgerTransaction) {
       const db = await dbOrThrow();
       const [result]: any = await db.insert(storeLedgerTransactions).values(data);
@@ -162,4 +245,106 @@ export async function getStoreLedgerSummary(input: { ledgerId?: number | null; f
             balance: totalIn - totalOut,
             transactionCount: Number(summary.transactionCount || 0),
       };
+}
+
+
+export async function listStoreDailyClosings(input: StoreDailyClosingListInput = {}) {
+      const db = await dbOrThrow();
+      const conditions = [];
+
+      if (input.ledgerId) conditions.push(eq(storeDailyClosings.ledgerId, input.ledgerId));
+      if (input.fromDate) conditions.push(gte(storeDailyClosings.closingDate, input.fromDate));
+      if (input.toDate) conditions.push(lte(storeDailyClosings.closingDate, input.toDate));
+
+      return db
+            .select()
+            .from(storeDailyClosings)
+            .where(conditions.length ? and(...conditions) : undefined)
+            .orderBy(desc(storeDailyClosings.closingDate), desc(storeDailyClosings.id))
+            .limit(input.limit ?? 60)
+            .offset(input.offset ?? 0);
+}
+
+export async function getStoreDailyClosingById(id: number) {
+      const db = await dbOrThrow();
+      const rows = await db.select().from(storeDailyClosings).where(eq(storeDailyClosings.id, id)).limit(1);
+      return rows[0] ?? null;
+}
+
+export async function getStoreDailyClosingByDate(ledgerId: number, closingDate: string) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeDailyClosings)
+            .where(and(eq(storeDailyClosings.ledgerId, ledgerId), eq(storeDailyClosings.closingDate, closingDate)))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function createStoreDailyClosing(data: InsertStoreDailyClosing) {
+      const db = await dbOrThrow();
+      const [result]: any = await db.insert(storeDailyClosings).values(data);
+      const insertId = result?.insertId;
+      return insertId ? getStoreDailyClosingById(Number(insertId)) : result;
+}
+
+export async function updateStoreDailyClosing(id: number, data: Partial<InsertStoreDailyClosing>) {
+      const db = await dbOrThrow();
+      await db.update(storeDailyClosings).set(data).where(eq(storeDailyClosings.id, id));
+      return getStoreDailyClosingById(id);
+}
+
+export async function getUnclosedStoreLedgerSummary(input: { ledgerId: number; closingDate: string }) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select({
+                  totalIn: sql<string>`COALESCE(SUM(CASE WHEN ${storeLedgerTransactions.direction} = 'in' THEN ${storeLedgerTransactions.amount} ELSE 0 END), 0)`,
+                  totalOut: sql<string>`COALESCE(SUM(CASE WHEN ${storeLedgerTransactions.direction} = 'out' THEN ${storeLedgerTransactions.amount} ELSE 0 END), 0)`,
+                  transactionCount: sql<number>`COUNT(*)`,
+            })
+            .from(storeLedgerTransactions)
+            .where(
+                  and(
+                        eq(storeLedgerTransactions.ledgerId, input.ledgerId),
+                        eq(storeLedgerTransactions.transactionDate, input.closingDate),
+                        eq(storeLedgerTransactions.isActive, true),
+                        eq(storeLedgerTransactions.status, "posted" as any),
+                        isNull(storeLedgerTransactions.dailyClosingId),
+                  ),
+            );
+
+      const summary = rows[0] ?? { totalIn: "0", totalOut: "0", transactionCount: 0 };
+      const totalIn = Number(summary.totalIn || 0);
+      const totalOut = Number(summary.totalOut || 0);
+      return {
+            totalIn,
+            totalOut,
+            balance: totalIn - totalOut,
+            transactionCount: Number(summary.transactionCount || 0),
+      };
+}
+
+export async function markStoreLedgerTransactionsClosed(input: { ledgerId: number; closingDate: string; closingId: number }) {
+      const db = await dbOrThrow();
+      await db
+            .update(storeLedgerTransactions)
+            .set({ dailyClosingId: input.closingId } as any)
+            .where(
+                  and(
+                        eq(storeLedgerTransactions.ledgerId, input.ledgerId),
+                        eq(storeLedgerTransactions.transactionDate, input.closingDate),
+                        eq(storeLedgerTransactions.isActive, true),
+                        eq(storeLedgerTransactions.status, "posted" as any),
+                        isNull(storeLedgerTransactions.dailyClosingId),
+                  ),
+            );
+}
+
+
+export async function clearStoreLedgerTransactionsClosing(closingId: number) {
+      const db = await dbOrThrow();
+      await db
+            .update(storeLedgerTransactions)
+            .set({ dailyClosingId: null } as any)
+            .where(eq(storeLedgerTransactions.dailyClosingId, closingId));
 }

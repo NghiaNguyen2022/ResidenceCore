@@ -1,15 +1,27 @@
-# RESIDENCECORE_CHECKLIST - Việc 16 append
+# RESIDENCECORE_CHECKLIST_VIEC16_IN_PROGRESS.md
 
-## 16A5 - StoreLedger duplicate ledger code fix
-- [x] Xử lý lỗi tạo sổ/quỹ khi mã `CUA_HANG` đã tồn tại.
-- [x] Không để UI hiển thị lỗi thô `Failed query insert into storeLedgers...` cho case duplicate.
-- [x] Nếu mã tồn tại và đang active, trả về sổ hiện có để demo tiếp.
-- [x] Nếu mã tồn tại nhưng inactive, báo lỗi nghiệp vụ rõ.
-- [x] Không đổi DB schema / migration / logic thu chi.
+## Việc 16 — Cửa hàng lite
 
-## Test
-- [ ] Restart backend/dev server.
-- [ ] Mở `/store-ledger`.
-- [ ] Tạo sổ/quỹ với mã `CUA_HANG`.
-- [ ] Modal đóng và sổ hiện có/được tạo được chọn.
-- [ ] Không còn lỗi Failed query duplicate insert.
+### Trạng thái tích lũy
+- 16A–16A5: nền sổ cửa hàng/thu chi riêng, router, enum/date/duplicate fix.
+- 16D: chốt ngày cửa hàng.
+- 16E/16E2: popup thao tác bị chặn và fix z-index popup trên modal.
+- 16F: review/approval workflow cho chốt ngày.
+- 16G/G2/H: sản phẩm lite, chuyển trang thành quản lý cửa hàng một cửa hàng chính, gom menu.
+
+### 16I — Product page first + route/tab sync + product categories
+- [x] Sửa lỗi bấm menu con cửa hàng không đổi nội dung tab do route query không sync state.
+- [x] Thêm sync tab từ URL `/store-ledger?tab=...` và hỗ trợ path tab nếu sau này dùng.
+- [x] Bám hướng làm trang sản phẩm trước.
+- [x] Bổ sung nhóm/loại sản phẩm mặc định: Nông sản, Thủ công, Bánh kẹo, Sách, Đồ uống, Đồ ăn, Văn phòng phẩm, Khác.
+- [x] Cho phép nhập nhóm/loại sản phẩm mới ngay trong form sản phẩm.
+- [x] Filter nhóm sản phẩm dùng pill filter, tránh dropdown gây overlay.
+- [x] Không đổi backend/schema/migration trong bước này.
+
+### Test 16I
+- [ ] Bấm menu Quản lý cửa hàng > Dữ liệu sản phẩm mở đúng tab sản phẩm.
+- [ ] Bấm Mua hàng / Nhập kho, Bán hàng, Tổng hợp thu chi đổi đúng tab.
+- [ ] Thêm sản phẩm với nhóm mặc định Nông sản/Thủ công/Bánh kẹo/Sách.
+- [ ] Thêm sản phẩm với nhóm mới tự nhập.
+- [ ] Filter theo nhóm hoạt động.
+- [ ] Các chức năng chốt ngày/review cũ không bị ảnh hưởng.
