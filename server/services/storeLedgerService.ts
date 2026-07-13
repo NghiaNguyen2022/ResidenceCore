@@ -106,6 +106,22 @@ export const storeLedgerService = {
             } as any);
       },
 
+      async deleteProduct(id: number) {
+            const product = await storeLedgerDb.getStoreProductById(id);
+            if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy sản phẩm." });
+            if (!product.isActive) return product;
+
+            const hasUsage = await storeLedgerDb.hasStoreProductUsage(id);
+            if (hasUsage) {
+                  throw new TRPCError({
+                        code: "BAD_REQUEST",
+                        message: "Chỉ xóa được hàng hóa chưa có dữ liệu mua bán hoặc tồn kho.",
+                  });
+            }
+
+            return storeLedgerDb.softDeleteStoreProduct(id);
+      },
+
       async listLedgers(input: storeLedgerDb.StoreLedgerListInput = {}) {
             return storeLedgerDb.listStoreLedgers(input);
       },

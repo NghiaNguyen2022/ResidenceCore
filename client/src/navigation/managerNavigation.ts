@@ -64,25 +64,25 @@ export const simpleManagerNavigation: NavigationItem[] = [
             children: [
                   {
                         label: "Dữ liệu sản phẩm",
-                        path: "/store-ledger?tab=products",
+                        path: "/store-products",
                         icon: "🏷️",
                         roles: ["manager"],
                   },
                   {
                         label: "Mua hàng / Nhập kho",
-                        path: "/store-ledger?tab=purchase",
+                        path: "/store-purchase",
                         icon: "📦",
                         roles: ["manager"],
                   },
                   {
                         label: "Bán hàng",
-                        path: "/store-ledger?tab=sales",
+                        path: "/store-sales",
                         icon: "🧾",
                         roles: ["manager"],
                   },
                   {
                         label: "Tổng hợp thu chi",
-                        path: "/store-ledger?tab=cashflow",
+                        path: "/store-cashflow",
                         icon: "📒",
                         roles: ["manager"],
                   },
@@ -243,25 +243,25 @@ export const detailedManagerNavigation: NavigationItem[] = [
             children: [
                   {
                         label: "Dữ liệu sản phẩm",
-                        path: "/store-ledger?tab=products",
+                        path: "/store-products",
                         icon: "🏷️",
                         roles: ["manager"],
                   },
                   {
                         label: "Mua hàng / Nhập kho",
-                        path: "/store-ledger?tab=purchase",
+                        path: "/store-purchase",
                         icon: "📦",
                         roles: ["manager"],
                   },
                   {
                         label: "Bán hàng",
-                        path: "/store-ledger?tab=sales",
+                        path: "/store-sales",
                         icon: "🧾",
                         roles: ["manager"],
                   },
                   {
                         label: "Tổng hợp thu chi",
-                        path: "/store-ledger?tab=cashflow",
+                        path: "/store-cashflow",
                         icon: "📒",
                         roles: ["manager"],
                   },

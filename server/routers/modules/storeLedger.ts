@@ -66,6 +66,13 @@ export const storeLedgerRouter = router({
                   return storeLedgerService.updateProduct(id, data);
             }),
 
+      deleteProduct: protectedProcedure
+            .input(z.object({ id: z.number().int().positive() }))
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.deleteProduct(input.id);
+            }),
+
       listLedgers: protectedProcedure
             .input(z.object({ search: z.string().optional().nullable(), isActive: z.boolean().optional().nullable() }).optional())
             .query(async ({ ctx, input }) => {

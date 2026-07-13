@@ -102,6 +102,20 @@ export async function updateStoreProduct(id: number, data: Partial<InsertStorePr
       return getStoreProductById(id);
 }
 
+export async function softDeleteStoreProduct(id: number) {
+      const db = await dbOrThrow();
+      await db.update(storeProducts).set({ isActive: false } as any).where(eq(storeProducts.id, id));
+      return getStoreProductById(id);
+}
+
+export async function hasStoreProductUsage(id: number) {
+      const product = await getStoreProductById(id);
+      if (!product) return false;
+      // In the current lite version, product-level purchase/sale lines are introduced in the next step.
+      // Until then, existing stock is the practical blocker for deleting a product.
+      return Number(product.currentStock || 0) > 0;
+}
+
 export async function listStoreLedgers(input: StoreLedgerListInput = {}) {
       const db = await dbOrThrow();
       const conditions = [];

@@ -75,6 +75,10 @@ function Router() {
                   {/* Main-flow adjacent screens kept visible in Simple/Detailed config */}
                   <Route path="/activities" component={Activities} />
                   <Route path="/store-ledger" component={StoreLedger} />
+                  <Route path="/store-products" component={StoreLedger} />
+                  <Route path="/store-purchase" component={StoreLedger} />
+                  <Route path="/store-sales" component={StoreLedger} />
+                  <Route path="/store-cashflow" component={StoreLedger} />
                   <Route path="/discipline-rules" component={DisciplineRules} />
                   <Route path="/settings/users" component={UserManagement} />
                   <Route path="/my-profile" component={MyProfile} />
