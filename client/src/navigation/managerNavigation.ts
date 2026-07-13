@@ -30,6 +30,12 @@ export const simpleManagerNavigation: NavigationItem[] = [
                         icon: "💰",
                         roles: ["manager"],
                   },
+                  {
+                        label: "Cửa hàng / Quỹ riêng",
+                        path: "/store-ledger",
+                        icon: "🧾",
+                        roles: ["manager"],
+                  },
             ],
       },
       {
@@ -214,6 +220,12 @@ export const detailedManagerNavigation: NavigationItem[] = [
                         label: "Tài chính lưu xá",
                         path: "/finance",
                         icon: "💰",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Cửa hàng / Quỹ riêng",
+                        path: "/store-ledger",
+                        icon: "🧾",
                         roles: ["manager"],
                   },
                   {

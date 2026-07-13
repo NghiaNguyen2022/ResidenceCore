@@ -34,6 +34,7 @@ const ResidentTeamDuties = lazy(() => import("@/pages/ResidentTeamDuties"));
 const ResidentCommitteeMembers = lazy(() => import("@/pages/ResidentCommitteeMembers"));
 const ResidentCommitteeDuties = lazy(() => import("@/pages/ResidentCommitteeDuties"));
 const FinanceLite = lazy(() => import("@/pages/FinanceLite"));
+const StoreLedger = lazy(() => import("@/pages/StoreLedger"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 function RouteFallback() {
@@ -73,6 +74,7 @@ function Router() {
 
                   {/* Main-flow adjacent screens kept visible in Simple/Detailed config */}
                   <Route path="/activities" component={Activities} />
+                  <Route path="/store-ledger" component={StoreLedger} />
                   <Route path="/discipline-rules" component={DisciplineRules} />
                   <Route path="/settings/users" component={UserManagement} />
                   <Route path="/my-profile" component={MyProfile} />
