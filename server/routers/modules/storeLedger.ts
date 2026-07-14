@@ -228,6 +228,23 @@ export const storeLedgerRouter = router({
                   return storeLedgerService.cancelDailyClosing(input.id);
             }),
 
+      createPurchaseStock: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive(),
+                        productId: z.number().int().positive(),
+                        transactionDate: z.string().trim().min(1),
+                        quantity: z.number().positive(),
+                        unitCost: z.number().positive(),
+                        supplierName: z.string().optional().nullable(),
+                        description: z.string().optional().nullable(),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.createPurchaseStock({ ...input, createdBy: getUserId(ctx) });
+            }),
+
       createTransaction: protectedProcedure
             .input(
                   z.object({

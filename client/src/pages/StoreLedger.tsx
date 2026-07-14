@@ -123,13 +123,30 @@ function formatMoney(value: number | string | null | undefined) {
   );
 }
 
-function parseCurrencyInput(value: string) {
-  const digits = value.replace(/[^0-9]/g, "");
+function parseCurrencyInput(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return 0;
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return 0;
+
+  // Values returned from MySQL DECIMAL often look like "5000.00".
+  // Do not treat that dot as a thousands separator, otherwise 5.000đ becomes 500.000đ.
+  if (/^-?\d+\.\d{1,2}$/.test(raw)) {
+    const amount = Number(raw);
+    return Number.isFinite(amount) ? Math.round(amount) : 0;
+  }
+
+  // User-facing Vietnamese currency input uses dot as thousands separator: 5.000, 135.000...
+  const digits = raw.replace(/[^0-9]/g, "");
   return digits ? Number(digits) : 0;
 }
 
-function formatCurrencyInput(value: string | number) {
-  const amount = typeof value === "number" ? value : parseCurrencyInput(value);
+function formatCurrencyInput(value: string | number | null | undefined) {
+  const amount = parseCurrencyInput(value);
   return amount
     ? new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(
         amount,
@@ -944,8 +961,8 @@ export default function StoreLedger() {
       ...emptyPurchaseStockForm,
       productId: firstProduct?.id ? String(firstProduct.id) : "",
       transactionDate: getTodayYmd(),
-      unitCost: firstProduct?.defaultCostPrice
-        ? formatCurrencyInput(firstProduct.defaultCostPrice)
+      unitCost: (firstProduct?.averageCostPrice || firstProduct?.defaultCostPrice)
+        ? formatCurrencyInput(firstProduct.averageCostPrice || firstProduct.defaultCostPrice)
         : "",
     });
     setPurchaseStockModalOpen(true);
@@ -2092,8 +2109,8 @@ export default function StoreLedger() {
                   setPurchaseStockForm((prev) => ({
                     ...prev,
                     productId: event.target.value,
-                    unitCost: selectedProduct?.defaultCostPrice
-                      ? formatCurrencyInput(selectedProduct.defaultCostPrice)
+                    unitCost: (selectedProduct?.averageCostPrice || selectedProduct?.defaultCostPrice)
+                      ? formatCurrencyInput(selectedProduct.averageCostPrice || selectedProduct.defaultCostPrice)
                       : prev.unitCost,
                   }));
                 }}

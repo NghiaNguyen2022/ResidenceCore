@@ -164,8 +164,8 @@ export const storeLedgerService = {
                   createdBy: input.createdBy ?? null,
             } as any;
 
-            // Upsert trực tiếp bằng MySQL để tránh lỗi pre-select theo cột DATE trên một số môi trường MySQL/driver.
-            // Nếu cùng sản phẩm + cùng ngày đã có giá, dòng lịch sử giá của ngày đó sẽ được cập nhật.
+            // Ghi thêm một dòng lịch sử giá bán. Lý do không bắt buộc; nếu trống thì lưu mặc định là "manual".
+            // Không cập nhật/ghi đè dòng cũ để giữ đúng lịch sử thay đổi giá.
             await storeLedgerDb.upsertStoreProductSalePriceHistoryByDate(priceHistoryPayload);
 
             const today = new Date().toISOString().slice(0, 10);
@@ -374,6 +374,108 @@ export const storeLedgerService = {
             return storeLedgerDb.updateStoreDailyClosing(id, { status: "cancelled" } as any);
       },
 
+
+      async createPurchaseStock(input: {
+            ledgerId: number;
+            productId: number;
+            transactionDate: string;
+            quantity: number;
+            unitCost: number;
+            supplierName?: string | null;
+            description?: string | null;
+            createdBy?: number | null;
+      }) {
+            const ledger = await storeLedgerDb.getStoreLedgerById(input.ledgerId);
+            if (!ledger || !ledger.isActive) {
+                  throw new TRPCError({ code: "BAD_REQUEST", message: "Cửa hàng chưa được khởi tạo hoặc đã ngừng sử dụng." });
+            }
+
+            const product = await storeLedgerDb.getStoreProductById(input.productId);
+            if (!product || !product.isActive) {
+                  throw new TRPCError({ code: "BAD_REQUEST", message: "Hàng hóa không hợp lệ hoặc đã ngừng sử dụng." });
+            }
+
+            const transactionDate = ensureDate(input.transactionDate, "Ngày nhập hàng không hợp lệ.");
+            const closedDate = await storeLedgerDb.getStoreDailyClosingByDate(input.ledgerId, transactionDate);
+            if (closedDate && String(closedDate.status) !== "cancelled") {
+                  const status = String(closedDate.status);
+                  const canReopen = ["draft", "reviewed"].includes(status);
+                  throw new TRPCError({
+                        code: "BAD_REQUEST",
+                        message: canReopen
+                              ? "Ngày này đang trong quy trình chốt sổ. Có thể bỏ chốt để bổ sung nhập hàng trước khi xác nhận."
+                              : "Ngày này đã xác nhận chốt sổ. Không thể nhập hàng mới.",
+                  });
+            }
+
+            if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+                  throw new TRPCError({ code: "BAD_REQUEST", message: "Số lượng nhập phải lớn hơn 0." });
+            }
+
+            const quantity = Number(input.quantity.toFixed(2));
+            const unitCost = ensureAmount(input.unitCost);
+            const amount = Number((quantity * unitCost).toFixed(2));
+            const previousStock = Number((product as any).currentStock || 0);
+            const previousAverageCost = Number((product as any).averageCostPrice || (product as any).defaultCostPrice || 0);
+            const newStock = previousStock + quantity;
+            const averageCostAfter = newStock > 0
+                  ? Number((((previousStock * previousAverageCost) + amount) / newStock).toFixed(2))
+                  : unitCost;
+
+            const transactionCode = `NHAP-${todayCodeDate()}-${Date.now().toString().slice(-5)}`;
+            const productName = String((product as any).productName || "Hàng hóa");
+
+            const transaction = await storeLedgerDb.createStoreLedgerTransaction({
+                  ledgerId: input.ledgerId,
+                  transactionCode,
+                  direction: "out",
+                  transactionDate,
+                  amount: String(amount.toFixed(2)),
+                  category: "purchase_stock",
+                  title: `Nhập hàng: ${productName}`,
+                  partnerName: input.supplierName?.trim() || null,
+                  paymentMethod: "cash",
+                  description: input.description?.trim() || null,
+                  status: "posted",
+                  isActive: true,
+                  createdBy: input.createdBy ?? null,
+            } as any);
+
+            const transactionId = Number((transaction as any)?.id || 0) || null;
+
+            await storeLedgerDb.createStoreStockMovement({
+                  productId: input.productId,
+                  transactionId,
+                  movementType: "purchase",
+                  movementDate: transactionDate,
+                  quantityIn: String(quantity.toFixed(2)),
+                  quantityOut: "0.00",
+                  unitCost: String(unitCost.toFixed(2)),
+                  note: input.description?.trim() || null,
+                  createdBy: input.createdBy ?? null,
+            } as any);
+
+            await storeLedgerDb.createStoreProductCostHistory({
+                  productId: input.productId,
+                  sourceType: "purchase",
+                  effectiveDate: transactionDate,
+                  quantity: String(quantity.toFixed(2)),
+                  unitCost: String(unitCost.toFixed(2)),
+                  averageCostAfter: String(averageCostAfter.toFixed(2)),
+                  reason: "Nhập hàng",
+                  notes: input.description?.trim() || null,
+                  createdBy: input.createdBy ?? null,
+            } as any);
+
+            const updatedProduct = await storeLedgerDb.addStoreProductStock({
+                  productId: input.productId,
+                  quantity,
+                  unitCost,
+                  averageCostAfter,
+            });
+
+            return { transaction, product: updatedProduct, averageCostAfter };
+      },
 
       async createTransaction(input: {
             ledgerId: number;

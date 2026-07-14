@@ -1,7 +1,6 @@
-# PROJECT_SUMMARY_VIEC16_STATUS_APPEND
+# PROJECT_SUMMARY - Việc 16 append
 
-## Append update — Việc 16K3
+## 16K4 - Nhập hàng / chi mua hàng tăng tồn
+Bổ sung nghiệp vụ nhập hàng cho module Cửa hàng. Khi manager nhập hàng, hệ thống tạo phát sinh chi mua hàng, ghi biến động tồn kho, tăng tồn hàng hóa, ghi lịch sử giá vốn và tính lại giá vốn hiện tại theo cách dễ hiểu là giá trung bình. Không chốt từng giao dịch sang sổ chung; vẫn theo hướng chốt sổ theo ngày.
 
-Việc 16K3 chuẩn hóa lại UI danh mục hàng hóa theo hướng đơn giản: card hàng hóa chỉ hiển thị tên, nhóm, đơn vị, tồn, giá vốn và giá bán hiện tại. Các thông tin giá chi tiết được chuyển sang modal `Thông tin giá`, bao gồm lịch sử giá vốn và lịch sử giá bán.
-
-Giá bán được cập nhật qua modal riêng để lưu lịch sử với ngày áp dụng, lý do thay đổi và ghi chú. Cách tính giá vốn không còn hiện trong form chính; chỉ hiển thị trong thông tin giá bằng từ ngữ dễ hiểu.
+File SQL migration đặt trong `/drizzle/viec16k4_purchase_stock_inventory.sql`.

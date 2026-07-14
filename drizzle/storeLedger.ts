@@ -121,7 +121,6 @@ export const storeProductSalePriceHistories = mysqlTable(
             updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
       },
       (table) => ({
-            productDateUnique: unique("storeProductSalePriceHistories_product_date_unique").on(table.productId, table.effectiveDate),
             productIdx: index("storeProductSalePriceHistories_product_idx").on(table.productId),
             dateIdx: index("storeProductSalePriceHistories_date_idx").on(table.effectiveDate),
       }),
@@ -157,6 +156,31 @@ export const storeLedgerTransactions = mysqlTable(
       }),
 );
 
+
+
+export const storeStockMovements = mysqlTable(
+      "storeStockMovements",
+      {
+            id: int("id").autoincrement().primaryKey(),
+            productId: int("productId").notNull().references(() => storeProducts.id, { onDelete: "restrict" }),
+            transactionId: int("transactionId").references(() => storeLedgerTransactions.id, { onDelete: "set null" }),
+            movementType: mysqlEnum("movementType", ["purchase", "sale", "adjustment_in", "adjustment_out", "return"]).notNull(),
+            movementDate: date("movementDate").notNull(),
+            quantityIn: decimal("quantityIn", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            quantityOut: decimal("quantityOut", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            unitCost: decimal("unitCost", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            note: text("note"),
+            createdBy: int("createdBy").references(() => users.id, { onDelete: "set null" }),
+            createdAt: timestamp("createdAt").defaultNow().notNull(),
+      },
+      (table) => ({
+            productIdx: index("storeStockMovements_product_idx").on(table.productId),
+            transactionIdx: index("storeStockMovements_transaction_idx").on(table.transactionId),
+            dateIdx: index("storeStockMovements_date_idx").on(table.movementDate),
+            typeIdx: index("storeStockMovements_type_idx").on(table.movementType),
+      }),
+);
+
 export type StoreLedger = typeof storeLedgers.$inferSelect;
 export type InsertStoreLedger = typeof storeLedgers.$inferInsert;
 export type StoreDailyClosing = typeof storeDailyClosings.$inferSelect;
@@ -169,3 +193,5 @@ export type StoreProductSalePriceHistory = typeof storeProductSalePriceHistories
 export type InsertStoreProductSalePriceHistory = typeof storeProductSalePriceHistories.$inferInsert;
 export type StoreLedgerTransaction = typeof storeLedgerTransactions.$inferSelect;
 export type InsertStoreLedgerTransaction = typeof storeLedgerTransactions.$inferInsert;
+export type StoreStockMovement = typeof storeStockMovements.$inferSelect;
+export type InsertStoreStockMovement = typeof storeStockMovements.$inferInsert;

@@ -7,12 +7,14 @@ import {
       storeProductCostHistories,
       storeProductSalePriceHistories,
       storeLedgerTransactions,
+      storeStockMovements,
       type InsertStoreDailyClosing,
       type InsertStoreLedger,
       type InsertStoreProduct,
       type InsertStoreProductCostHistory,
       type InsertStoreProductSalePriceHistory,
       type InsertStoreLedgerTransaction,
+      type InsertStoreStockMovement,
 } from "../../drizzle/schema";
 
 
@@ -143,72 +145,22 @@ export async function upsertStoreProductSalePriceHistoryByDate(data: {
       productId: number;
       effectiveDate: string;
       salePrice: string;
-      reason: "cost_increase" | "overhead_increase" | "market_adjustment" | "promotion" | "manual" | "other";
+      reason?: "cost_increase" | "overhead_increase" | "market_adjustment" | "promotion" | "manual" | "other" | null;
       notes?: string | null;
       createdBy?: number | null;
 }) {
       const db = await dbOrThrow();
 
-      // Một sản phẩm chỉ có 1 giá bán cho 1 ngày áp dụng.
-      // Dùng update trước rồi insert sau để tránh lỗi ON DUPLICATE KEY UPDATE
-      // ở một số môi trường MySQL/MariaDB/driver.
-      const updateResult: any = await db
-            .update(storeProductSalePriceHistories)
-            .set({
-                  salePrice: data.salePrice,
-                  reason: data.reason,
-                  notes: data.notes ?? null,
-                  createdBy: data.createdBy ?? null,
-            } as any)
-            .where(
-                  and(
-                        eq(storeProductSalePriceHistories.productId, data.productId),
-                        eq(storeProductSalePriceHistories.effectiveDate, data.effectiveDate as any),
-                  ),
-            );
-
-      const affectedRows = Number(
-            updateResult?.affectedRows ??
-                  updateResult?.[0]?.affectedRows ??
-                  updateResult?.rowsAffected ??
-                  updateResult?.[0]?.rowsAffected ??
-                  0,
-      );
-
-      if (affectedRows > 0) return;
-
-      try {
-            await db.insert(storeProductSalePriceHistories).values({
-                  productId: data.productId,
-                  effectiveDate: data.effectiveDate,
-                  salePrice: data.salePrice,
-                  reason: data.reason,
-                  notes: data.notes ?? null,
-                  createdBy: data.createdBy ?? null,
-            } as any);
-      } catch (error: any) {
-            // Nếu có race-condition hoặc dữ liệu đã tồn tại nhưng updateResult không trả affectedRows,
-            // cập nhật lại dòng theo productId + effectiveDate thay vì đẩy lỗi SQL thô ra UI.
-            const message = String(error?.message || "").toLowerCase();
-            const code = String(error?.code || "").toLowerCase();
-            const isDuplicate = code.includes("dup") || message.includes("duplicate") || message.includes("unique");
-            if (!isDuplicate) throw error;
-
-            await db
-                  .update(storeProductSalePriceHistories)
-                  .set({
-                        salePrice: data.salePrice,
-                        reason: data.reason,
-                        notes: data.notes ?? null,
-                        createdBy: data.createdBy ?? null,
-                  } as any)
-                  .where(
-                        and(
-                              eq(storeProductSalePriceHistories.productId, data.productId),
-                              eq(storeProductSalePriceHistories.effectiveDate, data.effectiveDate as any),
-                        ),
-                  );
-      }
+      // Lịch sử giá bán là nhật ký thay đổi giá, không ghi đè theo ngày.
+      // Cho phép một sản phẩm có nhiều lần cập nhật giá trong cùng ngày để lưu đúng lịch sử.
+      await db.insert(storeProductSalePriceHistories).values({
+            productId: data.productId,
+            effectiveDate: data.effectiveDate,
+            salePrice: data.salePrice,
+            reason: data.reason ?? "manual",
+            notes: data.notes?.trim() || null,
+            createdBy: data.createdBy ?? null,
+      } as any);
 }
 
 export async function createStoreProductSalePriceHistory(data: InsertStoreProductSalePriceHistory) {
@@ -248,6 +200,40 @@ export async function hasStoreProductUsage(id: number) {
       // In the current lite version, product-level purchase/sale lines are introduced in the next step.
       // Until then, existing stock is the practical blocker for deleting a product.
       return Number(product.currentStock || 0) > 0;
+}
+
+
+export async function addStoreProductStock(input: {
+      productId: number;
+      quantity: number;
+      unitCost: number;
+      averageCostAfter: number;
+}) {
+      const db = await dbOrThrow();
+      await db
+            .update(storeProducts)
+            .set({
+                  currentStock: sql`${storeProducts.currentStock} + ${input.quantity}`,
+                  defaultCostPrice: String(Number(input.unitCost || 0).toFixed(2)),
+                  averageCostPrice: String(Number(input.averageCostAfter || 0).toFixed(2)),
+            } as any)
+            .where(eq(storeProducts.id, input.productId));
+      return getStoreProductById(input.productId);
+}
+
+export async function createStoreStockMovement(data: InsertStoreStockMovement) {
+      const db = await dbOrThrow();
+      const [result]: any = await db.insert(storeStockMovements).values(data);
+      return result;
+}
+
+export async function listStoreStockMovementsByProduct(productId: number) {
+      const db = await dbOrThrow();
+      return db
+            .select()
+            .from(storeStockMovements)
+            .where(eq(storeStockMovements.productId, productId))
+            .orderBy(desc(storeStockMovements.movementDate), desc(storeStockMovements.id));
 }
 
 export async function listStoreLedgers(input: StoreLedgerListInput = {}) {

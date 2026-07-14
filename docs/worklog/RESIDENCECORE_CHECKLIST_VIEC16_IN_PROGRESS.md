@@ -1,14 +1,17 @@
 # RESIDENCECORE_CHECKLIST_VIEC16_IN_PROGRESS
 
-## Append update — 16K3 Product price history UI simplify
+## 16K4 - Nhập hàng / chi mua hàng tăng tồn
+- [x] Thêm API `storeLedger.createPurchaseStock`
+- [x] Tạo khoản chi cửa hàng loại `purchase_stock` khi nhập hàng
+- [x] Ghi biến động tồn kho `storeStockMovements`
+- [x] Tăng tồn hiện tại của hàng hóa
+- [x] Ghi lịch sử giá vốn từ lần nhập hàng
+- [x] Tính lại giá vốn hiện tại theo cách dễ hiểu: tính theo giá trung bình
+- [x] Chặn nhập hàng vào ngày đã chốt / đang review bằng popup hiện có
+- [x] Migration SQL đặt trong `/drizzle`
 
-- [x] Tạm dừng nhập hàng/bán hàng để làm rõ logic giá.
-- [x] UI danh mục hàng hóa chỉ hiển thị thông tin đơn giản nhất.
-- [x] Không đưa cách tính giá vốn vào form chính.
-- [x] Không bắt nhập giá bán trong form tạo/sửa hàng hóa.
-- [x] Thêm nút `Thông tin giá` trên card hàng hóa.
-- [x] Modal `Thông tin giá` hiển thị giá vốn hiện tại, giá bán hiện tại, giá trị vốn tồn và lịch sử giá.
-- [x] Modal `Cập nhật giá bán` có ngày áp dụng, lý do thay đổi và ghi chú.
-- [x] Dùng từ ngữ dễ hiểu hơn: `Tính theo giá trung bình`, `Theo lần nhập gần nhất`, `Tự nhập`.
-- [ ] Test `pnpm check`, `pnpm test`, `pnpm build`.
-- [ ] Runtime: mở `/store-products`, xem thông tin giá, cập nhật giá bán và kiểm tra lịch sử.
+## Test cần chạy
+- pnpm check
+- pnpm test
+- pnpm build
+- Runtime: nhập hàng -> tồn tăng -> tổng chi tăng -> lịch sử giá vốn có dòng mới.
