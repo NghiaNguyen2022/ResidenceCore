@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import * as storeLedgerDb from "../db/storeLedger";
+import * as financeDb from "../db/finance";
 
 function normalizeCode(value: string) {
       return value
@@ -21,6 +22,31 @@ function ensureDate(value: string, message: string) {
             throw new TRPCError({ code: "BAD_REQUEST", message });
       }
       return value;
+}
+
+function normalizeDateYmd(value: unknown, message = "Ngày dữ liệu không hợp lệ.") {
+      const raw = String(value ?? "").trim();
+      const directMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (directMatch) return directMatch[1];
+
+      const dateValue = value instanceof Date ? value : new Date(raw);
+      if (Number.isNaN(dateValue.getTime())) {
+            throw new TRPCError({ code: "BAD_REQUEST", message });
+      }
+
+      const parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Ho_Chi_Minh",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+      }).formatToParts(dateValue);
+      const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+      const normalized = `${part("year")}-${part("month")}-${part("day")}`;
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message });
+      }
+      return normalized;
 }
 
 function ensureAmount(value: number) {
@@ -299,10 +325,14 @@ export const storeLedgerService = {
                   postedToFinance: false,
                   financeBatchId: null,
                   notes: input.notes?.trim() || null,
+                  closedBy: input.createdBy ?? null,
+                  closedAt: new Date(),
                   reviewedBy: null,
                   reviewedAt: null,
                   approvedBy: null,
                   approvedAt: null,
+                  confirmedBy: null,
+                  confirmedAt: null,
                   createdBy: input.createdBy ?? null,
             } as any;
 
@@ -348,22 +378,75 @@ export const storeLedgerService = {
             } as any);
       },
 
-      async approveDailyClosing(id: number, approvedBy?: number | null) {
+      async confirmDailyClosing(id: number, confirmedBy?: number | null) {
             const closing = await storeLedgerDb.getStoreDailyClosingById(id);
             if (!closing || String(closing.status) === "cancelled") {
                   throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy ngày chốt." });
             }
-            if (["approved", "closed"].includes(String(closing.status))) {
+
+            if (Boolean((closing as any).postedToFinance)) {
                   return closing;
             }
-            if (String(closing.status) !== "reviewed") {
-                  throw new TRPCError({ code: "BAD_REQUEST", message: "Vui lòng review chi tiết ngày chốt trước khi xác nhận chốt." });
+
+            if (!["draft", "reviewed"].includes(String(closing.status))) {
+                  if (["approved", "closed"].includes(String(closing.status))) {
+                        throw new TRPCError({ code: "CONFLICT", message: "Ngày đã xác nhận nhưng chưa hoàn tất trạng thái đẩy sổ. Vui lòng kiểm tra dữ liệu trước khi thao tác lại." });
+                  }
+                  throw new TRPCError({ code: "BAD_REQUEST", message: "Ngày chưa ở trạng thái đã chốt để xác nhận." });
             }
+
+            const ledger = await storeLedgerDb.getStoreLedgerById(Number((closing as any).ledgerId));
+            const closingCode = String((closing as any).closingCode || `STORE-CLOSING-${id}`);
+            const batchId = String((closing as any).financeBatchId || `STORE-${closingCode}`);
+            const totalIn = Number((closing as any).totalIn || 0);
+            const totalOut = Number((closing as any).totalOut || 0);
+            const closingDate = normalizeDateYmd((closing as any).closingDate, "Ngày chốt sổ không hợp lệ.");
+            const targetName = String((ledger as any)?.ledgerName || "Cửa hàng lưu xá");
+            const actorId = confirmedBy ?? null;
+
+            // Mỗi ngày chốt được đẩy theo một batch. Hai dòng tổng hợp Thu/Chi dùng externalRef
+            // riêng để retry an toàn và không tạo trùng khi mạng hoặc request bị lặp.
+            if (totalIn > 0) {
+                  await financeDb.createFinanceTransaction({
+                        source: "store_daily_closing",
+                        direction: "in",
+                        amount: totalIn,
+                        transactionDate: closingDate,
+                        targetType: "store_daily_closing_income",
+                        targetName,
+                        description: `Tổng thu cửa hàng ngày ${closingDate} · ${closingCode}`,
+                        externalRef: `${batchId}:IN`,
+                        createdBy: actorId,
+                  });
+            }
+            if (totalOut > 0) {
+                  await financeDb.createFinanceTransaction({
+                        source: "store_daily_closing",
+                        direction: "out",
+                        amount: totalOut,
+                        transactionDate: closingDate,
+                        targetType: "store_daily_closing_expense",
+                        targetName,
+                        description: `Tổng chi cửa hàng ngày ${closingDate} · ${closingCode}`,
+                        externalRef: `${batchId}:OUT`,
+                        createdBy: actorId,
+                  });
+            }
+
             return storeLedgerDb.updateStoreDailyClosing(id, {
                   status: "approved",
-                  approvedBy: approvedBy ?? null,
+                  approvedBy: actorId,
                   approvedAt: new Date(),
+                  confirmedBy: actorId,
+                  confirmedAt: new Date(),
+                  postedToFinance: true,
+                  financeBatchId: batchId,
             } as any);
+      },
+
+      // Compatibility alias for clients still using the old endpoint name.
+      async approveDailyClosing(id: number, approvedBy?: number | null) {
+            return this.confirmDailyClosing(id, approvedBy);
       },
 
       async cancelDailyClosing(id: number) {

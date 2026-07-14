@@ -406,3 +406,76 @@ hoặc tạm tắt safe update nếu người dùng chủ động muốn, nhưng
 - [ ] Runtime giá bán thực tế khác giá hiện tại: phiếu dùng đúng giá thực tế, không đổi lịch sử giá bán.
 - [ ] Runtime ngày draft/reviewed/approved bị chặn đúng.
 - [ ] Chạy `pnpm check`, `pnpm test`, `pnpm build`.
+
+---
+
+### D10 — Việc 16K6: Báo cáo tồn kho
+
+- [x] Giữ báo cáo trong `/store-products`, không thêm menu/route mới.
+- [x] Tổng lượng tồn theo danh sách và bộ lọc hiện tại.
+- [x] Tổng giá trị vốn theo giá vốn trung bình.
+- [x] Tổng doanh thu dự kiến theo giá bán hiện tại.
+- [x] Tổng lãi gộp dự kiến.
+- [x] Bảng chi tiết tồn, giá vốn, giá bán và giá trị theo từng hàng hóa.
+- [x] Cảnh báo hàng sắp hết trong báo cáo.
+- [x] Không thay đổi DB/backend/migration.
+- [ ] Runtime kiểm tra số tổng khớp chi tiết.
+- [ ] Runtime kiểm tra search/nhóm hàng/Sắp hết tác động đúng báo cáo.
+- [ ] Runtime kiểm tra hàng chưa có giá bán hiển thị đúng.
+- [ ] Chạy `pnpm check`, `pnpm test`, `pnpm build`.
+
+
+---
+
+### D10 — Việc 16K7: Báo cáo dòng tiền cửa hàng
+
+- [x] Thêm báo cáo trong `/store-cashflow`.
+- [x] Tổng thu theo khoảng ngày lọc.
+- [x] Tổng chi theo khoảng ngày lọc.
+- [x] Chênh lệch thu chi.
+- [x] Cơ cấu Thu bán hàng / Thu khác.
+- [x] Cơ cấu Mua hàng nhập kho / Chi vận hành / Chi khác.
+- [x] Bỏ qua phát sinh đã hủy.
+- [x] Không hiển thị báo cáo dòng tiền trong Nhập kho/Bán hàng.
+- [ ] Runtime đối chiếu tổng báo cáo với Sổ phát sinh.
+- [ ] Test thay đổi khoảng ngày.
+- [ ] Chạy `pnpm check`, `pnpm test`, `pnpm build`.
+
+
+---
+
+### D12 — Việc 16K8: Chốt ngày / Xác nhận / Đẩy sổ chung
+
+- [x] Tách nghĩa Chốt ngày và Xác nhận chốt.
+- [x] Chốt ngày lưu riêng `closedBy`, `closedAt`.
+- [x] Xác nhận lưu riêng `confirmedBy`, `confirmedAt`.
+- [x] Cho xác nhận trực tiếp từ trạng thái đã chốt; không bắt buộc thao tác Đã review.
+- [x] Khi xác nhận tạo dữ liệu tổng hợp sang `finance_transactions`.
+- [x] Gộp các dòng đẩy theo `financeBatchId`.
+- [x] Thêm `external_ref` để chống đẩy trùng khi retry.
+- [x] Chỉ set `postedToFinance = true` sau khi đẩy hoàn tất.
+- [x] Giữ API cũ làm alias tương thích.
+- [ ] Chạy migration `/drizzle/viec16k8_close_confirm_post_finance.sql`.
+- [ ] Runtime: Chốt ngày không tạo dòng Finance.
+- [ ] Runtime: Xác nhận tạo đúng tổng thu/tổng chi ở sổ chung.
+- [ ] Runtime: bấm xác nhận lại không tạo trùng.
+- [ ] Runtime: bỏ chốt trước xác nhận hoạt động.
+- [ ] Runtime: sau xác nhận không thể bỏ chốt.
+- [ ] Chạy `pnpm check`, `pnpm test`, `pnpm build`.
+
+
+---
+
+### D12 — Việc 16K8.5: Group theo ngày
+
+- [x] Finance DB trả `externalRef` trong danh sách giao dịch.
+- [x] Sổ dòng tiền Finance gom tổng thu và tổng chi cửa hàng theo batch ngày chốt.
+- [x] Dòng tổng hợp Store trong Finance không cho xóa trực tiếp.
+- [x] Sổ phát sinh cửa hàng gom theo ngày.
+- [x] Group ngày hiển thị tổng thu, tổng chi, chênh lệch và trạng thái.
+- [x] Ngày chưa chốt có nút Chốt ngày trực tiếp.
+- [x] Ngày chờ xác nhận có nút Review.
+- [x] Ngày đã xác nhận có nút Xem.
+- [ ] Runtime kiểm tra bộ lọc ngày và Thu/Chi.
+- [ ] Runtime kiểm tra chốt trực tiếp từ group ngày.
+- [ ] Chạy `pnpm check`, `pnpm test`, `pnpm build`.

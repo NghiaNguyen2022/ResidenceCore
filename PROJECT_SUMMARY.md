@@ -478,3 +478,61 @@ Không thay đổi DB, backend hoặc migration trong bước này.
 - Trang Bán hàng chỉ hiển thị bộ lọc và Lịch sử bán hàng; không hiển thị Lịch sử chốt ngày hoặc Sổ phát sinh.
 - Nội dung dòng tiền, chốt ngày và sổ phát sinh tiếp tục chỉ thuộc `/store-cashflow`.
 - Không cần migration mới vì movement type `sale` đã có trong schema 16K4.1.
+
+---
+
+## Append — Việc 16K6: Báo cáo tồn kho
+
+**Trạng thái:** Patch prepared, chờ apply/runtime test.
+
+- Báo cáo tồn kho được đặt ngay trong trang `/store-products` để giữ Simple Mode, không thêm menu hoặc route mới.
+- Báo cáo sử dụng danh sách hàng hóa và bộ lọc hiện tại.
+- Giá vốn dùng `averageCostPrice`, fallback `defaultCostPrice`.
+- Giá bán dự kiến dùng `currentSalePrice`, fallback `defaultSalePrice`.
+- Thẻ tổng hợp gồm: tổng lượng tồn, giá trị vốn, doanh thu dự kiến và lãi gộp dự kiến.
+- Bảng chi tiết theo hàng hóa gồm tồn, giá vốn, giá bán, giá trị vốn, doanh thu dự kiến, lãi dự kiến và cảnh báo sắp hết.
+- Lãi gộp dự kiến chưa bao gồm chi phí vận hành hoặc các khoản chi khác.
+- Không thay đổi DB, backend, router hoặc migration trong bước này.
+
+
+---
+
+## Cập nhật 16K7 — Báo cáo dòng tiền cửa hàng
+
+**Trạng thái:** Patch prepared, chờ apply/runtime test.
+
+- Bổ sung báo cáo dòng tiền ngay trong `/store-cashflow`.
+- Tổng hợp Tổng thu, Tổng chi và Chênh lệch theo khoảng ngày lọc.
+- Phân tích cơ cấu thu: Thu bán hàng, Thu khác.
+- Phân tích cơ cấu chi: Mua hàng nhập kho, Chi vận hành, Chi khác.
+- Chỉ tính các phát sinh chưa hủy.
+- Không đưa báo cáo dòng tiền sang trang Nhập kho hoặc Bán hàng.
+- Không thay đổi DB/backend/migration.
+
+
+---
+
+## Cập nhật 16K8 — Tách Chốt ngày và Xác nhận chốt, đẩy sổ chung
+
+**Trạng thái:** Patch prepared, chờ apply/migration/runtime test.
+
+- `Chốt ngày` là thao tác của người lập: gom phát sinh, khóa tạm và chuyển sang trạng thái `Đã chốt · Chờ xác nhận`.
+- `Xác nhận chốt` là thao tác độc lập, chuẩn bị cho phân quyền hai người khác nhau.
+- Bỏ yêu cầu phải bấm một bước trạng thái `Đã review`; review chỉ còn là hành vi kiểm tra chi tiết.
+- Khi xác nhận, hệ thống đẩy tổng thu và tổng chi của ngày sang `finance_transactions` trong cùng một `financeBatchId`.
+- Mỗi dòng tổng hợp dùng `external_ref` duy nhất để retry an toàn, không đẩy trùng.
+- Chỉ sau khi đẩy thành công mới cập nhật `postedToFinance = true`, `confirmedBy`, `confirmedAt`.
+- Trước xác nhận vẫn cho phép Bỏ chốt để bổ sung; sau xác nhận thì khóa chính thức.
+- Giữ endpoint `approveDailyClosing` làm alias tương thích; endpoint mới là `confirmDailyClosing`.
+
+
+---
+
+## Append — Việc 16K8.5: Group dòng tiền và phát sinh theo ngày
+
+- Trang Tài chính lưu xá gom hai dòng tổng thu/tổng chi của cùng một ngày chốt cửa hàng thành một dòng tổng hợp theo batch `external_ref`.
+- Dòng tổng hợp hiển thị tổng thu, tổng chi và chênh lệch; không cho xóa trực tiếp tại sổ chung.
+- Trang Tổng hợp thu chi cửa hàng gom phát sinh theo ngày.
+- Mỗi group ngày hiển thị số phát sinh, tổng thu, tổng chi, chênh lệch và trạng thái chốt.
+- Ngày chưa chốt có nút Chốt ngày ngay trên group; ngày chờ xác nhận có nút Review; ngày đã xác nhận có nút Xem.
+- Không thêm migration mới.

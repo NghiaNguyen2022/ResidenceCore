@@ -261,6 +261,53 @@ export default function FinanceLite() {
       const previewResidents = previewQuery?.data || [];
       const charges = chargesQuery?.data || [];
       const transactions = transactionsQuery?.data || [];
+      const cashbookTransactions = useMemo(() => {
+            const storeGroups = new Map<string, any>();
+            const regularTransactions: any[] = [];
+
+            for (const transaction of transactions) {
+                  if (String(transaction?.source || "") !== "store_daily_closing") {
+                        regularTransactions.push(transaction);
+                        continue;
+                  }
+
+                  const externalRef = String(transaction?.externalRef || "");
+                  const batchKey = externalRef.replace(/:(IN|OUT)$/i, "") || `store-${String(transaction?.transactionDate || "")}`;
+                  const current = storeGroups.get(batchKey) || {
+                        id: `store-group-${batchKey}`,
+                        source: "store_daily_closing_group",
+                        targetType: "store_daily_closing_group",
+                        targetName: transaction?.targetName || "Cửa hàng lưu xá",
+                        transactionDate: transaction?.transactionDate,
+                        externalRef: batchKey,
+                        totalIn: 0,
+                        totalOut: 0,
+                        childTransactions: [],
+                        _groupedStoreClosing: true,
+                  };
+                  const amount = toMoneyNumber(transaction?.amount || 0);
+                  if (String(transaction?.direction) === "in") current.totalIn += amount;
+                  if (String(transaction?.direction) === "out") current.totalOut += amount;
+                  current.childTransactions.push(transaction);
+                  storeGroups.set(batchKey, current);
+            }
+
+            const grouped = Array.from(storeGroups.values()).map((group: any) => {
+                  const net = group.totalIn - group.totalOut;
+                  return {
+                        ...group,
+                        direction: net >= 0 ? "in" : "out",
+                        amount: Math.abs(net),
+                        description: `Tổng thu ${formatMoney(group.totalIn)}đ · Tổng chi ${formatMoney(group.totalOut)}đ · Chênh lệch ${net >= 0 ? "+" : "-"}${formatMoney(Math.abs(net))}đ`,
+                  };
+            });
+
+            return [...regularTransactions, ...grouped].sort((left: any, right: any) => {
+                  const dateDiff = String(right?.transactionDate || "").localeCompare(String(left?.transactionDate || ""));
+                  if (dateDiff !== 0) return dateDiff;
+                  return Number(right?.id || 0) - Number(left?.id || 0);
+            });
+      }, [transactions]);
       const feeTypes = feeTypesQuery?.data || [];
       const advanceReceiverOptions = useMemo(
             () => buildFinanceAdvanceReceiverOptions(activeResidentsQuery?.data, organizationUnitsQuery?.data),
@@ -499,6 +546,13 @@ export default function FinanceLite() {
 
       const deleteTransaction = (transaction: any) => {
             if (!transaction?.id) return;
+            if (transaction?._groupedStoreClosing) {
+                  setDeleteTransactionTarget({
+                        ...transaction,
+                        lockedMessage: "Dòng này là tổng hợp từ ngày chốt cửa hàng, không xóa trực tiếp tại Sổ dòng tiền. Hãy xử lý từ nghiệp vụ cửa hàng hoặc bằng bút toán điều chỉnh.",
+                  });
+                  return;
+            }
             setDeleteTransactionMessage("");
             if (transaction.source === "student_fee_payment") {
                   setDeleteTransactionTarget({
@@ -1877,7 +1931,7 @@ export default function FinanceLite() {
                               {
                                     activeTab === "cashbook" ? (
                                           <FinanceCashbookPanel
-                                                transactions={transactions}
+                                                transactions={cashbookTransactions}
                                                 charges={charges}
                                                 selectedPeriod={selectedPeriod}
                                                 selectedPeriodMonths={selectedPeriodMonths}

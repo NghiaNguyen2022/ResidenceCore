@@ -500,6 +500,23 @@ export async function updateStoreDailyClosing(id: number, data: Partial<InsertSt
       return getStoreDailyClosingById(id);
 }
 
+export async function listUnclosedStoreLedgerTransactions(input: { ledgerId: number; closingDate: string }) {
+      const db = await dbOrThrow();
+      return db
+            .select()
+            .from(storeLedgerTransactions)
+            .where(
+                  and(
+                        eq(storeLedgerTransactions.ledgerId, input.ledgerId),
+                        eq(storeLedgerTransactions.transactionDate, input.closingDate),
+                        eq(storeLedgerTransactions.isActive, true),
+                        eq(storeLedgerTransactions.status, "posted" as any),
+                        isNull(storeLedgerTransactions.dailyClosingId),
+                  ),
+            )
+            .orderBy(desc(storeLedgerTransactions.id));
+}
+
 export async function getUnclosedStoreLedgerSummary(input: { ledgerId: number; closingDate: string }) {
       const db = await dbOrThrow();
       const rows = await db

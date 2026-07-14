@@ -202,6 +202,18 @@ export const storeLedgerRouter = router({
                   return storeLedgerService.listDailyClosings(input || {});
             }),
 
+      previewDailyClosing: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive(),
+                        closingDate: z.string().trim().min(1),
+                  }),
+            )
+            .query(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.previewDailyClosing(input);
+            }),
+
       closeDaily: protectedProcedure
             .input(
                   z.object({
@@ -230,11 +242,19 @@ export const storeLedgerRouter = router({
                   return storeLedgerService.reviewDailyClosing(input.id, getUserId(ctx));
             }),
 
+      confirmDailyClosing: protectedProcedure
+            .input(z.object({ id: z.number().int().positive() }))
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.confirmDailyClosing(input.id, getUserId(ctx));
+            }),
+
+      // Compatibility endpoint for older clients.
       approveDailyClosing: protectedProcedure
             .input(z.object({ id: z.number().int().positive() }))
             .mutation(async ({ ctx, input }) => {
                   requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.approveDailyClosing(input.id, getUserId(ctx));
+                  return storeLedgerService.confirmDailyClosing(input.id, getUserId(ctx));
             }),
 
       cancelDailyClosing: protectedProcedure

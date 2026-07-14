@@ -227,6 +227,7 @@ async function ensureFinanceSchema(db: any) {
                   to_month INT NOT NULL DEFAULT 12,
                   status VARCHAR(40) NOT NULL DEFAULT 'draft',
                   description TEXT NULL,
+                  external_ref VARCHAR(160) NULL,
                   created_by INT NULL,
                   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -321,6 +322,8 @@ async function ensureFinanceSchema(db: any) {
       `);
 
       await db.execute(sql`ALTER TABLE finance_transactions MODIFY COLUMN target_type VARCHAR(160) NULL`).catch(() => undefined);
+      await ensureColumn(db, 'finance_transactions', 'external_ref', 'ALTER TABLE finance_transactions ADD COLUMN external_ref VARCHAR(160) NULL AFTER description');
+      await db.execute(sql`CREATE UNIQUE INDEX uq_finance_transactions_external_ref ON finance_transactions (external_ref)`).catch(() => undefined);
       await db.execute(sql`ALTER TABLE finance_charges MODIFY COLUMN target_type VARCHAR(160) NULL`).catch(() => undefined);
 
       const chargeColumns = [
@@ -1436,6 +1439,7 @@ export async function listFinanceTransactions(input: {
                   target_type AS targetType,
                   target_name AS targetName,
                   description,
+                  external_ref AS externalRef,
                   created_by AS createdBy,
                   created_at AS createdAt
             FROM finance_transactions
@@ -1459,6 +1463,7 @@ export async function createFinanceTransaction(input: {
       targetType?: string | null;
       targetName?: string | null;
       description?: string | null;
+      externalRef?: string | null;
       createdBy?: number | null;
 }) {
       const db = await getFinanceDb();
@@ -1480,6 +1485,15 @@ export async function createFinanceTransaction(input: {
       if (!targetName) throw new Error('Vui lòng nhập đối tượng/người nhận hoặc nguồn thu.');
       if (!description) throw new Error('Vui lòng nhập mục đích hoặc ghi chú nghiệp vụ.');
 
+      const externalRef = String(input.externalRef || '').trim() || null;
+      if (externalRef) {
+            const existing = await db.execute(sql`
+                  SELECT id FROM finance_transactions WHERE external_ref = ${externalRef} LIMIT 1
+            `);
+            const existingId = Number(getRows(existing)?.[0]?.id || 0);
+            if (existingId) return { success: true, id: existingId, duplicated: true };
+      }
+
       await db.execute(sql`
             INSERT INTO finance_transactions (
                   source,
@@ -1489,6 +1503,7 @@ export async function createFinanceTransaction(input: {
                   target_type,
                   target_name,
                   description,
+                  external_ref,
                   created_by,
                   created_at,
                   updated_at
@@ -1501,13 +1516,15 @@ export async function createFinanceTransaction(input: {
                   ${input.targetType || source},
                   ${targetName},
                   ${description},
+                  ${externalRef},
                   ${input.createdBy || null},
                   NOW(),
                   NOW()
             )
       `);
 
-      return { success: true };
+      const inserted = await db.execute(sql`SELECT LAST_INSERT_ID() AS id`);
+      return { success: true, id: Number(getRows(inserted)?.[0]?.id || 0), duplicated: false };
 }
 
 export async function deleteFinanceTransaction(input: { id: number }) {

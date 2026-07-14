@@ -160,6 +160,24 @@ function formatCurrencyInput(value: string | number | null | undefined) {
     : "";
 }
 
+function normalizeDateKey(value: unknown) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const direct = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+    if (direct) return direct;
+  }
+  const date = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 function formatDateText(value: unknown) {
   if (!value) return "";
   const date = value instanceof Date ? value : new Date(String(value));
@@ -266,9 +284,9 @@ function directionClass(value?: string | null) {
 function closingStatusLabel(status?: string | null) {
   switch (status) {
     case "draft":
-      return "Chờ review";
+      return "Đã chốt · Chờ xác nhận";
     case "reviewed":
-      return "Đã review";
+      return "Đã chốt · Chờ xác nhận";
     case "approved":
     case "closed":
       return "Đã xác nhận";
@@ -300,7 +318,7 @@ function canCancelClosing(status?: string | null) {
 }
 
 function canApproveClosing(status?: string | null) {
-  return status === "reviewed";
+  return status === "draft" || status === "reviewed";
 }
 
 function canReviewClosing(status?: string | null) {
@@ -468,6 +486,7 @@ export default function StoreLedger() {
     null,
   );
   const [reviewClosingId, setReviewClosingId] = useState<number | null>(null);
+  const [closingPreviewOpen, setClosingPreviewOpen] = useState(false);
   const [ledgerForm, setLedgerForm] =
     useState<LedgerFormState>(emptyLedgerForm);
   const [productForm, setProductForm] =
@@ -540,6 +559,11 @@ export default function StoreLedger() {
     { ledgerId: activeLedgerId || undefined, fromDate, toDate, limit: 20 },
     { enabled: !!activeLedgerId },
   ) ?? { data: [], isLoading: false, error: null, refetch: () => undefined };
+
+  const closingPreviewQuery = storeLedgerApi?.previewDailyClosing?.useQuery?.(
+    { ledgerId: activeLedgerId || 0, closingDate },
+    { enabled: closingPreviewOpen && !!activeLedgerId },
+  ) ?? { data: null, isLoading: false, error: null, refetch: () => undefined };
 
   const closingDetailQuery = storeLedgerApi?.getDailyClosingDetail?.useQuery?.(
     { id: reviewClosingId || 0 },
@@ -728,9 +752,11 @@ export default function StoreLedger() {
     });
 
   const closeDailyMutation = storeLedgerApi?.closeDaily?.useMutation?.({
-    onSuccess: async (closing: any) => {
+    onSuccess: async () => {
       setClosingError("");
-      if (closing?.id) setReviewClosingId(Number(closing.id));
+      setClosingPreviewOpen(false);
+      // Người lập chỉ hoàn tất thao tác chốt ngày. Không tự mở màn hình xác nhận,
+      // vì bước review/xác nhận sẽ do người khác thực hiện từ Lịch sử chốt ngày.
       await Promise.all([
         summaryQuery.refetch?.(),
         transactionsQuery.refetch?.(),
@@ -760,7 +786,7 @@ export default function StoreLedger() {
     });
 
   const approveDailyClosingMutation =
-    storeLedgerApi?.approveDailyClosing?.useMutation?.({
+    (storeLedgerApi?.confirmDailyClosing || storeLedgerApi?.approveDailyClosing)?.useMutation?.({
       onSuccess: async () => {
         await Promise.all([
           summaryQuery.refetch?.(),
@@ -771,20 +797,29 @@ export default function StoreLedger() {
       },
       onError: (error: any) =>
         setBlockingNotice({
-          title: "Không thể xác nhận chốt",
-          message: error?.message || "Không thể xác nhận ngày chốt.",
+          title: "Không thể xác nhận và đẩy sổ chung",
+          message: error?.message || "Không thể xác nhận ngày chốt hoặc đẩy dữ liệu sang sổ tài chính chung.",
         }),
     });
 
   const cancelDailyClosingMutation =
     storeLedgerApi?.cancelDailyClosing?.useMutation?.({
       onSuccess: async () => {
-        setReviewClosingId(null);
+        // Mở lại toàn bộ dữ liệu liên quan trước, sau đó mới đóng popup review,
+        // để danh sách phát sinh, báo cáo, lịch sử nhập/bán và trạng thái chốt
+        // đều phản ánh ngay dữ liệu vừa được trả về trạng thái chưa chốt.
         await Promise.all([
           summaryQuery.refetch?.(),
           transactionsQuery.refetch?.(),
           dailyClosingsQuery.refetch?.(),
+          closingDetailQuery.refetch?.(),
+          closingPreviewQuery.refetch?.(),
+          stockMovementsQuery.refetch?.(),
+          saleMovementsQuery.refetch?.(),
+          productsQuery.refetch?.(),
         ]);
+        setReviewClosingId(null);
+        setClosingError("");
       },
       onError: (error: any) =>
         setBlockingNotice({
@@ -804,21 +839,31 @@ export default function StoreLedger() {
   const productSummary = useMemo(() => {
     const categorySet = new Set<string>();
     let lowStockCount = 0;
+    let totalStock = 0;
     let inventoryValue = 0;
+    let expectedSaleValue = 0;
+
     products.forEach((product: any) => {
       const category = String(product.category || "general");
       categorySet.add(category);
       const stock = Number(product.currentStock || 0);
       const minStock = Number(product.minStock || 0);
-      const cost = Number(product.defaultCostPrice || 0);
+      const cost = Number(product.averageCostPrice || product.defaultCostPrice || 0);
+      const sale = Number(product.currentSalePrice || product.defaultSalePrice || 0);
       if (minStock > 0 && stock <= minStock) lowStockCount += 1;
+      totalStock += stock;
       inventoryValue += stock * cost;
+      expectedSaleValue += stock * sale;
     });
+
     return {
       totalProducts: products.length,
       totalCategories: categorySet.size,
       lowStockCount,
+      totalStock,
       inventoryValue,
+      expectedSaleValue,
+      expectedProfit: expectedSaleValue - inventoryValue,
     };
   }, [products]);
   const productCategoryOptions = useMemo(() => {
@@ -881,7 +926,43 @@ export default function StoreLedger() {
     };
   }, [saleMovements, transactions]);
 
+  const cashflowReport = useMemo(() => {
+    const posted = transactions.filter((item: any) => item.status !== "cancelled");
+    const totalIn = posted
+      .filter((item: any) => item.direction === "in")
+      .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+    const totalOut = posted
+      .filter((item: any) => item.direction === "out")
+      .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+    const salesRevenue = posted
+      .filter((item: any) => item.direction === "in" && item.category === "sales")
+      .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+    const purchaseExpense = posted
+      .filter((item: any) => item.direction === "out" && item.category === "purchase_stock")
+      .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+    const operationExpense = posted
+      .filter((item: any) => item.direction === "out" && item.category === "operation")
+      .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+    const otherIn = totalIn - salesRevenue;
+    const otherOut = totalOut - purchaseExpense - operationExpense;
+    return {
+      totalIn,
+      totalOut,
+      net: totalIn - totalOut,
+      salesRevenue,
+      purchaseExpense,
+      operationExpense,
+      otherIn,
+      otherOut,
+      transactionCount: posted.length,
+    };
+  }, [transactions]);
+
   const dailyClosings = dailyClosingsQuery.data || [];
+  const visibleDailyClosings = useMemo(
+    () => dailyClosings.filter((closing: any) => String(closing.status) !== "cancelled"),
+    [dailyClosings],
+  );
   const activeLedger = ledgers.find(
     (item: any) => Number(item.id) === Number(activeLedgerId),
   );
@@ -935,6 +1016,35 @@ export default function StoreLedger() {
     }
     return transactions;
   }, [transactions, activeStoreTab]);
+  const transactionDayGroups = useMemo(() => {
+    const closingByDate = new Map<string, any>();
+    visibleDailyClosings.forEach((closing: any) => {
+      closingByDate.set(normalizeDateKey(closing.closingDate), closing);
+    });
+
+    const groups = new Map<string, any>();
+    tabTransactions.forEach((transaction: any) => {
+      const dateKey = normalizeDateKey(transaction.transactionDate);
+      if (!dateKey) return;
+      const current = groups.get(dateKey) || {
+        dateKey,
+        transactions: [],
+        totalIn: 0,
+        totalOut: 0,
+        closing: closingByDate.get(dateKey) || null,
+      };
+      current.transactions.push(transaction);
+      if (transaction.status !== "cancelled") {
+        if (transaction.direction === "in") current.totalIn += Number(transaction.amount || 0);
+        if (transaction.direction === "out") current.totalOut += Number(transaction.amount || 0);
+      }
+      groups.set(dateKey, current);
+    });
+
+    return Array.from(groups.values()).sort((left: any, right: any) =>
+      String(right.dateKey).localeCompare(String(left.dateKey)),
+    );
+  }, [tabTransactions, visibleDailyClosings]);
   const closingDetail = closingDetailQuery.data as any;
   const reviewClosing = closingDetail?.closing;
   const reviewTransactions = closingDetail?.transactions || [];
@@ -1214,6 +1324,11 @@ export default function StoreLedger() {
       return;
     }
     setClosingError("");
+    setClosingPreviewOpen(true);
+  }
+
+  function confirmCloseDaily() {
+    if (!activeLedgerId) return;
     closeDailyMutation?.mutate?.({ ledgerId: activeLedgerId, closingDate });
   }
 
@@ -1552,6 +1667,108 @@ export default function StoreLedger() {
             </section>
           ) : null}
 
+          {activeStoreTab === "products" ? (
+            <section className={residenceMediumStyle.section}>
+              <div className={residenceMediumStyle.sectionHeader}>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">
+                    Báo cáo tồn kho
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black text-slate-950">
+                    Giá trị hàng đang có
+                  </h2>
+                  <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+                    Tổng hợp theo danh sách và bộ lọc hiện tại. Giá vốn dùng giá vốn trung bình; giá bán dự kiến dùng giá bán hiện hành.
+                  </p>
+                </div>
+              </div>
+              <div className={`${residenceMediumStyle.sectionBody} space-y-4`}>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <SummaryCard
+                    icon={<Boxes className="h-5 w-5" />}
+                    label="Tổng lượng tồn"
+                    value={formatMoney(productSummary.totalStock)}
+                    tone="slate"
+                  />
+                  <SummaryCard
+                    icon={<WalletCards className="h-5 w-5" />}
+                    label="Giá trị vốn"
+                    value={`${formatMoney(productSummary.inventoryValue)} đ`}
+                    tone="rose"
+                  />
+                  <SummaryCard
+                    icon={<CircleDollarSign className="h-5 w-5" />}
+                    label="Doanh thu dự kiến"
+                    value={`${formatMoney(productSummary.expectedSaleValue)} đ`}
+                    tone="emerald"
+                  />
+                  <SummaryCard
+                    icon={<Store className="h-5 w-5" />}
+                    label="Lãi gộp dự kiến"
+                    value={`${formatMoney(productSummary.expectedProfit)} đ`}
+                    tone="amber"
+                  />
+                </div>
+
+                {products.length ? (
+                  <div className="overflow-hidden rounded-[1.5rem] border border-[#eadfca] bg-white shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-left text-sm">
+                        <thead className="bg-amber-50/80 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+                          <tr>
+                            <th className="px-4 py-3">Hàng hóa</th>
+                            <th className="px-4 py-3 text-right">Tồn</th>
+                            <th className="px-4 py-3 text-right">Giá vốn</th>
+                            <th className="px-4 py-3 text-right">Giá bán</th>
+                            <th className="px-4 py-3 text-right">Giá trị vốn</th>
+                            <th className="px-4 py-3 text-right">Doanh thu dự kiến</th>
+                            <th className="px-4 py-3 text-right">Lãi dự kiến</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#efe5d3]">
+                          {products.map((product: any) => {
+                            const stock = Number(product.currentStock || 0);
+                            const minStock = Number(product.minStock || 0);
+                            const cost = Number(product.averageCostPrice || product.defaultCostPrice || 0);
+                            const sale = Number(product.currentSalePrice || product.defaultSalePrice || 0);
+                            const costValue = stock * cost;
+                            const saleValue = stock * sale;
+                            const expectedProfit = saleValue - costValue;
+                            const lowStock = minStock > 0 && stock <= minStock;
+                            return (
+                              <tr key={`inventory-${product.id}`} className="text-slate-700">
+                                <td className="px-4 py-3">
+                                  <div className="font-black text-slate-950">{product.productName}</div>
+                                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                                    <span>{productCategoryLabel(product.category)}</span>
+                                    {lowStock ? <span className="rounded-full bg-rose-50 px-2 py-0.5 font-black text-rose-700">Sắp hết</span> : null}
+                                  </div>
+                                </td>
+                                <td className="whitespace-nowrap px-4 py-3 text-right font-black text-slate-950">{formatMoney(stock)} {product.unit || ""}</td>
+                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold">{cost > 0 ? `${formatMoney(cost)} đ` : "—"}</td>
+                                <td className="whitespace-nowrap px-4 py-3 text-right font-bold text-amber-700">{sale > 0 ? `${formatMoney(sale)} đ` : "—"}</td>
+                                <td className="whitespace-nowrap px-4 py-3 text-right font-black">{formatMoney(costValue)} đ</td>
+                                <td className="whitespace-nowrap px-4 py-3 text-right font-black text-emerald-700">{formatMoney(saleValue)} đ</td>
+                                <td className={`whitespace-nowrap px-4 py-3 text-right font-black ${expectedProfit >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{formatMoney(expectedProfit)} đ</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-[1.5rem] border border-dashed border-amber-200 bg-amber-50/60 p-5 text-center text-sm font-semibold text-slate-600">
+                    Chưa có dữ liệu hàng hóa để lập báo cáo tồn kho.
+                  </div>
+                )}
+                <p className="text-xs font-semibold leading-5 text-slate-500">
+                  Lãi gộp dự kiến chỉ là giá bán hiện tại trừ giá vốn hiện tại của lượng hàng còn tồn; chưa trừ chi phí vận hành và các khoản chi khác.
+                </p>
+              </div>
+            </section>
+          ) : null}
+
           <section className="space-y-4">
             <main className="min-w-0 space-y-4">
               {activeStoreTab !== "products" ? (
@@ -1662,8 +1879,7 @@ export default function StoreLedger() {
                             }
                           />
                           <div className="text-xs font-semibold leading-5 text-slate-500">
-                            Tạo bản chốt tạm theo ngày để review chi tiết. Chỉ khi
-                            bấm xác nhận chốt thì ngày mới khóa chính thức.
+                            Chốt ngày là bước của người lập. Dữ liệu chỉ được khóa chính thức và đẩy sang sổ tài chính chung khi một người có quyền thực hiện Xác nhận chốt.
                           </div>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -1690,6 +1906,42 @@ export default function StoreLedger() {
                   </section>
 
                   {activeStoreTab === "cashflow" ? (
+                    <section className={residenceMediumStyle.section}>
+                      <div className={residenceMediumStyle.sectionHeader}>
+                        <div>
+                          <h2 className="text-base font-black text-slate-950">Báo cáo dòng tiền</h2>
+                          <p className="text-sm font-semibold text-slate-500">Tổng hợp cơ cấu thu, chi trong khoảng thời gian đang lọc.</p>
+                        </div>
+                      </div>
+                      <div className={`${residenceMediumStyle.sectionBody} space-y-4`}>
+                        <div className="grid gap-3 md:grid-cols-3">
+                          <MiniStat label="Tổng thu" value={`${formatMoney(cashflowReport.totalIn)} đ`} />
+                          <MiniStat label="Tổng chi" value={`${formatMoney(cashflowReport.totalOut)} đ`} />
+                          <MiniStat label="Chênh lệch" value={`${formatMoney(cashflowReport.net)} đ`} />
+                        </div>
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Cơ cấu thu</p>
+                            <div className="mt-3 space-y-2">
+                              <CashflowLine label="Thu bán hàng" value={cashflowReport.salesRevenue} total={cashflowReport.totalIn} />
+                              <CashflowLine label="Thu khác" value={cashflowReport.otherIn} total={cashflowReport.totalIn} />
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-4">
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-700">Cơ cấu chi</p>
+                            <div className="mt-3 space-y-2">
+                              <CashflowLine label="Mua hàng nhập kho" value={cashflowReport.purchaseExpense} total={cashflowReport.totalOut} />
+                              <CashflowLine label="Chi vận hành" value={cashflowReport.operationExpense} total={cashflowReport.totalOut} />
+                              <CashflowLine label="Chi khác" value={cashflowReport.otherOut} total={cashflowReport.totalOut} />
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs font-semibold text-slate-500">Báo cáo dựa trên {cashflowReport.transactionCount} phát sinh chưa hủy trong khoảng ngày đang chọn.</p>
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {activeStoreTab === "cashflow" ? (
                   <section className={residenceMediumStyle.section}>
                     <div className={residenceMediumStyle.sectionHeader}>
                       <div>
@@ -1697,7 +1949,7 @@ export default function StoreLedger() {
                           Lịch sử chốt ngày
                         </h2>
                         <p className="text-sm font-semibold text-slate-500">
-                          Các ngày đã khóa phát sinh, chưa đẩy sang sổ chung.
+                          Chốt ngày và xác nhận chốt là hai thao tác riêng. Người xác nhận mở Review để kiểm tra và đẩy sang sổ chung.
                         </p>
                       </div>
                     </div>
@@ -1708,8 +1960,8 @@ export default function StoreLedger() {
                         <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 text-sm font-semibold text-slate-600">
                           Đang tải lịch sử chốt...
                         </div>
-                      ) : dailyClosings.length ? (
-                        dailyClosings.map((closing: any) => (
+                      ) : visibleDailyClosings.length ? (
+                        visibleDailyClosings.map((closing: any) => (
                           <article
                             key={closing.id}
                             className="rounded-2xl border border-[#eadfca] bg-white/90 px-4 py-3 shadow-sm"
@@ -1735,7 +1987,7 @@ export default function StoreLedger() {
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-700 ring-1 ring-amber-100">
-                                  Chưa đẩy sổ chung
+                                  {closing.postedToFinance ? "Đã đẩy sổ chung" : "Chưa đẩy sổ chung"}
                                 </span>
                                 <span
                                   className={`text-sm font-black ${Number(closing.netAmount || 0) >= 0 ? "text-emerald-700" : "text-rose-700"}`}
@@ -1855,109 +2107,72 @@ export default function StoreLedger() {
                   <section className={residenceMediumStyle.section}>
                     <div className={residenceMediumStyle.sectionHeader}>
                       <div>
-                        <h2 className="text-base font-black text-slate-950">
-                          Sổ phát sinh
-                        </h2>
+                        <h2 className="text-base font-black text-slate-950">Sổ phát sinh theo ngày</h2>
                         <p className="text-sm font-semibold text-slate-500">
-                          {activeLedger
-                            ? activeLedger.ledgerName
-                            : "Chưa khởi tạo cửa hàng"}
+                          {activeLedger ? activeLedger.ledgerName : "Chưa khởi tạo cửa hàng"} · Có thể chốt trực tiếp tại từng ngày chưa chốt.
                         </p>
                       </div>
                     </div>
-                    <div
-                      className={`${residenceMediumStyle.sectionBody} space-y-2`}
-                    >
+                    <div className={`${residenceMediumStyle.sectionBody} space-y-3`}>
                       {transactionsQuery.isLoading ? (
-                        <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 text-sm font-semibold text-slate-600">
-                          Đang tải phát sinh...
-                        </div>
-                      ) : tabTransactions.length ? (
-                        tabTransactions.map((item: any) => (
-                          <article
-                            key={item.id}
-                            className="group rounded-2xl border border-[#eadfca] bg-[linear-gradient(135deg,#ffffff_0%,#fffaf0_100%)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                          >
-                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span
-                                    className={`rounded-full border px-2.5 py-1 text-xs font-black ${directionClass(item.direction)}`}
-                                  >
-                                    {directionLabel(item.direction)}
-                                  </span>
-                                  <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1 text-xs font-bold text-amber-700">
-                                    {categoryLabel(item.category)}
-                                  </span>
-                                  <span className="text-xs font-bold text-slate-400">
-                                    {formatDateText(item.transactionDate)}
-                                  </span>
+                        <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 text-sm font-semibold text-slate-600">Đang tải phát sinh...</div>
+                      ) : transactionDayGroups.length ? (
+                        transactionDayGroups.map((group: any) => {
+                          const closing = group.closing;
+                          const isApproved = closing && ["approved", "closed"].includes(String(closing.status));
+                          const isWaiting = closing && ["draft", "reviewed"].includes(String(closing.status));
+                          return (
+                            <article key={group.dateKey} className="overflow-hidden rounded-[1.5rem] border border-[#eadfca] bg-white/95 shadow-sm">
+                              <div className="flex flex-col gap-3 border-b border-[#efe5d3] bg-[linear-gradient(135deg,#fffaf0_0%,#ffffff_100%)] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h3 className="text-base font-black text-slate-950">{formatDateText(group.dateKey)}</h3>
+                                    <span className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${isApproved ? "bg-emerald-50 text-emerald-700 ring-emerald-100" : isWaiting ? "bg-amber-50 text-amber-700 ring-amber-100" : "bg-slate-100 text-slate-600 ring-slate-200"}`}>
+                                      {isApproved ? "Đã xác nhận · Đã đẩy sổ chung" : isWaiting ? "Đã chốt · Chờ xác nhận" : "Chưa chốt"}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                                    {group.transactions.length} phát sinh · Thu {formatMoney(group.totalIn)}đ · Chi {formatMoney(group.totalOut)}đ · Chênh lệch {formatMoney(group.totalIn - group.totalOut)}đ
+                                  </p>
                                 </div>
-                                <h3 className="mt-2 truncate text-base font-black text-slate-950">
-                                  {item.title}
-                                </h3>
-                                <p className="mt-1 text-sm font-semibold text-slate-500">
-                                  {item.partnerName ||
-                                    item.description ||
-                                    item.transactionCode}
-                                </p>
-                              </div>
-                              <div className="flex shrink-0 items-center justify-between gap-3 lg:justify-end">
-                                <p
-                                  className={`text-lg font-black ${item.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}
-                                >
-                                  {item.direction === "in" ? "+" : "-"}
-                                  {formatMoney(item.amount)} đ
-                                </p>
-                                <div className="flex items-center gap-1">
-                                  {item.status !== "cancelled" ? (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        item.dailyClosingId
-                                          ? showClosedTransactionNotice("hủy")
-                                          : cancelTransactionMutation?.mutate?.(
-                                              { id: Number(item.id) },
-                                            )
-                                      }
-                                      className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-                                      title="Hủy phát sinh"
-                                    >
-                                      <XCircle className="h-4 w-4" />
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {!closing ? (
+                                    <button type="button" onClick={() => { setClosingDate(group.dateKey); setClosingError(""); setClosingPreviewOpen(true); }} className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-xs font-black text-white shadow-sm">
+                                      <ShieldCheck className="h-4 w-4" /> Chốt ngày
                                     </button>
                                   ) : (
-                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
-                                      Đã hủy
-                                    </span>
+                                    <button type="button" onClick={() => setReviewClosingId(Number(closing.id))} className="inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-white px-4 py-2 text-xs font-black text-amber-700 shadow-sm hover:bg-amber-50">
+                                      <Eye className="h-4 w-4" /> {isApproved ? "Xem" : "Review"}
+                                    </button>
                                   )}
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      item.dailyClosingId
-                                        ? showClosedTransactionNotice("xóa")
-                                        : deleteTransactionMutation?.mutate?.({
-                                            id: Number(item.id),
-                                          })
-                                    }
-                                    className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-                                    title="Xóa phát sinh"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
                                 </div>
                               </div>
-                            </div>
-                          </article>
-                        ))
+                              <div className="divide-y divide-[#efe5d3]">
+                                {group.transactions.map((item: any) => (
+                                  <div key={item.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${directionClass(item.direction)}`}>{directionLabel(item.direction)}</span>
+                                        <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1 text-xs font-bold text-amber-700">{categoryLabel(item.category)}</span>
+                                      </div>
+                                      <p className="mt-1 truncate text-sm font-black text-slate-950">{item.title}</p>
+                                      <p className="mt-0.5 text-xs font-semibold text-slate-500">{item.partnerName || item.description || item.transactionCode}</p>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                      <p className={`text-base font-black ${item.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{item.direction === "in" ? "+" : "-"}{formatMoney(item.amount)} đ</p>
+                                      <button type="button" onClick={() => item.dailyClosingId ? showClosedTransactionNotice("hủy") : cancelTransactionMutation?.mutate?.({ id: Number(item.id) })} className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600" title="Hủy phát sinh"><XCircle className="h-4 w-4" /></button>
+                                      <button type="button" onClick={() => item.dailyClosingId ? showClosedTransactionNotice("xóa") : deleteTransactionMutation?.mutate?.({ id: Number(item.id) })} className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600" title="Xóa phát sinh"><Trash2 className="h-4 w-4" /></button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </article>
+                          );
+                        })
                       ) : (
                         <div className="rounded-[1.5rem] border border-dashed border-amber-200 bg-amber-50/60 p-6 text-center">
                           <CheckCircle2 className="mx-auto h-8 w-8 text-amber-500" />
-                          <p className="mt-2 text-sm font-black text-slate-800">
-                            Chưa có phát sinh trong khoảng thời gian này
-                          </p>
-                          <p className="mt-1 text-xs font-semibold text-slate-500">
-                            Bấm Ghi thu hoặc Ghi chi để bắt đầu.
-                          </p>
+                          <p className="mt-2 text-sm font-black text-slate-800">Chưa có phát sinh trong khoảng thời gian này</p>
                         </div>
                       )}
                     </div>
@@ -2840,9 +3055,69 @@ export default function StoreLedger() {
         </Modal>
       ) : null}
 
+      {closingPreviewOpen ? (
+        <Modal
+          title="Xem trước chốt ngày"
+          onClose={() => setClosingPreviewOpen(false)}
+          overlayClassName="z-[95]"
+        >
+          {closingPreviewQuery.isLoading ? (
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 text-sm font-semibold text-slate-600">
+              Đang tổng hợp phát sinh trong ngày...
+            </div>
+          ) : closingPreviewQuery.error ? (
+            <ErrorText>{(closingPreviewQuery.error as any)?.message || "Không thể tải dữ liệu xem trước."}</ErrorText>
+          ) : (closingPreviewQuery.data as any)?.summary ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
+                  Ngày {formatDateText((closingPreviewQuery.data as any).closingDate)}
+                </p>
+                <h3 className="mt-1 text-lg font-black text-slate-950">Kiểm tra trước khi chốt</h3>
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                  Đây chỉ là bản xem trước. Dữ liệu chưa bị khóa và chưa tạo lịch sử chốt cho đến khi bấm Xác nhận chốt ngày.
+                </p>
+                <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                  <MiniStat label="Phát sinh" value={String((closingPreviewQuery.data as any).summary.transactionCount || 0)} />
+                  <MiniStat label="Tổng thu" value={`${formatMoney((closingPreviewQuery.data as any).summary.totalIn)} đ`} />
+                  <MiniStat label="Tổng chi" value={`${formatMoney((closingPreviewQuery.data as any).summary.totalOut)} đ`} />
+                  <MiniStat label="Chênh lệch" value={`${formatMoney((closingPreviewQuery.data as any).summary.balance)} đ`} />
+                </div>
+              </div>
+              <div className="max-h-[34vh] space-y-2 overflow-y-auto pr-1">
+                {((closingPreviewQuery.data as any).transactions || []).map((item: any) => (
+                  <div key={item.id} className="rounded-2xl border border-[#eadfca] bg-white px-4 py-3 shadow-sm">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${directionClass(item.direction)}`}>{directionLabel(item.direction)}</span>
+                          <span className="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">{categoryLabel(item.category)}</span>
+                        </div>
+                        <p className="mt-1 text-sm font-black text-slate-950">{item.title}</p>
+                        <p className="mt-0.5 text-xs font-semibold text-slate-500">{item.partnerName || item.transactionCode}</p>
+                      </div>
+                      <p className={`text-base font-black ${item.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>
+                        {item.direction === "in" ? "+" : "-"}{formatMoney(item.amount)} đ
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2 border-t border-[#eadfca] pt-4">
+                <button type="button" onClick={() => setClosingPreviewOpen(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700">Quay lại</button>
+                <button type="button" onClick={confirmCloseDaily} disabled={closeDailyMutation?.isPending} className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60">
+                  <ShieldCheck className="h-4 w-4" />
+                  {closeDailyMutation?.isPending ? "Đang chốt..." : "Xác nhận chốt ngày"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </Modal>
+      ) : null}
+
       {reviewClosingId ? (
         <Modal
-          title="Review ngày chốt"
+          title="Kiểm tra và xác nhận ngày chốt"
           onClose={() => setReviewClosingId(null)}
           overlayClassName="z-[95]"
         >
@@ -2860,11 +3135,10 @@ export default function StoreLedger() {
                       {reviewClosing.closingCode}
                     </p>
                     <h3 className="mt-1 text-lg font-black text-slate-950">
-                      Review chi tiết trước khi xác nhận chốt
+                      Kiểm tra chi tiết trước khi xác nhận
                     </h3>
                     <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-                      Ngày chốt tạm có thể bỏ chốt để bổ sung. Sau khi xác nhận
-                      chốt, phát sinh trong ngày sẽ bị khóa chính thức.
+                      Người lập đã thực hiện Chốt ngày. Trước khi xác nhận có thể bỏ chốt để bổ sung; khi xác nhận, dữ liệu khóa chính thức và được đẩy sang sổ tài chính chung.
                     </p>
                   </div>
                   <span
@@ -2954,21 +3228,6 @@ export default function StoreLedger() {
                     Bỏ chốt để bổ sung
                   </button>
                 ) : null}
-                {canReviewClosing(reviewClosing.status) ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      reviewDailyClosingMutation?.mutate?.({
-                        id: Number(reviewClosing.id),
-                      })
-                    }
-                    disabled={reviewDailyClosingMutation?.isPending}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-2.5 text-sm font-black text-sky-700 shadow-sm hover:bg-sky-100 disabled:opacity-60"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Đã review
-                  </button>
-                ) : null}
                 {canApproveClosing(reviewClosing.status) ? (
                   <button
                     type="button"
@@ -2981,7 +3240,7 @@ export default function StoreLedger() {
                     className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-slate-950/20 disabled:opacity-60"
                   >
                     <ShieldCheck className="h-4 w-4" />
-                    Xác nhận chốt
+                    Xác nhận & đẩy sổ chung
                   </button>
                 ) : null}
               </div>
@@ -2992,6 +3251,22 @@ export default function StoreLedger() {
         </Modal>
       ) : null}
     </ResidenceCareLayout>
+  );
+}
+
+function CashflowLine({ label, value, total }: { label: string; value: number; total: number }) {
+  const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <div className="rounded-xl border border-white/80 bg-white/85 px-3 py-2 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-bold text-slate-600">{label}</span>
+        <span className="text-sm font-black text-slate-950">{formatMoney(value)} đ</span>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-slate-700" style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
+      </div>
+      <p className="mt-1 text-right text-[11px] font-bold text-slate-400">{percent}%</p>
+    </div>
   );
 }
 
