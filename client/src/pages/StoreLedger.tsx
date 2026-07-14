@@ -9,6 +9,10 @@ import {
   CircleDollarSign,
   Eye,
   Plus,
+  PackagePlus,
+  Boxes,
+  Layers3,
+  ShoppingCart,
   Search,
   ShieldCheck,
   Store,
@@ -27,7 +31,7 @@ import { useLocation } from "wouter";
 const transactionCategories = [
   { value: "sales", label: "Bán hàng" },
   { value: "donation", label: "Ủng hộ" },
-  { value: "purchase_stock", label: "Nhập hàng" },
+  { value: "purchase_stock", label: "Mua hàng nhập kho" },
   { value: "purchase", label: "Mua hàng" },
   { value: "operation", label: "Vận hành" },
   { value: "other", label: "Khác" },
@@ -90,7 +94,7 @@ const storeTabs = [
   {
     value: "purchase",
     label: "Mua hàng / nhập kho",
-    description: "Chi mua hàng, nhập hàng về kho",
+    description: "Phiếu nhập, nguồn nhập và số lượng hàng vào kho",
   },
   {
     value: "sales",
@@ -169,6 +173,21 @@ function categoryLabel(value?: string | null) {
   return (
     transactionCategories.find((item) => item.value === value)?.label || "Khác"
   );
+}
+
+function stockMovementSourceLabel(value?: string | null) {
+  switch (value) {
+    case "purchase":
+      return "Mua hàng";
+    case "production_in":
+      return "Sản xuất / gia công";
+    case "self_supply_in":
+      return "Tự cung cấp / được cấp";
+    case "other_in":
+      return "Nguồn khác";
+    default:
+      return "Nhập kho";
+  }
 }
 
 function productCategoryLabel(value?: string | null) {
@@ -329,10 +348,11 @@ type TransactionFormState = {
 
 type PurchaseStockFormState = {
   productId: string;
+  stockInSource: "purchase" | "production" | "self_supply" | "other";
   transactionDate: string;
   quantity: string;
   unitCost: string;
-  supplierName: string;
+  sourceName: string;
   description: string;
 };
 
@@ -379,10 +399,11 @@ const emptyTransactionForm: TransactionFormState = {
 
 const emptyPurchaseStockForm: PurchaseStockFormState = {
   productId: "",
+  stockInSource: "purchase",
   transactionDate: getTodayYmd(),
   quantity: "",
   unitCost: "",
-  supplierName: "",
+  sourceName: "",
   description: "",
 };
 
@@ -454,6 +475,13 @@ export default function StoreLedger() {
     isActive: true,
     lowStockOnly,
   }) ?? { data: [], isLoading: false, error: null, refetch: () => undefined };
+  const stockMovementsQuery = storeLedgerApi?.listStockMovements?.useQuery?.({
+    fromDate,
+    toDate,
+    movementTypes: ["purchase", "production_in", "self_supply_in", "other_in"],
+    limit: 200,
+  }) ?? { data: [], isLoading: false, error: null, refetch: () => undefined };
+
   const activeLedgerId = selectedLedgerId || ledgers[0]?.id || null;
 
   const summaryQuery = storeLedgerApi?.getSummary?.useQuery?.(
@@ -584,20 +612,21 @@ export default function StoreLedger() {
     });
 
   const createPurchaseStockMutation =
-    storeLedgerApi?.createPurchaseStock?.useMutation?.({
+    storeLedgerApi?.createStockIn?.useMutation?.({
       onSuccess: async () => {
         setPurchaseStockModalOpen(false);
         setPurchaseStockForm(emptyPurchaseStockForm);
         setFormError("");
         await Promise.all([
           productsQuery.refetch?.(),
+          stockMovementsQuery.refetch?.(),
           summaryQuery.refetch?.(),
           transactionsQuery.refetch?.(),
           dailyClosingsQuery.refetch?.(),
         ]);
       },
       onError: (error: any) => {
-        const message = error?.message || "Không thể nhập hàng.";
+        const message = error?.message || "Không thể tạo phiếu nhập kho.";
         setFormError(message);
         if (message.includes("chốt sổ") || message.includes("Ngày này")) {
           setBlockingNotice({ title: "Ngày đã chốt sổ", message });
@@ -753,6 +782,26 @@ export default function StoreLedger() {
       label,
     }));
   }, [products]);
+  const stockMovements = stockMovementsQuery.data || [];
+  const stockInSummary = useMemo(() => {
+    const productIds = new Set<number>();
+    let totalQuantity = 0;
+    let purchaseCount = 0;
+
+    stockMovements.forEach((item: any) => {
+      const productId = Number(item.productId || 0);
+      if (productId) productIds.add(productId);
+      totalQuantity += Number(item.quantityIn || 0);
+      if (String(item.movementType) === "purchase") purchaseCount += 1;
+    });
+
+    return {
+      receiptCount: stockMovements.length,
+      totalQuantity,
+      productCount: productIds.size,
+      purchaseCount,
+    };
+  }, [stockMovements]);
   const dailyClosings = dailyClosingsQuery.data || [];
   const activeLedger = ledgers.find(
     (item: any) => Number(item.id) === Number(activeLedgerId),
@@ -771,10 +820,10 @@ export default function StoreLedger() {
     }
     if (activeStoreTab === "purchase") {
       return {
-        eyebrow: "Mua hàng / nhập kho",
-        title: "Mua hàng cửa hàng",
+        eyebrow: "Nhập hàng / nhập kho",
+        title: "Nhập kho cửa hàng",
         description:
-          "Ghi nhận chi mua hàng, chi vận hành và chuẩn bị dữ liệu cho nhập kho.",
+          "Nhập kho từ mua hàng, sản xuất/gia công nội bộ hoặc nguồn tự cung cấp. Chỉ mua hàng mới tự động ghi khoản chi.",
       };
     }
     if (activeStoreTab === "sales") {
@@ -984,7 +1033,7 @@ export default function StoreLedger() {
     const quantity = parseCurrencyInput(purchaseStockForm.quantity);
     const unitCost = parseCurrencyInput(purchaseStockForm.unitCost);
     if (!quantity || !unitCost) {
-      setFormError("Vui lòng nhập số lượng và giá nhập lớn hơn 0.");
+      setFormError("Vui lòng nhập số lượng và giá vốn đơn vị lớn hơn 0.");
       return;
     }
     createPurchaseStockMutation?.mutate?.({
@@ -993,7 +1042,8 @@ export default function StoreLedger() {
       transactionDate: purchaseStockForm.transactionDate,
       quantity,
       unitCost,
-      supplierName: purchaseStockForm.supplierName || null,
+      stockInSource: purchaseStockForm.stockInSource,
+      sourceName: purchaseStockForm.sourceName || null,
       description: purchaseStockForm.description || null,
     });
   }
@@ -1095,7 +1145,7 @@ export default function StoreLedger() {
                     className={residenceMediumStyle.buttonCardPrimary}
                   >
                     <Plus className="h-4 w-4" />
-                    Nhập hàng
+                    Tạo phiếu nhập
                   </button>
                 ) : (
                   <button
@@ -1111,7 +1161,34 @@ export default function StoreLedger() {
             </div>
           </section>
 
-          {activeStoreTab !== "products" ? (
+          {activeStoreTab === "purchase" ? (
+            <section className="grid gap-3 md:grid-cols-4">
+              <SummaryCard
+                icon={<PackagePlus className="h-5 w-5" />}
+                label="Phiếu nhập"
+                value={String(stockInSummary.receiptCount)}
+                tone="amber"
+              />
+              <SummaryCard
+                icon={<Boxes className="h-5 w-5" />}
+                label="Số lượng nhập"
+                value={formatMoney(stockInSummary.totalQuantity)}
+                tone="emerald"
+              />
+              <SummaryCard
+                icon={<Layers3 className="h-5 w-5" />}
+                label="Mặt hàng đã nhập"
+                value={String(stockInSummary.productCount)}
+                tone="slate"
+              />
+              <SummaryCard
+                icon={<ShoppingCart className="h-5 w-5" />}
+                label="Phiếu mua hàng"
+                value={String(stockInSummary.purchaseCount)}
+                tone="rose"
+              />
+            </section>
+          ) : activeStoreTab !== "products" ? (
             <section className="grid gap-3 md:grid-cols-4">
               <SummaryCard
                 icon={<CircleDollarSign className="h-5 w-5" />}
@@ -1325,7 +1402,7 @@ export default function StoreLedger() {
                           {activeStoreTab === "sales"
                             ? "Bán hàng"
                             : activeStoreTab === "purchase"
-                              ? "Mua hàng, nhập hàng kho"
+                              ? "Nhập kho đa nguồn"
                               : "Tổng hợp thu chi cửa hàng"}
                         </h2>
                         <p className="mt-1 text-sm font-semibold text-slate-500">
@@ -1353,7 +1430,7 @@ export default function StoreLedger() {
                               className={residenceMediumStyle.buttonCardPrimary}
                             >
                               <Plus className="h-4 w-4" />
-                              Nhập hàng
+                              Tạo phiếu nhập
                             </button>
                             <button
                               type="button"
@@ -1408,42 +1485,47 @@ export default function StoreLedger() {
                         onChange={(event: any) => setToDate(event.target.value)}
                       />
                     </div>
-                    <div className="mt-3 grid gap-3 rounded-2xl border border-amber-100 bg-amber-50/50 p-3 lg:grid-cols-[140px_180px_minmax(0,1fr)] lg:items-center">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
-                        Chốt sổ ngày
-                      </p>
-                      <FormDateInput
-                        value={closingDate}
-                        onChange={(event: any) =>
-                          setClosingDate(event.target.value)
-                        }
-                      />
-                      <div className="text-xs font-semibold leading-5 text-slate-500">
-                        Tạo bản chốt tạm theo ngày để review chi tiết. Chỉ khi
-                        bấm xác nhận chốt thì ngày mới khóa chính thức.
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {[
-                        { value: "all", label: "Tất cả" },
-                        { value: "in", label: "Khoản thu" },
-                        { value: "out", label: "Khoản chi" },
-                      ].map((item) => (
-                        <button
-                          key={item.value}
-                          type="button"
-                          onClick={() => setDirectionFilter(item.value as any)}
-                          className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${directionFilter === item.value ? "bg-slate-950 text-white shadow-md" : "border border-amber-100 bg-amber-50/70 text-slate-700 hover:bg-amber-100"}`}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                    {closingError ? (
-                      <ErrorText>{closingError}</ErrorText>
+                    {activeStoreTab !== "purchase" ? (
+                      <>
+                        <div className="mt-3 grid gap-3 rounded-2xl border border-amber-100 bg-amber-50/50 p-3 lg:grid-cols-[140px_180px_minmax(0,1fr)] lg:items-center">
+                          <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
+                            Chốt sổ ngày
+                          </p>
+                          <FormDateInput
+                            value={closingDate}
+                            onChange={(event: any) =>
+                              setClosingDate(event.target.value)
+                            }
+                          />
+                          <div className="text-xs font-semibold leading-5 text-slate-500">
+                            Tạo bản chốt tạm theo ngày để review chi tiết. Chỉ khi
+                            bấm xác nhận chốt thì ngày mới khóa chính thức.
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {[
+                            { value: "all", label: "Tất cả" },
+                            { value: "in", label: "Khoản thu" },
+                            { value: "out", label: "Khoản chi" },
+                          ].map((item) => (
+                            <button
+                              key={item.value}
+                              type="button"
+                              onClick={() => setDirectionFilter(item.value as any)}
+                              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${directionFilter === item.value ? "bg-slate-950 text-white shadow-md" : "border border-amber-100 bg-amber-50/70 text-slate-700 hover:bg-amber-100"}`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                        {closingError ? (
+                          <ErrorText>{closingError}</ErrorText>
+                        ) : null}
+                      </>
                     ) : null}
                   </section>
 
+                  {activeStoreTab !== "purchase" ? (
                   <section className={residenceMediumStyle.section}>
                     <div className={residenceMediumStyle.sectionHeader}>
                       <div>
@@ -1517,7 +1599,47 @@ export default function StoreLedger() {
                       )}
                     </div>
                   </section>
+                  ) : null}
 
+                  {activeStoreTab === "purchase" ? (
+                    <section className={residenceMediumStyle.section}>
+                      <div className={residenceMediumStyle.sectionHeader}>
+                        <div>
+                          <h2 className="text-base font-black text-slate-950">Lịch sử nhập kho</h2>
+                          <p className="text-sm font-semibold text-slate-500">Hiển thị mọi nguồn nhập, kể cả các phiếu không phát sinh dòng tiền.</p>
+                        </div>
+                      </div>
+                      <div className={`${residenceMediumStyle.sectionBody} space-y-2`}>
+                        {stockMovementsQuery.isLoading ? (
+                          <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 text-sm font-semibold text-slate-600">Đang tải lịch sử nhập kho...</div>
+                        ) : stockMovements.length ? (
+                          stockMovements.map((item: any) => (
+                            <article key={item.id} className="rounded-2xl border border-[#eadfca] bg-white/95 p-4 shadow-sm">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-700 ring-1 ring-amber-100">{stockMovementSourceLabel(item.movementType)}</span>
+                                    <span className="text-xs font-bold text-slate-400">{formatDateText(item.movementDate)}</span>
+                                  </div>
+                                  <h3 className="mt-2 text-base font-black text-slate-950">{item.productName || "Hàng hóa"}</h3>
+                                  {item.note ? <p className="mt-1 text-sm font-semibold text-slate-500">{item.note}</p> : null}
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <p className="text-base font-black text-emerald-700">+{formatMoney(item.quantityIn)} {item.productUnit || ""}</p>
+                                  <p className="mt-1 text-xs font-bold text-slate-500">Giá vốn {formatMoney(item.unitCost)}đ / {item.productUnit || "đơn vị"}</p>
+                                  <p className="mt-1 text-xs font-black text-slate-700">Giá trị {formatMoney(Number(item.quantityIn || 0) * Number(item.unitCost || 0))}đ</p>
+                                </div>
+                              </div>
+                            </article>
+                          ))
+                        ) : (
+                          <div className="rounded-[1.5rem] border border-dashed border-amber-200 bg-amber-50/60 p-5 text-center text-sm font-semibold text-slate-600">Chưa có phiếu nhập kho trong khoảng thời gian này.</div>
+                        )}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {activeStoreTab !== "purchase" ? (
                   <section className={residenceMediumStyle.section}>
                     <div className={residenceMediumStyle.sectionHeader}>
                       <div>
@@ -1628,6 +1750,7 @@ export default function StoreLedger() {
                       )}
                     </div>
                   </section>
+                  ) : null}
                 </>
               ) : null}
             </main>
@@ -2095,10 +2218,28 @@ export default function StoreLedger() {
 
       {purchaseStockModalOpen ? (
         <Modal
-          title="Nhập hàng / tăng tồn"
+          title="Tạo phiếu nhập kho"
           onClose={() => setPurchaseStockModalOpen(false)}
         >
           <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Nguồn nhập" className="sm:col-span-2">
+              <select
+                value={purchaseStockForm.stockInSource}
+                onChange={(event) =>
+                  setPurchaseStockForm((prev) => ({
+                    ...prev,
+                    stockInSource: event.target.value as PurchaseStockFormState["stockInSource"],
+                    sourceName: "",
+                  }))
+                }
+                className={inputClass}
+              >
+                <option value="purchase">Mua hàng</option>
+                <option value="production">Sản xuất / gia công nội bộ</option>
+                <option value="self_supply">Tự cung cấp / được cấp</option>
+                <option value="other">Nguồn khác</option>
+              </select>
+            </Field>
             <Field label="Hàng hóa" className="sm:col-span-2">
               <select
                 value={purchaseStockForm.productId}
@@ -2135,17 +2276,33 @@ export default function StoreLedger() {
                 }
               />
             </Field>
-            <Field label="Nhà cung cấp / nơi mua">
+            <Field
+              label={
+                purchaseStockForm.stockInSource === "purchase"
+                  ? "Nhà cung cấp / nơi mua"
+                  : purchaseStockForm.stockInSource === "production"
+                    ? "Bộ phận / mẻ sản xuất"
+                    : purchaseStockForm.stockInSource === "self_supply"
+                      ? "Người / đơn vị cung cấp"
+                      : "Nguồn cung cấp"
+              }
+            >
               <input
-                value={purchaseStockForm.supplierName}
+                value={purchaseStockForm.sourceName}
                 onChange={(event) =>
                   setPurchaseStockForm((prev) => ({
                     ...prev,
-                    supplierName: event.target.value,
+                    sourceName: event.target.value,
                   }))
                 }
                 className={inputClass}
-                placeholder="VD: Chợ đầu mối / nhà cung cấp"
+                placeholder={
+                  purchaseStockForm.stockInSource === "purchase"
+                    ? "VD: Chợ đầu mối / nhà cung cấp"
+                    : purchaseStockForm.stockInSource === "production"
+                      ? "VD: Bếp / nhóm gia công / mẻ số..."
+                      : "Tên người, đơn vị hoặc nguồn nhập"
+                }
               />
             </Field>
             <Field label="Số lượng">
@@ -2162,7 +2319,7 @@ export default function StoreLedger() {
                 placeholder="10"
               />
             </Field>
-            <Field label="Giá nhập / đơn vị">
+            <Field label="Giá vốn / đơn vị">
               <input
                 inputMode="numeric"
                 value={purchaseStockForm.unitCost}
@@ -2177,7 +2334,12 @@ export default function StoreLedger() {
               />
             </Field>
             <div className="sm:col-span-2 rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm font-bold text-slate-700">
-              Thành tiền nhập: <span className="text-slate-950">{formatMoney(parseCurrencyInput(purchaseStockForm.quantity) * parseCurrencyInput(purchaseStockForm.unitCost))}đ</span>
+              Giá trị nhập kho: <span className="text-slate-950">{formatMoney(parseCurrencyInput(purchaseStockForm.quantity) * parseCurrencyInput(purchaseStockForm.unitCost))}đ</span>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                {purchaseStockForm.stockInSource === "purchase"
+                  ? "Hệ thống sẽ tăng tồn, cập nhật giá vốn và tự động tạo khoản chi mua hàng."
+                  : "Hệ thống sẽ tăng tồn và cập nhật giá vốn; không tự động tạo khoản chi cửa hàng."}
+              </p>
             </div>
             <Field label="Ghi chú" className="sm:col-span-2">
               <textarea
@@ -2190,7 +2352,7 @@ export default function StoreLedger() {
                 }
                 rows={2}
                 className={inputClass}
-                placeholder="Ghi chú lô hàng, chất lượng, hóa đơn nếu có"
+                placeholder="Ghi chú lô hàng, mẻ sản xuất, chất lượng hoặc chứng từ nếu có"
               />
             </Field>
           </div>
@@ -2198,7 +2360,7 @@ export default function StoreLedger() {
           <ModalFooter
             onClose={() => setPurchaseStockModalOpen(false)}
             onSave={handleCreatePurchaseStock}
-            saveText="Lưu nhập hàng"
+            saveText="Lưu phiếu nhập"
             loading={createPurchaseStockMutation?.isPending}
           />
         </Modal>

@@ -36,6 +36,10 @@ export const storeLedgerService = {
             return storeLedgerDb.listStoreProducts(input);
       },
 
+      async listStockMovements(input: storeLedgerDb.StoreStockMovementListInput = {}) {
+            return storeLedgerDb.listStoreStockMovements(input);
+      },
+
       async createProduct(input: {
             productCode: string;
             productName: string;
@@ -375,13 +379,14 @@ export const storeLedgerService = {
       },
 
 
-      async createPurchaseStock(input: {
+      async createStockIn(input: {
             ledgerId: number;
             productId: number;
+            stockInSource: "purchase" | "production" | "self_supply" | "other";
             transactionDate: string;
             quantity: number;
             unitCost: number;
-            supplierName?: string | null;
+            sourceName?: string | null;
             description?: string | null;
             createdBy?: number | null;
       }) {
@@ -395,7 +400,7 @@ export const storeLedgerService = {
                   throw new TRPCError({ code: "BAD_REQUEST", message: "Hàng hóa không hợp lệ hoặc đã ngừng sử dụng." });
             }
 
-            const transactionDate = ensureDate(input.transactionDate, "Ngày nhập hàng không hợp lệ.");
+            const transactionDate = ensureDate(input.transactionDate, "Ngày nhập kho không hợp lệ.");
             const closedDate = await storeLedgerDb.getStoreDailyClosingByDate(input.ledgerId, transactionDate);
             if (closedDate && String(closedDate.status) !== "cancelled") {
                   const status = String(closedDate.status);
@@ -403,8 +408,8 @@ export const storeLedgerService = {
                   throw new TRPCError({
                         code: "BAD_REQUEST",
                         message: canReopen
-                              ? "Ngày này đang trong quy trình chốt sổ. Có thể bỏ chốt để bổ sung nhập hàng trước khi xác nhận."
-                              : "Ngày này đã xác nhận chốt sổ. Không thể nhập hàng mới.",
+                              ? "Ngày này đang trong quy trình chốt sổ. Có thể bỏ chốt để bổ sung phiếu nhập kho trước khi xác nhận."
+                              : "Ngày này đã xác nhận chốt sổ. Không thể tạo phiếu nhập kho mới.",
                   });
             }
 
@@ -422,48 +427,60 @@ export const storeLedgerService = {
                   ? Number((((previousStock * previousAverageCost) + amount) / newStock).toFixed(2))
                   : unitCost;
 
-            const transactionCode = `NHAP-${todayCodeDate()}-${Date.now().toString().slice(-5)}`;
+            const sourceMeta = {
+                  purchase: { label: "Mua hàng", movementType: "purchase", historyType: "purchase", reason: "Nhập kho từ mua hàng" },
+                  production: { label: "Sản xuất / gia công nội bộ", movementType: "production_in", historyType: "processed", reason: "Nhập kho từ sản xuất / gia công" },
+                  self_supply: { label: "Tự cung cấp / được cấp", movementType: "self_supply_in", historyType: "self_supply", reason: "Nhập kho tự cung cấp / được cấp" },
+                  other: { label: "Nguồn khác", movementType: "other_in", historyType: "other", reason: "Nhập kho từ nguồn khác" },
+            } as const;
+            const source = sourceMeta[input.stockInSource];
             const productName = String((product as any).productName || "Hàng hóa");
 
-            const transaction = await storeLedgerDb.createStoreLedgerTransaction({
-                  ledgerId: input.ledgerId,
-                  transactionCode,
-                  direction: "out",
-                  transactionDate,
-                  amount: String(amount.toFixed(2)),
-                  category: "purchase_stock",
-                  title: `Nhập hàng: ${productName}`,
-                  partnerName: input.supplierName?.trim() || null,
-                  paymentMethod: "cash",
-                  description: input.description?.trim() || null,
-                  status: "posted",
-                  isActive: true,
-                  createdBy: input.createdBy ?? null,
-            } as any);
+            // Chỉ nhập kho do mua hàng mới tự động tạo khoản chi cửa hàng.
+            let transaction: any = null;
+            if (input.stockInSource === "purchase") {
+                  const transactionCode = `NHAP-${todayCodeDate()}-${Date.now().toString().slice(-5)}`;
+                  transaction = await storeLedgerDb.createStoreLedgerTransaction({
+                        ledgerId: input.ledgerId,
+                        transactionCode,
+                        direction: "out",
+                        transactionDate,
+                        amount: String(amount.toFixed(2)),
+                        category: "purchase_stock",
+                        title: `Mua và nhập kho: ${productName}`,
+                        partnerName: input.sourceName?.trim() || null,
+                        paymentMethod: "cash",
+                        description: input.description?.trim() || null,
+                        status: "posted",
+                        isActive: true,
+                        createdBy: input.createdBy ?? null,
+                  } as any);
+            }
 
             const transactionId = Number((transaction as any)?.id || 0) || null;
+            const movementNote = [source.label, input.sourceName?.trim(), input.description?.trim()].filter(Boolean).join(" · ") || null;
 
             await storeLedgerDb.createStoreStockMovement({
                   productId: input.productId,
                   transactionId,
-                  movementType: "purchase",
+                  movementType: source.movementType,
                   movementDate: transactionDate,
                   quantityIn: String(quantity.toFixed(2)),
                   quantityOut: "0.00",
                   unitCost: String(unitCost.toFixed(2)),
-                  note: input.description?.trim() || null,
+                  note: movementNote,
                   createdBy: input.createdBy ?? null,
             } as any);
 
             await storeLedgerDb.createStoreProductCostHistory({
                   productId: input.productId,
-                  sourceType: "purchase",
+                  sourceType: source.historyType,
                   effectiveDate: transactionDate,
                   quantity: String(quantity.toFixed(2)),
                   unitCost: String(unitCost.toFixed(2)),
                   averageCostAfter: String(averageCostAfter.toFixed(2)),
-                  reason: "Nhập hàng",
-                  notes: input.description?.trim() || null,
+                  reason: source.reason,
+                  notes: movementNote,
                   createdBy: input.createdBy ?? null,
             } as any);
 
@@ -474,7 +491,37 @@ export const storeLedgerService = {
                   averageCostAfter,
             });
 
-            return { transaction, product: updatedProduct, averageCostAfter };
+            return {
+                  transaction,
+                  product: updatedProduct,
+                  averageCostAfter,
+                  stockInSource: input.stockInSource,
+                  createdExpense: input.stockInSource === "purchase",
+            };
+      },
+
+      // Compatibility alias for clients that still call the 16K4 purchase endpoint.
+      async createPurchaseStock(input: {
+            ledgerId: number;
+            productId: number;
+            transactionDate: string;
+            quantity: number;
+            unitCost: number;
+            supplierName?: string | null;
+            description?: string | null;
+            createdBy?: number | null;
+      }) {
+            return this.createStockIn({
+                  ledgerId: input.ledgerId,
+                  productId: input.productId,
+                  stockInSource: "purchase",
+                  transactionDate: input.transactionDate,
+                  quantity: input.quantity,
+                  unitCost: input.unitCost,
+                  sourceName: input.supplierName,
+                  description: input.description,
+                  createdBy: input.createdBy,
+            });
       },
 
       async createTransaction(input: {

@@ -1,407 +1,462 @@
-# PROJECT_SUMMARY — ResidenceCore / App Lưu Xá
+# PROJECT_SUMMARY.md — ResidenceCore / App Lưu Xá
 
-> Bản tổng hợp full cập nhật đến Việc 15I — 2026-07-12.  
-> Quy tắc duy trì: tài liệu này được cập nhật theo hướng **ghi thêm / append có kiểm soát**, không xóa lịch sử quan trọng, không thay thế các quyết định đã pass.
+Cập nhật tổng hợp đến: **Việc 16K4 — Nhập hàng / chi mua hàng tăng tồn, tính lại giá vốn**  
+Trạng thái hiện tại: **Việc 1–15 DONE/PASS; Việc 16 đang triển khai module Quản lý cửa hàng**.
 
 ---
 
-## 1. Tổng quan dự án
+## 0. Nguyên tắc làm việc bắt buộc
 
-ResidenceCore / App Lưu Xá là hệ thống quản lý lưu xá theo hướng vận hành thực tế, ưu tiên **Simple Mode**: đủ nghiệp vụ, dễ hiểu, dễ demo, không làm giao diện rối.
+- Luôn làm trên code mới nhất hiện có. Nếu không chắc file/code hiện tại có phải bản mới nhất hay không thì phải hỏi người dùng gửi lại code trước khi patch.
+- Không dùng file cũ từ patch/package trước đó làm base nếu có nguy cơ revert chỉnh sửa đã pass.
+- Khi người dùng đã gửi file cho một bước và không nói có chỉnh thêm ở nơi khác, xem file đó là base hiện tại cho bước đó.
+- Mọi tracking/checklist theo từng việc phải **append-only / full-history**: ghi thêm vào cuối, không ghi đè, không gửi bản rút gọn.
+- Các file SQL migration của module cửa hàng đặt trong thư mục `/drizzle`, không đặt trong `/database`.
+- Date/time/datetime input phải dùng picker shared, không để input text/date/time thô nếu đã có component chung.
+- Input tiền phải format kiểu Việt Nam: `1.000.000`; khi lưu vẫn gửi số đúng về backend.
+- UI ưu tiên Simple Mode: đủ chức năng, dễ demo, ít menu, ít thao tác, không phức tạp hóa.
+- Style premium dùng cùng hệ với Finance / Organization / Portal Today: nền trắng-kem-amber nhẹ, title centered, action góc phải, card mềm, shadow nhẹ, text slate/black, tránh rời rạc.
+- Popup xác nhận/cảnh báo phải là modal custom của hệ thống; tránh browser `alert/confirm`. Popup lỗi phải nổi **trên** modal form hiện tại.
 
-Các nhóm nghiệp vụ chính:
+---
 
-- Học viên / cư dân lưu trú.
-- Phòng ở, gán phòng, chuyển phòng, trả phòng.
-- Liên hệ gia đình / phụ huynh.
-- Học tập, lịch học, tránh phân công trùng lịch.
-- Cơ cấu tổ chức lưu xá: nhiệm kỳ, tổ, ban, chức vụ, bổ nhiệm.
-- Sinh hoạt hằng ngày / công tác / phân công.
+## 1. Kiến trúc / phạm vi dự án
+
+ResidenceCore / App Lưu Xá là hệ thống quản lý lưu xá ở chế độ đơn giản, tập trung vào các luồng vận hành chính:
+
+- Học viên / cư dân.
+- Phòng ở.
+- Liên hệ phụ huynh/người thân.
+- Học tập / lịch học.
+- Cơ cấu tổ chức / Tổ / Ban / Bổ nhiệm.
+- Sinh hoạt hằng ngày / Công tác.
 - Tài chính lưu xá.
 - Portal học viên.
-- Thông báo nội bộ lite.
-- Hoạt động / sự kiện lite.
-- Các module mở rộng về sau: cửa hàng/quỹ riêng, hoạt động kinh doanh, báo cáo nâng cao.
+- Thông báo nội bộ.
+- Hoạt động / sự kiện.
+- Quản lý cửa hàng lưu xá.
+
+Luồng phát triển ưu tiên:
+
+```txt
+DB → Backend routes/services/db → Frontend pages/components → runtime test → update checklist/summary
+```
 
 ---
 
-## 2. Nguyên tắc triển khai đã chốt
+## 2. Các rule nghiệp vụ đã bảo vệ
 
-### 2.1. Quy trình làm việc
+### 2.1 Members / Rooms
 
-- Làm từng việc nhỏ: audit → patch → test → pass → cập nhật checklist/summary.
-- Thứ tự ưu tiên khi làm code: DB/schema → backend route/service/db → frontend page/component → test runtime.
-- Sau mỗi việc/pass phải cập nhật:
-  - `PROJECT_SUMMARY.md`
-  - `RESIDENCECORE_CHECKLIST.md`
-  - hoặc file status append tương ứng nếu đang làm theo từng việc.
-- Các file tracking phải **append-only/full-history**, không ghi đè mất lịch sử.
-- Khi user đã gửi file cho một việc, xem đó là base hiện tại cho việc đó. Không hỏi lại cùng file nếu user không nói đã thay đổi.
-- Khi không chắc file hiện tại có phải mới nhất hay không, phải hỏi user gửi lại trước khi patch.
-- Không dùng file/patch cũ làm base vì dễ revert các phần đã sửa.
-
-### 2.2. Rule bảo vệ code/UI
-
-- Không reintroduce bug đã pass.
-- Không revert layout đã được user xác nhận.
-- Không phá OrgChart layout đã chốt.
-- Không phá logic Tổ/Ban/chức vụ theo unit.
-- Không phá logic room source of truth.
-- Không phá logic contact filter theo residentId.
-- Không phá logic công tác/lịch học conflict.
-- Không phá Finance period-based flow đã pass.
-- `use client` phải viết đúng `'use client';` nếu file cần client component.
-
-### 2.3. Rule date/time/picker
-
-Toàn hệ thống phải dùng Asia/Ho_Chi_Minh cho “hôm nay”, tháng hiện tại, mặc định ngày.
-
-Các input ngày/giờ/datetime phải dùng picker shared:
-
-- Date: `FormDateInput` / `DatePickerInput`.
-- Time: `TimePickerInput`.
-- Không để input text/date/time thô nếu đã có picker chuẩn.
-
-Các fix đã pass:
-
-- DatePicker dùng portal để không bị clipping trong modal/card.
-- TimePicker đã được thêm và dùng cho StudySchedule/DailyRoutine.
-- ResidentFinance `Ngày chi` đã đổi sang `FormDateInput`.
-
-### 2.4. Rule style premium
-
-Style chung theo hướng trắng/kem/amber nhẹ, slate/black text, action đen/premium.
-
-Ưu tiên dùng:
-
-- `src/config/residenceAppearance.ts`
-- `shared/styleMedium.ts`
-- `residenceMediumStyle`
-- style token/shared component đã có.
-
-Tránh:
-
-- Tailwind rời rạc không theo token.
-- Card quá dày, quá nhiều border, quá nhiều layer.
-- Dropdown chồng layout.
-- Modal dài quá mức.
-- Scroll ngang ngoài ý muốn.
-
----
-
-## 3. Kiến trúc tổng quan
-
-### 3.1. Frontend
-
-- React / TypeScript.
-- Pages chính trong `client/src/pages`.
-- Components nghiệp vụ trong `client/src/components`.
-- Navigation tách theo vai trò:
-  - managerNavigation
-  - residentNavigation
-  - appointedResidentNavigation
-- Layout chính: `ResidenceCareLayout.tsx`.
-
-### 3.2. Backend
-
-- tRPC routers theo module.
-- Service layer chứa nghiệp vụ.
-- DB layer chứa query/transaction.
-- RBAC guard ở router/service cho endpoint quản trị.
-
-### 3.3. Database
-
-- Drizzle schema tách nhóm:
-  - `core.ts`
-  - `residents.ts`
-  - `dailyRoutine.ts`
-  - `activities.ts`
-  - `schema.ts` export tổng.
-
----
-
-## 4. Vai trò người dùng
-
-### 4.1. Manager
-
-Quản lý toàn bộ vận hành lưu xá:
-
-- Học viên.
-- Phòng.
-- Liên hệ.
-- Học tập.
-- Tổ chức.
-- Công tác.
-- Tài chính.
-- Thông báo.
-- Hoạt động.
-- Cấu hình/mẫu phiếu về sau.
-
-### 4.2. Resident / Học viên
-
-Portal học viên sau Việc 15F được gom menu tối giản:
-
-- `Hôm nay`
-- `Lưu xá của tôi`
-  - Hồ sơ
-  - Công tác
-  - Tài chính
-  - Thông báo
-  - Hoạt động
-
-### 4.3. Resident có chức vụ
-
-Nếu học viên có chức vụ, thêm nhóm:
-
-- `Phụ trách`
-  - Tổng quan
-  - Điều hành
-  - Tổ phụ trách
-  - Ban phụ trách
-
----
-
-## 5. Protected business rules
-
-### 5.1. Members / Contacts
-
-- Contact list phải filter theo `residentId`.
-- Học viên đã rời/ngừng không được thao tác phòng/học tập/công tác không hợp lệ.
-- Leave flow phải kiểm tra nếu học viên còn appointment/tổ/ban/chức vụ.
-
-### 5.2. Rooms
-
-- `residents.currentRoomId/currentRoom*` là source of truth cho phòng hiện tại.
+- `residents.currentRoomId` là nguồn sự thật cho phòng hiện tại.
 - Broad room fallback chỉ dùng hiển thị, không dùng quyết định nghiệp vụ.
-- Gán/chuyển/trả phòng phải cập nhật current room và lịch sử đúng.
+- Contact list phải filter đúng theo `residentId`.
+- Học viên đã rời/ngừng lưu trú không được thao tác phòng, không được cập nhật dữ liệu vận hành.
+- Room assignment phải kiểm tra capacity, active resident, same-room, close old assignment, preserve history.
 
-### 5.3. Organization
+### 2.2 Organization
 
-- `Tổ trưởng` và `Trưởng ban` không phải role assign độc lập toàn cục.
-- Chức vụ này phải gắn theo từng `Tổ` / `Ban` cụ thể.
-- Validation Trưởng ban/Tổ trưởng phải scope theo unit, không global.
-- OrgChart layout protected:
-  - Trưởng top-center.
-  - Phó/Thư ký/Thủ quỹ hàng 2.
-  - Tổ/Ban bên dưới.
+- OrgChart layout bảo vệ: Trưởng top-center; Phó / Thư ký / Thủ quỹ row 2; Tổ / Ban bên dưới theo bố cục đã pass.
+- Tổ trưởng và Trưởng ban không phải role standalone gán trực tiếp; là appointment theo từng Tổ/Ban.
+- Validation Tổ trưởng/Trưởng ban phải scoped theo unit, không global theo role.
+- Khi member rời lưu xá có appointment active, cần flow bàn giao trước khi inactive.
 
-### 5.4. Study schedule
+### 2.3 Study / Duties
 
-- Lịch học dùng thứ/ngày + giờ bắt đầu/kết thúc.
-- start < end.
-- Không trùng lịch cùng học viên/cùng ngày.
-- Giờ học validate `HH:mm` ở backend.
-- DailyRoutine/công tác phải tránh conflict lịch học.
+- Lịch học phải check start < end.
+- Lịch học overlap theo resident + day bị chặn.
+- Công tác phải check conflict với lịch học/duty, có buffer 60 phút nếu đã thiết kế.
+- Cancel → reassign được phép.
+- Portal công tác phải thấy đúng scope: cá nhân / phòng / tổ / ban.
 
-### 5.5. DailyRoutine / Duties
+### 2.4 Finance
 
-- Duties có thể phân công theo học viên/phòng/tổ/ban.
-- Resident portal phải hiển thị công tác thuộc phạm vi:
-  - cá nhân
-  - phòng hiện tại
-  - tổ đang là thành viên
-  - ban đang là thành viên
-- Resident chỉ hoàn thành công tác thuộc phạm vi của mình.
-- Cancel rồi reassign được.
-- Conflict lịch học/công tác giữ nguyên.
+- Thu phí học viên theo kỳ/tháng, không chỉ tạo khoản thu chung chung.
+- Kỳ thu: tạo kỳ → chọn kỳ/tháng → áp dụng học viên → sinh khoản phải thu thật.
+- Thu học viên gom theo tháng, có khoản con, thu từng phần.
+- Thu khác/tài trợ, chi, dự chi, tạm ứng cần tách nghiệp vụ rõ.
+- Phiếu/chứng từ tương lai cần hỗ trợ: phiếu thu học viên, phiếu thu khác/tài trợ, phiếu chi, phiếu tạm ứng, phiếu đề nghị/dự chi, phiếu quyết toán tạm ứng.
 
-### 5.6. Finance
+### 2.5 Portal học viên
 
-- Finance dùng flow theo kỳ:
-  - Tạo kỳ thu chung.
-  - Chọn kỳ + tháng.
-  - Apply khoản thu cho học viên.
-  - Sinh khoản phải thu thật.
-- Không tạo khoản thu cho học viên rời/ngừng nếu không hợp lệ theo tháng.
-- Không tạo amount <= 0.
-- Không thu vượt số còn lại.
-- Portal học viên thấy tài chính cá nhân.
-- Input tiền phải format kiểu Việt Nam, ví dụ `1.000.000`, nhưng submit numeric.
+- Menu học viên phải gọn, ít mục nhất.
+- Menu đã gom: Hôm nay; Lưu xá của tôi: Hồ sơ, Công tác, Tài chính, Thông báo, Hoạt động; Phụ trách nếu có chức vụ.
+- Portal phải hiển thị dữ liệu liên quan đến học viên và scope chức vụ.
+
+### 2.6 Cửa hàng
+
+- Module là **Quản lý cửa hàng**, không còn “Quỹ riêng” trong UI chính.
+- Chỉ quản lý một cửa hàng chính của lưu xá.
+- Các chức năng cửa hàng là menu riêng, không dùng query tab cho menu chính: Dữ liệu sản phẩm, Mua hàng / Nhập kho, Bán hàng, Tổng hợp thu chi.
+- Header các trang store theo chuẩn flat premium: title centered, subtitle centered, action góc phải, không bo cả nội dung vào một card lớn.
+- Dữ liệu hàng hóa chỉ tập trung hàng hóa & nhóm hàng; thông tin giá nâng cao ẩn trong “Thông tin giá”.
+- Hàng hóa có thể mua về hoặc tự gia công rồi đưa vào cửa hàng.
+- Giá vốn/giá bán phải có lịch sử, không chỉ lưu một field tĩnh.
+- Giá bán update append-only lịch sử; lý do không bắt buộc.
+- Tồn kho định giá vốn dùng ngôn ngữ dễ hiểu: “Tính theo giá trung bình”, “Theo lần nhập gần nhất”, “Tự nhập”.
+- Chốt sổ cửa hàng theo ngày, không chốt từng giao dịch nhỏ sang sổ chung.
+- Chốt ngày phải có flow review/xác nhận; trước xác nhận cho phép bỏ chốt để bổ sung.
 
 ---
 
-## 6. Trạng thái các việc đã hoàn tất
+## 3. Trạng thái theo từng việc
 
-### Việc 1 — Route/Menu/Page sync — DONE/PASS
+### Việc 1 — Route/Menu/Page sync
 
-- Sửa route/menu mismatch.
-- `/users` map đúng `/settings/users`.
-- Ẩn/disable menu chưa có route để tránh 404.
+**Trạng thái:** DONE/PASS
 
-### Việc 2 — Page orphan audit — DONE
+- Audit route/menu/page.
+- Sửa các nav path thiếu route.
+- `/users` map về `/settings/users`.
+- Missing route được disabled/hidden tránh 404.
+- Layout xử lý disabled items.
 
-- Audit pages orphan/imported.
-- Phân loại connect/keep/archive.
+### Việc 2 — Page orphan audit
+
+**Trạng thái:** DONE
+
+- Audit orphan pages.
+- Classify connect/keep/archive.
 - Không patch code.
 
-### Việc 3 — Members / Rooms / Organization main flow — DONE/PASS
+### Việc 3 — Main flow Học viên → Phòng → Tổ chức
 
-- Guard assign room.
-- Check inactive/left.
-- Check capacity/same-room.
-- Rooms mutation RBAC.
+**Trạng thái:** DONE/PASS
 
-### Việc 4 — FinanceLite minimal flow — DONE/PASS
+- Guard legacy member assignRoom.
+- Manager access check.
+- Inactive/left guard.
+- Room existence/capacity/same-room check.
+- Close old assignment và update current room.
+- Guard mutation endpoints rooms router.
 
-- Finance router RBAC.
-- Validate amount.
-- Skip inactive/left on batch create.
-- Duplicate check.
-- Amount paid/remaining guard.
+### Việc 4 — FinanceLite minimal flow
 
-### Việc 5 — DailyRoutine/Công tác demo flow — DONE/PASS
+**Trạng thái:** DONE/PASS
 
-- Duties management RBAC.
-- Resident endpoint vẫn dùng cho công tác của mình.
-- Scope demo giữ DailyRoutine/Công tác, không mở Smart Assignment nâng cao.
+- RBAC manager guard finance router.
+- Validate amount > 0.
+- Skip inactive/left residents khi batch create.
+- Prevent amount < paid amount.
+- Duplicate check resolved month.
 
-### Việc 6 — Resident Portal real data — DONE/PASS
+### Việc 5 — DailyRoutine / Công tác demo flow
 
-- Resident portal guard user active/resident active.
-- Access context.
-- Today overview.
-- Finance overview.
-- Duty/org scope.
+**Trạng thái:** DONE/PASS
 
-### Việc 7 — Test baseline cleanup — DONE/PASS
+- RBAC manager guard duties management endpoints.
+- Resident endpoints vẫn mở đúng scope.
+- Demo flow DailyRoutine / Công tác ổn.
 
-- Rename legacy router helper test file.
-- Giữ `pnpm test` sạch hơn.
+### Việc 6 — Resident Portal real data
 
-### Việc 8 — Definition of Done — DONE
+**Trạng thái:** DONE/PASS
 
-- Tạo DoD cho modules chính:
-  - Members
-  - Rooms
-  - Organization
-  - DailyRoutine
-  - FinanceLite
+- Resident linked user/access context.
+- Portal me / finance overview / today overview / duty/org scope.
+- Guard resident inactive/left.
 
-### Việc 9 — Helper/style/picker standardization — DONE/PASS
+### Việc 7 — Test baseline cleanup
 
-- Shared helper foundation.
-- TimePickerInput added.
-- DatePicker portal fix.
-- Date/time/datetime picker rule protected.
+**Trạng thái:** DONE/PASS
 
-### Việc 10 — Docs cleanup — DONE/PASS
+- Legacy `server/routers.test.ts` đổi thành `server/routers.legacy.ts` để không phá test baseline.
 
-- Cleanup docs status.
-- Archive docx/legacy docs.
-- Update summary/status.
+### Việc 8 — Definition of Done
 
-### Việc 11 — Học tập / Lịch học — DONE/PASS
+**Trạng thái:** DONE
 
-- Backend guard cho education/study schedule.
-- HH:mm validation.
-- Chặn cập nhật học tập/lịch học cho resident inactive/left.
-- Study schedule conflict giữ đúng.
-- 11B/11C/11D/11E polish layout tab Học tập; lưu ý khi sửa `MemberDetailModal.tsx` phải kiểm tra JSX wrapper kỹ.
+- Đã tạo DoD cho Members, Rooms, Organization, DailyRoutine, FinanceLite.
+- Module done cần đủ route/menu, API, business rule, loading/error/empty, test/build/check.
 
-### Việc 12 — Organization + Công tác + Portal theo chức vụ — DONE/PASS
+### Việc 9 — Helper/util/style + picker
 
-Các bước:
+**Trạng thái:** DONE/PASS
 
-- 12A: Org/Duty/Portal guard/scope patch.
-- 12B: lỗi validate Bổ nhiệm/Phân công hiển thị trong modal, không hiện sau page — PASS.
-- 12C: Portal công tác theo cá nhân/phòng/tổ/ban — PASS.
-- 12D: Demo script Organization → Công tác → Portal theo chức vụ — PASS.
+- Shared helper format/utils.
+- TimePickerInput shared.
+- Replace scattered `type=time`.
+- DatePicker portal fix tránh bị clipped trong modal/card.
+- Rule: date/time/datetime phải dùng picker.
 
-Kết luận: `Việc 12 DONE/PASS`.
+### Việc 10 — Docs cleanup
 
-### Việc 13 — Thông báo nội bộ lite — DONE/PASS
+**Trạng thái:** DONE/PASS
 
-Các bước:
+- README/status/worklog cleanup.
+- Archive docs/presentation/legacy.
+- Script cleanup docs.
+- Chốt Việc 1–10 vào summary/checklist.
 
-- 13A: Notification API/page/menu — PASS.
-- 13B: Popup thông báo mới — DONE.
-- 13C: Badge số chưa đọc trên menu portal — DONE.
-- 13D: Polish trang thông báo — PASS.
-- 13E: Final demo checklist — DONE/PASS.
+### Việc 11 — Member Detail / Học tập layout polish
 
-Scope lite:
+**Trạng thái:** DONE/PASS
 
-- Không WebSocket realtime.
-- Không email/SMS/Zalo.
-- Không template engine phức tạp.
+- Review tab con member detail.
+- Khôi phục/bảo vệ layout Học tập theo bản Việc 11B.
+- Chuẩn hóa style tab học tập/lịch học gọn hơn, premium hơn.
+- Tránh revert layout đã pass.
 
-Kết luận: `Việc 13 DONE/PASS`.
+### Việc 12 — Organization + Công tác + Portal theo chức vụ
 
-### Việc 14 — Hoạt động / Sự kiện lite — IN PROGRESS, gần đóng
+**Trạng thái:** DONE/PASS
 
-Các bước đã làm:
+- 12A — Org/Duty/Portal guard/scope patched.
+- 12B — Modal error placement PASS: lỗi validate/API hiển thị trong modal bổ nhiệm/phân công, không nằm sau page.
+- 12C — Portal công tác theo cá nhân/phòng/tổ/ban PASS.
+- 12D — Demo script Organization → Công tác → Portal theo chức vụ PASS.
 
-- 14A: Activities lite module, manager CRUD, resident public activities.
-- 14B/14B2: DB migration fix, tương thích MySQL không có `ADD COLUMN IF NOT EXISTS`.
-- 14C–14J: nhiều vòng polish UI/modal.
-- 14K: Filter/layout fix — PASS.
-- 14L: Final runtime checklist đã chuẩn bị, chờ user xác nhận pass để đóng Việc 14.
+Kết luận: **Việc 12 DONE/PASS**.
 
-Lưu ý style:
+### Việc 13 — Thông báo nội bộ lite
 
-- `/activities` phải bám FinanceLite/DailyRoutine premium style.
-- Không dùng dropdown filter gây chồng layout; dùng segmented/pill filters.
-- Modal activity đã nhiều lần polish; nếu sửa tiếp phải giữ layout gọn, không chồng control, không input date/time thô.
+**Trạng thái:** DONE/PASS
 
-### Việc 15 — Portal học viên mở rộng / gom trải nghiệm — IN PROGRESS
+- 13A — Notification lite API/page/menu PASS.
+- 13B — Popup thông báo mới DONE.
+- 13C — Badge số chưa đọc trên menu portal DONE.
+- 13D — Polish trang thông báo PASS.
+- 13E — Final demo checklist DONE/PASS.
 
-Các bước đã làm:
+Scope lite: không WebSocket, push/email/SMS/Zalo, template engine phức tạp.
 
-- 15A: Portal activities route — patched.
-- 15B: Portal Today polish nhẹ — chưa đủ rõ, không chốt.
-- 15C: Portal Today visible premium restyle — PASS.
-- 15D: MyDuties polish ban đầu — chưa chốt vì menu/route chưa rõ.
-- 15E: Gọn menu portal bước đầu — pass nhưng còn rời rạc.
-- 15F: Gom tiếp menu portal học viên — PASS.
-- 15G: Chuẩn hóa trang Công tác trong menu mới — DONE/PASS theo flow user.
-- 15H: Resident Finance DatePicker fix — patched.
-- 15I: Resident Finance currency input — PASS.
+Kết luận: **Việc 13 DONE/PASS**.
 
-Trạng thái hiện tại:
+### Việc 14 — Hoạt động / Sự kiện lite
 
-- Portal menu đã gọn theo nhóm `Hôm nay`, `Lưu xá của tôi`, `Phụ trách` nếu có chức vụ.
-- Portal Today premium restyle đã pass.
-- Công tác trong menu mới đã xong theo flow.
-- Tài chính resident đã có DatePicker cho Ngày chi và format input tiền.
+**Trạng thái:** 14K pass; 14L final runtime checklist đã tạo, chưa chốt DONE/PASS chính thức trong luồng hiện tại.
 
-Bước gợi ý tiếp theo:
+- 14A — Activities lite patched.
+- 14B/14B2 — DB migration fix compatible MySQL.
+- 14C–14J — nhiều vòng polish UI/modal.
+- 14K — Activities filter/layout fix PASS.
+- 14L — Final runtime checklist đã tạo.
 
-- 15J: Rà/polish các trang portal còn lại: Hồ sơ, Hoạt động, Thông báo, Tài chính final check.
-- Sau đó làm demo full flow Portal học viên.
+Chức năng chính: manager tạo/sửa/hủy/xóa mềm hoạt động, public hiện portal, nội bộ không hiện portal, filter/search không overlay.
+
+### Việc 15 — Portal học viên mở rộng
+
+**Trạng thái:** DONE/PASS
+
+- 15A — Portal activities route patched.
+- 15B — Portal Today polish nhẹ, chưa đủ rõ.
+- 15C — Portal Today visible premium restyle PASS.
+- 15D — MyDuties polish route cũ, chưa chốt.
+- 15E — Gọn menu bước đầu PASS nhưng còn rời rạc.
+- 15F — Gom tiếp menu portal học viên PASS.
+- 15G — Công tác trong menu mới DONE/PASS.
+- 15H — Resident Finance DatePicker fix patched.
+- 15I — Format tiền tệ input thực chi PASS.
+- 15J — Polish Hoạt động + Thông tin portal PASS.
+- 15K — Final runtime checklist PASS.
+
+Kết luận: **Việc 15 DONE/PASS**.
+
+### Việc 16 — Quản lý cửa hàng lưu xá
+
+**Trạng thái:** Đang triển khai. Đã đến **16K4 patch prepared**.
+
+#### Hướng nghiệp vụ đã chốt
+
+- Module là **Quản lý cửa hàng**, không phải quỹ riêng.
+- Chỉ một cửa hàng chính, không panel chọn nhiều sổ/quỹ.
+- Menu chính: Dữ liệu sản phẩm, Mua hàng / Nhập kho, Bán hàng, Tổng hợp thu chi.
+- Route riêng: `/store-products`, `/store-purchase`, `/store-sales`, `/store-cashflow`.
+- Chi tiết cửa hàng riêng → chốt theo ngày → review → xác nhận → sau đó mới tổng hợp sang sổ chung.
+- Không chốt từng giao dịch nhỏ sang sổ chung.
+
+#### 16A — Store ledger lite
+
+- Tạo nền store ledger, transactions, tổng thu/tổng chi/số dư/phát sinh.
+- Input tiền format; ngày dùng picker.
+- Hotfix: register router, enum column fix, duplicate ledger code fix.
+
+#### 16B / 16C runtime/hotfix
+
+- Runtime checklist thu/chi.
+- Fix render Date object trong StoreLedger.
+
+#### 16D — Daily closing
+
+- Daily closing ban đầu: gom phát sinh theo ngày, tạo chốt ngày, khóa phát sinh đã chốt.
+
+#### 16E / 16E2 — Blocking popup
+
+- Thao tác bị chặn sau chốt ngày phải hiện popup custom.
+- Popup phải nổi trên form tạo phiếu.
+
+#### 16F — Daily closing review/approval workflow
+
+Flow đã thiết kế:
+
+```txt
+Chốt ngày tạm → Review → Đã review → Xác nhận chốt
+```
+
+Trước xác nhận cho phép: **Bỏ chốt để bổ sung**. Sau xác nhận mới khóa chính thức.
+
+#### 16G — Store products lite
+
+- Tạo nền sản phẩm cửa hàng.
+
+#### 16G2 — Store page focus/premium cleanup
+
+- Đổi trang thành Cửa hàng lưu xá.
+- Bỏ quỹ riêng trong UI.
+- Migration store để trong `/drizzle`.
+
+#### 16H — Store menu regroup
+
+- Bỏ panel cửa hàng đang quản lý.
+- Tạo menu lớn Quản lý cửa hàng với menu con.
+
+#### 16I / 16I2 / 16I3 / 16I4 — Product page refinement
+
+- Route/menu từng chức năng cửa hàng.
+- Nhóm hàng mặc định: Nông sản, Thủ công, Bánh kẹo, Sách, Đồ uống, Đồ ăn, Văn phòng phẩm, Khác.
+- Cho phép tạo nhóm hàng mới.
+- Header product page premium/compact.
+- Card hàng hóa gọn hơn.
+- Tạo sản phẩm không cần giá bán.
+- Có nút Thông tin giá.
+- Có nút Xóa sản phẩm; chỉ xóa mềm được nếu chưa có tồn/phát sinh mua bán.
+- Đơn vị tính: Gói, Cái, Chai, Lít, Cuốn; cho phép tạo thêm.
+- Không hiển thị mã hàng trên card chính.
+
+#### 16J / 16J2 / 16J3 / 16J4 — Popup/menu/header standardization
+
+- Xóa sản phẩm dùng modal custom, không browser confirm.
+- Không popup thừa sau khi xóa thành công.
+- Route riêng cho từng chức năng store.
+- Header store flat premium, centered, action góc phải, 2 dòng compact.
+
+#### 16K1 — Store price history foundation
+
+- Thêm sourceType, costingMethod, averageCostPrice, currentSalePrice.
+- Thêm `storeProductCostHistories`, `storeProductSalePriceHistories`.
+- API `listProductPriceHistory`, `updateProductSalePrice`.
+- Safe update fix cho MySQL Workbench.
+
+#### 16K2 — Product pricing visible
+
+- Đưa pricing fields lên UI ban đầu; sau đó đơn giản hóa vì quá rối.
+
+#### 16K3 — Product price history UI simplify
+
+**Trạng thái:** PASS sau hotfix 16K3-8.
+
+- Màn hình chính hàng hóa đơn giản.
+- Form thêm/sửa chỉ gồm thông tin cơ bản.
+- Giá nâng cao nằm trong nút **Thông tin giá**.
+- Modal Thông tin giá hiển thị giá vốn hiện tại, giá bán hiện tại, lịch sử giá vốn, lịch sử giá bán.
+- Modal Cập nhật giá bán riêng.
+- Lý do thay đổi không bắt buộc.
+- Sale price history append-only.
+- Fix thiếu bảng lịch sử giá bán/giá vốn.
+- Fix format DECIMAL MySQL: `5000.00` hiển thị `5.000`, không thành `500.000`.
+
+#### 16K4 — Nhập hàng / chi mua hàng tăng tồn, tính lại giá vốn
+
+**Trạng thái:** Patch đã tạo, đang chờ apply/test.
+
+Mục tiêu:
+
+- Vào Quản lý cửa hàng > Mua hàng / Nhập kho.
+- Chọn hàng hóa, số lượng, giá vào, ngày nhập.
+- Lưu nhập hàng.
+- Hệ thống tạo khoản chi cửa hàng loại nhập hàng, tăng tồn hiện tại, ghi lịch sử giá vốn, tính lại giá vốn hiện tại theo “tính theo giá trung bình”, chặn nếu ngày đã xác nhận chốt.
+
+Patch đã gửi:
+
+```txt
+ResidenceCore_Viec16K4_Purchase_Stock_Increase_Inventory.zip
+residencecore_viec16k4_purchase_stock_increase_inventory.patch
+```
+
+Migration phải nằm trong:
+
+```txt
+/drizzle/viec16k4_purchase_stock_inventory.sql
+```
 
 ---
 
-## 7. Roadmap tiếp theo
+## 4. Next steps đề xuất
 
-### Ngắn hạn
+Sau khi 16K4 pass:
 
-1. Chốt 14L nếu runtime ok: `Việc 14 DONE/PASS`.
-2. Tiếp tục Việc 15J: rà các trang còn lại của Portal học viên.
-3. Viết demo script full từ manager đến học viên.
-4. Kiểm tra build/test toàn app.
-
-### Trung hạn
-
-- Việc 16 — Cửa hàng / quỹ riêng lite.
-- Việc 17 — Demo script 15 phút full app.
-- Việc 18 — Polish UI/UX toàn bộ demo.
-
-### Backlog
-
-- In phiếu/chứng từ tài chính: phiếu thu, phiếu chi, tạm ứng, quyết toán tạm ứng, biên nhận thu học viên.
-- Nội quy & nhắc nhở nâng cao.
-- Báo cáo nâng cao.
-- Parent portal.
-- Email/SMS/Zalo/push realtime.
-- Cửa hàng nâng cao: tồn kho/sản phẩm/POS/công nợ.
+```txt
+16K5 — Bán hàng / thu bán hàng giảm tồn
+16K6 — Báo cáo tồn kho: tồn hiện tại, giá vốn, giá bán dự kiến
+16K7 — Báo cáo dòng tiền cửa hàng
+16K8 — Chốt sổ cửa hàng sang sổ chung theo ngày
+16K9 — Demo script cửa hàng full flow
+```
 
 ---
 
-## 8. Các file tracking quan trọng
+## 5. Checklist test store sau mỗi patch
 
-- `PROJECT_SUMMARY.md`
-- `RESIDENCECORE_CHECKLIST.md`
-- `docs/worklog/RESIDENCECORE_CHECKLIST_VIEC*.md`
-- `docs/worklog/PROJECT_SUMMARY_VIEC*_STATUS_APPEND.md`
+```txt
+pnpm check
+pnpm test
+pnpm build
+```
 
-Quy tắc: tracking phải giữ full history, append-only, không overwrite mất nội dung cũ.
+Runtime store:
+
+- `/store-products` mở được.
+- `/store-purchase` mở được.
+- `/store-sales` mở được.
+- `/store-cashflow` mở được.
+- Header đúng 2 dòng, action góc phải.
+- Popup custom đúng z-index.
+- Không dùng browser alert/confirm.
+- Input tiền không nhân sai 100 lần.
+- SQL migration nằm trong `/drizzle`.
+- Không gọi quỹ riêng trên UI.
+
+
+---
+
+## Append — Việc 16K4.1: Nhập kho đa nguồn
+
+**Trạng thái:** Patch prepared, chờ apply/runtime test.
+
+Điều chỉnh nghiệp vụ từ 16K4:
+
+- “Nhập hàng” là nghiệp vụ nhập kho tổng quát, không đồng nghĩa mọi trường hợp đều là mua hàng.
+- Nguồn nhập hỗ trợ: `purchase` — Mua hàng; `production` — Sản xuất/gia công nội bộ; `self_supply` — Tự cung cấp/được cấp; `other` — Nguồn khác.
+- Tất cả nguồn nhập đều tăng tồn, ghi stock movement, ghi lịch sử giá vốn và tính lại giá vốn hiện tại.
+- Chỉ nguồn `purchase` tự động tạo giao dịch chi cửa hàng `purchase_stock`.
+- Các nguồn sản xuất/tự cung cấp/khác không tự động tạo khoản chi; chi phí riêng nếu có sẽ ghi bằng nghiệp vụ chi phù hợp.
+- API mới `createStockIn`; giữ alias `createPurchaseStock` để tương thích bản 16K4 cũ.
+- UI đổi thành “Tạo phiếu nhập kho”, hiển thị trường theo nguồn nhập và giải thích rõ tác động dòng tiền.
+
+
+---
+
+### Việc 16K4.2 — Tách dashboard Nhập kho khỏi số liệu kế toán
+
+**Trạng thái:** Patch prepared, chờ apply/runtime test.
+
+- Trang `/store-purchase` không còn hiển thị các card Tổng thu, Tổng chi, Số dư và Phát sinh.
+- Thay bằng số liệu vận hành nhập kho theo khoảng ngày đang lọc: Phiếu nhập, Số lượng nhập, Mặt hàng đã nhập và Phiếu mua hàng.
+- Số liệu kế toán/dòng tiền chỉ giữ ở trang Tổng hợp thu chi.
+- Mô tả menu Nhập kho đổi sang tập trung phiếu nhập, nguồn nhập và số lượng hàng vào kho.
+
+---
+
+## Cập nhật 16K4.3 — Tách nghiệp vụ nhập kho khỏi thu chi
+
+**Trạng thái:** Patch prepared, chờ apply/runtime test.
+
+Điều chỉnh giao diện trang `/store-purchase`:
+
+- Bỏ **Lịch sử chốt ngày** khỏi trang Nhập kho.
+- Bỏ **Sổ phát sinh** khỏi trang Nhập kho.
+- Bỏ cụm thao tác **Chốt sổ ngày** và bộ lọc Thu/Chi khỏi trang Nhập kho.
+- Trang Nhập kho chỉ giữ bộ lọc thời gian/tìm kiếm và **Lịch sử nhập kho** theo mọi nguồn nhập.
+- Các nội dung chốt ngày, dòng tiền và sổ phát sinh tiếp tục thuộc trang **Tổng hợp thu chi**.
+
+Không thay đổi DB, backend hoặc migration trong bước này.

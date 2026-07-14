@@ -90,7 +90,7 @@ export const storeProductCostHistories = mysqlTable(
       {
             id: int("id").autoincrement().primaryKey(),
             productId: int("productId").notNull().references(() => storeProducts.id, { onDelete: "restrict" }),
-            sourceType: mysqlEnum("sourceType", ["purchase", "processed", "manual_adjustment"]).default("purchase").notNull(),
+            sourceType: mysqlEnum("sourceType", ["purchase", "processed", "self_supply", "other", "manual_adjustment"]).default("purchase").notNull(),
             effectiveDate: date("effectiveDate").notNull(),
             quantity: decimal("quantity", { precision: 14, scale: 2 }).default("0.00").notNull(),
             unitCost: decimal("unitCost", { precision: 14, scale: 2 }).default("0.00").notNull(),
@@ -164,7 +164,7 @@ export const storeStockMovements = mysqlTable(
             id: int("id").autoincrement().primaryKey(),
             productId: int("productId").notNull().references(() => storeProducts.id, { onDelete: "restrict" }),
             transactionId: int("transactionId").references(() => storeLedgerTransactions.id, { onDelete: "set null" }),
-            movementType: mysqlEnum("movementType", ["purchase", "sale", "adjustment_in", "adjustment_out", "return"]).notNull(),
+            movementType: mysqlEnum("movementType", ["purchase", "production_in", "self_supply_in", "other_in", "sale", "adjustment_in", "adjustment_out", "return"]).notNull(),
             movementDate: date("movementDate").notNull(),
             quantityIn: decimal("quantityIn", { precision: 14, scale: 2 }).default("0.00").notNull(),
             quantityOut: decimal("quantityOut", { precision: 14, scale: 2 }).default("0.00").notNull(),

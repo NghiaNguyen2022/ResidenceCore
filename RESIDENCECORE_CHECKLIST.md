@@ -1,337 +1,383 @@
-# RESIDENCECORE_CHECKLIST — Full Checklist
+# RESIDENCECORE_CHECKLIST.md — Tổng checklist ResidenceCore / App Lưu Xá
 
-> Bản full cập nhật đến Việc 15I — 2026-07-12.  
-> Quy tắc: checklist này được cập nhật theo hướng **append-only/full-history**, không xóa các bước đã pass.
-
----
-
-## A. Quy tắc chung bắt buộc
-
-- [x] Làm từng việc nhỏ, không gom patch quá lớn khi không cần.
-- [x] Mỗi việc có audit/checklist/status.
-- [x] Sau mỗi pass cập nhật `PROJECT_SUMMARY.md` và checklist.
-- [x] Tracking file append-only/full-history, không ghi đè.
-- [x] Nếu user đã gửi file cho một việc, xem là base hiện tại.
-- [x] Không hỏi lại file đã có nếu user không nói đã thay đổi.
-- [x] Nếu không chắc base mới nhất, hỏi user gửi lại file.
-- [x] Không lấy patch cũ/file cũ làm base để tránh revert.
-- [x] Date/time/datetime phải dùng picker shared.
-- [x] Style ưu tiên token/shared style, không Tailwind rời rạc.
+Cập nhật đến: **Việc 16K4 — Nhập hàng / chi mua hàng tăng tồn, tính lại giá vốn**  
+Trạng thái tổng: **Việc 1–15 DONE/PASS; Việc 16 đang triển khai Quản lý cửa hàng**.
 
 ---
 
-## B. Protected regression checklist
+## A. Checklist nguyên tắc chung
 
-### Members / Contacts / Rooms
-
-- [x] Contact list filter theo residentId.
-- [x] Room source of truth dùng currentRoomId/currentRoom fields.
-- [x] Gán phòng check capacity.
-- [x] Chuyển phòng cập nhật current room.
-- [x] Trả phòng release current room.
-- [x] Học viên rời/ngừng bị khóa thao tác không hợp lệ.
-
-### Organization
-
-- [x] Tổ trưởng scope theo từng Tổ.
-- [x] Trưởng ban scope theo từng Ban.
-- [x] Không validate Tổ trưởng/Trưởng ban theo global role.
-- [x] OrgChart layout giữ: Trưởng top, Phó/Thư ký/Thủ quỹ hàng 2, Tổ/Ban bên dưới.
-- [x] Bổ nhiệm lỗi hiển thị trong modal, không hiện sau page.
-
-### Study / Duties
-
-- [x] Lịch học validate start < end.
-- [x] Lịch học validate HH:mm backend.
-- [x] Không trùng lịch học cùng ngày.
-- [x] Công tác check conflict lịch học.
-- [x] Công tác phân công được theo học viên/phòng/tổ/ban.
-- [x] Resident portal hiển thị công tác thuộc phạm vi cá nhân/phòng/tổ/ban.
-- [x] Resident chỉ complete công tác thuộc scope của mình.
-
-### Finance
-
-- [x] Tạo kỳ thu chung.
-- [x] Apply kỳ/tháng cho học viên.
-- [x] Không tạo khoản thu invalid amount.
-- [x] Không thu vượt còn lại.
-- [x] Portal học viên thấy tài chính cá nhân.
-- [x] Input tiền ở portal finance format `1.000.000`.
-
-### Picker/UI
-
-- [x] DatePicker portal fix.
-- [x] TimePickerInput added.
-- [x] Study schedule dùng TimePicker.
-- [x] DailyRoutine time dùng TimePicker.
-- [x] ResidentFinance `Ngày chi` dùng FormDateInput.
+- [x] Luôn làm trên code mới nhất.
+- [x] Nếu không chắc base code, yêu cầu người dùng gửi lại file.
+- [x] Tracking/checklist/summary theo từng việc phải append-only/full-history.
+- [x] Không ghi đè file tracking bằng bản rút gọn.
+- [x] Không revert layout/logic đã pass.
+- [x] Date/time/datetime dùng picker shared.
+- [x] Input tiền format `1.000.000`.
+- [x] Popup lỗi/xác nhận dùng modal custom, không browser confirm/alert.
+- [x] Popup blocking phải hiện trên form/modal hiện tại.
+- [x] Style premium thống nhất: trắng/kem/amber, title centered, action góc phải.
+- [x] Migration store đặt trong `/drizzle`.
 
 ---
 
-## C. Việc 1–10
+## B. Checklist Việc 1–10
 
 ### Việc 1 — Route/Menu/Page sync
 
-- [x] Audit route/menu.
-- [x] Map `/users` về `/settings/users`.
-- [x] Disable/ẩn menu chưa có route.
-- [x] User xác nhận pass.
+- [x] Audit menu/route.
+- [x] Fix `/users` route.
+- [x] Disable/hidden missing routes.
+- [x] Runtime pass.
 
 ### Việc 2 — Page orphan audit
 
-- [x] Audit pages orphan/imported.
-- [x] Phân loại connect/keep/archive.
-- [x] Không patch code.
+- [x] Audit orphan pages.
+- [x] Classify connect/keep/archive.
+- [x] No patch needed.
 
 ### Việc 3 — Members/Rooms/Organization main flow
 
 - [x] Guard assign room.
-- [x] Check resident inactive/left.
-- [x] Check capacity.
-- [x] Rooms mutation RBAC.
-- [x] User xác nhận pass.
+- [x] Check inactive/left resident.
+- [x] Check room capacity.
+- [x] Preserve assignment history.
+- [x] Update `currentRoomId`.
+- [x] Runtime pass.
 
 ### Việc 4 — FinanceLite minimal flow
 
-- [x] Finance router RBAC.
-- [x] Validate amount.
-- [x] Skip inactive/left residents on batch create.
-- [x] Duplicate guard.
-- [x] User xác nhận pass.
+- [x] Manager guard finance router.
+- [x] Validate amount > 0.
+- [x] Skip inactive/left residents.
+- [x] Duplicate/month guard.
+- [x] Runtime pass.
 
 ### Việc 5 — DailyRoutine/Công tác
 
-- [x] Duties management RBAC.
-- [x] Resident endpoints giữ đúng.
+- [x] Duties manager guard.
+- [x] Resident duty endpoints still work.
 - [x] Demo flow pass.
 
 ### Việc 6 — Resident Portal real data
 
-- [x] Resident linked user active guard.
-- [x] Portal access context.
+- [x] Linked resident context.
+- [x] Portal me.
+- [x] Portal finance overview.
 - [x] Today overview.
-- [x] Finance overview.
 - [x] Duty/org scope.
-- [x] User xác nhận pass.
+- [x] Runtime pass.
 
 ### Việc 7 — Test baseline cleanup
 
-- [x] Rename legacy router helper test.
-- [x] User xác nhận pass.
+- [x] Rename legacy test file.
+- [x] Test baseline pass.
 
 ### Việc 8 — Definition of Done
 
-- [x] DoD cho Members.
-- [x] DoD cho Rooms.
-- [x] DoD cho Organization.
-- [x] DoD cho DailyRoutine.
-- [x] DoD cho FinanceLite.
+- [x] DoD created.
+- [x] Members DoD.
+- [x] Rooms DoD.
+- [x] Organization DoD.
+- [x] DailyRoutine DoD.
+- [x] FinanceLite DoD.
 
 ### Việc 9 — Helper/style/picker
 
-- [x] Shared helper foundation.
+- [x] Shared helper utilities.
 - [x] TimePickerInput.
 - [x] DatePicker portal fix.
-- [x] Picker rule protected.
+- [x] Replace raw time input in known forms.
+- [x] Runtime pass.
 
 ### Việc 10 — Docs cleanup
 
-- [x] Docs cleanup plan.
-- [x] Archive/legacy docs note.
-- [x] Status zip.
-- [x] User xác nhận pass.
+- [x] Documentation status.
+- [x] Worklog cleanup.
+- [x] Archive legacy docs.
+- [x] Cleanup script.
+- [x] Pass.
 
 ---
 
-## D. Việc 11 — Học tập / Lịch học
+## C. Checklist Việc 11–15
 
-- [x] 11A backend guard/validate.
-- [x] getEducation/getStudySchedules manager guard.
-- [x] Chặn resident inactive/left update study.
-- [x] Validate HH:mm.
-- [x] User xác nhận Việc 11 pass.
-- [x] 11B layout Học tập attempted.
-- [x] Lỗi JSX trong MemberDetailModal đã được xử lý theo repo user.
-- [x] 11C/11D/11E polish hướng tab Học tập.
-- [x] Lưu ý protected: sửa MemberDetailModal phải kiểm tra wrapper JSX kỹ.
+### Việc 11 — Member Detail/Học tập
 
----
+- [x] Review member detail sub tabs.
+- [x] Restore/protect Study layout Việc 11B.
+- [x] Polish layout/style.
+- [x] Pass.
 
-## E. Việc 12 — Organization + Công tác + Portal theo chức vụ
+### Việc 12 — Organization + Công tác + Portal chức vụ
 
-- [x] Bộ file base Việc 12 đã nhận.
-- [x] 12A Org/Duty/Portal guard/scope patch.
-- [x] 12B modal error placement.
-- [x] User xác nhận 12B pass.
-- [x] Tracking full-history rebuilt.
-- [x] 12C portal duty scope cá nhân/phòng/tổ/ban.
-- [x] User xác nhận 12C pass.
-- [x] 12D demo script Organization → Công tác → Portal theo chức vụ.
-- [x] User xác nhận 12D pass.
+- [x] 12A guard/scope patched.
+- [x] 12B modal error placement pass.
+- [x] 12C portal duty scope pass.
+- [x] 12D demo script pass.
 - [x] Việc 12 DONE/PASS.
 
----
+### Việc 13 — Thông báo nội bộ lite
 
-## F. Việc 13 — Thông báo nội bộ lite
-
-- [x] 13A Notification API/page/menu.
-- [x] User xác nhận 13A pass.
-- [x] 13B Popup thông báo mới.
-- [x] 13C Badge số chưa đọc trên menu portal.
-- [x] 13D Polish trang thông báo.
-- [x] User xác nhận 13D pass.
-- [x] 13E Final demo checklist.
+- [x] 13A notification API/page/menu.
+- [x] 13B popup lite.
+- [x] 13C unread badge.
+- [x] 13D notification page polish.
+- [x] 13E final demo checklist.
 - [x] Việc 13 DONE/PASS.
 
-Scope không làm:
+### Việc 14 — Hoạt động/Sự kiện lite
 
-- [x] Không WebSocket realtime.
-- [x] Không push/email/SMS/Zalo.
-- [x] Không template engine phức tạp.
+- [x] 14A activities lite patch.
+- [x] 14B/14B2 migration fix.
+- [x] 14C–14J UI/modal polish.
+- [x] 14K filter/layout fix PASS.
+- [x] 14L final runtime checklist created.
+- [ ] Chốt 14L pass chính thức nếu cần đóng lại.
 
----
+### Việc 15 — Portal học viên mở rộng
 
-## G. Việc 14 — Hoạt động / Sự kiện lite
-
-- [x] 14A Activities lite module patch.
-- [x] Manager CRUD hoạt động.
-- [x] Resident xem hoạt động public.
-- [x] Hoạt động nội bộ không hiện portal.
-- [x] 14B migration fix phát hiện MySQL không hỗ trợ `ADD COLUMN IF NOT EXISTS`.
-- [x] 14B2 migration compatible MySQL.
-- [x] User chạy migration done.
-- [x] 14C layout polish.
-- [x] 14D compact modal.
-- [x] 14E match DailyRoutine style.
-- [x] 14F premium style refinement.
-- [x] 14G follow FinanceLite style.
-- [x] 14H modal controls fix.
-- [x] 14I modal premium compact.
-- [x] 14J modal simplify.
-- [x] 14K filter/layout fix.
-- [x] User xác nhận 14K pass.
-- [ ] 14L final runtime checklist pass chưa được user xác nhận chính thức.
-
-Checklist 14L cần test để đóng:
-
-- [ ] Manager mở `/activities` không lỗi query/migration.
-- [ ] Tạo hoạt động công khai portal.
-- [ ] Tạo hoạt động nội bộ.
-- [ ] Sửa hoạt động.
-- [ ] Hủy hoạt động.
-- [ ] Xóa mềm hoạt động.
-- [ ] Resident mở `/resident/activities` thấy hoạt động công khai.
-- [ ] Resident không thấy hoạt động nội bộ.
-- [ ] Filter/search hoạt động, không dropdown chồng layout.
-- [ ] DatePicker/TimePicker đúng rule picker.
+- [x] 15A portal activities route.
+- [x] 15C Portal Today premium restyle pass.
+- [x] 15F resident menu regroup pass.
+- [x] 15G Công tác trong menu mới.
+- [x] 15H ResidentFinance DatePicker fix.
+- [x] 15I Currency input pass.
+- [x] 15J remaining portal pages polish pass.
+- [x] 15K final runtime pass.
+- [x] Việc 15 DONE/PASS.
 
 ---
 
-## H. Việc 15 — Portal học viên mở rộng / gom trải nghiệm
+## D. Checklist Việc 16 — Quản lý cửa hàng
 
-### 15A — Portal activities route
+### D1. Nguyên tắc module cửa hàng
 
-- [x] Nhận bộ file portal.
-- [x] Audit phát hiện menu `/resident/activities` có nguy cơ thiếu route.
-- [x] Patch route `/resident/activities`.
+- [x] Module gọi là Quản lý cửa hàng, không gọi quỹ riêng.
+- [x] Chỉ một cửa hàng chính, không panel chọn nhiều sổ/quỹ.
+- [x] Menu riêng:
+  - [x] Dữ liệu sản phẩm.
+  - [x] Mua hàng / Nhập kho.
+  - [x] Bán hàng.
+  - [x] Tổng hợp thu chi.
+- [x] Route riêng, không dùng query tab làm menu chính.
+- [x] Header flat premium, 2 dòng, action góc phải.
+- [x] Migration store đặt trong `/drizzle`.
 
-### 15B — Portal Today polish nhẹ
+### D2. 16A — Store ledger lite
 
-- [x] Patch thử polish nhẹ.
-- [x] User phản hồi chưa thấy thay đổi style rõ.
-- [x] Không chốt pass, thay bằng 15C.
+- [x] Tạo nền store ledger.
+- [x] Ghi khoản thu.
+- [x] Ghi khoản chi.
+- [x] Tổng thu/tổng chi/số dư/phát sinh.
+- [x] Router registered sau 16A3.
+- [x] Enum column fixed sau 16A4.
+- [x] Duplicate ledger code fixed sau 16A5.
 
-### 15C — Portal Today visible premium restyle
+### D3. 16B/16C runtime & date render
 
-- [x] Hero centered.
-- [x] Nền trắng/kem/amber.
-- [x] Summary cards premium.
-- [x] Panel lịch học/công tác/vai trò đồng bộ hơn.
-- [x] User xác nhận 15C pass.
+- [x] Runtime checklist thu/chi created.
+- [x] Fix React Date object render.
 
-### 15D — MyDuties polish ban đầu
+### D4. 16D–16F — Chốt ngày cửa hàng
 
-- [x] Patch polish MyDuties.
-- [x] Phát hiện route/menu chưa rõ.
-- [x] Không chốt pass, chuyển sang gom menu.
+- [x] Daily closing foundation.
+- [x] Blocking popup khi ngày đã chốt.
+- [x] Popup z-index top layer.
+- [x] Review/approval workflow:
+  - [x] Chốt ngày tạm.
+  - [x] Review.
+  - [x] Đã review.
+  - [x] Xác nhận chốt.
+  - [x] Bỏ chốt để bổ sung khi chưa xác nhận.
 
-### 15E — Gọn menu bước đầu
+### D5. 16G–16J — Dữ liệu sản phẩm/UI/menu/header
 
-- [x] Gọn menu portal bước đầu.
-- [x] User xác nhận pass nhưng vẫn thấy rời rạc.
+- [x] Products lite foundation.
+- [x] Store page focus, bỏ quỹ riêng.
+- [x] Store menu regroup.
+- [x] Product category options.
+- [x] Nhóm hàng mặc định:
+  - [x] Nông sản.
+  - [x] Thủ công.
+  - [x] Bánh kẹo.
+  - [x] Sách.
+  - [x] Đồ uống.
+  - [x] Đồ ăn.
+  - [x] Văn phòng phẩm.
+  - [x] Khác.
+- [x] Cho tạo nhóm hàng mới.
+- [x] Đơn vị tính mặc định:
+  - [x] Gói.
+  - [x] Cái.
+  - [x] Chai.
+  - [x] Lít.
+  - [x] Cuốn.
+- [x] Cho tạo đơn vị mới.
+- [x] Tạo hàng hóa không bắt nhập giá bán.
+- [x] Không hiển thị mã hàng trên card chính.
+- [x] Có nút Thông tin giá.
+- [x] Có nút Xóa sản phẩm.
+- [x] Xóa dùng modal custom, không browser confirm.
+- [x] Không hiện popup thừa sau xóa thành công.
+- [x] Header store 2 dòng compact.
 
-### 15F — Gom tiếp menu portal học viên
+### D6. 16K1 — Price history foundation
 
-- [x] Menu học viên thường chỉ còn `Hôm nay` và `Lưu xá của tôi`.
-- [x] `Lưu xá của tôi` gồm Hồ sơ/Công tác/Tài chính/Thông báo/Hoạt động.
-- [x] Học viên có chức vụ có nhóm `Phụ trách`.
-- [x] User xác nhận 15F pass.
+- [x] Thêm sourceType.
+- [x] Thêm costingMethod.
+- [x] Thêm averageCostPrice.
+- [x] Thêm currentSalePrice.
+- [x] Thêm cost history table.
+- [x] Thêm sale price history table.
+- [x] API listProductPriceHistory.
+- [x] API updateProductSalePrice.
+- [x] Safe update fix cho MySQL Workbench.
 
-### 15G — Công tác trong menu mới
+### D7. 16K2 / 16K3 — UI giá và lịch sử giá
 
-- [x] Chuẩn hóa MyDuties theo ngữ cảnh `Lưu xá của tôi > Công tác`.
-- [x] Style đồng bộ Portal Today 15C.
-- [x] Giữ logic cá nhân/phòng/tổ/ban.
-- [x] User nói done/tiếp, xem là pass theo flow.
+- [x] Hiển thị pricing fields ban đầu.
+- [x] Đơn giản hóa UI theo yêu cầu.
+- [x] Form hàng hóa chỉ giữ thông tin cơ bản.
+- [x] Thông tin giá mở khi cần.
+- [x] Cập nhật giá bán qua modal riêng.
+- [x] Lý do thay đổi không bắt buộc.
+- [x] Sale price history append-only.
+- [x] Fix thiếu bảng sale price history.
+- [x] Fix thiếu bảng cost history.
+- [x] Fix format MySQL DECIMAL không nhân sai 100 lần.
+- [x] 16K3 pass.
 
-### 15H — Resident Finance DatePicker fix
+### D8. 16K4 — Nhập hàng / chi mua hàng tăng tồn
 
-- [x] Audit ResidentFinance.
-- [x] Phát hiện `Ngày chi` dùng input date thô.
-- [x] Patch sang `FormDateInput`.
-- [x] Không đổi backend/API/schema/logic.
+**Trạng thái:** Patch đã gửi, chờ apply/test.
 
-### 15I — Resident Finance currency input
+Cần kiểm tra:
 
-- [x] Field `Số tiền thực chi` format tiền Việt khi nhập.
-- [x] `1000000` hiển thị `1.000.000`.
-- [x] Submit vẫn là numeric.
-- [x] User xác nhận 15I pass.
+- [ ] Chạy migration `/drizzle/viec16k4_purchase_stock_inventory.sql`.
+- [ ] `/store-purchase` mở đúng.
+- [ ] Bấm Nhập hàng.
+- [ ] Chọn hàng hóa.
+- [ ] Nhập số lượng.
+- [ ] Nhập giá vào.
+- [ ] Chọn ngày nhập bằng picker.
+- [ ] Lưu nhập hàng.
+- [ ] Tồn hàng hóa tăng.
+- [ ] Tổng chi cửa hàng tăng.
+- [ ] Lịch sử giá vốn có dòng nhập mới.
+- [ ] Giá vốn hiện tại tính lại theo giá trung bình.
+- [ ] Ngày đã xác nhận chốt bị chặn bằng popup.
 
-### 15J — Next suggested
+### D9. Các bước tiếp sau 16K4
 
-- [ ] Rà/polish trang Hồ sơ portal.
-- [ ] Rà/polish trang Hoạt động public portal.
-- [ ] Rà/polish trang Thông báo portal sau 13D.
-- [ ] Rà Tài chính portal sau 15H/15I.
-- [ ] Final demo flow Portal học viên.
+- [ ] 16K5 — Bán hàng / thu bán hàng giảm tồn.
+- [ ] 16K6 — Báo cáo tồn kho.
+- [ ] 16K7 — Báo cáo dòng tiền cửa hàng.
+- [ ] 16K8 — Chốt sổ cửa hàng sang sổ chung theo ngày.
+- [ ] 16K9 — Demo script cửa hàng full flow.
 
 ---
 
-## I. Roadmap còn lại
+## E. Runtime checklist tổng trước demo
 
-### Việc 16 — Cửa hàng / quỹ riêng lite
+### Manager side
 
-- [ ] Sổ thu chi riêng.
-- [ ] Khoản thu.
-- [ ] Khoản chi.
-- [ ] Ngày phát sinh.
-- [ ] Người ghi nhận.
-- [ ] Nội dung.
-- [ ] Số tiền.
-- [ ] Tổng thu / tổng chi / tồn quỹ.
-- [ ] Không trộn với tài chính học viên.
+- [x] Members.
+- [x] Rooms.
+- [x] Contacts.
+- [x] Study schedule.
+- [x] Organization.
+- [x] Duties.
+- [x] Finance.
+- [x] Notifications.
+- [x] Activities.
+- [ ] Store products final.
+- [ ] Store purchase/import inventory.
+- [ ] Store sales.
+- [ ] Store inventory report.
+- [ ] Store cashflow.
+- [ ] Store daily closing to finance.
 
-### Việc 17 — Demo script full 15 phút
+### Resident portal
 
-- [ ] Manager tạo học viên.
-- [ ] Gán phòng.
-- [ ] Tạo liên hệ.
-- [ ] Nhập học tập/lịch học.
-- [ ] Tạo Tổ/Ban/bổ nhiệm.
-- [ ] Tạo công tác.
-- [ ] Tạo kỳ thu/tài chính.
-- [ ] Tạo thông báo.
-- [ ] Tạo hoạt động.
-- [ ] Resident login portal.
-- [ ] Resident xem hôm nay/công tác/tài chính/thông báo/hoạt động.
+- [x] Today.
+- [x] Profile/info.
+- [x] Duties.
+- [x] Finance.
+- [x] Notifications popup/badge/page.
+- [x] Public activities.
+- [x] Role scope for appointed residents.
 
-### Việc 18 — Polish UI/UX toàn demo
+---
 
-- [ ] Header/action đồng bộ.
-- [ ] Card/list/filter đồng bộ.
-- [ ] Modal gọn, không mất nội dung.
-- [ ] Không dropdown chồng layout.
-- [ ] Không scroll ngang ngoài ý muốn.
-- [ ] Empty/loading/error state đẹp.
-- [ ] Full check/test/build.
+## F. Commands chuẩn
+
+Sau mỗi patch:
+
+```bash
+pnpm check
+pnpm test
+pnpm build
+```
+
+Khi migration MySQL Workbench safe update bị chặn:
+
+```sql
+WHERE id > 0
+```
+
+hoặc tạm tắt safe update nếu người dùng chủ động muốn, nhưng ưu tiên sửa SQL an toàn.
+
+
+---
+
+## Append — Checklist Việc 16K4.1: Nhập kho đa nguồn
+
+- [x] Chốt rule nhập kho không chỉ là mua hàng.
+- [x] Thêm nguồn Mua hàng.
+- [x] Thêm nguồn Sản xuất/gia công nội bộ.
+- [x] Thêm nguồn Tự cung cấp/được cấp.
+- [x] Thêm nguồn Khác.
+- [x] Chỉ Mua hàng tự động tạo khoản chi cửa hàng.
+- [x] Các nguồn còn lại tăng tồn và cập nhật giá vốn nhưng không tự động tạo chi.
+- [x] Mở rộng movement type và cost history source type.
+- [x] Thêm API `createStockIn`, giữ API cũ để tương thích.
+- [x] Đổi UI thành Tạo phiếu nhập kho đa nguồn.
+- [ ] Apply migration 16K4.1.
+- [ ] Test mua hàng: tăng tồn + tăng tổng chi.
+- [ ] Test sản xuất/gia công: tăng tồn, tổng chi không đổi.
+- [ ] Test tự cung cấp/được cấp: tăng tồn, tổng chi không đổi.
+- [ ] Test nguồn khác: tăng tồn, tổng chi không đổi.
+- [ ] Kiểm tra lịch sử giá vốn ghi đúng nguồn.
+- [ ] Kiểm tra giá vốn trung bình sau từng nguồn nhập.
+- [ ] Kiểm tra ngày draft/reviewed/approved bị chặn đúng popup.
+- [ ] Chạy `pnpm check`, `pnpm test`, `pnpm build`.
+
+
+---
+
+### D8.2 — Việc 16K4.2: Dashboard vận hành Nhập kho
+
+- [x] Bỏ Tổng thu khỏi `/store-purchase`.
+- [x] Bỏ Tổng chi khỏi `/store-purchase`.
+- [x] Bỏ Số dư khỏi `/store-purchase`.
+- [x] Bỏ Phát sinh kế toán khỏi `/store-purchase`.
+- [x] Thêm số Phiếu nhập.
+- [x] Thêm tổng Số lượng nhập.
+- [x] Thêm số Mặt hàng đã nhập.
+- [x] Thêm số Phiếu mua hàng.
+- [ ] Runtime xác nhận số liệu thay đổi đúng theo khoảng ngày lọc.
+- [ ] Xác nhận số liệu kế toán chỉ còn ở Tổng hợp thu chi.
+
+---
+
+### D8.3 — 16K4.3 Tách trang Nhập kho khỏi thu chi
+
+- [x] Bỏ Lịch sử chốt ngày khỏi `/store-purchase`.
+- [x] Bỏ Sổ phát sinh khỏi `/store-purchase`.
+- [x] Bỏ thao tác Chốt sổ ngày khỏi `/store-purchase`.
+- [x] Bỏ bộ lọc Thu/Chi khỏi `/store-purchase`.
+- [x] Giữ Lịch sử nhập kho theo mọi nguồn nhập.
+- [x] Không thay đổi DB/backend/migration.
+- [ ] Runtime xác nhận `/store-purchase` chỉ còn nội dung nghiệp vụ nhập kho.
+- [ ] Runtime xác nhận `/store-cashflow` vẫn còn Lịch sử chốt ngày và Sổ phát sinh.

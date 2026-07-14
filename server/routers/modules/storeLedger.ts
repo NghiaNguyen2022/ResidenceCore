@@ -20,6 +20,7 @@ function getUserId(ctx: any) {
 
 const ledgerTypeSchema = z.enum(["store", "fund", "other"]);
 const directionSchema = z.enum(["in", "out"]);
+const stockInSourceSchema = z.enum(["purchase", "production", "self_supply", "other"]);
 const productSourceTypeSchema = z.enum(["purchase", "processed", "both"]);
 const costingMethodSchema = z.enum(["weighted_average", "latest", "manual"]);
 const salePriceReasonSchema = z.enum(["cost_increase", "overhead_increase", "market_adjustment", "promotion", "manual", "other"]);
@@ -54,6 +55,21 @@ export const storeLedgerRouter = router({
             .query(async ({ ctx, input }) => {
                   requireStoreLedgerAccess(ctx.user);
                   return storeLedgerService.listProducts(input || { isActive: true });
+            }),
+
+      listStockMovements: protectedProcedure
+            .input(
+                  z.object({
+                        fromDate: z.string().optional().nullable(),
+                        toDate: z.string().optional().nullable(),
+                        movementTypes: z.array(z.enum(["purchase", "production_in", "self_supply_in", "other_in", "sale", "adjustment_in", "adjustment_out", "return"])).optional().nullable(),
+                        limit: z.number().int().min(1).max(300).optional(),
+                        offset: z.number().int().min(0).optional(),
+                  }).optional(),
+            )
+            .query(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.listStockMovements(input || {});
             }),
 
       createProduct: protectedProcedure
@@ -226,6 +242,24 @@ export const storeLedgerRouter = router({
             .mutation(async ({ ctx, input }) => {
                   requireStoreLedgerAccess(ctx.user);
                   return storeLedgerService.cancelDailyClosing(input.id);
+            }),
+
+      createStockIn: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive(),
+                        productId: z.number().int().positive(),
+                        stockInSource: stockInSourceSchema,
+                        transactionDate: z.string().trim().min(1),
+                        quantity: z.number().positive(),
+                        unitCost: z.number().positive(),
+                        sourceName: z.string().optional().nullable(),
+                        description: z.string().optional().nullable(),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.createStockIn({ ...input, createdBy: getUserId(ctx) });
             }),
 
       createPurchaseStock: protectedProcedure

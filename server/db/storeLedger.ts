@@ -25,6 +25,14 @@ export type StoreProductListInput = {
       lowStockOnly?: boolean | null;
 };
 
+export type StoreStockMovementListInput = {
+      fromDate?: string | null;
+      toDate?: string | null;
+      movementTypes?: Array<"purchase" | "production_in" | "self_supply_in" | "other_in" | "sale" | "adjustment_in" | "adjustment_out" | "return"> | null;
+      limit?: number;
+      offset?: number;
+};
+
 export type StoreLedgerListInput = {
       search?: string | null;
       isActive?: boolean | null;
@@ -234,6 +242,38 @@ export async function listStoreStockMovementsByProduct(productId: number) {
             .from(storeStockMovements)
             .where(eq(storeStockMovements.productId, productId))
             .orderBy(desc(storeStockMovements.movementDate), desc(storeStockMovements.id));
+}
+
+export async function listStoreStockMovements(input: StoreStockMovementListInput = {}) {
+      const db = await dbOrThrow();
+      const conditions = [];
+      if (input.fromDate) conditions.push(gte(storeStockMovements.movementDate, input.fromDate));
+      if (input.toDate) conditions.push(lte(storeStockMovements.movementDate, input.toDate));
+      if (input.movementTypes?.length) {
+            conditions.push(sql`${storeStockMovements.movementType} IN (${sql.join(input.movementTypes.map((value) => sql`${value}`), sql`, `)})` as any);
+      }
+
+      return db
+            .select({
+                  id: storeStockMovements.id,
+                  productId: storeStockMovements.productId,
+                  productName: storeProducts.productName,
+                  productUnit: storeProducts.unit,
+                  transactionId: storeStockMovements.transactionId,
+                  movementType: storeStockMovements.movementType,
+                  movementDate: storeStockMovements.movementDate,
+                  quantityIn: storeStockMovements.quantityIn,
+                  quantityOut: storeStockMovements.quantityOut,
+                  unitCost: storeStockMovements.unitCost,
+                  note: storeStockMovements.note,
+                  createdAt: storeStockMovements.createdAt,
+            })
+            .from(storeStockMovements)
+            .leftJoin(storeProducts, eq(storeProducts.id, storeStockMovements.productId))
+            .where(conditions.length ? and(...conditions) : undefined)
+            .orderBy(desc(storeStockMovements.movementDate), desc(storeStockMovements.id))
+            .limit(input.limit ?? 200)
+            .offset(input.offset ?? 0);
 }
 
 export async function listStoreLedgers(input: StoreLedgerListInput = {}) {
