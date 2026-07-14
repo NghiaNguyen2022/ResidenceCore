@@ -128,10 +128,99 @@ export async function getActiveStoreProductSalePrice(productId: number, effectiv
       return rows[0] ?? null;
 }
 
+export async function getStoreProductSalePriceHistoryByDate(productId: number, effectiveDate: string) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeProductSalePriceHistories)
+            .where(and(eq(storeProductSalePriceHistories.productId, productId), eq(storeProductSalePriceHistories.effectiveDate, effectiveDate)))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+
+export async function upsertStoreProductSalePriceHistoryByDate(data: {
+      productId: number;
+      effectiveDate: string;
+      salePrice: string;
+      reason: "cost_increase" | "overhead_increase" | "market_adjustment" | "promotion" | "manual" | "other";
+      notes?: string | null;
+      createdBy?: number | null;
+}) {
+      const db = await dbOrThrow();
+
+      // Một sản phẩm chỉ có 1 giá bán cho 1 ngày áp dụng.
+      // Dùng update trước rồi insert sau để tránh lỗi ON DUPLICATE KEY UPDATE
+      // ở một số môi trường MySQL/MariaDB/driver.
+      const updateResult: any = await db
+            .update(storeProductSalePriceHistories)
+            .set({
+                  salePrice: data.salePrice,
+                  reason: data.reason,
+                  notes: data.notes ?? null,
+                  createdBy: data.createdBy ?? null,
+            } as any)
+            .where(
+                  and(
+                        eq(storeProductSalePriceHistories.productId, data.productId),
+                        eq(storeProductSalePriceHistories.effectiveDate, data.effectiveDate as any),
+                  ),
+            );
+
+      const affectedRows = Number(
+            updateResult?.affectedRows ??
+                  updateResult?.[0]?.affectedRows ??
+                  updateResult?.rowsAffected ??
+                  updateResult?.[0]?.rowsAffected ??
+                  0,
+      );
+
+      if (affectedRows > 0) return;
+
+      try {
+            await db.insert(storeProductSalePriceHistories).values({
+                  productId: data.productId,
+                  effectiveDate: data.effectiveDate,
+                  salePrice: data.salePrice,
+                  reason: data.reason,
+                  notes: data.notes ?? null,
+                  createdBy: data.createdBy ?? null,
+            } as any);
+      } catch (error: any) {
+            // Nếu có race-condition hoặc dữ liệu đã tồn tại nhưng updateResult không trả affectedRows,
+            // cập nhật lại dòng theo productId + effectiveDate thay vì đẩy lỗi SQL thô ra UI.
+            const message = String(error?.message || "").toLowerCase();
+            const code = String(error?.code || "").toLowerCase();
+            const isDuplicate = code.includes("dup") || message.includes("duplicate") || message.includes("unique");
+            if (!isDuplicate) throw error;
+
+            await db
+                  .update(storeProductSalePriceHistories)
+                  .set({
+                        salePrice: data.salePrice,
+                        reason: data.reason,
+                        notes: data.notes ?? null,
+                        createdBy: data.createdBy ?? null,
+                  } as any)
+                  .where(
+                        and(
+                              eq(storeProductSalePriceHistories.productId, data.productId),
+                              eq(storeProductSalePriceHistories.effectiveDate, data.effectiveDate as any),
+                        ),
+                  );
+      }
+}
+
 export async function createStoreProductSalePriceHistory(data: InsertStoreProductSalePriceHistory) {
       const db = await dbOrThrow();
       const [result]: any = await db.insert(storeProductSalePriceHistories).values(data);
       return result;
+}
+
+export async function updateStoreProductSalePriceHistory(id: number, data: Partial<InsertStoreProductSalePriceHistory>) {
+      const db = await dbOrThrow();
+      await db.update(storeProductSalePriceHistories).set(data).where(eq(storeProductSalePriceHistories.id, id));
+      return id;
 }
 
 export async function createStoreProduct(data: InsertStoreProduct) {

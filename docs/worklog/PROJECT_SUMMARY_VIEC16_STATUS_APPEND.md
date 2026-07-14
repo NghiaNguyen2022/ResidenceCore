@@ -1,16 +1,7 @@
-# PROJECT_SUMMARY — Việc 16 append
+# PROJECT_SUMMARY_VIEC16_STATUS_APPEND
 
-## 16K2 — Store product pricing visible in UI
+## Append update — Việc 16K3
 
-Sau khi user phản hồi chưa thấy các trường `sourceType`, `costingMethod`, `averageCostPrice`, `currentSalePrice` ở danh mục hàng hóa, đã bổ sung UI ở `StoreLedger.tsx` để hiển thị và nhập các thông tin nền này.
+Việc 16K3 chuẩn hóa lại UI danh mục hàng hóa theo hướng đơn giản: card hàng hóa chỉ hiển thị tên, nhóm, đơn vị, tồn, giá vốn và giá bán hiện tại. Các thông tin giá chi tiết được chuyển sang modal `Thông tin giá`, bao gồm lịch sử giá vốn và lịch sử giá bán.
 
-Nội dung:
-- Hàng hóa hiển thị nguồn hàng: mua về / tự gia công / cả hai.
-- Hàng hóa hiển thị cách tính giá vốn: bình quân gia quyền / giá nhập gần nhất / thủ công.
-- Card hàng hóa dùng `averageCostPrice || defaultCostPrice` làm giá vốn hiển thị.
-- Card hàng hóa dùng `currentSalePrice || defaultSalePrice` làm giá bán hiện tại.
-- Hiển thị giá trị vốn tồn và giá trị bán dự kiến.
-- Form hàng hóa bổ sung nguồn hàng và cách tính giá vốn.
-- Không đổi backend/schema/migration ở bước này vì nền 16K1 đã thêm DB/API.
-
-Bước kế tiếp: 16K3 — modal cập nhật giá bán + xem lịch sử giá vốn/giá bán.
+Giá bán được cập nhật qua modal riêng để lưu lịch sử với ngày áp dụng, lý do thay đổi và ghi chú. Cách tính giá vốn không còn hiện trong form chính; chỉ hiển thị trong thông tin giá bằng từ ngữ dễ hiểu.

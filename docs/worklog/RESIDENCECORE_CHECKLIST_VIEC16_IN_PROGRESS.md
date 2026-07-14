@@ -1,12 +1,14 @@
 # RESIDENCECORE_CHECKLIST_VIEC16_IN_PROGRESS
 
-## 16K2 — Hiển thị nguồn hàng / cách tính giá vốn / giá vốn / giá bán trên danh mục hàng hóa
+## Append update — 16K3 Product price history UI simplify
 
-- [x] Bổ sung UI hiển thị sourceType: mua về / tự gia công / cả hai.
-- [x] Bổ sung UI hiển thị costingMethod: bình quân gia quyền / giá nhập gần nhất / thủ công.
-- [x] Card hàng hóa hiển thị giá vốn bình quân/current cost nếu có.
-- [x] Card hàng hóa hiển thị giá bán hiện tại nếu có.
-- [x] Card hàng hóa hiển thị giá trị vốn tồn và giá trị bán dự kiến.
-- [x] Form hàng hóa có nguồn hàng và cách tính giá vốn.
-- [x] Không đổi backend/schema/migration ở bước này.
-- [ ] Bước sau: UI cập nhật giá bán + xem lịch sử giá.
+- [x] Tạm dừng nhập hàng/bán hàng để làm rõ logic giá.
+- [x] UI danh mục hàng hóa chỉ hiển thị thông tin đơn giản nhất.
+- [x] Không đưa cách tính giá vốn vào form chính.
+- [x] Không bắt nhập giá bán trong form tạo/sửa hàng hóa.
+- [x] Thêm nút `Thông tin giá` trên card hàng hóa.
+- [x] Modal `Thông tin giá` hiển thị giá vốn hiện tại, giá bán hiện tại, giá trị vốn tồn và lịch sử giá.
+- [x] Modal `Cập nhật giá bán` có ngày áp dụng, lý do thay đổi và ghi chú.
+- [x] Dùng từ ngữ dễ hiểu hơn: `Tính theo giá trung bình`, `Theo lần nhập gần nhất`, `Tự nhập`.
+- [ ] Test `pnpm check`, `pnpm test`, `pnpm build`.
+- [ ] Runtime: mở `/store-products`, xem thông tin giá, cập nhật giá bán và kiểm tra lịch sử.

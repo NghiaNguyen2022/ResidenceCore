@@ -155,14 +155,18 @@ export const storeLedgerService = {
             const effectiveDate = ensureDate(input.effectiveDate, "Ngày áp dụng giá bán không hợp lệ.");
             const salePrice = ensureAmount(input.salePrice);
 
-            await storeLedgerDb.createStoreProductSalePriceHistory({
+            const priceHistoryPayload = {
                   productId: input.productId,
                   effectiveDate,
                   salePrice: String(salePrice.toFixed(2)),
                   reason: input.reason ?? "manual",
                   notes: input.notes?.trim() || null,
                   createdBy: input.createdBy ?? null,
-            } as any);
+            } as any;
+
+            // Upsert trực tiếp bằng MySQL để tránh lỗi pre-select theo cột DATE trên một số môi trường MySQL/driver.
+            // Nếu cùng sản phẩm + cùng ngày đã có giá, dòng lịch sử giá của ngày đó sẽ được cập nhật.
+            await storeLedgerDb.upsertStoreProductSalePriceHistoryByDate(priceHistoryPayload);
 
             const today = new Date().toISOString().slice(0, 10);
             if (effectiveDate <= today) {
