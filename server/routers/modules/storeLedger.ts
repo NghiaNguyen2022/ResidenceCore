@@ -20,6 +20,9 @@ function getUserId(ctx: any) {
 
 const ledgerTypeSchema = z.enum(["store", "fund", "other"]);
 const directionSchema = z.enum(["in", "out"]);
+const productSourceTypeSchema = z.enum(["purchase", "processed", "both"]);
+const costingMethodSchema = z.enum(["weighted_average", "latest", "manual"]);
+const salePriceReasonSchema = z.enum(["cost_increase", "overhead_increase", "market_adjustment", "promotion", "manual", "other"]);
 
 const productInputSchema = z.object({
       productCode: z.string().trim().min(1),
@@ -28,6 +31,8 @@ const productInputSchema = z.object({
       unit: z.string().optional().nullable(),
       defaultCostPrice: z.number().min(0).optional().nullable(),
       defaultSalePrice: z.number().min(0).optional().nullable(),
+      sourceType: productSourceTypeSchema.optional().nullable(),
+      costingMethod: costingMethodSchema.optional().nullable(),
       minStock: z.number().min(0).optional().nullable(),
       currentStock: z.number().min(0).optional().nullable(),
       description: z.string().optional().nullable(),
@@ -71,6 +76,28 @@ export const storeLedgerRouter = router({
             .mutation(async ({ ctx, input }) => {
                   requireStoreLedgerAccess(ctx.user);
                   return storeLedgerService.deleteProduct(input.id);
+            }),
+
+      listProductPriceHistory: protectedProcedure
+            .input(z.object({ productId: z.number().int().positive() }))
+            .query(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.listProductPriceHistory(input.productId);
+            }),
+
+      updateProductSalePrice: protectedProcedure
+            .input(
+                  z.object({
+                        productId: z.number().int().positive(),
+                        salePrice: z.number().min(0.01),
+                        effectiveDate: z.string().trim().min(10),
+                        reason: salePriceReasonSchema.optional().nullable(),
+                        notes: z.string().optional().nullable(),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.updateProductSalePrice({ ...input, createdBy: getUserId(ctx) });
             }),
 
       listLedgers: protectedProcedure

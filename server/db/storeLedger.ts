@@ -4,10 +4,14 @@ import {
       storeDailyClosings,
       storeLedgers,
       storeProducts,
+      storeProductCostHistories,
+      storeProductSalePriceHistories,
       storeLedgerTransactions,
       type InsertStoreDailyClosing,
       type InsertStoreLedger,
       type InsertStoreProduct,
+      type InsertStoreProductCostHistory,
+      type InsertStoreProductSalePriceHistory,
       type InsertStoreLedgerTransaction,
 } from "../../drizzle/schema";
 
@@ -87,6 +91,47 @@ export async function getStoreProductByCode(productCode: string) {
       const db = await dbOrThrow();
       const rows = await db.select().from(storeProducts).where(eq(storeProducts.productCode, productCode)).limit(1);
       return rows[0] ?? null;
+}
+
+export async function listStoreProductCostHistories(productId: number) {
+      const db = await dbOrThrow();
+      return db
+            .select()
+            .from(storeProductCostHistories)
+            .where(eq(storeProductCostHistories.productId, productId))
+            .orderBy(desc(storeProductCostHistories.effectiveDate), desc(storeProductCostHistories.id));
+}
+
+export async function createStoreProductCostHistory(data: InsertStoreProductCostHistory) {
+      const db = await dbOrThrow();
+      const [result]: any = await db.insert(storeProductCostHistories).values(data);
+      return result;
+}
+
+export async function listStoreProductSalePriceHistories(productId: number) {
+      const db = await dbOrThrow();
+      return db
+            .select()
+            .from(storeProductSalePriceHistories)
+            .where(eq(storeProductSalePriceHistories.productId, productId))
+            .orderBy(desc(storeProductSalePriceHistories.effectiveDate), desc(storeProductSalePriceHistories.id));
+}
+
+export async function getActiveStoreProductSalePrice(productId: number, effectiveDate: string) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeProductSalePriceHistories)
+            .where(and(eq(storeProductSalePriceHistories.productId, productId), lte(storeProductSalePriceHistories.effectiveDate, effectiveDate)))
+            .orderBy(desc(storeProductSalePriceHistories.effectiveDate), desc(storeProductSalePriceHistories.id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function createStoreProductSalePriceHistory(data: InsertStoreProductSalePriceHistory) {
+      const db = await dbOrThrow();
+      const [result]: any = await db.insert(storeProductSalePriceHistories).values(data);
+      return result;
 }
 
 export async function createStoreProduct(data: InsertStoreProduct) {

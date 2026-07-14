@@ -67,6 +67,10 @@ export const storeProducts = mysqlTable(
             defaultSalePrice: decimal("defaultSalePrice", { precision: 14, scale: 2 }).default("0.00").notNull(),
             minStock: decimal("minStock", { precision: 14, scale: 2 }).default("0.00").notNull(),
             currentStock: decimal("currentStock", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            sourceType: mysqlEnum("sourceType", ["purchase", "processed", "both"]).default("purchase").notNull(),
+            costingMethod: mysqlEnum("costingMethod", ["weighted_average", "latest", "manual"]).default("weighted_average").notNull(),
+            averageCostPrice: decimal("averageCostPrice", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            currentSalePrice: decimal("currentSalePrice", { precision: 14, scale: 2 }).default("0.00").notNull(),
             description: text("description"),
             isActive: boolean("isActive").default(true).notNull(),
             createdBy: int("createdBy").references(() => users.id, { onDelete: "set null" }),
@@ -77,6 +81,49 @@ export const storeProducts = mysqlTable(
             codeUnique: unique("storeProducts_productCode_unique").on(table.productCode),
             activeIdx: index("storeProducts_active_idx").on(table.isActive),
             categoryIdx: index("storeProducts_category_idx").on(table.category),
+      }),
+);
+
+
+export const storeProductCostHistories = mysqlTable(
+      "storeProductCostHistories",
+      {
+            id: int("id").autoincrement().primaryKey(),
+            productId: int("productId").notNull().references(() => storeProducts.id, { onDelete: "restrict" }),
+            sourceType: mysqlEnum("sourceType", ["purchase", "processed", "manual_adjustment"]).default("purchase").notNull(),
+            effectiveDate: date("effectiveDate").notNull(),
+            quantity: decimal("quantity", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            unitCost: decimal("unitCost", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            averageCostAfter: decimal("averageCostAfter", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            reason: varchar("reason", { length: 100 }),
+            notes: text("notes"),
+            createdBy: int("createdBy").references(() => users.id, { onDelete: "set null" }),
+            createdAt: timestamp("createdAt").defaultNow().notNull(),
+            updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+      },
+      (table) => ({
+            productIdx: index("storeProductCostHistories_product_idx").on(table.productId),
+            dateIdx: index("storeProductCostHistories_date_idx").on(table.effectiveDate),
+      }),
+);
+
+export const storeProductSalePriceHistories = mysqlTable(
+      "storeProductSalePriceHistories",
+      {
+            id: int("id").autoincrement().primaryKey(),
+            productId: int("productId").notNull().references(() => storeProducts.id, { onDelete: "restrict" }),
+            effectiveDate: date("effectiveDate").notNull(),
+            salePrice: decimal("salePrice", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            reason: mysqlEnum("reason", ["cost_increase", "overhead_increase", "market_adjustment", "promotion", "manual", "other"]).default("manual").notNull(),
+            notes: text("notes"),
+            createdBy: int("createdBy").references(() => users.id, { onDelete: "set null" }),
+            createdAt: timestamp("createdAt").defaultNow().notNull(),
+            updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+      },
+      (table) => ({
+            productDateUnique: unique("storeProductSalePriceHistories_product_date_unique").on(table.productId, table.effectiveDate),
+            productIdx: index("storeProductSalePriceHistories_product_idx").on(table.productId),
+            dateIdx: index("storeProductSalePriceHistories_date_idx").on(table.effectiveDate),
       }),
 );
 
@@ -116,5 +163,9 @@ export type StoreDailyClosing = typeof storeDailyClosings.$inferSelect;
 export type InsertStoreDailyClosing = typeof storeDailyClosings.$inferInsert;
 export type StoreProduct = typeof storeProducts.$inferSelect;
 export type InsertStoreProduct = typeof storeProducts.$inferInsert;
+export type StoreProductCostHistory = typeof storeProductCostHistories.$inferSelect;
+export type InsertStoreProductCostHistory = typeof storeProductCostHistories.$inferInsert;
+export type StoreProductSalePriceHistory = typeof storeProductSalePriceHistories.$inferSelect;
+export type InsertStoreProductSalePriceHistory = typeof storeProductSalePriceHistories.$inferInsert;
 export type StoreLedgerTransaction = typeof storeLedgerTransactions.$inferSelect;
 export type InsertStoreLedgerTransaction = typeof storeLedgerTransactions.$inferInsert;

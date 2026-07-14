@@ -43,6 +43,8 @@ export const storeLedgerService = {
             unit?: string | null;
             defaultCostPrice?: number | null;
             defaultSalePrice?: number | null;
+            sourceType?: "purchase" | "processed" | "both" | null;
+            costingMethod?: "weighted_average" | "latest" | "manual" | null;
             minStock?: number | null;
             currentStock?: number | null;
             description?: string | null;
@@ -71,6 +73,10 @@ export const storeLedgerService = {
                   unit: input.unit?.trim() || "cái",
                   defaultCostPrice: String(Number(input.defaultCostPrice || 0).toFixed(2)),
                   defaultSalePrice: String(Number(input.defaultSalePrice || 0).toFixed(2)),
+                  averageCostPrice: String(Number(input.defaultCostPrice || 0).toFixed(2)),
+                  currentSalePrice: String(Number(input.defaultSalePrice || 0).toFixed(2)),
+                  sourceType: input.sourceType ?? "purchase",
+                  costingMethod: input.costingMethod ?? "weighted_average",
                   minStock: String(Number(input.minStock || 0).toFixed(2)),
                   currentStock: String(Number(input.currentStock || 0).toFixed(2)),
                   description: input.description?.trim() || null,
@@ -85,6 +91,8 @@ export const storeLedgerService = {
             unit?: string | null;
             defaultCostPrice?: number | null;
             defaultSalePrice?: number | null;
+            sourceType?: "purchase" | "processed" | "both" | null;
+            costingMethod?: "weighted_average" | "latest" | "manual" | null;
             minStock?: number | null;
             currentStock?: number | null;
             description?: string | null;
@@ -99,6 +107,8 @@ export const storeLedgerService = {
                   unit: input.unit?.trim() || product.unit || "cái",
                   defaultCostPrice: input.defaultCostPrice !== undefined && input.defaultCostPrice !== null ? String(Number(input.defaultCostPrice).toFixed(2)) : product.defaultCostPrice,
                   defaultSalePrice: input.defaultSalePrice !== undefined && input.defaultSalePrice !== null ? String(Number(input.defaultSalePrice).toFixed(2)) : product.defaultSalePrice,
+                  sourceType: input.sourceType ?? (product as any).sourceType ?? "purchase",
+                  costingMethod: input.costingMethod ?? (product as any).costingMethod ?? "weighted_average",
                   minStock: input.minStock !== undefined && input.minStock !== null ? String(Number(input.minStock).toFixed(2)) : product.minStock,
                   currentStock: input.currentStock !== undefined && input.currentStock !== null ? String(Number(input.currentStock).toFixed(2)) : product.currentStock,
                   description: input.description?.trim() || null,
@@ -120,6 +130,48 @@ export const storeLedgerService = {
             }
 
             return storeLedgerDb.softDeleteStoreProduct(id);
+      },
+
+      async listProductPriceHistory(productId: number) {
+            const product = await storeLedgerDb.getStoreProductById(productId);
+            if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy hàng hóa." });
+            const [costHistory, salePriceHistory] = await Promise.all([
+                  storeLedgerDb.listStoreProductCostHistories(productId),
+                  storeLedgerDb.listStoreProductSalePriceHistories(productId),
+            ]);
+            return { product, costHistory, salePriceHistory };
+      },
+
+      async updateProductSalePrice(input: {
+            productId: number;
+            salePrice: number;
+            effectiveDate: string;
+            reason?: "cost_increase" | "overhead_increase" | "market_adjustment" | "promotion" | "manual" | "other" | null;
+            notes?: string | null;
+            createdBy?: number | null;
+      }) {
+            const product = await storeLedgerDb.getStoreProductById(input.productId);
+            if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy hàng hóa." });
+            const effectiveDate = ensureDate(input.effectiveDate, "Ngày áp dụng giá bán không hợp lệ.");
+            const salePrice = ensureAmount(input.salePrice);
+
+            await storeLedgerDb.createStoreProductSalePriceHistory({
+                  productId: input.productId,
+                  effectiveDate,
+                  salePrice: String(salePrice.toFixed(2)),
+                  reason: input.reason ?? "manual",
+                  notes: input.notes?.trim() || null,
+                  createdBy: input.createdBy ?? null,
+            } as any);
+
+            const today = new Date().toISOString().slice(0, 10);
+            if (effectiveDate <= today) {
+                  await storeLedgerDb.updateStoreProduct(input.productId, {
+                        defaultSalePrice: String(salePrice.toFixed(2)),
+                        currentSalePrice: String(salePrice.toFixed(2)),
+                  } as any);
+            }
+            return this.listProductPriceHistory(input.productId);
       },
 
       async listLedgers(input: storeLedgerDb.StoreLedgerListInput = {}) {
