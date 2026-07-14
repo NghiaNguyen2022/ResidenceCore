@@ -229,10 +229,42 @@ export async function addStoreProductStock(input: {
       return getStoreProductById(input.productId);
 }
 
+export async function subtractStoreProductStock(input: {
+      productId: number;
+      quantity: number;
+}) {
+      const db = await dbOrThrow();
+      const [result]: any = await db
+            .update(storeProducts)
+            .set({
+                  currentStock: sql`${storeProducts.currentStock} - ${input.quantity}`,
+            } as any)
+            .where(
+                  and(
+                        eq(storeProducts.id, input.productId),
+                        sql`${storeProducts.currentStock} >= ${input.quantity}` as any,
+                  ),
+            );
+
+      const affectedRows = Number(result?.affectedRows ?? result?.rowsAffected ?? 0);
+      if (affectedRows <= 0) return null;
+      return getStoreProductById(input.productId);
+}
+
 export async function createStoreStockMovement(data: InsertStoreStockMovement) {
       const db = await dbOrThrow();
       const [result]: any = await db.insert(storeStockMovements).values(data);
       return result;
+}
+
+export async function getStoreStockMovementByTransactionId(transactionId: number) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeStockMovements)
+            .where(eq(storeStockMovements.transactionId, transactionId))
+            .limit(1);
+      return rows[0] ?? null;
 }
 
 export async function listStoreStockMovementsByProduct(productId: number) {

@@ -279,6 +279,24 @@ export const storeLedgerRouter = router({
                   return storeLedgerService.createPurchaseStock({ ...input, createdBy: getUserId(ctx) });
             }),
 
+      createSaleStock: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive(),
+                        productId: z.number().int().positive(),
+                        transactionDate: z.string().trim().min(1),
+                        quantity: z.number().positive(),
+                        unitPrice: z.number().positive().optional().nullable(),
+                        customerName: z.string().optional().nullable(),
+                        paymentMethod: z.string().optional().nullable(),
+                        description: z.string().optional().nullable(),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.createSaleStock({ ...input, createdBy: getUserId(ctx) });
+            }),
+
       createTransaction: protectedProcedure
             .input(
                   z.object({

@@ -381,3 +381,28 @@ hoặc tạm tắt safe update nếu người dùng chủ động muốn, nhưng
 - [x] Không thay đổi DB/backend/migration.
 - [ ] Runtime xác nhận `/store-purchase` chỉ còn nội dung nghiệp vụ nhập kho.
 - [ ] Runtime xác nhận `/store-cashflow` vẫn còn Lịch sử chốt ngày và Sổ phát sinh.
+
+
+---
+
+### D9.1 — Việc 16K5: Bán hàng theo sản phẩm
+
+- [x] Thêm API tạo phiếu bán theo sản phẩm.
+- [x] Giá bán mặc định lấy từ giá bán hiện tại.
+- [x] Cho phép chỉnh giá bán thực tế trên phiếu.
+- [x] Kiểm tra tồn trước khi bán.
+- [x] Chặn tồn âm ở backend.
+- [x] Giảm tồn kho sau khi bán.
+- [x] Ghi stock movement loại `sale`.
+- [x] Tự động tạo khoản thu cửa hàng loại `sales`.
+- [x] Thêm dashboard vận hành riêng cho trang Bán hàng.
+- [x] Thêm Lịch sử bán hàng riêng.
+- [x] Bỏ Lịch sử chốt ngày khỏi `/store-sales`.
+- [x] Bỏ Sổ phát sinh khỏi `/store-sales`.
+- [x] Chốt ngày và dòng tiền chỉ còn ở `/store-cashflow`.
+- [ ] Runtime bán số lượng nhỏ hơn tồn: giảm tồn + tăng tổng thu.
+- [ ] Runtime bán hết tồn: tồn về 0.
+- [ ] Runtime bán vượt tồn: popup/lỗi rõ ràng, không tạo thu.
+- [ ] Runtime giá bán thực tế khác giá hiện tại: phiếu dùng đúng giá thực tế, không đổi lịch sử giá bán.
+- [ ] Runtime ngày draft/reviewed/approved bị chặn đúng.
+- [ ] Chạy `pnpm check`, `pnpm test`, `pnpm build`.

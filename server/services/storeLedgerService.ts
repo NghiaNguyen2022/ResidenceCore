@@ -524,6 +524,112 @@ export const storeLedgerService = {
             });
       },
 
+      async createSaleStock(input: {
+            ledgerId: number;
+            productId: number;
+            transactionDate: string;
+            quantity: number;
+            unitPrice?: number | null;
+            customerName?: string | null;
+            paymentMethod?: string | null;
+            description?: string | null;
+            createdBy?: number | null;
+      }) {
+            const ledger = await storeLedgerDb.getStoreLedgerById(input.ledgerId);
+            if (!ledger || !ledger.isActive) {
+                  throw new TRPCError({ code: "BAD_REQUEST", message: "Cửa hàng chưa được khởi tạo hoặc đã ngừng sử dụng." });
+            }
+
+            const product = await storeLedgerDb.getStoreProductById(input.productId);
+            if (!product || !product.isActive) {
+                  throw new TRPCError({ code: "BAD_REQUEST", message: "Hàng hóa không hợp lệ hoặc đã ngừng sử dụng." });
+            }
+
+            const transactionDate = ensureDate(input.transactionDate, "Ngày bán hàng không hợp lệ.");
+            const closedDate = await storeLedgerDb.getStoreDailyClosingByDate(input.ledgerId, transactionDate);
+            if (closedDate && String(closedDate.status) !== "cancelled") {
+                  const status = String(closedDate.status);
+                  const canReopen = ["draft", "reviewed"].includes(status);
+                  throw new TRPCError({
+                        code: "BAD_REQUEST",
+                        message: canReopen
+                              ? "Ngày này đang trong quy trình chốt sổ. Có thể bỏ chốt để bổ sung phiếu bán hàng trước khi xác nhận."
+                              : "Ngày này đã xác nhận chốt sổ. Không thể tạo phiếu bán hàng mới.",
+                  });
+            }
+
+            if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+                  throw new TRPCError({ code: "BAD_REQUEST", message: "Số lượng bán phải lớn hơn 0." });
+            }
+
+            const quantity = Number(input.quantity.toFixed(2));
+            const currentStock = Number((product as any).currentStock || 0);
+            if (quantity > currentStock) {
+                  throw new TRPCError({
+                        code: "BAD_REQUEST",
+                        message: `Không đủ tồn kho. Hiện còn ${currentStock} ${(product as any).unit || ""}.`,
+                  });
+            }
+
+            const defaultSalePrice = Number((product as any).currentSalePrice || (product as any).defaultSalePrice || 0);
+            const unitPrice = ensureAmount(Number(input.unitPrice ?? defaultSalePrice));
+            const amount = Number((quantity * unitPrice).toFixed(2));
+            const unitCost = Number((product as any).averageCostPrice || (product as any).defaultCostPrice || 0);
+            const transactionCode = `BAN-${todayCodeDate()}-${Date.now().toString().slice(-5)}`;
+            const productName = String((product as any).productName || "Hàng hóa");
+
+            const transaction = await storeLedgerDb.createStoreLedgerTransaction({
+                  ledgerId: input.ledgerId,
+                  transactionCode,
+                  direction: "in",
+                  transactionDate,
+                  amount: String(amount.toFixed(2)),
+                  category: "sales",
+                  title: `Bán hàng: ${productName}`,
+                  partnerName: input.customerName?.trim() || null,
+                  paymentMethod: input.paymentMethod?.trim() || "cash",
+                  description: input.description?.trim() || null,
+                  status: "posted",
+                  isActive: true,
+                  createdBy: input.createdBy ?? null,
+            } as any);
+
+            const transactionId = Number((transaction as any)?.id || 0) || null;
+            const updatedProduct = await storeLedgerDb.subtractStoreProductStock({
+                  productId: input.productId,
+                  quantity,
+            });
+
+            if (!updatedProduct) {
+                  await storeLedgerDb.softDeleteStoreLedgerTransaction(Number((transaction as any)?.id || 0));
+                  throw new TRPCError({
+                        code: "CONFLICT",
+                        message: "Tồn kho vừa thay đổi. Vui lòng kiểm tra lại số lượng và tạo phiếu bán lại.",
+                  });
+            }
+
+            await storeLedgerDb.createStoreStockMovement({
+                  productId: input.productId,
+                  transactionId,
+                  movementType: "sale",
+                  movementDate: transactionDate,
+                  quantityIn: "0.00",
+                  quantityOut: String(quantity.toFixed(2)),
+                  unitCost: String(unitCost.toFixed(2)),
+                  note: [input.customerName?.trim(), input.description?.trim()].filter(Boolean).join(" · ") || null,
+                  createdBy: input.createdBy ?? null,
+            } as any);
+
+            return {
+                  transaction,
+                  product: updatedProduct,
+                  quantity,
+                  unitPrice,
+                  amount,
+                  stockAfter: Number((updatedProduct as any).currentStock || 0),
+            };
+      },
+
       async createTransaction(input: {
             ledgerId: number;
             direction: "in" | "out";
@@ -582,6 +688,13 @@ export const storeLedgerService = {
             if (!transaction || !transaction.isActive) {
                   throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy khoản thu/chi." });
             }
+            const stockMovement = await storeLedgerDb.getStoreStockMovementByTransactionId(id);
+            if (stockMovement) {
+                  throw new TRPCError({
+                        code: "BAD_REQUEST",
+                        message: "Phát sinh này đã liên kết với nhập/xuất kho. Không thể hủy trực tiếp vì sẽ làm sai tồn kho; hãy dùng nghiệp vụ trả hàng hoặc điều chỉnh kho.",
+                  });
+            }
             if ((transaction as any).dailyClosingId) {
                   const closing = await storeLedgerDb.getStoreDailyClosingById(Number((transaction as any).dailyClosingId));
                   const canReopen = closing && ["draft", "reviewed"].includes(String(closing.status));
@@ -599,6 +712,13 @@ export const storeLedgerService = {
             const transaction = await storeLedgerDb.getStoreLedgerTransactionById(id);
             if (!transaction || !transaction.isActive) {
                   throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy khoản thu/chi." });
+            }
+            const stockMovement = await storeLedgerDb.getStoreStockMovementByTransactionId(id);
+            if (stockMovement) {
+                  throw new TRPCError({
+                        code: "BAD_REQUEST",
+                        message: "Phát sinh này đã liên kết với nhập/xuất kho. Không thể hủy trực tiếp vì sẽ làm sai tồn kho; hãy dùng nghiệp vụ trả hàng hoặc điều chỉnh kho.",
+                  });
             }
             if ((transaction as any).dailyClosingId) {
                   const closing = await storeLedgerDb.getStoreDailyClosingById(Number((transaction as any).dailyClosingId));

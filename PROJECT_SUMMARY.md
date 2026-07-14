@@ -460,3 +460,21 @@ Runtime store:
 - Các nội dung chốt ngày, dòng tiền và sổ phát sinh tiếp tục thuộc trang **Tổng hợp thu chi**.
 
 Không thay đổi DB, backend hoặc migration trong bước này.
+
+
+---
+
+## Append — Việc 16K5: Bán hàng theo sản phẩm, giảm tồn và ghi thu
+
+**Trạng thái:** Patch prepared, chờ apply/runtime test.
+
+- Thêm API `createSaleStock` cho nghiệp vụ bán hàng theo sản phẩm.
+- Phiếu bán chọn hàng hóa, ngày bán, số lượng, giá bán thực tế, khách hàng và phương thức thanh toán.
+- Giá bán mặc định lấy từ giá bán hiện tại nhưng cho phép điều chỉnh trên từng phiếu.
+- Backend kiểm tra tồn kho và không cho phép tồn âm.
+- Khi lưu: tạo khoản thu cửa hàng loại `sales`, giảm tồn kho và ghi stock movement loại `sale`.
+- Ngày đang draft/reviewed/approved trong quy trình chốt bị chặn đúng rule hiện có.
+- Trang `/store-sales` dùng dashboard vận hành riêng: Phiếu bán, Số lượng bán, Mặt hàng đã bán, Doanh thu bán.
+- Trang Bán hàng chỉ hiển thị bộ lọc và Lịch sử bán hàng; không hiển thị Lịch sử chốt ngày hoặc Sổ phát sinh.
+- Nội dung dòng tiền, chốt ngày và sổ phát sinh tiếp tục chỉ thuộc `/store-cashflow`.
+- Không cần migration mới vì movement type `sale` đã có trong schema 16K4.1.
