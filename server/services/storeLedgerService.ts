@@ -290,6 +290,39 @@ export const storeLedgerService = {
             return storeLedgerDb.listStoreDailyClosings(input);
       },
 
+      async previewDailyClosing(input: { ledgerId: number; closingDate: string }) {
+            const ledger = await storeLedgerDb.getStoreLedgerById(input.ledgerId);
+            if (!ledger || !ledger.isActive) {
+                  throw new TRPCError({ code: "BAD_REQUEST", message: "Sổ/quỹ không hợp lệ hoặc đã ngừng sử dụng." });
+            }
+
+            const closingDate = ensureDate(input.closingDate, "Ngày chốt sổ không hợp lệ.");
+            const existingClosing = await storeLedgerDb.getStoreDailyClosingByDate(input.ledgerId, closingDate);
+            if (existingClosing && !["cancelled"].includes(String(existingClosing.status))) {
+                  throw new TRPCError({
+                        code: "CONFLICT",
+                        message: "Ngày này đã được chốt. Nếu cần bổ sung dữ liệu, hãy Bỏ chốt rồi chốt lại.",
+                  });
+            }
+
+            const summary = await storeLedgerDb.getUnclosedStoreLedgerSummary({
+                  ledgerId: input.ledgerId,
+                  closingDate,
+            });
+
+            const transactions = await storeLedgerDb.listUnclosedStoreLedgerTransactions({
+                  ledgerId: input.ledgerId,
+                  closingDate,
+            });
+
+            return {
+                  ledgerId: input.ledgerId,
+                  closingDate,
+                  summary,
+                  transactions,
+            };
+      },
+
       async closeDaily(input: {
             ledgerId: number;
             closingDate: string;
