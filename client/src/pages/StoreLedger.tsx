@@ -79,6 +79,10 @@ import {
       type TransactionFormState,
 } from "@/components/store-ledger/storeLedgerUtils";
 import { StoreLedgerHeaderSummary } from "@/components/store-ledger/StoreLedgerHeaderSummary";
+import { StoreDocumentFormModal } from "@/components/store-ledger/StoreDocumentFormModal";
+import { StoreDocumentHistory } from "@/components/store-ledger/StoreDocumentHistory";
+import { StoreDocumentVoucherPreview } from "@/components/store-ledger/StoreDocumentVoucherPreview";
+import type { StoreDocumentDraft } from "@/components/store-ledger/storeDocumentTypes";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 
@@ -122,6 +126,7 @@ export default function StoreLedger() {
       );
       const [reviewClosingId, setReviewClosingId] = useState<number | null>(null);
       const [closingPreviewOpen, setClosingPreviewOpen] = useState(false);
+      const [previewStoreDocument, setPreviewStoreDocument] = useState<any | null>(null);
       const [ledgerForm, setLedgerForm] =
             useState<LedgerFormState>(emptyLedgerForm);
       const [productForm, setProductForm] =
@@ -165,6 +170,24 @@ export default function StoreLedger() {
             fromDate,
             toDate,
             movementTypes: ["sale"],
+            limit: 200,
+      }) ?? { data: [], isLoading: false, error: null, refetch: () => undefined };
+
+      const stockInDocumentsQuery = storeLedgerApi?.listDocuments?.useQuery?.({
+            ledgerId: selectedLedgerId || ledgers[0]?.id || undefined,
+            documentType: "stock_in",
+            fromDate,
+            toDate,
+            search: searchTerm || undefined,
+            limit: 200,
+      }) ?? { data: [], isLoading: false, error: null, refetch: () => undefined };
+
+      const saleDocumentsQuery = storeLedgerApi?.listDocuments?.useQuery?.({
+            ledgerId: selectedLedgerId || ledgers[0]?.id || undefined,
+            documentType: "sale",
+            fromDate,
+            toDate,
+            search: searchTerm || undefined,
             limit: 200,
       }) ?? { data: [], isLoading: false, error: null, refetch: () => undefined };
 
@@ -303,14 +326,16 @@ export default function StoreLedger() {
             });
 
       const createPurchaseStockMutation =
-            storeLedgerApi?.createStockIn?.useMutation?.({
-                  onSuccess: async () => {
+            storeLedgerApi?.createStockInDocument?.useMutation?.({
+                  onSuccess: async (document: any) => {
                         setPurchaseStockModalOpen(false);
+                        setPreviewStoreDocument(document);
                         setPurchaseStockForm(emptyPurchaseStockForm);
                         setFormError("");
                         await Promise.all([
                               productsQuery.refetch?.(),
                               stockMovementsQuery.refetch?.(),
+                              stockInDocumentsQuery.refetch?.(),
                               summaryQuery.refetch?.(),
                               transactionsQuery.refetch?.(),
                               dailyClosingsQuery.refetch?.(),
@@ -326,14 +351,16 @@ export default function StoreLedger() {
             });
 
       const createSaleStockMutation =
-            storeLedgerApi?.createSaleStock?.useMutation?.({
-                  onSuccess: async () => {
+            storeLedgerApi?.createSaleDocument?.useMutation?.({
+                  onSuccess: async (document: any) => {
                         setSaleStockModalOpen(false);
+                        setPreviewStoreDocument(document);
                         setSaleStockForm(emptySaleStockForm);
                         setFormError("");
                         await Promise.all([
                               productsQuery.refetch?.(),
                               saleMovementsQuery.refetch?.(),
+                              saleDocumentsQuery.refetch?.(),
                               summaryQuery.refetch?.(),
                               transactionsQuery.refetch?.(),
                               dailyClosingsQuery.refetch?.(),
@@ -841,34 +868,34 @@ export default function StoreLedger() {
             setPurchaseStockModalOpen(true);
       }
 
-      function handleCreatePurchaseStock() {
+      function handleCreatePurchaseStock(draft?: StoreDocumentDraft) {
             if (!activeLedgerId) {
                   setFormError("Vui lòng khởi tạo cửa hàng trước.");
                   return;
             }
-            if (!purchaseStockForm.productId) {
-                  setFormError("Vui lòng chọn hàng hóa cần nhập.");
-                  return;
-            }
-            if (isClosedDate(purchaseStockForm.transactionDate)) {
+            if (!draft) return;
+            if (isClosedDate(draft.documentDate)) {
                   showClosedTransactionNotice("thêm");
                   return;
             }
-            const quantity = parseCurrencyInput(purchaseStockForm.quantity);
-            const unitCost = parseCurrencyInput(purchaseStockForm.unitCost);
-            if (!quantity || !unitCost) {
-                  setFormError("Vui lòng nhập số lượng và giá vốn đơn vị lớn hơn 0.");
+            const lines = draft.lines.map((line) => ({
+                  productId: Number(line.productId),
+                  quantity: parseCurrencyInput(line.quantity),
+                  unitCost: parseCurrencyInput(line.unitValue),
+                  notes: line.notes || null,
+            }));
+            if (lines.some((line) => !line.productId || line.quantity <= 0 || line.unitCost <= 0)) {
+                  setFormError("Vui lòng chọn hàng hóa, nhập số lượng và giá vốn hợp lệ cho mọi dòng.");
                   return;
             }
             createPurchaseStockMutation?.mutate?.({
                   ledgerId: activeLedgerId,
-                  productId: Number(purchaseStockForm.productId),
-                  transactionDate: purchaseStockForm.transactionDate,
-                  quantity,
-                  unitCost,
-                  stockInSource: purchaseStockForm.stockInSource,
-                  sourceName: purchaseStockForm.sourceName || null,
-                  description: purchaseStockForm.description || null,
+                  stockInSource: draft.stockInSource,
+                  documentDate: draft.documentDate,
+                  partnerName: draft.partnerName || null,
+                  paymentMethod: draft.paymentMethod || "cash",
+                  notes: draft.notes || null,
+                  lines,
             });
       }
 
@@ -888,45 +915,33 @@ export default function StoreLedger() {
             setSaleStockModalOpen(true);
       }
 
-      function handleCreateSaleStock() {
+      function handleCreateSaleStock(draft?: StoreDocumentDraft) {
             if (!activeLedgerId) {
                   setFormError("Vui lòng khởi tạo cửa hàng trước.");
                   return;
             }
-            if (!saleStockForm.productId) {
-                  setFormError("Vui lòng chọn hàng hóa cần bán.");
-                  return;
-            }
-            if (isClosedDate(saleStockForm.transactionDate)) {
+            if (!draft) return;
+            if (isClosedDate(draft.documentDate)) {
                   showClosedTransactionNotice("thêm");
                   return;
             }
-
-            const selectedProduct = products.find(
-                  (item: any) => Number(item.id) === Number(saleStockForm.productId),
-            );
-            const quantity = parseCurrencyInput(saleStockForm.quantity);
-            const unitPrice = parseCurrencyInput(saleStockForm.unitPrice);
-            const currentStock = Number(selectedProduct?.currentStock || 0);
-
-            if (!quantity || !unitPrice) {
-                  setFormError("Vui lòng nhập số lượng và giá bán lớn hơn 0.");
+            const lines = draft.lines.map((line) => ({
+                  productId: Number(line.productId),
+                  quantity: parseCurrencyInput(line.quantity),
+                  unitPrice: parseCurrencyInput(line.unitValue),
+                  notes: line.notes || null,
+            }));
+            if (lines.some((line) => !line.productId || line.quantity <= 0 || line.unitPrice <= 0)) {
+                  setFormError("Vui lòng chọn hàng hóa, nhập số lượng và giá bán hợp lệ cho mọi dòng.");
                   return;
             }
-            if (quantity > currentStock) {
-                  setFormError(`Không đủ tồn kho. Hiện còn ${formatMoney(currentStock)} ${selectedProduct?.unit || ""}.`);
-                  return;
-            }
-
             createSaleStockMutation?.mutate?.({
                   ledgerId: activeLedgerId,
-                  productId: Number(saleStockForm.productId),
-                  transactionDate: saleStockForm.transactionDate,
-                  quantity,
-                  unitPrice,
-                  customerName: saleStockForm.customerName || null,
-                  paymentMethod: saleStockForm.paymentMethod,
-                  description: saleStockForm.description || null,
+                  documentDate: draft.documentDate,
+                  partnerName: draft.partnerName || null,
+                  paymentMethod: draft.paymentMethod || "cash",
+                  notes: draft.notes || null,
+                  lines,
             });
       }
 
@@ -1266,89 +1281,21 @@ export default function StoreLedger() {
                                                       ) : null}
 
                                                       {activeStoreTab === "purchase" ? (
-                                                            <section className={residenceMediumStyle.section}>
-                                                                  <div className={residenceMediumStyle.sectionHeader}>
-                                                                        <div>
-                                                                              <h2 className="text-base font-black text-slate-950">Lịch sử nhập kho</h2>
-                                                                              <p className="text-sm font-semibold text-slate-500">Hiển thị mọi nguồn nhập, kể cả các phiếu không phát sinh dòng tiền.</p>
-                                                                        </div>
-                                                                  </div>
-                                                                  <div className={`${residenceMediumStyle.sectionBody} space-y-2`}>
-                                                                        {stockMovementsQuery.isLoading ? (
-                                                                              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 text-sm font-semibold text-slate-600">Đang tải lịch sử nhập kho...</div>
-                                                                        ) : stockMovements.length ? (
-                                                                              stockMovements.map((item: any) => (
-                                                                                    <article key={item.id} className="rounded-2xl border border-[#eadfca] bg-white/95 p-4 shadow-sm">
-                                                                                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                                                                                <div className="min-w-0">
-                                                                                                      <div className="flex flex-wrap items-center gap-2">
-                                                                                                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-700 ring-1 ring-amber-100">{stockMovementSourceLabel(item.movementType)}</span>
-                                                                                                            <span className="text-xs font-bold text-slate-400">{formatDateText(item.movementDate)}</span>
-                                                                                                      </div>
-                                                                                                      <h3 className="mt-2 text-base font-black text-slate-950">{item.productName || "Hàng hóa"}</h3>
-                                                                                                      {item.note ? <p className="mt-1 text-sm font-semibold text-slate-500">{item.note}</p> : null}
-                                                                                                </div>
-                                                                                                <div className="shrink-0 text-right">
-                                                                                                      <p className="text-base font-black text-emerald-700">+{formatMoney(item.quantityIn)} {item.productUnit || ""}</p>
-                                                                                                      <p className="mt-1 text-xs font-bold text-slate-500">Giá vốn {formatMoney(item.unitCost)}đ / {item.productUnit || "đơn vị"}</p>
-                                                                                                      <p className="mt-1 text-xs font-black text-slate-700">Giá trị {formatMoney(Number(item.quantityIn || 0) * Number(item.unitCost || 0))}đ</p>
-                                                                                                </div>
-                                                                                          </div>
-                                                                                    </article>
-                                                                              ))
-                                                                        ) : (
-                                                                              <div className="rounded-[1.5rem] border border-dashed border-amber-200 bg-amber-50/60 p-5 text-center text-sm font-semibold text-slate-600">Chưa có phiếu nhập kho trong khoảng thời gian này.</div>
-                                                                        )}
-                                                                  </div>
-                                                            </section>
+                                                            <StoreDocumentHistory
+                                                                  type="stock_in"
+                                                                  documents={stockInDocumentsQuery.data || []}
+                                                                  loading={stockInDocumentsQuery.isLoading}
+                                                                  onPreview={setPreviewStoreDocument}
+                                                            />
                                                       ) : null}
 
                                                       {activeStoreTab === "sales" ? (
-                                                            <section className={residenceMediumStyle.section}>
-                                                                  <div className={residenceMediumStyle.sectionHeader}>
-                                                                        <div>
-                                                                              <h2 className="text-base font-black text-slate-950">Lịch sử bán hàng</h2>
-                                                                              <p className="text-sm font-semibold text-slate-500">Phiếu bán theo sản phẩm, số lượng xuất và doanh thu ghi nhận.</p>
-                                                                        </div>
-                                                                  </div>
-                                                                  <div className={`${residenceMediumStyle.sectionBody} space-y-2`}>
-                                                                        {saleMovementsQuery.isLoading ? (
-                                                                              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 text-sm font-semibold text-slate-600">Đang tải lịch sử bán hàng...</div>
-                                                                        ) : saleMovements.length ? (
-                                                                              saleMovements.map((item: any) => {
-                                                                                    const transaction = transactions.find(
-                                                                                          (tx: any) => Number(tx.id) === Number(item.transactionId),
-                                                                                    );
-                                                                                    const quantity = Number(item.quantityOut || 0);
-                                                                                    const amount = Number(transaction?.amount || 0);
-                                                                                    const unitPrice = quantity > 0 ? amount / quantity : 0;
-                                                                                    return (
-                                                                                          <article key={item.id} className="rounded-2xl border border-[#eadfca] bg-white/95 p-4 shadow-sm">
-                                                                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                                                                                      <div className="min-w-0">
-                                                                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                                                                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">Bán hàng</span>
-                                                                                                                  <span className="text-xs font-bold text-slate-400">{formatDateText(item.movementDate)}</span>
-                                                                                                            </div>
-                                                                                                            <h3 className="mt-2 text-base font-black text-slate-950">{item.productName || "Hàng hóa"}</h3>
-                                                                                                            <p className="mt-1 text-sm font-semibold text-slate-500">
-                                                                                                                  {transaction?.partnerName || item.note || transaction?.transactionCode || "Khách lẻ"}
-                                                                                                            </p>
-                                                                                                      </div>
-                                                                                                      <div className="shrink-0 text-right">
-                                                                                                            <p className="text-base font-black text-rose-700">-{formatMoney(quantity)} {item.productUnit || ""}</p>
-                                                                                                            <p className="mt-1 text-xs font-bold text-slate-500">Giá bán {formatMoney(unitPrice)}đ / {item.productUnit || "đơn vị"}</p>
-                                                                                                            <p className="mt-1 text-sm font-black text-emerald-700">Doanh thu {formatMoney(amount)}đ</p>
-                                                                                                      </div>
-                                                                                                </div>
-                                                                                          </article>
-                                                                                    );
-                                                                              })
-                                                                        ) : (
-                                                                              <div className="rounded-[1.5rem] border border-dashed border-amber-200 bg-amber-50/60 p-5 text-center text-sm font-semibold text-slate-600">Chưa có phiếu bán hàng trong khoảng thời gian này.</div>
-                                                                        )}
-                                                                  </div>
-                                                            </section>
+                                                            <StoreDocumentHistory
+                                                                  type="sale"
+                                                                  documents={saleDocumentsQuery.data || []}
+                                                                  loading={saleDocumentsQuery.isLoading}
+                                                                  onPreview={setPreviewStoreDocument}
+                                                            />
                                                       ) : null}
 
                                                       {activeStoreTab === "cashflow" ? (
@@ -1433,6 +1380,31 @@ export default function StoreLedger() {
                         </div>
                   </div>
 
+                  <StoreDocumentFormModal
+                        open={purchaseStockModalOpen}
+                        type="stock_in"
+                        products={products}
+                        loading={createPurchaseStockMutation?.isPending}
+                        error={formError}
+                        onClose={() => setPurchaseStockModalOpen(false)}
+                        onSave={handleCreatePurchaseStock}
+                  />
+                  <StoreDocumentFormModal
+                        open={saleStockModalOpen}
+                        type="sale"
+                        products={products}
+                        loading={createSaleStockMutation?.isPending}
+                        error={formError}
+                        onClose={() => setSaleStockModalOpen(false)}
+                        onSave={handleCreateSaleStock}
+                  />
+                  {previewStoreDocument ? (
+                        <StoreDocumentVoucherPreview
+                              document={previewStoreDocument}
+                              onClose={() => setPreviewStoreDocument(null)}
+                        />
+                  ) : null}
+
                   <StoreLedgerModals
                         blockingNotice={blockingNotice}
                         setBlockingNotice={setBlockingNotice}
@@ -1473,7 +1445,7 @@ export default function StoreLedger() {
                         setLedgerForm={setLedgerForm}
                         handleCreateLedger={handleCreateLedger}
                         createLedgerMutation={createLedgerMutation}
-                        purchaseStockModalOpen={purchaseStockModalOpen}
+                        purchaseStockModalOpen={false}
                         setPurchaseStockModalOpen={setPurchaseStockModalOpen}
                         purchaseStockForm={purchaseStockForm}
                         setPurchaseStockForm={setPurchaseStockForm}
@@ -1481,7 +1453,7 @@ export default function StoreLedger() {
                         parseCurrencyInput={parseCurrencyInput}
                         handleCreatePurchaseStock={handleCreatePurchaseStock}
                         createPurchaseStockMutation={createPurchaseStockMutation}
-                        saleStockModalOpen={saleStockModalOpen}
+                        saleStockModalOpen={false}
                         setSaleStockModalOpen={setSaleStockModalOpen}
                         saleStockForm={saleStockForm}
                         setSaleStockForm={setSaleStockForm}
