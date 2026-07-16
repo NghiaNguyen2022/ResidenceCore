@@ -1,0 +1,3 @@
+ALTER TABLE storeProducts
+  ADD COLUMN imageUrl VARCHAR(1000) NULL AFTER description,
+  ADD COLUMN imageData MEDIUMTEXT NULL AFTER imageUrl;

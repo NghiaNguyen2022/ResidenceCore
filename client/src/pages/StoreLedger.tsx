@@ -64,6 +64,7 @@ import {
       productCategoryLabel,
       productCostingMethodLabel,
       resolveStoreTabFromLocation,
+      resizeProductImageFile,
       salePriceReasonLabel,
       salePriceReasonOptions,
       stockMovementSourceLabel,
@@ -512,7 +513,7 @@ export default function StoreLedger() {
                   const minStock = Number(product.minStock || 0);
                   const cost = Number(product.averageCostPrice || product.defaultCostPrice || 0);
                   const sale = Number(product.currentSalePrice || product.defaultSalePrice || 0);
-                  if (minStock > 0 && stock <= minStock) lowStockCount += 1;
+                  if (stock <= 0 || (minStock > 0 && stock <= minStock)) lowStockCount += 1;
                   totalStock += stock;
                   inventoryValue += stock * cost;
                   expectedSaleValue += stock * sale;
@@ -635,9 +636,9 @@ export default function StoreLedger() {
             if (activeStoreTab === "products") {
                   return {
                         eyebrow: "Dữ liệu cửa hàng",
-                        title: "Hàng hóa & nhóm hàng",
+                        title: "Hàng hóa & sản phẩm",
                         description:
-                              "Quản lý danh mục hàng hóa và nhóm hàng. Hàng hóa có thể mua về để bán hoặc tự gia công rồi đưa vào cửa hàng.",
+                              "Quản lý hàng hóa, hình minh họa, giá bán, tồn kho và xem nhanh giá trị hàng đang có.",
                   };
             }
             if (activeStoreTab === "purchase") {
@@ -750,6 +751,8 @@ export default function StoreLedger() {
                   minStock: formatCurrencyInput(product.minStock || 0),
                   currentStock: formatCurrencyInput(product.currentStock || 0),
                   description: product.description || "",
+                  imageUrl: product.imageUrl || "",
+                  imageData: product.imageData || "",
             });
             setProductModalOpen(true);
       }
@@ -783,7 +786,7 @@ export default function StoreLedger() {
                   salePrice,
                   effectiveDate: priceForm.effectiveDate,
                   reason: priceForm.reason,
-                  note: priceForm.note || null,
+                  notes: priceForm.note || null,
             });
       }
 
@@ -803,6 +806,8 @@ export default function StoreLedger() {
                   minStock: parseCurrencyInput(productForm.minStock),
                   currentStock: parseCurrencyInput(productForm.currentStock),
                   description: productForm.description || null,
+                  imageUrl: productForm.imageUrl || null,
+                  imageData: productForm.imageData || null,
             };
             if (editingProduct?.id) {
                   updateProductMutation?.mutate?.({
@@ -982,6 +987,29 @@ export default function StoreLedger() {
             closeDailyMutation?.mutate?.({ ledgerId: activeLedgerId, closingDate });
       }
 
+      function scrollToStoreSection(id: string) {
+            window.requestAnimationFrame(() => {
+                  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+      }
+
+      function showAllProducts() {
+            setLowStockOnly(false);
+            setProductCategoryFilter("all");
+            setProductSearch("");
+            scrollToStoreSection("store-product-list");
+      }
+
+      function showLowStockProducts() {
+            setLowStockOnly(true);
+            setProductCategoryFilter("all");
+            scrollToStoreSection("store-product-list");
+      }
+
+      function showInventoryReport() {
+            scrollToStoreSection("store-inventory-report");
+      }
+
       function switchStoreTab(tab: StoreTab) {
             setActiveStoreTab(tab);
             if (tab === "sales") setDirectionFilter("in");
@@ -999,10 +1027,7 @@ export default function StoreLedger() {
                         >
                               <StoreLedgerHeaderSummary
                                     pageHeaderMeta={pageHeaderMeta}
-                                    activeLedgerId={activeLedgerId}
                                     activeStoreTab={activeStoreTab}
-                                    setFormError={setFormError}
-                                    setLedgerModalOpen={setLedgerModalOpen}
                                     openCreateProductModal={openCreateProductModal}
                                     openSaleStockModal={openSaleStockModal}
                                     openPurchaseStockModal={openPurchaseStockModal}
@@ -1010,6 +1035,11 @@ export default function StoreLedger() {
                                     stockInSummary={stockInSummary}
                                     saleSummary={saleSummary}
                                     summary={summary}
+                                    productSummary={productSummary}
+                                    lowStockOnly={lowStockOnly}
+                                    onShowAllProducts={showAllProducts}
+                                    onShowLowStock={showLowStockProducts}
+                                    onShowInventoryReport={showInventoryReport}
                                     formatMoney={formatMoney}
                               />
 
@@ -1420,7 +1450,9 @@ export default function StoreLedger() {
                         defaultProductCategories={defaultProductCategories}
                         defaultProductUnits={defaultProductUnits}
                         formatCurrencyInput={formatCurrencyInput}
+                        resizeProductImageFile={resizeProductImageFile}
                         formError={formError}
+                        setFormError={setFormError}
                         handleSaveProduct={handleSaveProduct}
                         createProductMutation={createProductMutation}
                         updateProductMutation={updateProductMutation}

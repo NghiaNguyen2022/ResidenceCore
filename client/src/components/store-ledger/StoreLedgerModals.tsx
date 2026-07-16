@@ -1,4 +1,4 @@
-import { AlertTriangle, ShieldCheck, Undo2 } from "lucide-react";
+import { AlertTriangle, ImagePlus, ShieldCheck, Trash2, Undo2 } from "lucide-react";
 
 import { FormDateInput } from "@/components/shared";
 import {
@@ -25,7 +25,9 @@ export function StoreLedgerModals({
       defaultProductCategories,
       defaultProductUnits,
       formatCurrencyInput,
+      resizeProductImageFile,
       formError,
+      setFormError,
       handleSaveProduct,
       createProductMutation,
       updateProductMutation,
@@ -280,6 +282,62 @@ export function StoreLedgerModals({
                                                       className={inputClass}
                                                       placeholder="VD: bó, hộp, ký..."
                                                 />
+                                          </div>
+                                    </Field>
+                                    <Field label="Hình minh họa" className="sm:col-span-2">
+                                          <div className="grid gap-3 rounded-2xl border border-[#eadfca] bg-white p-3 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-center">
+                                                <div className="flex h-28 w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed border-amber-200 bg-amber-50/50">
+                                                      {productForm.imageData || productForm.imageUrl ? (
+                                                            <img
+                                                                  src={productForm.imageData || productForm.imageUrl}
+                                                                  alt="Xem trước hình hàng hóa"
+                                                                  className="h-full w-full object-cover"
+                                                            />
+                                                      ) : (
+                                                            <ImagePlus className="h-8 w-8 text-amber-500" />
+                                                      )}
+                                                </div>
+                                                <div className="space-y-2">
+                                                      <div className="flex flex-wrap gap-2">
+                                                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white">
+                                                                  <ImagePlus className="h-4 w-4" />
+                                                                  Chọn hình
+                                                                  <input
+                                                                        type="file"
+                                                                        accept="image/png,image/jpeg,image/webp"
+                                                                        className="hidden"
+                                                                        onChange={async (event) => {
+                                                                              const file = event.target.files?.[0];
+                                                                              event.target.value = "";
+                                                                              if (!file) return;
+                                                                              try {
+                                                                                    setFormError("");
+                                                                                    const imageData = await resizeProductImageFile(file);
+                                                                                    setProductForm((prev: any) => ({ ...prev, imageData, imageUrl: "" }));
+                                                                              } catch (error: any) {
+                                                                                    setFormError(error?.message || "Không thể xử lý hình ảnh.");
+                                                                              }
+                                                                        }}
+                                                                  />
+                                                            </label>
+                                                            {productForm.imageData || productForm.imageUrl ? (
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => setProductForm((prev: any) => ({ ...prev, imageData: "", imageUrl: "" }))}
+                                                                        className="inline-flex items-center gap-2 rounded-xl border border-rose-100 bg-white px-3 py-2 text-xs font-black text-rose-600"
+                                                                  >
+                                                                        <Trash2 className="h-4 w-4" /> Xóa hình
+                                                                  </button>
+                                                            ) : null}
+                                                      </div>
+                                                      <input
+                                                            value={productForm.imageUrl}
+                                                            onChange={(event) => setProductForm((prev: any) => ({ ...prev, imageUrl: event.target.value, imageData: "" }))}
+                                                            className={inputClass}
+                                                            placeholder="Hoặc dán đường dẫn hình ảnh..."
+                                                      />
+                                                      <p className="text-xs font-semibold leading-5 text-slate-500">PNG, JPG hoặc WebP. Hình tải lên sẽ được thu nhỏ để hiển thị nhanh.</p>
+                                                </div>
                                           </div>
                                     </Field>
                                     <Field label="Tồn tối thiểu">

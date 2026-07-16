@@ -49,11 +49,17 @@ export function SummaryCard({
       label,
       value,
       tone,
+      note,
+      onClick,
+      active = false,
 }: {
       icon: ReactNode;
       label: string;
       value: string;
       tone: "emerald" | "rose" | "amber" | "slate";
+      note?: string;
+      onClick?: () => void;
+      active?: boolean;
 }) {
       const toneClass =
             tone === "emerald"
@@ -63,25 +69,21 @@ export function SummaryCard({
                         : tone === "amber"
                               ? "text-amber-700"
                               : "text-slate-700";
-      return (
-            <div className="rounded-[1.5rem] border border-[#eadfca] bg-[linear-gradient(135deg,#ffffff_0%,#fff7df_100%)] p-4 shadow-lg shadow-amber-950/5">
-                  <div className="flex items-center gap-3">
-                        <div
-                              className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-amber-100 ${toneClass}`}
-                        >
-                              {icon}
-                        </div>
-                        <div className="min-w-0">
-                              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                                    {label}
-                              </p>
-                              <p className="mt-1 truncate text-xl font-black text-slate-950">
-                                    {value}
-                              </p>
-                        </div>
+      const content = (
+            <div className="flex items-center gap-3">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-amber-100 ${toneClass}`}>
+                        {icon}
+                  </div>
+                  <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">{label}</p>
+                        <p className="mt-0.5 truncate text-lg font-black text-slate-950">{value}</p>
+                        {note ? <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{note}</p> : null}
                   </div>
             </div>
       );
+      const className = `w-full rounded-[1.25rem] border bg-white/95 p-3 text-left shadow-sm transition ${active ? "border-amber-300 ring-4 ring-amber-100" : "border-[#eadfca]"} ${onClick ? "hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md" : ""}`;
+      if (onClick) return <button type="button" onClick={onClick} className={className}>{content}</button>;
+      return <div className={className}>{content}</div>;
 }
 
 export const inputClass =

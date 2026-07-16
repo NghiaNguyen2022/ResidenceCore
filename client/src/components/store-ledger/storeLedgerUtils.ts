@@ -40,8 +40,8 @@ export const productCostingMethodOptions = [
 ];
 
 export const salePriceReasonOptions = [
-      { value: "input_cost_increase", label: "Giá nhập tăng" },
-      { value: "operation_cost_increase", label: "Chi phí vận hành tăng" },
+      { value: "cost_increase", label: "Giá nhập tăng" },
+      { value: "overhead_increase", label: "Chi phí vận hành tăng" },
       { value: "market_adjustment", label: "Điều chỉnh theo thực tế" },
       { value: "promotion", label: "Giảm giá / khuyến mãi" },
       { value: "manual", label: "Cập nhật thủ công" },
@@ -126,6 +126,53 @@ export function formatCurrencyInput(value: string | number | null | undefined) {
                   amount,
             )
             : "";
+}
+
+export async function resizeProductImageFile(file: File) {
+      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+            throw new Error("Chỉ hỗ trợ hình PNG, JPG hoặc WebP.");
+      }
+      if (file.size > 8 * 1024 * 1024) {
+            throw new Error("Hình ảnh không được lớn hơn 8 MB.");
+      }
+
+      const source = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ""));
+            reader.onerror = () => reject(new Error("Không thể đọc hình ảnh."));
+            reader.readAsDataURL(file);
+      });
+
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const value = new Image();
+            value.onload = () => resolve(value);
+            value.onerror = () => reject(new Error("Không thể xử lý hình ảnh."));
+            value.src = source;
+      });
+
+      const maxSize = 560;
+      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Trình duyệt không hỗ trợ xử lý hình ảnh.");
+      context.drawImage(image, 0, 0, width, height);
+
+      let quality = 0.76;
+      let output = canvas.toDataURL("image/jpeg", quality);
+      while (output.length > 760000 && quality > 0.45) {
+            quality -= 0.08;
+            output = canvas.toDataURL("image/jpeg", quality);
+      }
+
+      if (output.length > 850000) {
+            throw new Error("Hình sau khi tối ưu vẫn quá lớn. Vui lòng chọn hình có kích thước nhỏ hơn.");
+      }
+      return output;
 }
 
 export function normalizeDateKey(value: unknown) {
@@ -302,6 +349,8 @@ export type ProductFormState = {
       minStock: string;
       currentStock: string;
       description: string;
+      imageUrl: string;
+      imageData: string;
 };
 
 export type PriceFormState = {
@@ -362,6 +411,8 @@ export const emptyProductForm: ProductFormState = {
       minStock: "",
       currentStock: "",
       description: "",
+      imageUrl: "",
+      imageData: "",
 };
 
 export const emptyPriceForm: PriceFormState = {

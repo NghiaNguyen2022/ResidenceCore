@@ -7,8 +7,6 @@ import {
       storeProductCostHistories,
       storeProductSalePriceHistories,
       storeLedgerTransactions,
-      storeDocuments,
-      storeDocumentLines,
       storeStockMovements,
       type InsertStoreDailyClosing,
       type InsertStoreLedger,
@@ -16,8 +14,6 @@ import {
       type InsertStoreProductCostHistory,
       type InsertStoreProductSalePriceHistory,
       type InsertStoreLedgerTransaction,
-      type InsertStoreDocument,
-      type InsertStoreDocumentLine,
       type InsertStoreStockMovement,
 } from "../../drizzle/schema";
 
@@ -33,16 +29,6 @@ export type StoreStockMovementListInput = {
       fromDate?: string | null;
       toDate?: string | null;
       movementTypes?: Array<"purchase" | "production_in" | "self_supply_in" | "other_in" | "sale" | "adjustment_in" | "adjustment_out" | "return"> | null;
-      limit?: number;
-      offset?: number;
-};
-
-export type StoreDocumentListInput = {
-      ledgerId?: number | null;
-      documentType?: "stock_in" | "sale" | null;
-      fromDate?: string | null;
-      toDate?: string | null;
-      search?: string | null;
       limit?: number;
       offset?: number;
 };
@@ -306,8 +292,6 @@ export async function listStoreStockMovements(input: StoreStockMovementListInput
                   productName: storeProducts.productName,
                   productUnit: storeProducts.unit,
                   transactionId: storeStockMovements.transactionId,
-                  documentId: storeStockMovements.documentId,
-                  documentLineId: storeStockMovements.documentLineId,
                   movementType: storeStockMovements.movementType,
                   movementDate: storeStockMovements.movementDate,
                   quantityIn: storeStockMovements.quantityIn,
@@ -322,84 +306,6 @@ export async function listStoreStockMovements(input: StoreStockMovementListInput
             .orderBy(desc(storeStockMovements.movementDate), desc(storeStockMovements.id))
             .limit(input.limit ?? 200)
             .offset(input.offset ?? 0);
-}
-
-
-export async function createStoreDocument(data: InsertStoreDocument) {
-      const db = await dbOrThrow();
-      const [result]: any = await db.insert(storeDocuments).values(data);
-      const insertId = Number(result?.insertId || 0);
-      return insertId ? getStoreDocumentById(insertId) : result;
-}
-
-export async function createStoreDocumentLine(data: InsertStoreDocumentLine) {
-      const db = await dbOrThrow();
-      const [result]: any = await db.insert(storeDocumentLines).values(data);
-      return Number(result?.insertId || 0) || result;
-}
-
-export async function updateStoreDocumentTransaction(documentId: number, ledgerTransactionId: number | null) {
-      const db = await dbOrThrow();
-      await db.update(storeDocuments).set({ ledgerTransactionId } as any).where(eq(storeDocuments.id, documentId));
-      return getStoreDocumentById(documentId);
-}
-
-export async function getStoreDocumentById(id: number) {
-      const db = await dbOrThrow();
-      const documentRows = await db.select().from(storeDocuments).where(eq(storeDocuments.id, id)).limit(1);
-      const document = documentRows[0] ?? null;
-      if (!document) return null;
-      const lines = await db
-            .select({
-                  id: storeDocumentLines.id,
-                  documentId: storeDocumentLines.documentId,
-                  productId: storeDocumentLines.productId,
-                  productName: storeProducts.productName,
-                  productCode: storeProducts.productCode,
-                  productUnit: storeProducts.unit,
-                  lineNo: storeDocumentLines.lineNo,
-                  quantity: storeDocumentLines.quantity,
-                  unitCost: storeDocumentLines.unitCost,
-                  unitPrice: storeDocumentLines.unitPrice,
-                  lineAmount: storeDocumentLines.lineAmount,
-                  notes: storeDocumentLines.notes,
-            })
-            .from(storeDocumentLines)
-            .leftJoin(storeProducts, eq(storeProducts.id, storeDocumentLines.productId))
-            .where(eq(storeDocumentLines.documentId, id))
-            .orderBy(storeDocumentLines.lineNo);
-      return { ...document, lines };
-}
-
-export async function listStoreDocuments(input: StoreDocumentListInput = {}) {
-      const db = await dbOrThrow();
-      const conditions = [];
-      if (input.ledgerId) conditions.push(eq(storeDocuments.ledgerId, input.ledgerId));
-      if (input.documentType) conditions.push(eq(storeDocuments.documentType, input.documentType));
-      if (input.fromDate) conditions.push(gte(storeDocuments.documentDate, input.fromDate));
-      if (input.toDate) conditions.push(lte(storeDocuments.documentDate, input.toDate));
-      const search = input.search?.trim();
-      if (search) {
-            const keyword = `%${search}%`;
-            conditions.push(or(
-                  like(storeDocuments.documentCode, keyword),
-                  like(storeDocuments.partnerName, keyword),
-                  like(storeDocuments.notes, keyword),
-            ));
-      }
-      const documents = await db
-            .select()
-            .from(storeDocuments)
-            .where(conditions.length ? and(...conditions) : undefined)
-            .orderBy(desc(storeDocuments.documentDate), desc(storeDocuments.id))
-            .limit(input.limit ?? 200)
-            .offset(input.offset ?? 0);
-      if (!documents.length) return [];
-      const result = [];
-      for (const document of documents) {
-            result.push(await getStoreDocumentById(Number(document.id)));
-      }
-      return result.filter(Boolean);
 }
 
 export async function listStoreLedgers(input: StoreLedgerListInput = {}) {
