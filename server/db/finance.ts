@@ -1462,7 +1462,8 @@ export async function listFinanceTransactions(input: {
             const description = String(row?.description || "");
             const externalRef = String(row?.externalRef || "");
             if (source !== "store_daily_closing" || !externalRef) continue;
-            if (description.startsWith("Chi tiết thu cửa hàng") || description.startsWith("Chi tiết chi cửa hàng")) continue;
+            // Luôn dựng lại từ sổ cửa hàng để các giao dịch vừa được khôi phục
+            // cũng xuất hiện trong ghi chú của dòng đã đẩy sang Finance.
 
             const batchId = externalRef.replace(/:(IN|OUT)$/i, "");
             if (!batchId) continue;
@@ -1494,9 +1495,15 @@ export async function listFinanceTransactions(input: {
                   const partner = String(item?.partnerName || "").trim();
                   const code = String(item?.transactionCode || "").trim();
                   const amount = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(item?.amount || 0));
-                  return `${index + 1}. ${title}${partner ? ` · ${partner}` : ""}: ${amount}đ${code ? ` [${code}]` : ""}`;
+                  return `${index + 1}. ${title}${partner ? ` · ${partner}` : ""} — ${amount}đ${code ? ` [${code}]` : ""}`;
             });
-            const detailedDescription = `Chi tiết ${directionLabel} cửa hàng ngày ${String(closing.closingDate || row.transactionDate).slice(0, 10)} · ${String(closing.closingCode || batchId)}: ${details.join(" | ")}`;
+            const closingDate = String(closing.closingDate || row.transactionDate).slice(0, 10);
+            const closingCode = String(closing.closingCode || batchId);
+            const detailedDescription = [
+                  `Chốt sổ cửa hàng ngày ${closingDate} · ${closingCode}`,
+                  `Chi tiết từng giao dịch ${directionLabel}:`,
+                  ...details,
+            ].join("\n");
 
             row.description = detailedDescription;
             await db.execute(sql`

@@ -9,6 +9,7 @@ import { formatDateText, formatMoney } from "@/components/store-ledger/storeLedg
 type StoreSalesTabProps = {
   documents: any[];
   loading?: boolean;
+  error?: any;
   searchTerm: string;
   setSearchTerm: (value: string) => void;
   fromDate: string;
@@ -22,6 +23,7 @@ type StoreSalesTabProps = {
 export function StoreSalesTab({
   documents,
   loading,
+  error,
   searchTerm,
   setSearchTerm,
   fromDate,
@@ -91,7 +93,7 @@ export function StoreSalesTab({
 
   return (
     <div className="space-y-4">
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 md:grid-cols-4">
         <button type="button" onClick={() => focusSection("store-sales-history")} className="rounded-[1.25rem] border border-[#eadfca] bg-white/95 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md">
           <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100"><PackageMinus className="h-5 w-5" /></span><div><p className="text-xs font-bold text-slate-500">Phiếu bán</p><p className="mt-0.5 text-xl font-black text-slate-950">{formatMoney(summary.receiptCount)}</p></div></div>
         </button>
@@ -108,7 +110,7 @@ export function StoreSalesTab({
 
       <section className={residenceMediumStyle.section}>
         <div className={`${residenceMediumStyle.sectionBody} space-y-3`}>
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_170px_170px_auto] xl:items-end">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_150px_150px_auto] lg:items-end">
             <label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-500">Tìm phiếu bán</span><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className={`${inputClass} pl-9`} placeholder="Số phiếu, khách hàng..." /></div></label>
             <label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-500">Từ ngày</span><FormDateInput value={fromDate} onChange={(event: any) => setFromDate(event.target.value)} /></label>
             <label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-500">Đến ngày</span><FormDateInput value={toDate} onChange={(event: any) => setToDate(event.target.value)} /></label>
@@ -117,7 +119,9 @@ export function StoreSalesTab({
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
+      {error ? <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Không thể tải lịch sử phiếu bán: {error?.message || "Lỗi không xác định"}</div> : null}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <section id="store-sales-history" className="min-w-0 overflow-hidden rounded-[1.5rem] border border-[#eadfca] bg-white/95 shadow-sm transition">
           <div className="flex flex-col gap-3 border-b border-[#efe5d3] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div><h2 className="text-lg font-black text-slate-950">Lịch sử phiếu bán</h2><p className="mt-0.5 text-sm font-medium text-slate-500">Khách hàng, mặt hàng, số lượng và tổng tiền từng phiếu.</p></div>

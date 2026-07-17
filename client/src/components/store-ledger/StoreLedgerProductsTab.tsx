@@ -101,37 +101,54 @@ export function StoreLedgerProductsTab({
             <div className="space-y-4">
                   <section id="store-product-list" tabIndex={-1} className="scroll-mt-24 space-y-4 outline-none transition focus:ring-4 focus:ring-amber-100/80">
                         <div className="rounded-[1.4rem] border border-[#eadfca] bg-white/95 p-3.5 shadow-sm">
-                              <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto_auto] xl:items-center">
-                                    <div className="relative min-w-0">
-                                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                                    <div className="relative min-w-0 flex-1">
+                                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                           <input
                                                 value={productSearch}
                                                 onChange={(event) => setProductSearch(event.target.value)}
-                                                className={`${inputClass} pl-9`}
+                                                className={`${inputClass} h-11 pl-9`}
                                                 placeholder="Tìm tên hàng, mã hàng hoặc nhóm hàng..."
                                           />
                                     </div>
-                                    <label className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-black transition ${lowStockOnly ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
-                                          <input
-                                                type="checkbox"
-                                                checked={lowStockOnly}
-                                                onChange={(event) => setLowStockOnly(event.target.checked)}
-                                                className="h-4 w-4 rounded border-amber-300"
-                                          />
-                                          Sắp hết
-                                    </label>
-                                    <label className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-black transition ${showInactiveProducts ? "border-slate-300 bg-slate-100 text-slate-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
-                                          <input
-                                                type="checkbox"
-                                                checked={showInactiveProducts}
-                                                onChange={(event) => setShowInactiveProducts(event.target.checked)}
-                                                className="h-4 w-4 rounded border-slate-300"
-                                          />
-                                          Hiện ngừng kinh doanh
-                                    </label>
-                                    <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
-                                          <button type="button" onClick={() => setViewMode("list")} className={`rounded-lg p-2 ${viewMode === "list" ? "bg-white text-amber-700 shadow-sm" : "text-slate-400"}`} title="Danh sách"><List className="h-4 w-4" /></button>
-                                          <button type="button" onClick={() => setViewMode("grid")} className={`rounded-lg p-2 ${viewMode === "grid" ? "bg-white text-amber-700 shadow-sm" : "text-slate-400"}`} title="Lưới"><Grid2X2 className="h-4 w-4" /></button>
+
+                                    <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
+                                          <label className={`inline-flex h-10 cursor-pointer items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-black transition ${lowStockOnly ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}>
+                                                <input
+                                                      type="checkbox"
+                                                      checked={lowStockOnly}
+                                                      onChange={(event) => setLowStockOnly(event.target.checked)}
+                                                      className="h-4 w-4 shrink-0 rounded border-amber-300 accent-amber-600"
+                                                />
+                                                Sắp hết
+                                          </label>
+                                          <label className={`inline-flex h-10 cursor-pointer items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-black transition ${showInactiveProducts ? "border-slate-300 bg-slate-100 text-slate-800" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"}`}>
+                                                <input
+                                                      type="checkbox"
+                                                      checked={showInactiveProducts}
+                                                      onChange={(event) => setShowInactiveProducts(event.target.checked)}
+                                                      className="h-4 w-4 shrink-0 rounded border-slate-300 accent-slate-700"
+                                                />
+                                                Hiện hàng ngừng bán
+                                          </label>
+                                          <div className="inline-flex h-10 shrink-0 items-center rounded-xl border border-slate-200 bg-slate-50 p-1">
+                                                <button
+                                                      type="button"
+                                                      onClick={() => setViewMode("list")}
+                                                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${viewMode === "list" ? "bg-white text-amber-700 shadow-sm" : "text-slate-400 hover:text-slate-700"}`}
+                                                      title="Xem dạng danh sách"
+                                                >
+                                                      <List className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                      type="button"
+                                                      onClick={() => setViewMode("grid")}
+                                                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${viewMode === "grid" ? "bg-white text-amber-700 shadow-sm" : "text-slate-400 hover:text-slate-700"}`}
+                                                      title="Xem dạng lưới"
+                                                >
+                                                      <Grid2X2 className="h-4 w-4" />
+                                                </button>
+                                          </div>
                                     </div>
                               </div>
                               <div className="mt-3 flex flex-wrap items-center gap-2">

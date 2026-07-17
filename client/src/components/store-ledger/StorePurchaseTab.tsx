@@ -30,6 +30,7 @@ function focusSection(id: string) {
 export function StorePurchaseTab({
   documents,
   loading,
+  error,
   searchTerm,
   setSearchTerm,
   fromDate,
@@ -42,6 +43,7 @@ export function StorePurchaseTab({
 }: {
   documents: any[];
   loading?: boolean;
+  error?: any;
   searchTerm: string;
   setSearchTerm: (value: string) => void;
   fromDate: string;
@@ -99,7 +101,7 @@ export function StorePurchaseTab({
 
   return (
     <div className="space-y-4">
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 md:grid-cols-4">
         <SummaryCard
           icon={<PackagePlus className="h-5 w-5" />}
           label="Tổng phiếu nhập"
@@ -135,7 +137,7 @@ export function StorePurchaseTab({
       </section>
 
       <section className="overflow-hidden rounded-[1.45rem] border border-[#eadfca] bg-white/95 shadow-sm">
-        <div className="grid gap-3 p-4 xl:grid-cols-[minmax(0,1fr)_160px_160px_auto] xl:items-center">
+        <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_150px_150px_auto] lg:items-center">
           <label className="relative block min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -180,7 +182,9 @@ export function StorePurchaseTab({
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+      {error ? <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Không thể tải lịch sử phiếu nhập: {error?.message || "Lỗi không xác định"}</div> : null}
+
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
         <div id="store-purchase-history" tabIndex={-1} className="min-w-0 scroll-mt-24 outline-none">
           <StoreDocumentHistory
             type="stock_in"
@@ -190,7 +194,7 @@ export function StorePurchaseTab({
           />
         </div>
 
-        <aside className="space-y-3 xl:sticky xl:top-4 xl:self-start">
+        <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
           <section
             id="store-purchase-source-overview"
             tabIndex={-1}

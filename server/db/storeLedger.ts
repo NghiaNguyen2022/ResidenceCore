@@ -414,7 +414,10 @@ export async function listStoreDocuments(input: StoreDocumentListInput = {}) {
       const transactionConditions: any[] = [
             eq(storeLedgerTransactions.isActive, true),
       ];
-      if (input.ledgerId) transactionConditions.push(eq(storeLedgerTransactions.ledgerId, input.ledgerId));
+      // App chỉ quản lý một cửa hàng chính. Dữ liệu cũ có thể thuộc ledger được tạo
+      // trước khi cơ chế tự tạo cửa hàng mặc định ra đời, nên không khóa lịch sử cũ
+      // theo ledgerId hiện tại. Nếu lọc ở đây, giao dịch vẫn thấy trong Sổ thu chi
+      // nhưng biến mất khỏi Lịch sử mua/bán.
       if (input.fromDate) transactionConditions.push(gte(storeLedgerTransactions.transactionDate, input.fromDate));
       if (input.toDate) transactionConditions.push(lte(storeLedgerTransactions.transactionDate, input.toDate));
       if (input.documentType === "sale") {

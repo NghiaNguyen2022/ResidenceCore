@@ -74,17 +74,181 @@ function buildClosingFinanceDescription(input: {
                   const partner = String(item?.partnerName || "").trim();
                   const code = String(item?.transactionCode || "").trim();
                   const amount = formatFinanceMoney(item?.amount);
-                  return `${index + 1}. ${title}${partner ? ` · ${partner}` : ""}: ${amount}đ${code ? ` [${code}]` : ""}`;
+                  return `${index + 1}. ${title}${partner ? ` · ${partner}` : ""} — ${amount}đ${code ? ` [${code}]` : ""}`;
             });
 
+      const heading = `Chốt sổ cửa hàng ngày ${input.closingDate} · ${input.closingCode}`;
       if (!rows.length) {
-            return `Tổng ${directionLabel} cửa hàng ngày ${input.closingDate} · ${input.closingCode}`;
+            return `${heading}\nKhông có giao dịch ${directionLabel} hợp lệ trong ngày chốt.`;
       }
 
-      return `Chi tiết ${directionLabel} cửa hàng ngày ${input.closingDate} · ${input.closingCode}: ${rows.join(" | ")}`;
+      return `${heading}\nChi tiết từng giao dịch ${directionLabel}:\n${rows.join("\n")}`;
 }
 
 export const storeLedgerService = {
+
+      async listDocuments(input: storeLedgerDb.StoreDocumentListInput = {}) {
+            return storeLedgerDb.listStoreDocuments(input);
+      },
+
+      async getDocument(id: number) {
+            const document = await storeLedgerDb.getStoreDocumentById(id);
+            if (!document) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy phiếu cửa hàng." });
+            return document;
+      },
+
+      async createStockInDocument(input: {
+            ledgerId: number;
+            stockInSource: "purchase" | "production" | "self_supply" | "other";
+            documentDate: string;
+            partnerName?: string | null;
+            paymentMethod?: string | null;
+            notes?: string | null;
+            lines: Array<{ productId: number; quantity: number; unitCost: number; notes?: string | null }>;
+            createdBy?: number | null;
+      }) {
+            const ledger = await storeLedgerDb.getStoreLedgerById(input.ledgerId);
+            if (!ledger || !ledger.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Cửa hàng không hợp lệ hoặc đã ngừng sử dụng." });
+            const documentDate = ensureDate(input.documentDate, "Ngày nhập kho không hợp lệ.");
+            const closedDate = await storeLedgerDb.getStoreDailyClosingByDate(input.ledgerId, documentDate);
+            if (closedDate && String(closedDate.status) !== "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "Ngày này đã nằm trong quy trình chốt sổ. Hãy bỏ chốt trước khi thêm phiếu nhập." });
+            if (!input.lines?.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Phiếu nhập phải có ít nhất một mặt hàng." });
+            const productIds = input.lines.map((line) => Number(line.productId));
+            if (new Set(productIds).size !== productIds.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Một mặt hàng chỉ được xuất hiện một lần trong phiếu." });
+
+            const prepared: any[] = [];
+            for (const line of input.lines) {
+                  const product = await storeLedgerDb.getStoreProductById(Number(line.productId));
+                  if (!product || !product.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Có hàng hóa không hợp lệ hoặc đã ngừng kinh doanh." });
+                  const quantity = Number(Number(line.quantity).toFixed(2));
+                  const unitCost = ensureAmount(Number(line.unitCost));
+                  if (quantity <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Số lượng nhập phải lớn hơn 0." });
+                  const previousStock = Number((product as any).currentStock || 0);
+                  const previousAverageCost = Number((product as any).averageCostPrice || (product as any).defaultCostPrice || 0);
+                  const lineAmount = Number((quantity * unitCost).toFixed(2));
+                  const newStock = previousStock + quantity;
+                  const averageCostAfter = newStock > 0 ? Number((((previousStock * previousAverageCost) + lineAmount) / newStock).toFixed(2)) : unitCost;
+                  prepared.push({ line, product, quantity, unitCost, lineAmount, averageCostAfter });
+            }
+
+            const totalQuantity = prepared.reduce((sum, item) => sum + item.quantity, 0);
+            const totalAmount = prepared.reduce((sum, item) => sum + item.lineAmount, 0);
+            const documentCode = `PN-${documentDate.replace(/-/g, "")}-${Date.now().toString().slice(-6)}`;
+            const document = await storeLedgerDb.createStoreDocument({
+                  ledgerId: input.ledgerId, ledgerTransactionId: null, documentCode, documentType: "stock_in", documentDate,
+                  stockInSource: input.stockInSource, partnerName: input.partnerName?.trim() || null,
+                  paymentMethod: input.paymentMethod?.trim() || "cash", totalQuantity: String(totalQuantity.toFixed(2)),
+                  totalAmount: String(totalAmount.toFixed(2)), notes: input.notes?.trim() || null, status: "posted", createdBy: input.createdBy ?? null,
+            } as any);
+            const documentId = Number((document as any)?.id || 0);
+            if (!documentId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Không thể tạo đầu phiếu nhập." });
+
+            let transaction: any = null;
+            if (input.stockInSource === "purchase") {
+                  transaction = await storeLedgerDb.createStoreLedgerTransaction({
+                        ledgerId: input.ledgerId, transactionCode: documentCode, direction: "out", transactionDate: documentDate,
+                        amount: String(totalAmount.toFixed(2)), category: "purchase_stock", title: `Mua hàng nhập kho · ${documentCode}`,
+                        partnerName: input.partnerName?.trim() || null, paymentMethod: input.paymentMethod?.trim() || "cash",
+                        description: input.notes?.trim() || null, status: "posted", isActive: true, createdBy: input.createdBy ?? null,
+                  } as any);
+                  await storeLedgerDb.updateStoreDocumentTransaction(documentId, Number(transaction?.id || 0) || null);
+            }
+            const transactionId = Number(transaction?.id || 0) || null;
+            const sourceMeta = {
+                  purchase: { movementType: "purchase", historyType: "purchase", reason: "Nhập kho từ mua hàng" },
+                  production: { movementType: "production_in", historyType: "processed", reason: "Nhập kho từ sản xuất / gia công" },
+                  self_supply: { movementType: "self_supply_in", historyType: "self_supply", reason: "Nhập kho tự cung cấp / được cấp" },
+                  other: { movementType: "other_in", historyType: "other", reason: "Nhập kho từ nguồn khác" },
+            } as const;
+            const source = sourceMeta[input.stockInSource];
+            for (let index = 0; index < prepared.length; index += 1) {
+                  const item = prepared[index];
+                  const lineId = await storeLedgerDb.createStoreDocumentLine({
+                        documentId, productId: Number(item.product.id), lineNo: index + 1, quantity: String(item.quantity.toFixed(2)),
+                        unitCost: String(item.unitCost.toFixed(2)), unitPrice: "0.00", lineAmount: String(item.lineAmount.toFixed(2)), notes: item.line.notes?.trim() || null,
+                  } as any);
+                  const note = [input.partnerName?.trim(), item.line.notes?.trim(), input.notes?.trim()].filter(Boolean).join(" · ") || null;
+                  await storeLedgerDb.createStoreStockMovement({
+                        productId: Number(item.product.id), transactionId, documentId, documentLineId: Number(lineId) || null,
+                        movementType: source.movementType, movementDate: documentDate, quantityIn: String(item.quantity.toFixed(2)), quantityOut: "0.00",
+                        unitCost: String(item.unitCost.toFixed(2)), note, createdBy: input.createdBy ?? null,
+                  } as any);
+                  await storeLedgerDb.createStoreProductCostHistory({
+                        productId: Number(item.product.id), sourceType: source.historyType, effectiveDate: documentDate,
+                        quantity: String(item.quantity.toFixed(2)), unitCost: String(item.unitCost.toFixed(2)), averageCostAfter: String(item.averageCostAfter.toFixed(2)),
+                        reason: source.reason, notes: note, createdBy: input.createdBy ?? null,
+                  } as any);
+                  await storeLedgerDb.addStoreProductStock({ productId: Number(item.product.id), quantity: item.quantity, unitCost: item.unitCost, averageCostAfter: item.averageCostAfter });
+            }
+            return this.getDocument(documentId);
+      },
+
+      async createSaleDocument(input: {
+            ledgerId: number;
+            documentDate: string;
+            partnerName?: string | null;
+            paymentMethod?: string | null;
+            notes?: string | null;
+            lines: Array<{ productId: number; quantity: number; unitPrice?: number | null; notes?: string | null }>;
+            createdBy?: number | null;
+      }) {
+            const ledger = await storeLedgerDb.getStoreLedgerById(input.ledgerId);
+            if (!ledger || !ledger.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Cửa hàng không hợp lệ hoặc đã ngừng sử dụng." });
+            const documentDate = ensureDate(input.documentDate, "Ngày bán hàng không hợp lệ.");
+            const closedDate = await storeLedgerDb.getStoreDailyClosingByDate(input.ledgerId, documentDate);
+            if (closedDate && String(closedDate.status) !== "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "Ngày này đã nằm trong quy trình chốt sổ. Hãy bỏ chốt trước khi thêm phiếu bán." });
+            if (!input.lines?.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Phiếu bán phải có ít nhất một mặt hàng." });
+            const productIds = input.lines.map((line) => Number(line.productId));
+            if (new Set(productIds).size !== productIds.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Một mặt hàng chỉ được xuất hiện một lần trong phiếu." });
+
+            const prepared: any[] = [];
+            for (const line of input.lines) {
+                  const product = await storeLedgerDb.getStoreProductById(Number(line.productId));
+                  if (!product || !product.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Có hàng hóa không hợp lệ hoặc đã ngừng kinh doanh." });
+                  const quantity = Number(Number(line.quantity).toFixed(2));
+                  const currentStock = Number((product as any).currentStock || 0);
+                  if (quantity <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Số lượng bán phải lớn hơn 0." });
+                  if (quantity > currentStock) throw new TRPCError({ code: "BAD_REQUEST", message: `Không đủ tồn kho cho ${(product as any).productName}. Hiện còn ${currentStock} ${(product as any).unit || ""}.` });
+                  const defaultPrice = Number((product as any).currentSalePrice || (product as any).defaultSalePrice || 0);
+                  const unitPrice = ensureAmount(Number(line.unitPrice ?? defaultPrice));
+                  const unitCost = Number((product as any).averageCostPrice || (product as any).defaultCostPrice || 0);
+                  prepared.push({ line, product, quantity, unitPrice, unitCost, lineAmount: Number((quantity * unitPrice).toFixed(2)) });
+            }
+            const totalQuantity = prepared.reduce((sum, item) => sum + item.quantity, 0);
+            const totalAmount = prepared.reduce((sum, item) => sum + item.lineAmount, 0);
+            const documentCode = `BAN-${documentDate.replace(/-/g, "")}-${Date.now().toString().slice(-6)}`;
+            const transaction = await storeLedgerDb.createStoreLedgerTransaction({
+                  ledgerId: input.ledgerId, transactionCode: documentCode, direction: "in", transactionDate: documentDate,
+                  amount: String(totalAmount.toFixed(2)), category: "sales", title: `Bán hàng · ${documentCode}`,
+                  partnerName: input.partnerName?.trim() || null, paymentMethod: input.paymentMethod?.trim() || "cash",
+                  description: input.notes?.trim() || null, status: "posted", isActive: true, createdBy: input.createdBy ?? null,
+            } as any);
+            const transactionId = Number(transaction?.id || 0) || null;
+            const document = await storeLedgerDb.createStoreDocument({
+                  ledgerId: input.ledgerId, ledgerTransactionId: transactionId, documentCode, documentType: "sale", documentDate,
+                  stockInSource: null, partnerName: input.partnerName?.trim() || null, paymentMethod: input.paymentMethod?.trim() || "cash",
+                  totalQuantity: String(totalQuantity.toFixed(2)), totalAmount: String(totalAmount.toFixed(2)), notes: input.notes?.trim() || null,
+                  status: "posted", createdBy: input.createdBy ?? null,
+            } as any);
+            const documentId = Number((document as any)?.id || 0);
+            if (!documentId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Không thể tạo đầu phiếu bán." });
+            for (let index = 0; index < prepared.length; index += 1) {
+                  const item = prepared[index];
+                  const updatedProduct = await storeLedgerDb.subtractStoreProductStock({ productId: Number(item.product.id), quantity: item.quantity });
+                  if (!updatedProduct) throw new TRPCError({ code: "CONFLICT", message: `Tồn kho ${(item.product as any).productName} vừa thay đổi. Vui lòng kiểm tra và lưu lại.` });
+                  const lineId = await storeLedgerDb.createStoreDocumentLine({
+                        documentId, productId: Number(item.product.id), lineNo: index + 1, quantity: String(item.quantity.toFixed(2)), unitCost: String(item.unitCost.toFixed(2)),
+                        unitPrice: String(item.unitPrice.toFixed(2)), lineAmount: String(item.lineAmount.toFixed(2)), notes: item.line.notes?.trim() || null,
+                  } as any);
+                  await storeLedgerDb.createStoreStockMovement({
+                        productId: Number(item.product.id), transactionId, documentId, documentLineId: Number(lineId) || null,
+                        movementType: "sale", movementDate: documentDate, quantityIn: "0.00", quantityOut: String(item.quantity.toFixed(2)),
+                        unitCost: String(item.unitCost.toFixed(2)), note: [input.partnerName?.trim(), item.line.notes?.trim(), input.notes?.trim()].filter(Boolean).join(" · ") || null,
+                        createdBy: input.createdBy ?? null,
+                  } as any);
+            }
+            return this.getDocument(documentId);
+      },
 
       async listProducts(input: storeLedgerDb.StoreProductListInput = {}) {
             return storeLedgerDb.listStoreProducts(input);

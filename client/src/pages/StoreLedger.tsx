@@ -84,6 +84,7 @@ import { StoreDocumentFormModal } from "@/components/store-ledger/StoreDocumentF
 import { StoreDocumentHistory } from "@/components/store-ledger/StoreDocumentHistory";
 import { StoreDocumentVoucherPreview } from "@/components/store-ledger/StoreDocumentVoucherPreview";
 import { StorePurchaseTab } from "@/components/store-ledger/StorePurchaseTab";
+import { StoreSalesTab } from "@/components/store-ledger/StoreSalesTab";
 import type { StoreDocumentDraft } from "@/components/store-ledger/storeDocumentTypes";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -1058,7 +1059,7 @@ export default function StoreLedger() {
                   <div className={residenceMediumStyle.page}>
                         <div className={residenceMediumStyle.pageAura} />
                         <div
-                              className={`${residenceMediumStyle.standardPageContent} space-y-5`}
+                              className={`${residenceMediumStyle.standardPageContent} space-y-4`}
                         >
                               <StoreLedgerHeaderSummary
                                     pageHeaderMeta={pageHeaderMeta}
@@ -1106,6 +1107,7 @@ export default function StoreLedger() {
                                     <StorePurchaseTab
                                           documents={stockInDocumentsQuery.data || []}
                                           loading={stockInDocumentsQuery.isLoading}
+                                          error={stockInDocumentsQuery.error}
                                           searchTerm={searchTerm}
                                           setSearchTerm={setSearchTerm}
                                           fromDate={fromDate}
@@ -1118,9 +1120,25 @@ export default function StoreLedger() {
                                     />
                               ) : null}
 
+                              {activeStoreTab === "sales" ? (
+                                    <StoreSalesTab
+                                          documents={saleDocumentsQuery.data || []}
+                                          loading={saleDocumentsQuery.isLoading}
+                                          error={saleDocumentsQuery.error}
+                                          searchTerm={searchTerm}
+                                          setSearchTerm={setSearchTerm}
+                                          fromDate={fromDate}
+                                          setFromDate={setFromDate}
+                                          toDate={toDate}
+                                          setToDate={setToDate}
+                                          openSaleStockModal={openSaleStockModal}
+                                          onPreview={setPreviewStoreDocument}
+                                    />
+                              ) : null}
+
                               <section className="space-y-4">
                                     <main className="min-w-0 space-y-4">
-                                          {activeStoreTab !== "products" && activeStoreTab !== "purchase" ? (
+                                          {activeStoreTab !== "products" && activeStoreTab !== "purchase" && activeStoreTab !== "sales" ? (
                                                 <>
                                                       <section className="rounded-[1.75rem] border border-[#eadfca] bg-[linear-gradient(135deg,#ffffff_0%,#fffaf0_100%)] p-4 shadow-lg shadow-amber-950/5">
                                                             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1364,15 +1382,6 @@ export default function StoreLedger() {
                                                                         )}
                                                                   </div>
                                                             </section>
-                                                      ) : null}
-
-                                                      {activeStoreTab === "sales" ? (
-                                                            <StoreDocumentHistory
-                                                                  type="sale"
-                                                                  documents={saleDocumentsQuery.data || []}
-                                                                  loading={saleDocumentsQuery.isLoading}
-                                                                  onPreview={setPreviewStoreDocument}
-                                                            />
                                                       ) : null}
 
                                                       {activeStoreTab === "cashflow" ? (

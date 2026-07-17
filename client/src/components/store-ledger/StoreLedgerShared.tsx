@@ -123,8 +123,8 @@ export function Modal({
             <div
                   className={`fixed inset-0 ${overlayClassName} flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm`}
             >
-                  <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[1.75rem] border border-[#eadfca] bg-[linear-gradient(135deg,#fffdf7_0%,#ffffff_54%,#fff7df_100%)] shadow-2xl shadow-slate-950/20">
-                        <div className="flex shrink-0 items-center justify-between border-b border-[#eadfca] px-5 py-3.5">
+                  <div className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] border border-[#eadfca] bg-[linear-gradient(135deg,#fffdf7_0%,#ffffff_54%,#fff7df_100%)] shadow-2xl shadow-slate-950/20">
+                        <div className="flex shrink-0 items-center justify-between border-b border-[#eadfca] px-5 py-3">
                               <div>
                                     <h2 className="text-xl font-black tracking-tight text-slate-950">{title}</h2>
                               </div>
@@ -136,7 +136,7 @@ export function Modal({
                                     Đóng
                               </button>
                         </div>
-                        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+                        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3.5 sm:px-5">{children}</div>
                   </div>
             </div>
       );

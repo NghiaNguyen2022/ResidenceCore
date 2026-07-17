@@ -66,7 +66,7 @@ export function StoreLedgerHeaderSummary({
                   </header>
 
                   {activeStoreTab === "products" ? (
-                        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <section className="grid gap-3 md:grid-cols-4">
                               <SummaryCard
                                     icon={<Boxes className="h-5 w-5" />}
                                     label="Tổng mặt hàng"
