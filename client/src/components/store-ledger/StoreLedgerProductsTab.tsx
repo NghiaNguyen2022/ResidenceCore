@@ -66,12 +66,12 @@ export function StoreLedgerProductsTab({
       const [page, setPage] = useState(1);
 
       const lowStockProducts = useMemo(
-            () => products.filter((product: any) => {
+            () => allProducts.filter((product: any) => {
                   const stock = Number(product.currentStock || 0);
                   const minStock = Number(product.minStock || 0);
                   return stock <= 0 || (minStock > 0 && stock <= minStock);
             }),
-            [products],
+            [allProducts],
       );
 
       const categorySummary = useMemo(() => {
@@ -101,7 +101,7 @@ export function StoreLedgerProductsTab({
             <div className="space-y-4">
                   <section id="store-product-list" tabIndex={-1} className="scroll-mt-24 space-y-4 outline-none transition focus:ring-4 focus:ring-amber-100/80">
                         <div className="rounded-[1.4rem] border border-[#eadfca] bg-white/95 p-3.5 shadow-sm">
-                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                              <div className="flex min-w-0 flex-col gap-2.5 xl:flex-row xl:items-center">
                                     <div className="relative min-w-0 flex-1">
                                           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                           <input
@@ -112,7 +112,7 @@ export function StoreLedgerProductsTab({
                                           />
                                     </div>
 
-                                    <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
+                                    <div className="flex max-w-full flex-wrap items-center gap-2 xl:shrink-0 xl:justify-end">
                                           <label className={`inline-flex h-10 cursor-pointer items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-black transition ${lowStockOnly ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}>
                                                 <input
                                                       type="checkbox"
@@ -129,7 +129,7 @@ export function StoreLedgerProductsTab({
                                                       onChange={(event) => setShowInactiveProducts(event.target.checked)}
                                                       className="h-4 w-4 shrink-0 rounded border-slate-300 accent-slate-700"
                                                 />
-                                                Hiện hàng ngừng bán
+                                                Ngừng bán
                                           </label>
                                           <div className="inline-flex h-10 shrink-0 items-center rounded-xl border border-slate-200 bg-slate-50 p-1">
                                                 <button
@@ -166,7 +166,7 @@ export function StoreLedgerProductsTab({
                               </div>
                         </div>
 
-                        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+                        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_260px] xl:grid-cols-[minmax(0,1fr)_280px]">
                               <section className="min-w-0 overflow-hidden rounded-[1.4rem] border border-[#eadfca] bg-white/95 shadow-sm">
                                     <div className="flex flex-col gap-3 border-b border-[#efe5d3] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                           <div>
@@ -175,12 +175,13 @@ export function StoreLedgerProductsTab({
                                                       {products.length ? `Hiển thị ${pageStart + 1}–${Math.min(pageStart + pageSize, products.length)} trong ${products.length} mặt hàng` : "Không có mặt hàng"}
                                                 </p>
                                           </div>
-                                          <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-500">
-                                                Hiển thị
+                                          <label className="inline-flex items-center">
+                                                <span className="sr-only">Số sản phẩm mỗi trang</span>
                                                 <select
+                                                      aria-label="Số sản phẩm mỗi trang"
                                                       value={pageSize}
                                                       onChange={(event) => setPageSize(Number(event.target.value) as 7 | 10)}
-                                                      className="rounded-xl border border-[#e5d8bd] bg-white px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-amber-300"
+                                                      className="min-w-[132px] rounded-xl border border-[#e5d8bd] bg-white px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-amber-300"
                                                 >
                                                       <option value={7}>7 sản phẩm</option>
                                                       <option value={10}>10 sản phẩm</option>
@@ -238,7 +239,7 @@ export function StoreLedgerProductsTab({
                                     ) : null}
                               </section>
 
-                              <aside className="space-y-3 xl:sticky xl:top-4 xl:self-start">
+                              <aside className="min-w-0 space-y-3 lg:sticky lg:top-4 lg:self-start">
                                     <section className="rounded-[1.35rem] border border-[#eadfca] bg-white/95 p-4 shadow-sm">
                                           <div className="flex items-center justify-between gap-3">
                                                 <h3 className="text-sm font-black text-slate-950">Phân bổ nhóm hàng</h3>
@@ -328,27 +329,28 @@ function ProductListRow({ product, onEdit, onPrice, onDelete, onToggleActive, de
       const inactive = product.isActive === false;
       return (
             <article className={`px-4 py-3 transition ${inactive ? "bg-slate-50/80 opacity-80" : "hover:bg-amber-50/25"}`}>
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-center">
-                        <div className="flex min-w-0 items-center gap-3">
-                              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-100 bg-amber-50/60">
-                                    {image ? <img src={image} alt={product.productName} className="h-full w-full object-cover" /> : <ImageIcon className="h-5 w-5 text-amber-500" />}
-                              </div>
-                              <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                          <button type="button" onClick={() => onPrice(product)} className="truncate text-left text-base font-black text-slate-950 hover:text-amber-700">{product.productName}</button>
-                                          <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">{productCategoryLabel(product.category)}</span>
-                                          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">{product.unit || "cái"}</span>
-                                          {lowStock && !inactive ? <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${stock <= 0 ? "bg-rose-50 text-rose-700" : "bg-orange-50 text-orange-700"}`}>{stock <= 0 ? "Hết hàng" : "Sắp hết"}</span> : null}
-                                          {inactive ? <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-black text-slate-600">Ngừng kinh doanh</span> : null}
-                                    </div>
-                                    <p className="mt-1 text-xs font-semibold text-slate-500">Tồn {formatMoney(stock)} {product.unit || ""}{minStock > 0 ? ` · Tối thiểu ${formatMoney(minStock)}` : ""}</p>
-                              </div>
+                  <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-100 bg-amber-50/60">
+                              {image ? <img src={image} alt={product.productName} className="h-full w-full object-cover" /> : <ImageIcon className="h-5 w-5 text-amber-500" />}
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                    <button type="button" onClick={() => onPrice(product)} className="max-w-full truncate text-left text-base font-black text-slate-950 hover:text-amber-700">{product.productName}</button>
+                                    <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">{productCategoryLabel(product.category)}</span>
+                                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">{product.unit || "cái"}</span>
+                                    {lowStock && !inactive ? <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${stock <= 0 ? "bg-rose-50 text-rose-700" : "bg-orange-50 text-orange-700"}`}>{stock <= 0 ? "Hết hàng" : "Sắp hết"}</span> : null}
+                                    {inactive ? <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-black text-slate-600">Ngừng kinh doanh</span> : null}
+                              </div>
+                              <p className="mt-1 text-xs font-semibold text-slate-500">Tồn {formatMoney(stock)} {product.unit || ""}{minStock > 0 ? ` · Tối thiểu ${formatMoney(minStock)}` : ""}</p>
+                        </div>
+                  </div>
+
+                  <div className="mt-3 flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                        <div className="grid w-full max-w-[300px] grid-cols-2 gap-2 text-xs">
                               <PriceBox label="Giá vốn" value={cost > 0 ? `${formatMoney(cost)}đ` : "—"} />
                               <PriceBox label="Giá bán" value={sale > 0 ? `${formatMoney(sale)}đ` : "—"} amber />
                         </div>
-                        <div className="flex flex-wrap gap-2 lg:justify-end">
+                        <div className="flex min-w-0 flex-wrap gap-2 xl:justify-end">
                               <ActionButton label="Sửa" onClick={() => onEdit(product)} />
                               <ActionButton label="Thông tin giá" onClick={() => onPrice(product)} amber />
                               <ActionButton label={inactive ? "Kinh doanh lại" : "Ngừng kinh doanh"} onClick={() => onToggleActive(product)} muted={!inactive} success={inactive} disabled={updating} />
