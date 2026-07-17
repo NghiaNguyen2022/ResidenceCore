@@ -2,7 +2,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { FormDateInput } from "@/components/shared";
-import { ErrorText, Field, Modal, ModalFooter, inputClass } from "@/components/store-ledger/StoreLedgerShared";
+import { ErrorText, Field, Modal, inputClass } from "@/components/store-ledger/StoreLedgerShared";
 import { formatCurrencyInput, formatMoney, getTodayYmd, parseCurrencyInput } from "@/components/store-ledger/storeLedgerUtils";
 import type { StoreDocumentDraft, StoreDocumentLineDraft, StoreDocumentType } from "./storeDocumentTypes";
 
@@ -62,6 +62,25 @@ export function StoreDocumentFormModal({
     () => draft.lines.reduce((sum, line) => sum + parseCurrencyInput(line.quantity) * parseCurrencyInput(line.unitValue), 0),
     [draft.lines],
   );
+  const duplicateProductIds = useMemo(() => {
+    const counts = new Map<string, number>();
+    draft.lines.forEach((line) => {
+      if (line.productId) counts.set(line.productId, (counts.get(line.productId) || 0) + 1);
+    });
+    return new Set(Array.from(counts.entries()).filter(([, count]) => count > 1).map(([id]) => id));
+  }, [draft.lines]);
+  const hasInvalidLine = draft.lines.some((line) => !line.productId || parseCurrencyInput(line.quantity) <= 0 || parseCurrencyInput(line.unitValue) <= 0);
+  const overStockLines = useMemo(() => {
+    if (type !== "sale") return new Set<string>();
+    return new Set(
+      draft.lines
+        .filter((line) => {
+          const product = products.find((item) => String(item.id) === line.productId);
+          return product && parseCurrencyInput(line.quantity) > Number(product.currentStock || 0);
+        })
+        .map((line) => line.key),
+    );
+  }, [draft.lines, products, type]);
 
   if (!open) return null;
 
@@ -82,7 +101,7 @@ export function StoreDocumentFormModal({
 
   return (
     <Modal title={type === "stock_in" ? "Tạo phiếu nhập kho" : "Tạo phiếu bán hàng"} onClose={onClose}>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           {type === "stock_in" ? (
             <Field label="Nguồn nhập">
@@ -113,24 +132,26 @@ export function StoreDocumentFormModal({
           </Field>
         </div>
 
-        <section className="overflow-hidden rounded-2xl border border-amber-100 bg-white">
-          <div className="flex items-center justify-between border-b border-amber-100 bg-amber-50/70 px-4 py-3">
+        <section className="overflow-hidden rounded-[1.25rem] border border-[#eadfca] bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eadfca] bg-amber-50/45 px-4 py-3">
             <div>
-              <h3 className="text-sm font-black text-slate-950">Danh sách hàng hóa</h3>
-              <p className="text-xs font-semibold text-slate-500">Một phiếu có thể gồm nhiều mặt hàng.</p>
+              <h3 className="text-base font-black text-slate-950">Hàng hóa trong phiếu</h3>
+              <p className="text-xs font-medium text-slate-500">
+                {type === "stock_in" ? "Thêm nhiều mặt hàng trong cùng một phiếu nhập." : "Chọn hàng, kiểm tra tồn và giá bán trước khi lưu phiếu."}
+              </p>
             </div>
             <button type="button" onClick={addLine} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white">
               <Plus className="h-4 w-4" /> Thêm dòng
             </button>
           </div>
-          <div className="space-y-3 p-3">
+          <div className="space-y-2.5 p-3">
             {draft.lines.map((line, index) => {
               const selectedProduct = products.find((item) => String(item.id) === line.productId);
               const quantity = parseCurrencyInput(line.quantity);
               const unitValue = parseCurrencyInput(line.unitValue);
               return (
-                <div key={line.key} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1.6fr)_120px_150px_130px_auto] lg:items-end">
+                <div key={line.key} className="rounded-2xl border border-slate-200/80 bg-slate-50/55 p-3">
+                  <div className="grid gap-2.5 md:grid-cols-[minmax(220px,1.7fr)_110px_140px_130px_40px] md:items-end">
                     <Field label={`Hàng hóa ${index + 1}`}>
                       <select
                         value={line.productId}
@@ -144,11 +165,14 @@ export function StoreDocumentFormModal({
                         className={inputClass}
                       >
                         <option value="">Chọn hàng hóa</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.productName}{type === "sale" ? ` · tồn ${formatMoney(product.currentStock)} ${product.unit || ""}` : ""}
-                          </option>
-                        ))}
+                        {products.map((product) => {
+                          const selectedElsewhere = draft.lines.some((other) => other.key !== line.key && other.productId === String(product.id));
+                          return (
+                            <option key={product.id} value={product.id} disabled={selectedElsewhere}>
+                              {product.productName}{type === "sale" ? ` · tồn ${formatMoney(product.currentStock)} ${product.unit || ""}` : ` · ${product.unit || ""}`}
+                            </option>
+                          );
+                        })}
                       </select>
                     </Field>
                     <Field label="Số lượng">
@@ -157,31 +181,66 @@ export function StoreDocumentFormModal({
                     <Field label={type === "stock_in" ? "Giá vốn / đơn vị" : "Giá bán / đơn vị"}>
                       <input inputMode="numeric" value={line.unitValue} onChange={(event) => updateLine(line.key, { unitValue: formatCurrencyInput(event.target.value) })} className={`${inputClass} text-right`} />
                     </Field>
-                    <div className="pb-2 text-right">
-                      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Thành tiền</p>
-                      <p className="mt-1 text-sm font-black text-slate-950">{formatMoney(quantity * unitValue)} đ</p>
+                    <div className="rounded-xl bg-white px-3 py-2 text-right ring-1 ring-slate-100">
+                      <p className="text-xs font-semibold text-slate-500">Thành tiền</p>
+                      <p className="mt-0.5 whitespace-nowrap text-sm font-black text-slate-950">{formatMoney(quantity * unitValue)} đ</p>
                       {type === "sale" && selectedProduct ? <p className="text-[11px] font-semibold text-slate-500">Tồn {formatMoney(selectedProduct.currentStock)} {selectedProduct.unit || ""}</p> : null}
                     </div>
-                    <button type="button" onClick={() => removeLine(line.key)} className="mb-2 rounded-xl border border-rose-100 bg-white p-2 text-rose-600 disabled:opacity-40" disabled={draft.lines.length <= 1}>
+                    <button type="button" onClick={() => removeLine(line.key)} className="rounded-xl border border-rose-100 bg-white p-2 text-rose-600 shadow-sm disabled:opacity-40" disabled={draft.lines.length <= 1}>
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
+                  {duplicateProductIds.has(line.productId) ? (
+                    <p className="mt-2 text-xs font-bold text-rose-600">Hàng hóa này đã có trong phiếu. Hãy gộp số lượng vào một dòng.</p>
+                  ) : null}
+                  {overStockLines.has(line.key) ? (
+                    <p className="mt-2 text-xs font-bold text-rose-600">Số lượng bán vượt tồn hiện tại. Vui lòng giảm số lượng trước khi lưu.</p>
+                  ) : null}
                 </div>
               );
             })}
           </div>
         </section>
 
-        <div className="grid gap-3 rounded-2xl border border-amber-100 bg-amber-50/60 p-4 sm:grid-cols-2">
-          <div><p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Tổng số lượng</p><p className="mt-1 text-xl font-black text-slate-950">{formatMoney(totalQuantity)}</p></div>
-          <div className="text-right"><p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Tổng giá trị</p><p className="mt-1 text-xl font-black text-amber-700">{formatMoney(totalAmount)} đ</p></div>
+        <div className="grid gap-3 rounded-2xl border border-amber-100 bg-amber-50/45 px-4 py-3 sm:grid-cols-2">
+          <div><p className="text-xs font-semibold text-slate-500">Tổng số lượng</p><p className="mt-0.5 text-lg font-black text-slate-950">{formatMoney(totalQuantity)}</p></div>
+          <div className="sm:text-right"><p className="text-xs font-semibold text-slate-500">Tổng giá trị nhập</p><p className="mt-0.5 text-lg font-black text-amber-700">{formatMoney(totalAmount)} đ</p></div>
         </div>
 
         <Field label="Ghi chú">
           <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={2} className={inputClass} />
         </Field>
+        {duplicateProductIds.size ? <ErrorText>Mỗi hàng hóa chỉ được xuất hiện một lần trong phiếu.</ErrorText> : null}
+        {overStockLines.size ? <ErrorText>Có hàng hóa đang bán vượt số lượng tồn kho.</ErrorText> : null}
         {error ? <ErrorText>{error}</ErrorText> : null}
-        <ModalFooter onClose={onClose} onSave={() => onSave(draft)} saveText={type === "stock_in" ? "Lưu phiếu nhập" : "Lưu phiếu bán"} loading={loading} />
+        <div className="sticky bottom-0 -mx-5 flex flex-col gap-2 border-t border-[#eadfca] bg-white/95 px-5 pb-1 pt-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs font-medium text-slate-500">
+            {hasInvalidLine
+              ? "Hoàn tất hàng hóa, số lượng và đơn giá trước khi lưu."
+              : duplicateProductIds.size
+                ? "Mỗi hàng hóa chỉ được xuất hiện một lần trong phiếu."
+                : overStockLines.size
+                  ? "Có hàng hóa đang bán vượt tồn hiện tại."
+                  : `${draft.lines.length} dòng hàng · Tổng ${formatMoney(totalAmount)} đ`}
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={() => onSave(draft)}
+              disabled={Boolean(loading || duplicateProductIds.size || overStockLines.size || hasInvalidLine)}
+              className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-slate-950/15 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {loading ? "Đang lưu..." : type === "stock_in" ? "Lưu phiếu nhập" : "Lưu phiếu bán"}
+            </button>
+          </div>
+        </div>
       </div>
     </Modal>
   );

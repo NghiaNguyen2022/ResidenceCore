@@ -83,6 +83,8 @@ import { StoreLedgerHeaderSummary } from "@/components/store-ledger/StoreLedgerH
 import { StoreDocumentFormModal } from "@/components/store-ledger/StoreDocumentFormModal";
 import { StoreDocumentHistory } from "@/components/store-ledger/StoreDocumentHistory";
 import { StoreDocumentVoucherPreview } from "@/components/store-ledger/StoreDocumentVoucherPreview";
+import { StorePurchaseTab } from "@/components/store-ledger/StorePurchaseTab";
+import { StoreSalesTab } from "@/components/store-ledger/StoreSalesTab";
 import type { StoreDocumentDraft } from "@/components/store-ledger/storeDocumentTypes";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -153,6 +155,10 @@ export default function StoreLedger() {
             isActive: true,
       }) ?? { data: [], isLoading: false, error: null, refetch: () => undefined };
       const ledgers = ledgersQuery.data || [];
+
+      const allProductsQuery = storeLedgerApi?.listProducts?.useQuery?.({
+            isActive: true,
+      }) ?? { data: [], isLoading: false, error: null, refetch: () => undefined };
 
       const productsQuery = storeLedgerApi?.listProducts?.useQuery?.({
             search: productSearch,
@@ -252,7 +258,10 @@ export default function StoreLedger() {
                   setEditingProduct(null);
                   setProductForm(emptyProductForm);
                   setFormError("");
-                  await productsQuery.refetch?.();
+                  await Promise.all([
+                        productsQuery.refetch?.(),
+                        allProductsQuery.refetch?.(),
+                  ]);
             },
             onError: (error: any) =>
                   setFormError(error?.message || "Không thể lưu sản phẩm."),
@@ -264,7 +273,10 @@ export default function StoreLedger() {
                   setEditingProduct(null);
                   setProductForm(emptyProductForm);
                   setFormError("");
-                  await productsQuery.refetch?.();
+                  await Promise.all([
+                        productsQuery.refetch?.(),
+                        allProductsQuery.refetch?.(),
+                  ]);
             },
             onError: (error: any) =>
                   setFormError(error?.message || "Không thể cập nhật sản phẩm."),
@@ -278,6 +290,7 @@ export default function StoreLedger() {
                         setFormError("");
                         await Promise.all([
                               productsQuery.refetch?.(),
+                              allProductsQuery.refetch?.(),
                               productPriceHistoryQuery.refetch?.(),
                         ]);
                   },
@@ -288,7 +301,10 @@ export default function StoreLedger() {
       const deleteProductMutation = storeLedgerApi?.deleteProduct?.useMutation?.({
             onSuccess: async () => {
                   setDeleteProductTarget(null);
-                  await productsQuery.refetch?.();
+                  await Promise.all([
+                        productsQuery.refetch?.(),
+                        allProductsQuery.refetch?.(),
+                  ]);
             },
             onError: (error: any) =>
                   setBlockingNotice({
@@ -335,6 +351,7 @@ export default function StoreLedger() {
                         setFormError("");
                         await Promise.all([
                               productsQuery.refetch?.(),
+                              allProductsQuery.refetch?.(),
                               stockMovementsQuery.refetch?.(),
                               stockInDocumentsQuery.refetch?.(),
                               summaryQuery.refetch?.(),
@@ -360,6 +377,7 @@ export default function StoreLedger() {
                         setFormError("");
                         await Promise.all([
                               productsQuery.refetch?.(),
+                              allProductsQuery.refetch?.(),
                               saleMovementsQuery.refetch?.(),
                               saleDocumentsQuery.refetch?.(),
                               summaryQuery.refetch?.(),
@@ -499,6 +517,7 @@ export default function StoreLedger() {
       };
       const transactions = transactionsQuery.data || [];
       const products = productsQuery.data || [];
+      const allProducts = allProductsQuery.data || [];
       const productSummary = useMemo(() => {
             const categorySet = new Set<string>();
             let lowStockCount = 0;
@@ -506,7 +525,7 @@ export default function StoreLedger() {
             let inventoryValue = 0;
             let expectedSaleValue = 0;
 
-            products.forEach((product: any) => {
+            allProducts.forEach((product: any) => {
                   const category = String(product.category || "general");
                   categorySet.add(category);
                   const stock = Number(product.currentStock || 0);
@@ -520,7 +539,7 @@ export default function StoreLedger() {
             });
 
             return {
-                  totalProducts: products.length,
+                  totalProducts: allProducts.length,
                   totalCategories: categorySet.size,
                   lowStockCount,
                   totalStock,
@@ -528,13 +547,13 @@ export default function StoreLedger() {
                   expectedSaleValue,
                   expectedProfit: expectedSaleValue - inventoryValue,
             };
-      }, [products]);
+      }, [allProducts]);
       const productCategoryOptions = useMemo(() => {
             const optionMap = new Map<string, string>();
             defaultProductCategories.forEach((item) =>
                   optionMap.set(item.value, item.label),
             );
-            products.forEach((product: any) => {
+            allProducts.forEach((product: any) => {
                   const category = String(product.category || "").trim();
                   if (!category) return;
                   if (!optionMap.has(category))
@@ -544,7 +563,7 @@ export default function StoreLedger() {
                   value,
                   label,
             }));
-      }, [products]);
+      }, [allProducts]);
       const stockMovements = stockMovementsQuery.data || [];
       const stockInSummary = useMemo(() => {
             const productIds = new Set<number>();
@@ -993,21 +1012,29 @@ export default function StoreLedger() {
             });
       }
 
+      function focusStoreSection(id: string) {
+            window.requestAnimationFrame(() => {
+                  const element = document.getElementById(id);
+                  if (!element) return;
+                  element.scrollIntoView({ behavior: "smooth", block: "center" });
+                  element.focus({ preventScroll: true });
+            });
+      }
+
       function showAllProducts() {
-            setLowStockOnly(false);
-            setProductCategoryFilter("all");
-            setProductSearch("");
-            scrollToStoreSection("store-product-list");
+            focusStoreSection("store-product-list");
       }
 
       function showLowStockProducts() {
-            setLowStockOnly(true);
-            setProductCategoryFilter("all");
-            scrollToStoreSection("store-product-list");
+            focusStoreSection("store-low-stock-panel");
       }
 
-      function showInventoryReport() {
-            scrollToStoreSection("store-inventory-report");
+      function showInventoryValue() {
+            focusStoreSection("store-inventory-value");
+      }
+
+      function showExpectedRevenue() {
+            focusStoreSection("store-expected-revenue");
       }
 
       function switchStoreTab(tab: StoreTab) {
@@ -1036,10 +1063,10 @@ export default function StoreLedger() {
                                     saleSummary={saleSummary}
                                     summary={summary}
                                     productSummary={productSummary}
-                                    lowStockOnly={lowStockOnly}
                                     onShowAllProducts={showAllProducts}
                                     onShowLowStock={showLowStockProducts}
-                                    onShowInventoryReport={showInventoryReport}
+                                    onShowInventoryValue={showInventoryValue}
+                                    onShowExpectedRevenue={showExpectedRevenue}
                                     formatMoney={formatMoney}
                               />
 
@@ -1054,6 +1081,7 @@ export default function StoreLedger() {
                                           productCategoryOptions={productCategoryOptions}
                                           productsQuery={productsQuery}
                                           products={products}
+                                          allProducts={allProducts}
                                           productSummary={productSummary}
                                           openEditProductModal={openEditProductModal}
                                           openPriceInfo={openPriceInfo}
@@ -1062,9 +1090,40 @@ export default function StoreLedger() {
                                     />
                               ) : null}
 
+                              {activeStoreTab === "purchase" ? (
+                                    <StorePurchaseTab
+                                          documents={stockInDocumentsQuery.data || []}
+                                          loading={stockInDocumentsQuery.isLoading}
+                                          searchTerm={searchTerm}
+                                          setSearchTerm={setSearchTerm}
+                                          fromDate={fromDate}
+                                          setFromDate={setFromDate}
+                                          toDate={toDate}
+                                          setToDate={setToDate}
+                                          openPurchaseStockModal={openPurchaseStockModal}
+                                          openOperationExpenseModal={() => openTransactionModal("out")}
+                                          onPreview={setPreviewStoreDocument}
+                                    />
+                              ) : null}
+
+                              {activeStoreTab === "sales" ? (
+                                    <StoreSalesTab
+                                          documents={saleDocumentsQuery.data || []}
+                                          loading={saleDocumentsQuery.isLoading}
+                                          searchTerm={searchTerm}
+                                          setSearchTerm={setSearchTerm}
+                                          fromDate={fromDate}
+                                          setFromDate={setFromDate}
+                                          toDate={toDate}
+                                          setToDate={setToDate}
+                                          openSaleStockModal={openSaleStockModal}
+                                          onPreview={setPreviewStoreDocument}
+                                    />
+                              ) : null}
+
                               <section className="space-y-4">
                                     <main className="min-w-0 space-y-4">
-                                          {activeStoreTab !== "products" ? (
+                                          {activeStoreTab !== "products" && activeStoreTab !== "purchase" && activeStoreTab !== "sales" ? (
                                                 <>
                                                       <section className="rounded-[1.75rem] border border-[#eadfca] bg-[linear-gradient(135deg,#ffffff_0%,#fffaf0_100%)] p-4 shadow-lg shadow-amber-950/5">
                                                             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1308,24 +1367,6 @@ export default function StoreLedger() {
                                                                         )}
                                                                   </div>
                                                             </section>
-                                                      ) : null}
-
-                                                      {activeStoreTab === "purchase" ? (
-                                                            <StoreDocumentHistory
-                                                                  type="stock_in"
-                                                                  documents={stockInDocumentsQuery.data || []}
-                                                                  loading={stockInDocumentsQuery.isLoading}
-                                                                  onPreview={setPreviewStoreDocument}
-                                                            />
-                                                      ) : null}
-
-                                                      {activeStoreTab === "sales" ? (
-                                                            <StoreDocumentHistory
-                                                                  type="sale"
-                                                                  documents={saleDocumentsQuery.data || []}
-                                                                  loading={saleDocumentsQuery.isLoading}
-                                                                  onPreview={setPreviewStoreDocument}
-                                                            />
                                                       ) : null}
 
                                                       {activeStoreTab === "cashflow" ? (

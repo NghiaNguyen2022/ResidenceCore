@@ -163,6 +163,56 @@ export const storeLedgerTransactions = mysqlTable(
 );
 
 
+export const storeDocuments = mysqlTable(
+      "storeDocuments",
+      {
+            id: int("id").autoincrement().primaryKey(),
+            ledgerId: int("ledgerId").notNull().references(() => storeLedgers.id, { onDelete: "restrict" }),
+            ledgerTransactionId: int("ledgerTransactionId").references(() => storeLedgerTransactions.id, { onDelete: "set null" }),
+            documentCode: varchar("documentCode", { length: 50 }).notNull(),
+            documentType: mysqlEnum("documentType", ["stock_in", "sale"]).notNull(),
+            documentDate: date("documentDate").notNull(),
+            stockInSource: mysqlEnum("stockInSource", ["purchase", "production", "self_supply", "other"]),
+            partnerName: varchar("partnerName", { length: 255 }),
+            paymentMethod: varchar("paymentMethod", { length: 50 }).default("cash"),
+            totalQuantity: decimal("totalQuantity", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            totalAmount: decimal("totalAmount", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            notes: text("notes"),
+            status: mysqlEnum("documentStatus", ["posted", "cancelled"]).default("posted").notNull(),
+            createdBy: int("createdBy").references(() => users.id, { onDelete: "set null" }),
+            createdAt: timestamp("createdAt").defaultNow().notNull(),
+            updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+      },
+      (table) => ({
+            codeUnique: unique("storeDocuments_documentCode_unique").on(table.documentCode),
+            ledgerIdx: index("storeDocuments_ledger_idx").on(table.ledgerId),
+            typeDateIdx: index("storeDocuments_type_date_idx").on(table.documentType, table.documentDate),
+            transactionIdx: index("storeDocuments_transaction_idx").on(table.ledgerTransactionId),
+      }),
+);
+
+export const storeDocumentLines = mysqlTable(
+      "storeDocumentLines",
+      {
+            id: int("id").autoincrement().primaryKey(),
+            documentId: int("documentId").notNull().references(() => storeDocuments.id, { onDelete: "cascade" }),
+            productId: int("productId").notNull().references(() => storeProducts.id, { onDelete: "restrict" }),
+            lineNo: int("lineNo").notNull(),
+            quantity: decimal("quantity", { precision: 14, scale: 2 }).notNull(),
+            unitCost: decimal("unitCost", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            unitPrice: decimal("unitPrice", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            lineAmount: decimal("lineAmount", { precision: 14, scale: 2 }).default("0.00").notNull(),
+            notes: text("notes"),
+            createdAt: timestamp("createdAt").defaultNow().notNull(),
+      },
+      (table) => ({
+            documentIdx: index("storeDocumentLines_document_idx").on(table.documentId),
+            productIdx: index("storeDocumentLines_product_idx").on(table.productId),
+            documentLineUnique: unique("storeDocumentLines_document_line_unique").on(table.documentId, table.lineNo),
+      }),
+);
+
+
 
 export const storeStockMovements = mysqlTable(
       "storeStockMovements",
@@ -170,6 +220,8 @@ export const storeStockMovements = mysqlTable(
             id: int("id").autoincrement().primaryKey(),
             productId: int("productId").notNull().references(() => storeProducts.id, { onDelete: "restrict" }),
             transactionId: int("transactionId").references(() => storeLedgerTransactions.id, { onDelete: "set null" }),
+            documentId: int("documentId").references(() => storeDocuments.id, { onDelete: "set null" }),
+            documentLineId: int("documentLineId").references(() => storeDocumentLines.id, { onDelete: "set null" }),
             movementType: mysqlEnum("movementType", ["purchase", "production_in", "self_supply_in", "other_in", "sale", "adjustment_in", "adjustment_out", "return"]).notNull(),
             movementDate: date("movementDate").notNull(),
             quantityIn: decimal("quantityIn", { precision: 14, scale: 2 }).default("0.00").notNull(),
@@ -182,6 +234,8 @@ export const storeStockMovements = mysqlTable(
       (table) => ({
             productIdx: index("storeStockMovements_product_idx").on(table.productId),
             transactionIdx: index("storeStockMovements_transaction_idx").on(table.transactionId),
+            documentIdx: index("storeStockMovements_document_idx").on(table.documentId),
+            documentLineIdx: index("storeStockMovements_document_line_idx").on(table.documentLineId),
             dateIdx: index("storeStockMovements_date_idx").on(table.movementDate),
             typeIdx: index("storeStockMovements_type_idx").on(table.movementType),
       }),
@@ -199,5 +253,9 @@ export type StoreProductSalePriceHistory = typeof storeProductSalePriceHistories
 export type InsertStoreProductSalePriceHistory = typeof storeProductSalePriceHistories.$inferInsert;
 export type StoreLedgerTransaction = typeof storeLedgerTransactions.$inferSelect;
 export type InsertStoreLedgerTransaction = typeof storeLedgerTransactions.$inferInsert;
+export type StoreDocument = typeof storeDocuments.$inferSelect;
+export type InsertStoreDocument = typeof storeDocuments.$inferInsert;
+export type StoreDocumentLine = typeof storeDocumentLines.$inferSelect;
+export type InsertStoreDocumentLine = typeof storeDocumentLines.$inferInsert;
 export type StoreStockMovement = typeof storeStockMovements.$inferSelect;
 export type InsertStoreStockMovement = typeof storeStockMovements.$inferInsert;

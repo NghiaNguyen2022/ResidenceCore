@@ -45,6 +45,74 @@ const productInputSchema = z.object({
 
 export const storeLedgerRouter = router({
 
+
+      listDocuments: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive().optional().nullable(),
+                        documentType: z.enum(["stock_in", "sale"]).optional().nullable(),
+                        fromDate: z.string().optional().nullable(),
+                        toDate: z.string().optional().nullable(),
+                        search: z.string().optional().nullable(),
+                        limit: z.number().int().min(1).max(300).optional(),
+                        offset: z.number().int().min(0).optional(),
+                  }).optional(),
+            )
+            .query(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.listDocuments(input || {});
+            }),
+
+      getDocument: protectedProcedure
+            .input(z.object({ id: z.number().int().positive() }))
+            .query(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.getDocument(input.id);
+            }),
+
+      createStockInDocument: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive(),
+                        stockInSource: stockInSourceSchema,
+                        documentDate: z.string().trim().min(1),
+                        partnerName: z.string().optional().nullable(),
+                        paymentMethod: z.string().optional().nullable(),
+                        notes: z.string().optional().nullable(),
+                        lines: z.array(z.object({
+                              productId: z.number().int().positive(),
+                              quantity: z.number().positive(),
+                              unitCost: z.number().positive(),
+                              notes: z.string().optional().nullable(),
+                        })).min(1),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.createStockInDocument({ ...input, createdBy: getUserId(ctx) });
+            }),
+
+      createSaleDocument: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive(),
+                        documentDate: z.string().trim().min(1),
+                        partnerName: z.string().optional().nullable(),
+                        paymentMethod: z.string().optional().nullable(),
+                        notes: z.string().optional().nullable(),
+                        lines: z.array(z.object({
+                              productId: z.number().int().positive(),
+                              quantity: z.number().positive(),
+                              unitPrice: z.number().positive().optional().nullable(),
+                              notes: z.string().optional().nullable(),
+                        })).min(1),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeLedgerService.createSaleDocument({ ...input, createdBy: getUserId(ctx) });
+            }),
+
       listProducts: protectedProcedure
             .input(
                   z.object({

@@ -100,7 +100,7 @@ export function Field({
 }) {
       return (
             <label className={`block ${className}`}>
-                  <span className="mb-1.5 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+                  <span className="mb-1.5 block text-sm font-bold text-slate-600">
                         {label}
                   </span>
                   {children}
@@ -123,13 +123,10 @@ export function Modal({
             <div
                   className={`fixed inset-0 ${overlayClassName} flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm`}
             >
-                  <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[2rem] border border-[#eadfca] bg-[linear-gradient(135deg,#fffdf7_0%,#ffffff_54%,#fff7df_100%)] shadow-2xl shadow-slate-950/20">
-                        <div className="flex items-center justify-between border-b border-[#eadfca] px-5 py-4">
+                  <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[1.75rem] border border-[#eadfca] bg-[linear-gradient(135deg,#fffdf7_0%,#ffffff_54%,#fff7df_100%)] shadow-2xl shadow-slate-950/20">
+                        <div className="flex shrink-0 items-center justify-between border-b border-[#eadfca] px-5 py-3.5">
                               <div>
-                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-700">
-                                          Quản lý cửa hàng
-                                    </p>
-                                    <h2 className="text-lg font-black text-slate-950">{title}</h2>
+                                    <h2 className="text-xl font-black tracking-tight text-slate-950">{title}</h2>
                               </div>
                               <button
                                     type="button"
@@ -139,7 +136,7 @@ export function Modal({
                                     Đóng
                               </button>
                         </div>
-                        <div className="max-h-[68vh] overflow-y-auto px-5 py-4">{children}</div>
+                        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
                   </div>
             </div>
       );
