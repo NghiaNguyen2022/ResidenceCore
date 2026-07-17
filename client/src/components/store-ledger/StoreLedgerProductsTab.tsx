@@ -18,6 +18,8 @@ type StoreLedgerProductsTabProps = {
       setProductSearch: (value: string) => void;
       lowStockOnly: boolean;
       setLowStockOnly: (value: boolean) => void;
+      showInactiveProducts: boolean;
+      setShowInactiveProducts: (value: boolean) => void;
       productCategoryFilter: string;
       setProductCategoryFilter: (value: string) => void;
       productCategoryOptions: Array<{ value: string; label: string }>;
@@ -33,7 +35,9 @@ type StoreLedgerProductsTabProps = {
       openEditProductModal: (product: any) => void;
       openPriceInfo: (product: any) => void;
       handleDeleteProduct: (product: any) => void;
+      handleToggleProductActive: (product: any) => void;
       deleteProductMutation: any;
+      updateProductMutation: any;
 };
 
 export function StoreLedgerProductsTab({
@@ -41,6 +45,8 @@ export function StoreLedgerProductsTab({
       setProductSearch,
       lowStockOnly,
       setLowStockOnly,
+      showInactiveProducts,
+      setShowInactiveProducts,
       productCategoryFilter,
       setProductCategoryFilter,
       productCategoryOptions,
@@ -51,7 +57,9 @@ export function StoreLedgerProductsTab({
       openEditProductModal,
       openPriceInfo,
       handleDeleteProduct,
+      handleToggleProductActive,
       deleteProductMutation,
+      updateProductMutation,
 }: StoreLedgerProductsTabProps) {
       const [viewMode, setViewMode] = useState<"list" | "grid">("list");
       const [pageSize, setPageSize] = useState<7 | 10>(7);
@@ -84,7 +92,7 @@ export function StoreLedgerProductsTab({
       const pageStart = (safePage - 1) * pageSize;
       const pagedProducts = products.slice(pageStart, pageStart + pageSize);
 
-      useEffect(() => setPage(1), [productSearch, productCategoryFilter, lowStockOnly, pageSize]);
+      useEffect(() => setPage(1), [productSearch, productCategoryFilter, lowStockOnly, showInactiveProducts, pageSize]);
       useEffect(() => {
             if (page > totalPages) setPage(totalPages);
       }, [page, totalPages]);
@@ -111,6 +119,15 @@ export function StoreLedgerProductsTab({
                                                 className="h-4 w-4 rounded border-amber-300"
                                           />
                                           Sắp hết
+                                    </label>
+                                    <label className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-black transition ${showInactiveProducts ? "border-slate-300 bg-slate-100 text-slate-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+                                          <input
+                                                type="checkbox"
+                                                checked={showInactiveProducts}
+                                                onChange={(event) => setShowInactiveProducts(event.target.checked)}
+                                                className="h-4 w-4 rounded border-slate-300"
+                                          />
+                                          Hiện ngừng kinh doanh
                                     </label>
                                     <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
                                           <button type="button" onClick={() => setViewMode("list")} className={`rounded-lg p-2 ${viewMode === "list" ? "bg-white text-amber-700 shadow-sm" : "text-slate-400"}`} title="Danh sách"><List className="h-4 w-4" /></button>
@@ -166,7 +183,9 @@ export function StoreLedgerProductsTab({
                                                                   onEdit={openEditProductModal}
                                                                   onPrice={openPriceInfo}
                                                                   onDelete={handleDeleteProduct}
+                                                                  onToggleActive={handleToggleProductActive}
                                                                   deleting={deleteProductMutation?.isPending}
+                                                                  updating={updateProductMutation?.isPending}
                                                             />
                                                       ) : (
                                                             <ProductListRow
@@ -175,7 +194,9 @@ export function StoreLedgerProductsTab({
                                                                   onEdit={openEditProductModal}
                                                                   onPrice={openPriceInfo}
                                                                   onDelete={handleDeleteProduct}
+                                                                  onToggleActive={handleToggleProductActive}
                                                                   deleting={deleteProductMutation?.isPending}
+                                                                  updating={updateProductMutation?.isPending}
                                                             />
                                                       )
                                                 ))}
@@ -280,15 +301,16 @@ export function StoreLedgerProductsTab({
       );
 }
 
-function ProductListRow({ product, onEdit, onPrice, onDelete, deleting }: any) {
+function ProductListRow({ product, onEdit, onPrice, onDelete, onToggleActive, deleting, updating }: any) {
       const stock = Number(product.currentStock || 0);
       const minStock = Number(product.minStock || 0);
       const cost = Number(product.averageCostPrice || product.defaultCostPrice || 0);
       const sale = Number(product.currentSalePrice || product.defaultSalePrice || 0);
       const lowStock = stock <= 0 || (minStock > 0 && stock <= minStock);
       const image = product.imageData || product.imageUrl;
+      const inactive = product.isActive === false;
       return (
-            <article className="px-4 py-3 transition hover:bg-amber-50/25">
+            <article className={`px-4 py-3 transition ${inactive ? "bg-slate-50/80 opacity-80" : "hover:bg-amber-50/25"}`}>
                   <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-center">
                         <div className="flex min-w-0 items-center gap-3">
                               <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-100 bg-amber-50/60">
@@ -299,7 +321,8 @@ function ProductListRow({ product, onEdit, onPrice, onDelete, deleting }: any) {
                                           <button type="button" onClick={() => onPrice(product)} className="truncate text-left text-base font-black text-slate-950 hover:text-amber-700">{product.productName}</button>
                                           <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">{productCategoryLabel(product.category)}</span>
                                           <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">{product.unit || "cái"}</span>
-                                          {lowStock ? <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${stock <= 0 ? "bg-rose-50 text-rose-700" : "bg-orange-50 text-orange-700"}`}>{stock <= 0 ? "Hết hàng" : "Sắp hết"}</span> : null}
+                                          {lowStock && !inactive ? <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${stock <= 0 ? "bg-rose-50 text-rose-700" : "bg-orange-50 text-orange-700"}`}>{stock <= 0 ? "Hết hàng" : "Sắp hết"}</span> : null}
+                                          {inactive ? <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-black text-slate-600">Ngừng kinh doanh</span> : null}
                                     </div>
                                     <p className="mt-1 text-xs font-semibold text-slate-500">Tồn {formatMoney(stock)} {product.unit || ""}{minStock > 0 ? ` · Tối thiểu ${formatMoney(minStock)}` : ""}</p>
                               </div>
@@ -311,6 +334,7 @@ function ProductListRow({ product, onEdit, onPrice, onDelete, deleting }: any) {
                         <div className="flex flex-wrap gap-2 lg:justify-end">
                               <ActionButton label="Sửa" onClick={() => onEdit(product)} />
                               <ActionButton label="Thông tin giá" onClick={() => onPrice(product)} amber />
+                              <ActionButton label={inactive ? "Kinh doanh lại" : "Ngừng kinh doanh"} onClick={() => onToggleActive(product)} muted={!inactive} success={inactive} disabled={updating} />
                               <ActionButton label="Xóa" onClick={() => onDelete(product)} danger disabled={stock > 0 || deleting} />
                         </div>
                   </div>
@@ -318,15 +342,16 @@ function ProductListRow({ product, onEdit, onPrice, onDelete, deleting }: any) {
       );
 }
 
-function ProductGridCard({ product, onEdit, onPrice, onDelete, deleting }: any) {
+function ProductGridCard({ product, onEdit, onPrice, onDelete, onToggleActive, deleting, updating }: any) {
       const stock = Number(product.currentStock || 0);
       const minStock = Number(product.minStock || 0);
       const cost = Number(product.averageCostPrice || product.defaultCostPrice || 0);
       const sale = Number(product.currentSalePrice || product.defaultSalePrice || 0);
       const lowStock = stock <= 0 || (minStock > 0 && stock <= minStock);
       const image = product.imageData || product.imageUrl;
+      const inactive = product.isActive === false;
       return (
-            <article className="overflow-hidden rounded-[1.25rem] border border-[#eadfca] bg-white shadow-sm">
+            <article className={`overflow-hidden rounded-[1.25rem] border border-[#eadfca] shadow-sm ${inactive ? "bg-slate-50 opacity-80" : "bg-white"}`}>
                   <div className="flex gap-3 p-3">
                         <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-100 bg-amber-50/60">
                               {image ? <img src={image} alt={product.productName} className="h-full w-full object-cover" /> : <ImageIcon className="h-6 w-6 text-amber-500" />}
@@ -336,7 +361,8 @@ function ProductGridCard({ product, onEdit, onPrice, onDelete, deleting }: any) 
                               <div className="mt-2 flex flex-wrap gap-1.5">
                                     <span className="rounded-full bg-sky-50 px-2 py-1 text-[11px] font-black text-sky-700">{productCategoryLabel(product.category)}</span>
                                     <span className="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-black text-amber-700">{product.unit || "cái"}</span>
-                                    {lowStock ? <span className={`rounded-full px-2 py-1 text-[11px] font-black ${stock <= 0 ? "bg-rose-50 text-rose-700" : "bg-orange-50 text-orange-700"}`}>{stock <= 0 ? "Hết hàng" : "Sắp hết"}</span> : null}
+                                    {lowStock && !inactive ? <span className={`rounded-full px-2 py-1 text-[11px] font-black ${stock <= 0 ? "bg-rose-50 text-rose-700" : "bg-orange-50 text-orange-700"}`}>{stock <= 0 ? "Hết hàng" : "Sắp hết"}</span> : null}
+                                    {inactive ? <span className="rounded-full bg-slate-200 px-2 py-1 text-[11px] font-black text-slate-600">Ngừng kinh doanh</span> : null}
                               </div>
                               <p className="mt-2 text-xs font-semibold text-slate-500">Tồn {formatMoney(stock)} {product.unit || ""}{minStock > 0 ? ` · Tối thiểu ${formatMoney(minStock)}` : ""}</p>
                         </div>
@@ -345,9 +371,10 @@ function ProductGridCard({ product, onEdit, onPrice, onDelete, deleting }: any) 
                         <PriceBox label="Giá vốn" value={cost > 0 ? `${formatMoney(cost)}đ` : "—"} />
                         <PriceBox label="Giá bán" value={sale > 0 ? `${formatMoney(sale)}đ` : "—"} amber />
                   </div>
-                  <div className="grid grid-cols-3 gap-2 border-t border-[#efe5d3] bg-slate-50/60 p-3">
+                  <div className="grid grid-cols-2 gap-2 border-t border-[#efe5d3] bg-slate-50/60 p-3 sm:grid-cols-4">
                         <ActionButton label="Sửa" onClick={() => onEdit(product)} />
                         <ActionButton label="Giá" onClick={() => onPrice(product)} amber />
+                        <ActionButton label={inactive ? "Kinh doanh lại" : "Ngừng KD"} onClick={() => onToggleActive(product)} muted={!inactive} success={inactive} disabled={updating} />
                         <ActionButton label="Xóa" onClick={() => onDelete(product)} danger disabled={stock > 0 || deleting} />
                   </div>
             </article>
@@ -358,8 +385,8 @@ function PriceBox({ label, value, amber = false }: { label: string; value: strin
       return <div className={`rounded-xl px-3 py-2 ${amber ? "bg-amber-50" : "bg-slate-50"}`}><p className={`font-bold ${amber ? "text-amber-500" : "text-slate-400"}`}>{label}</p><p className={`mt-0.5 font-black ${amber ? "text-amber-800" : "text-slate-800"}`}>{value}</p></div>;
 }
 
-function ActionButton({ label, onClick, amber = false, danger = false, disabled = false }: { label: string; onClick: () => void; amber?: boolean; danger?: boolean; disabled?: boolean }) {
-      const tone = danger ? "border-rose-100 text-rose-600 hover:bg-rose-50" : amber ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" : "border-slate-200 text-slate-700 hover:bg-slate-50";
+function ActionButton({ label, onClick, amber = false, danger = false, muted = false, success = false, disabled = false }: { label: string; onClick: () => void; amber?: boolean; danger?: boolean; muted?: boolean; success?: boolean; disabled?: boolean }) {
+      const tone = danger ? "border-rose-100 text-rose-600 hover:bg-rose-50" : success ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : muted ? "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100" : amber ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" : "border-slate-200 text-slate-700 hover:bg-slate-50";
       return <button type="button" onClick={onClick} disabled={disabled} className={`rounded-xl border bg-white px-3 py-2 text-xs font-black shadow-sm disabled:cursor-not-allowed disabled:opacity-35 ${tone}`}>{label}</button>;
 }
 

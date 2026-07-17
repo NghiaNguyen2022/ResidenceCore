@@ -178,7 +178,7 @@ export const storeDocuments = mysqlTable(
             totalQuantity: decimal("totalQuantity", { precision: 14, scale: 2 }).default("0.00").notNull(),
             totalAmount: decimal("totalAmount", { precision: 14, scale: 2 }).default("0.00").notNull(),
             notes: text("notes"),
-            status: mysqlEnum("documentStatus", ["posted", "cancelled"]).default("posted").notNull(),
+            status: mysqlEnum("status", ["posted", "cancelled"]).default("posted").notNull(),
             createdBy: int("createdBy").references(() => users.id, { onDelete: "set null" }),
             createdAt: timestamp("createdAt").defaultNow().notNull(),
             updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

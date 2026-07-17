@@ -8,16 +8,20 @@ function escapeHtml(value: unknown) {
   return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char] || char));
 }
 
-export function StoreDocumentVoucherPreview({ document, onClose }: { document: any; onClose: () => void }) {
+export function StoreDocumentVoucherPreview({ document: storeDocument, onClose }: { document: any; onClose: () => void }) {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const settings = loadFinanceVoucherSettings();
-  const html = useMemo(() => buildHtml(document, settings), [document]);
-  if (!document) return null;
+  const html = useMemo(() => buildHtml(storeDocument, settings), [storeDocument, settings]);
+
+  if (!storeDocument || typeof window === "undefined" || !window.document?.body) return null;
+
+  const portalRoot = window.document.body;
+
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
       <div className="flex h-[92vh] w-full max-w-[1060px] flex-col overflow-hidden rounded-[28px] border border-amber-100 bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Xem trước phiếu cửa hàng</p><h3 className="mt-1 text-lg font-bold text-slate-950">{document.documentType === "sale" ? "PHIẾU BÁN HÀNG" : document.stockInSource === "purchase" ? "PHIẾU MUA HÀNG / NHẬP KHO" : "PHIẾU NHẬP KHO"}</h3></div>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Xem trước phiếu cửa hàng</p><h3 className="mt-1 text-lg font-bold text-slate-950">{storeDocument.documentType === "sale" ? "PHIẾU BÁN HÀNG" : storeDocument.stockInSource === "purchase" ? "PHIẾU MUA HÀNG / NHẬP KHO" : "PHIẾU NHẬP KHO"}</h3></div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => { const win = frameRef.current?.contentWindow; win?.focus(); win?.print(); }} className="inline-flex items-center rounded-2xl border border-amber-200 bg-[linear-gradient(135deg,#fff6d8_0%,#f2c866_100%)] px-4 py-2.5 text-sm font-bold text-[#4a2b00]"><Printer className="mr-2 h-4 w-4" /> In phiếu</button>
             <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600"><X className="h-5 w-5" /></button>
@@ -25,7 +29,7 @@ export function StoreDocumentVoucherPreview({ document, onClose }: { document: a
         </div>
         <div className="min-h-0 flex-1 bg-slate-100/70 p-4"><iframe ref={frameRef} title="Phiếu cửa hàng" srcDoc={html} className="mx-auto h-full w-full max-w-[860px] rounded-2xl border border-slate-200 bg-white shadow-xl" /></div>
       </div>
-    </div>, document.body,
+    </div>, portalRoot,
   );
 }
 

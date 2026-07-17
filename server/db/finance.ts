@@ -1452,7 +1452,61 @@ export async function listFinanceTransactions(input: {
             OFFSET ${offset}
       `);
 
-      return getRows(result);
+      const rows = getRows(result);
+
+      // Các ngày chốt cửa hàng cũ chỉ lưu mô tả tổng quát. Khi đọc sổ chính,
+      // tự dựng lại chi tiết từ các giao dịch thuộc ngày chốt và đồng thời
+      // cập nhật ngược vào finance_transactions để phiếu in cũng dùng nội dung rõ ràng.
+      for (const row of rows) {
+            const source = String(row?.source || "");
+            const description = String(row?.description || "");
+            const externalRef = String(row?.externalRef || "");
+            if (source !== "store_daily_closing" || !externalRef) continue;
+            if (description.startsWith("Chi tiết thu cửa hàng") || description.startsWith("Chi tiết chi cửa hàng")) continue;
+
+            const batchId = externalRef.replace(/:(IN|OUT)$/i, "");
+            if (!batchId) continue;
+
+            const closingResult = await db.execute(sql`
+                  SELECT id, closingCode, closingDate
+                  FROM storeDailyClosings
+                  WHERE financeBatchId = ${batchId}
+                  LIMIT 1
+            `);
+            const closing = getRows(closingResult)?.[0];
+            if (!closing?.id) continue;
+
+            const transactionResult = await db.execute(sql`
+                  SELECT transactionCode, direction, amount, title, partnerName, status
+                  FROM storeLedgerTransactions
+                  WHERE dailyClosingId = ${Number(closing.id)}
+                        AND isActive = 1
+                        AND status <> 'cancelled'
+                        AND direction = ${String(row.direction || "")}
+                  ORDER BY id ASC
+            `);
+            const transactions = getRows(transactionResult);
+            if (!transactions.length) continue;
+
+            const directionLabel = String(row.direction) === "in" ? "thu" : "chi";
+            const details = transactions.map((item: any, index: number) => {
+                  const title = String(item?.title || (directionLabel === "thu" ? "Khoản thu" : "Khoản chi")).trim();
+                  const partner = String(item?.partnerName || "").trim();
+                  const code = String(item?.transactionCode || "").trim();
+                  const amount = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(item?.amount || 0));
+                  return `${index + 1}. ${title}${partner ? ` · ${partner}` : ""}: ${amount}đ${code ? ` [${code}]` : ""}`;
+            });
+            const detailedDescription = `Chi tiết ${directionLabel} cửa hàng ngày ${String(closing.closingDate || row.transactionDate).slice(0, 10)} · ${String(closing.closingCode || batchId)}: ${details.join(" | ")}`;
+
+            row.description = detailedDescription;
+            await db.execute(sql`
+                  UPDATE finance_transactions
+                  SET description = ${detailedDescription}, updated_at = NOW()
+                  WHERE id = ${Number(row.id)}
+            `);
+      }
+
+      return rows;
 }
 
 export async function createFinanceTransaction(input: {
@@ -1525,6 +1579,24 @@ export async function createFinanceTransaction(input: {
 
       const inserted = await db.execute(sql`SELECT LAST_INSERT_ID() AS id`);
       return { success: true, id: Number(getRows(inserted)?.[0]?.id || 0), duplicated: false };
+}
+
+export async function updateFinanceTransactionDescriptionByExternalRef(
+      externalRef: string,
+      description: string,
+) {
+      const db = await getFinanceDb();
+      const normalizedRef = String(externalRef || "").trim();
+      const normalizedDescription = String(description || "").trim();
+      if (!normalizedRef || !normalizedDescription) return { success: false, updated: false };
+
+      await db.execute(sql`
+            UPDATE finance_transactions
+            SET description = ${normalizedDescription}, updated_at = NOW()
+            WHERE external_ref = ${normalizedRef}
+      `);
+
+      return { success: true, updated: true };
 }
 
 export async function deleteFinanceTransaction(input: { id: number }) {
