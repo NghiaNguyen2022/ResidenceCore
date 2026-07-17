@@ -373,33 +373,245 @@ export async function getStoreDocumentById(id: number) {
 
 export async function listStoreDocuments(input: StoreDocumentListInput = {}) {
       const db = await dbOrThrow();
-      const conditions = [];
-      if (input.ledgerId) conditions.push(eq(storeDocuments.ledgerId, input.ledgerId));
-      if (input.documentType) conditions.push(eq(storeDocuments.documentType, input.documentType));
-      if (input.fromDate) conditions.push(gte(storeDocuments.documentDate, input.fromDate));
-      if (input.toDate) conditions.push(lte(storeDocuments.documentDate, input.toDate));
       const search = input.search?.trim();
+
+      // 1) Chứng từ nhiều dòng mới.
+      const documentConditions: any[] = [];
+      if (input.ledgerId) documentConditions.push(eq(storeDocuments.ledgerId, input.ledgerId));
+      if (input.documentType) documentConditions.push(eq(storeDocuments.documentType, input.documentType));
+      if (input.fromDate) documentConditions.push(gte(storeDocuments.documentDate, input.fromDate));
+      if (input.toDate) documentConditions.push(lte(storeDocuments.documentDate, input.toDate));
       if (search) {
             const keyword = `%${search}%`;
-            conditions.push(or(
+            documentConditions.push(or(
                   like(storeDocuments.documentCode, keyword),
                   like(storeDocuments.partnerName, keyword),
                   like(storeDocuments.notes, keyword),
             ));
       }
-      const documents = await db
+
+      const persistedRows = await db
             .select()
             .from(storeDocuments)
-            .where(conditions.length ? and(...conditions) : undefined)
+            .where(documentConditions.length ? and(...documentConditions) : undefined)
             .orderBy(desc(storeDocuments.documentDate), desc(storeDocuments.id))
-            .limit(input.limit ?? 200)
-            .offset(input.offset ?? 0);
-      if (!documents.length) return [];
-      const result = [];
-      for (const document of documents) {
-            result.push(await getStoreDocumentById(Number(document.id)));
+            .limit(500);
+
+      const persistedDocuments: any[] = [];
+      for (const document of persistedRows) {
+            const hydrated = await getStoreDocumentById(Number(document.id));
+            if (hydrated) persistedDocuments.push(hydrated);
       }
-      return result.filter(Boolean);
+
+      const persistedTransactionIds = new Set(
+            persistedDocuments
+                  .map((document: any) => Number(document.ledgerTransactionId || 0))
+                  .filter(Boolean),
+      );
+
+      // 2) Dữ liệu cũ đã hiện trong Sổ thu chi nhưng chưa có storeDocuments.
+      // Lấy giao dịch làm nguồn chính để không phụ thuộc việc stock movement cũ có còn liên kết hay không.
+      const transactionConditions: any[] = [
+            eq(storeLedgerTransactions.isActive, true),
+      ];
+      if (input.ledgerId) transactionConditions.push(eq(storeLedgerTransactions.ledgerId, input.ledgerId));
+      if (input.fromDate) transactionConditions.push(gte(storeLedgerTransactions.transactionDate, input.fromDate));
+      if (input.toDate) transactionConditions.push(lte(storeLedgerTransactions.transactionDate, input.toDate));
+      if (input.documentType === "sale") {
+            transactionConditions.push(and(
+                  eq(storeLedgerTransactions.direction, "in"),
+                  eq(storeLedgerTransactions.category, "sales"),
+            ));
+      } else if (input.documentType === "stock_in") {
+            transactionConditions.push(and(
+                  eq(storeLedgerTransactions.direction, "out"),
+                  or(
+                        eq(storeLedgerTransactions.category, "purchase_stock"),
+                        eq(storeLedgerTransactions.category, "purchase"),
+                  ),
+            ));
+      }
+      if (search) {
+            const keyword = `%${search}%`;
+            transactionConditions.push(or(
+                  like(storeLedgerTransactions.transactionCode, keyword),
+                  like(storeLedgerTransactions.title, keyword),
+                  like(storeLedgerTransactions.partnerName, keyword),
+                  like(storeLedgerTransactions.description, keyword),
+            ));
+      }
+
+      const legacyTransactions = await db
+            .select()
+            .from(storeLedgerTransactions)
+            .where(and(...transactionConditions))
+            .orderBy(desc(storeLedgerTransactions.transactionDate), desc(storeLedgerTransactions.id))
+            .limit(500);
+
+      const legacyDocuments: any[] = [];
+      for (const transaction of legacyTransactions) {
+            const transactionId = Number(transaction.id || 0);
+            if (!transactionId || persistedTransactionIds.has(transactionId)) continue;
+
+            const isSale = String(transaction.direction) === "in" && String(transaction.category) === "sales";
+            const movements = await db
+                  .select({
+                        id: storeStockMovements.id,
+                        productId: storeStockMovements.productId,
+                        productName: storeProducts.productName,
+                        productCode: storeProducts.productCode,
+                        productUnit: storeProducts.unit,
+                        movementType: storeStockMovements.movementType,
+                        quantityIn: storeStockMovements.quantityIn,
+                        quantityOut: storeStockMovements.quantityOut,
+                        unitCost: storeStockMovements.unitCost,
+                        note: storeStockMovements.note,
+                  })
+                  .from(storeStockMovements)
+                  .leftJoin(storeProducts, eq(storeProducts.id, storeStockMovements.productId))
+                  .where(eq(storeStockMovements.transactionId, transactionId))
+                  .orderBy(storeStockMovements.id);
+
+            const transactionAmount = Number(transaction.amount || 0);
+            const lines = movements.map((movement: any, index: number) => {
+                  const quantity = Number(isSale ? movement.quantityOut : movement.quantityIn) || 0;
+                  const unitCost = Number(movement.unitCost || 0);
+                  const unitPrice = isSale && quantity > 0
+                        ? transactionAmount / Math.max(1, movements.reduce((sum: number, item: any) => sum + Number(item.quantityOut || 0), 0))
+                        : 0;
+                  return {
+                        id: `legacy-line-${transactionId}-${movement.id}`,
+                        documentId: `legacy-tx-${transactionId}`,
+                        productId: Number(movement.productId || 0),
+                        productName: movement.productName || "Hàng hóa",
+                        productCode: movement.productCode || "",
+                        productUnit: movement.productUnit || "",
+                        lineNo: index + 1,
+                        quantity: String(quantity.toFixed(2)),
+                        unitCost: String(unitCost.toFixed(2)),
+                        unitPrice: String(unitPrice.toFixed(2)),
+                        lineAmount: String((isSale ? quantity * unitPrice : quantity * unitCost).toFixed(2)),
+                        notes: movement.note || null,
+                  };
+            });
+
+            const totalQuantity = lines.reduce((sum: number, line: any) => sum + Number(line.quantity || 0), 0);
+            legacyDocuments.push({
+                  id: `legacy-tx-${transactionId}`,
+                  legacyTransactionId: transactionId,
+                  ledgerId: Number(transaction.ledgerId || 0),
+                  ledgerTransactionId: transactionId,
+                  documentCode: transaction.transactionCode || `${isSale ? "BH" : "NH"}-CU-${transactionId}`,
+                  documentType: isSale ? "sale" : "stock_in",
+                  documentDate: transaction.transactionDate,
+                  stockInSource: isSale ? null : "purchase",
+                  partnerName: transaction.partnerName || null,
+                  paymentMethod: transaction.paymentMethod || "cash",
+                  totalQuantity: String(totalQuantity.toFixed(2)),
+                  totalAmount: String(transactionAmount.toFixed(2)),
+                  notes: transaction.description || transaction.title || null,
+                  status: transaction.status || "posted",
+                  createdBy: transaction.createdBy || null,
+                  createdAt: transaction.createdAt,
+                  updatedAt: transaction.updatedAt || transaction.createdAt,
+                  isLegacy: true,
+                  lines,
+            });
+      }
+
+      // 3) Nhập nội bộ cũ không tạo giao dịch thu/chi: lấy trực tiếp từ stock movement.
+      if (!input.documentType || input.documentType === "stock_in") {
+            const movementConditions: any[] = [
+                  isNull(storeStockMovements.documentId),
+                  isNull(storeStockMovements.transactionId),
+                  or(
+                        eq(storeStockMovements.movementType, "production_in" as any),
+                        eq(storeStockMovements.movementType, "self_supply_in" as any),
+                        eq(storeStockMovements.movementType, "other_in" as any),
+                  ),
+            ];
+            if (input.fromDate) movementConditions.push(gte(storeStockMovements.movementDate, input.fromDate));
+            if (input.toDate) movementConditions.push(lte(storeStockMovements.movementDate, input.toDate));
+
+            const internalRows = await db
+                  .select({
+                        id: storeStockMovements.id,
+                        productId: storeStockMovements.productId,
+                        productName: storeProducts.productName,
+                        productCode: storeProducts.productCode,
+                        productUnit: storeProducts.unit,
+                        movementType: storeStockMovements.movementType,
+                        movementDate: storeStockMovements.movementDate,
+                        quantityIn: storeStockMovements.quantityIn,
+                        unitCost: storeStockMovements.unitCost,
+                        note: storeStockMovements.note,
+                        createdBy: storeStockMovements.createdBy,
+                        createdAt: storeStockMovements.createdAt,
+                  })
+                  .from(storeStockMovements)
+                  .leftJoin(storeProducts, eq(storeProducts.id, storeStockMovements.productId))
+                  .where(and(...movementConditions))
+                  .orderBy(desc(storeStockMovements.movementDate), desc(storeStockMovements.id))
+                  .limit(300);
+
+            for (const row of internalRows as any[]) {
+                  const haystack = `${row.productName || ""} ${row.productCode || ""} ${row.note || ""}`.toLowerCase();
+                  if (search && !haystack.includes(search.toLowerCase())) continue;
+                  const quantity = Number(row.quantityIn || 0);
+                  const unitCost = Number(row.unitCost || 0);
+                  const source = row.movementType === "production_in"
+                        ? "production"
+                        : row.movementType === "self_supply_in"
+                              ? "self_supply"
+                              : "other";
+                  legacyDocuments.push({
+                        id: `legacy-movement-${row.id}`,
+                        legacyMovementId: Number(row.id),
+                        ledgerId: Number(input.ledgerId || 0),
+                        ledgerTransactionId: null,
+                        documentCode: `NH-CU-${row.id}`,
+                        documentType: "stock_in",
+                        documentDate: row.movementDate,
+                        stockInSource: source,
+                        partnerName: null,
+                        paymentMethod: "other",
+                        totalQuantity: String(quantity.toFixed(2)),
+                        totalAmount: String((quantity * unitCost).toFixed(2)),
+                        notes: row.note || null,
+                        status: "posted",
+                        createdBy: row.createdBy || null,
+                        createdAt: row.createdAt,
+                        updatedAt: row.createdAt,
+                        isLegacy: true,
+                        lines: [{
+                              id: `legacy-line-${row.id}`,
+                              documentId: `legacy-movement-${row.id}`,
+                              productId: Number(row.productId || 0),
+                              productName: row.productName || "Hàng hóa",
+                              productCode: row.productCode || "",
+                              productUnit: row.productUnit || "",
+                              lineNo: 1,
+                              quantity: String(quantity.toFixed(2)),
+                              unitCost: String(unitCost.toFixed(2)),
+                              unitPrice: "0.00",
+                              lineAmount: String((quantity * unitCost).toFixed(2)),
+                              notes: row.note || null,
+                        }],
+                  });
+            }
+      }
+
+      const combined = [...persistedDocuments, ...legacyDocuments]
+            .filter((document: any) => !input.documentType || document.documentType === input.documentType)
+            .sort((left: any, right: any) => {
+                  const dateCompare = String(right.documentDate || "").localeCompare(String(left.documentDate || ""));
+                  if (dateCompare !== 0) return dateCompare;
+                  return String(right.createdAt || right.id).localeCompare(String(left.createdAt || left.id));
+            });
+
+      const offset = input.offset ?? 0;
+      const limit = input.limit ?? 200;
+      return combined.slice(offset, offset + limit);
 }
 
 export async function listStoreLedgers(input: StoreLedgerListInput = {}) {

@@ -31,6 +31,10 @@ export function StoreLedgerHeaderSummary({
       onShowLowStock,
       onShowInventoryValue,
       onShowExpectedRevenue,
+      onShowCashflowIncome,
+      onShowCashflowExpense,
+      onShowCashflowNet,
+      onShowCashflowTransactions,
       formatMoney,
 }: any) {
       const action =
@@ -100,10 +104,10 @@ export function StoreLedgerHeaderSummary({
                         </section>
                   ) : activeStoreTab === "purchase" || activeStoreTab === "sales" ? null : (
                         <section className="grid gap-3 md:grid-cols-4">
-                              <SummaryCard icon={<CircleDollarSign className="h-5 w-5" />} label="Tổng thu" value={`${formatMoney(summary.totalIn)} đ`} tone="emerald" />
-                              <SummaryCard icon={<WalletCards className="h-5 w-5" />} label="Tổng chi" value={`${formatMoney(summary.totalOut)} đ`} tone="rose" />
-                              <SummaryCard icon={<Store className="h-5 w-5" />} label="Số dư" value={`${formatMoney(summary.balance)} đ`} tone="amber" />
-                              <SummaryCard icon={<CalendarDays className="h-5 w-5" />} label="Phát sinh" value={String(summary.transactionCount || 0)} tone="slate" />
+                              <SummaryCard icon={<CircleDollarSign className="h-5 w-5" />} label="Tổng thu" value={`${formatMoney(summary.totalIn)} đ`} note="Mở cơ cấu thu" tone="emerald" onClick={onShowCashflowIncome} />
+                              <SummaryCard icon={<WalletCards className="h-5 w-5" />} label="Tổng chi" value={`${formatMoney(summary.totalOut)} đ`} note="Mở cơ cấu chi" tone="rose" onClick={onShowCashflowExpense} />
+                              <SummaryCard icon={<Store className="h-5 w-5" />} label="Chênh lệch" value={`${formatMoney(summary.balance)} đ`} note="Xem kết quả thu chi" tone="amber" onClick={onShowCashflowNet} />
+                              <SummaryCard icon={<CalendarDays className="h-5 w-5" />} label="Phát sinh" value={String(summary.transactionCount || 0)} note="Mở sổ theo ngày" tone="slate" onClick={onShowCashflowTransactions} />
                         </section>
                   )}
             </>

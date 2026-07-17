@@ -129,6 +129,7 @@ export default function StoreLedger() {
       );
       const [reviewClosingId, setReviewClosingId] = useState<number | null>(null);
       const [closingPreviewOpen, setClosingPreviewOpen] = useState(false);
+      const [cashflowFocusTarget, setCashflowFocusTarget] = useState<string | null>(null);
       const [previewStoreDocument, setPreviewStoreDocument] = useState<any | null>(null);
       const [ledgerForm, setLedgerForm] =
             useState<LedgerFormState>(emptyLedgerForm);
@@ -1037,6 +1038,14 @@ export default function StoreLedger() {
             focusStoreSection("store-expected-revenue");
       }
 
+      function focusCashflowSection(target: string) {
+            setCashflowFocusTarget(target);
+            window.requestAnimationFrame(() => {
+                  document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
+            window.setTimeout(() => setCashflowFocusTarget((current) => current === target ? null : current), 1600);
+      }
+
       function switchStoreTab(tab: StoreTab) {
             setActiveStoreTab(tab);
             if (tab === "sales") setDirectionFilter("in");
@@ -1067,6 +1076,10 @@ export default function StoreLedger() {
                                     onShowLowStock={showLowStockProducts}
                                     onShowInventoryValue={showInventoryValue}
                                     onShowExpectedRevenue={showExpectedRevenue}
+                                    onShowCashflowIncome={() => focusCashflowSection("store-cashflow-income")}
+                                    onShowCashflowExpense={() => focusCashflowSection("store-cashflow-expense")}
+                                    onShowCashflowNet={() => focusCashflowSection("store-cashflow-net")}
+                                    onShowCashflowTransactions={() => focusCashflowSection("store-cashflow-transactions")}
                                     formatMoney={formatMoney}
                               />
 
@@ -1125,75 +1138,6 @@ export default function StoreLedger() {
                                     <main className="min-w-0 space-y-4">
                                           {activeStoreTab !== "products" && activeStoreTab !== "purchase" && activeStoreTab !== "sales" ? (
                                                 <>
-                                                      <section className="rounded-[1.75rem] border border-[#eadfca] bg-[linear-gradient(135deg,#ffffff_0%,#fffaf0_100%)] p-4 shadow-lg shadow-amber-950/5">
-                                                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                                                  <div>
-                                                                        <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
-                                                                              {activeTabMeta.label}
-                                                                        </p>
-                                                                        <h2 className="text-xl font-black text-slate-950">
-                                                                              {activeStoreTab === "sales"
-                                                                                    ? "Bán hàng"
-                                                                                    : activeStoreTab === "purchase"
-                                                                                          ? "Nhập kho đa nguồn"
-                                                                                          : "Tổng hợp thu chi cửa hàng"}
-                                                                        </h2>
-                                                                        <p className="mt-1 text-sm font-semibold text-slate-500">
-                                                                              {activeTabMeta.description}
-                                                                        </p>
-                                                                  </div>
-                                                                  <div className="flex flex-wrap gap-2">
-                                                                        {activeStoreTab === "sales" ? (
-                                                                              <button
-                                                                                    type="button"
-                                                                                    onClick={openSaleStockModal}
-                                                                                    disabled={!activeLedgerId}
-                                                                                    className={residenceMediumStyle.buttonCardPrimary}
-                                                                              >
-                                                                                    <Plus className="h-4 w-4" />
-                                                                                    Tạo phiếu bán
-                                                                              </button>
-                                                                        ) : null}
-                                                                        {activeStoreTab === "purchase" ? (
-                                                                              <>
-                                                                                    <button
-                                                                                          type="button"
-                                                                                          onClick={openPurchaseStockModal}
-                                                                                          disabled={!activeLedgerId || !products.length}
-                                                                                          className={residenceMediumStyle.buttonCardPrimary}
-                                                                                    >
-                                                                                          <Plus className="h-4 w-4" />
-                                                                                          Tạo phiếu nhập
-                                                                                    </button>
-                                                                                    <button
-                                                                                          type="button"
-                                                                                          onClick={() => openTransactionModal("out")}
-                                                                                          disabled={!activeLedgerId}
-                                                                                          className="inline-flex items-center gap-2 rounded-2xl border border-rose-100 bg-white px-4 py-2.5 text-sm font-bold text-rose-700 shadow-sm hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                                                                    >
-                                                                                          <Plus className="h-4 w-4" />
-                                                                                          Chi vận hành
-                                                                                    </button>
-                                                                              </>
-                                                                        ) : null}
-                                                                        {activeStoreTab === "cashflow" ? (
-                                                                              <button
-                                                                                    type="button"
-                                                                                    onClick={handleCloseDaily}
-                                                                                    disabled={
-                                                                                          !activeLedgerId || closeDailyMutation?.isPending
-                                                                                    }
-                                                                                    className="inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-black text-amber-800 shadow-sm hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                                                              >
-                                                                                    <CalendarDays className="h-4 w-4" />
-                                                                                    {closeDailyMutation?.isPending
-                                                                                          ? "Đang chốt..."
-                                                                                          : "Chốt ngày"}
-                                                                              </button>
-                                                                        ) : null}
-                                                                  </div>
-                                                            </div>
-                                                      </section>
                                                       <section className="rounded-[1.75rem] border border-[#eadfca] bg-white/90 p-4 shadow-lg shadow-amber-950/5">
                                                             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_160px]">
                                                                   <label className="relative block">
@@ -1258,7 +1202,7 @@ export default function StoreLedger() {
                                                       </section>
 
                                                       {activeStoreTab === "cashflow" ? (
-                                                            <section className={residenceMediumStyle.section}>
+                                                            <section id="store-cashflow-report" className={`${residenceMediumStyle.section} transition ${cashflowFocusTarget?.startsWith("store-cashflow-") && cashflowFocusTarget !== "store-cashflow-transactions" ? "ring-4 ring-amber-100" : ""}`}>
                                                                   <div className={residenceMediumStyle.sectionHeader}>
                                                                         <div>
                                                                               <h2 className="text-base font-black text-slate-950">Báo cáo dòng tiền</h2>
@@ -1267,9 +1211,9 @@ export default function StoreLedger() {
                                                                   </div>
                                                                   <div className={`${residenceMediumStyle.sectionBody} space-y-4`}>
                                                                         <div className="grid gap-3 md:grid-cols-3">
-                                                                              <MiniStat label="Tổng thu" value={`${formatMoney(cashflowReport.totalIn)} đ`} />
-                                                                              <MiniStat label="Tổng chi" value={`${formatMoney(cashflowReport.totalOut)} đ`} />
-                                                                              <MiniStat label="Chênh lệch" value={`${formatMoney(cashflowReport.net)} đ`} />
+                                                                              <div id="store-cashflow-income" className={cashflowFocusTarget === "store-cashflow-income" ? "rounded-2xl ring-4 ring-emerald-100" : ""}><MiniStat label="Tổng thu" value={`${formatMoney(cashflowReport.totalIn)} đ`} /></div>
+                                                                              <div id="store-cashflow-expense" className={cashflowFocusTarget === "store-cashflow-expense" ? "rounded-2xl ring-4 ring-rose-100" : ""}><MiniStat label="Tổng chi" value={`${formatMoney(cashflowReport.totalOut)} đ`} /></div>
+                                                                              <div id="store-cashflow-net" className={cashflowFocusTarget === "store-cashflow-net" ? "rounded-2xl ring-4 ring-amber-100" : ""}><MiniStat label="Chênh lệch" value={`${formatMoney(cashflowReport.net)} đ`} /></div>
                                                                         </div>
                                                                         <div className="grid gap-3 lg:grid-cols-2">
                                                                               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
@@ -1294,7 +1238,7 @@ export default function StoreLedger() {
                                                       ) : null}
 
                                                       {activeStoreTab === "cashflow" ? (
-                                                            <section className={residenceMediumStyle.section}>
+                                                            <section id="store-cashflow-closings" className={residenceMediumStyle.section}>
                                                                   <div className={residenceMediumStyle.sectionHeader}>
                                                                         <div>
                                                                               <h2 className="text-base font-black text-slate-950">
@@ -1370,7 +1314,7 @@ export default function StoreLedger() {
                                                       ) : null}
 
                                                       {activeStoreTab === "cashflow" ? (
-                                                            <section className={residenceMediumStyle.section}>
+                                                            <section id="store-cashflow-transactions" className={`${residenceMediumStyle.section} transition ${cashflowFocusTarget === "store-cashflow-transactions" ? "ring-4 ring-amber-100" : ""}`}>
                                                                   <div className={residenceMediumStyle.sectionHeader}>
                                                                         <div>
                                                                               <h2 className="text-base font-black text-slate-950">Sổ phát sinh theo ngày</h2>
