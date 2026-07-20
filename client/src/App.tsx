@@ -35,6 +35,7 @@ const ResidentCommitteeMembers = lazy(() => import("@/pages/ResidentCommitteeMem
 const ResidentCommitteeDuties = lazy(() => import("@/pages/ResidentCommitteeDuties"));
 const FinanceLite = lazy(() => import("@/pages/FinanceLite"));
 const StoreLedger = lazy(() => import("@/pages/StoreLedger"));
+const ResidentStore = lazy(() => import("@/pages/ResidentStore"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 function RouteFallback() {
@@ -97,6 +98,7 @@ function Router() {
                   <Route path="/resident/team-duties" component={ResidentTeamDuties} />
                   <Route path="/resident/my-committee" component={ResidentCommitteeMembers} />
                   <Route path="/resident/committee-duties" component={ResidentCommitteeDuties} />
+                  <Route path="/resident/store" component={ResidentStore} />
 
                         <Route path="/finance" component={FinanceLite} />
 <Route component={NotFound} />

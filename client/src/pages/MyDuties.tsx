@@ -120,6 +120,7 @@ export default function MyDuties() {
                         setStoreAccessCode("");
                         storeAccessQuery.refetch();
                         toast.success(result.message || "Đã mở quyền Cửa hàng.");
+                        window.location.href = "/resident/store";
                   },
                   onError: (error) => {
                         toast.error(error.message || "Mã truy cập không hợp lệ.");
