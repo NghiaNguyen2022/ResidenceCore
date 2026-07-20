@@ -65,6 +65,12 @@ type AssignmentForm = {
       monthWeeks: MonthWeek[];
       monthWeekDays: DayOfWeek[];
       notes: string;
+
+      // 16L2 — chỉ dùng cho công tác Trực cửa hàng.
+      storeShiftType: '' | 'morning' | 'afternoon';
+      storeLedgerId: string;
+      primaryResidentId: string;
+      openingCashPlanned: string;
 };
 
 type TemplateForm = {
@@ -602,6 +608,18 @@ function normalizeCode(value: string) {
             .replace(/^_+|_+$/g, '');
 }
 
+function isStoreDutyConfig(dutyConfig?: any | null) {
+      const code = normalizeCode(String(dutyConfig?.dutyCode || ''));
+      const name = normalizeCode(String(dutyConfig?.dutyName || ''));
+
+      return (
+            code === 'STORE_SHIFT' ||
+            code === 'TRUC_CUA_HANG' ||
+            code.includes('CUA_HANG') ||
+            name.includes('TRUC_CUA_HANG')
+      );
+}
+
 
 export default function DailyRoutine() {
       const [activeView, setActiveView] = useState<DailyRoutineView>('duties');
@@ -633,6 +651,10 @@ export default function DailyRoutine() {
             monthWeeks: ['1'],
             monthWeekDays: ['monday'],
             notes: '',
+            storeShiftType: '',
+            storeLedgerId: '',
+            primaryResidentId: '',
+            openingCashPlanned: '0',
       });
 
       const [isDutyTemplateDialogOpen, setIsDutyTemplateDialogOpen] = useState(false);
@@ -719,10 +741,15 @@ export default function DailyRoutine() {
             offset: 0,
       });
 
+      const storeLedgersQuery = trpc.storeLedger.listLedgers.useQuery({
+            isActive: true,
+      });
+
       const dutyConfigs = dutyConfigsQuery.data || [];
       const members = (membersQuery.data || []) as any[];
       const rooms = (roomsQuery.data || []) as any[];
       const units = (unitsQuery.data || []) as any[];
+      const storeLedgers = (storeLedgersQuery.data || []) as any[];
       const teams = units.filter((unit: any) => unit.unitType === 'team');
       const committees = units.filter((unit: any) => unit.unitType === 'committee');
 
@@ -982,6 +1009,8 @@ export default function DailyRoutine() {
               )
             : null;
 
+      const isStoreDuty = isStoreDutyConfig(selectedDutyConfig);
+
       const assignmentPreviewDates = useMemo(
             () => generateAssignmentDatesByRule(assignmentForm, selectedDutyConfig),
             [assignmentForm, selectedDutyConfig]
@@ -991,7 +1020,12 @@ export default function DailyRoutine() {
             assignmentForm.dutyConfigId &&
                   assignmentForm.assignedDate &&
                   (assignmentForm.assignedToIds || []).length > 0 &&
-                  assignmentPreviewDates.length > 0
+                  assignmentPreviewDates.length > 0 &&
+                  (!isStoreDuty ||
+                        (assignmentForm.assignedToType === 'resident' &&
+                              assignmentForm.storeShiftType &&
+                              assignmentForm.storeLedgerId &&
+                              assignmentForm.primaryResidentId))
       );
 
       const assignmentPreviewQuery = trpc.duties.previewAssignment.useQuery(
@@ -1004,7 +1038,13 @@ export default function DailyRoutine() {
                   startTime: assignmentForm.startTime || null,
                   endTime: assignmentForm.endTime || null,
                   notes: assignmentForm.notes || null,
-            },
+                  storeShiftType: isStoreDuty ? assignmentForm.storeShiftType || null : null,
+                  storeLedgerId: isStoreDuty ? Number(assignmentForm.storeLedgerId || 0) || null : null,
+                  primaryResidentId: isStoreDuty ? Number(assignmentForm.primaryResidentId || 0) || null : null,
+                  openingCashPlanned: isStoreDuty
+                        ? Number(assignmentForm.openingCashPlanned || 0)
+                        : null,
+            } as any,
             {
                   enabled: isAssignmentPreviewReady,
             }
@@ -1211,6 +1251,33 @@ export default function DailyRoutine() {
                   return;
             }
 
+            if (isStoreDuty) {
+                  if (assignmentForm.assignedToType !== 'resident') {
+                        showMessage('error', 'Công tác Trực cửa hàng chỉ được giao trực tiếp cho học viên.');
+                        return;
+                  }
+
+                  if (!assignmentForm.storeShiftType) {
+                        showMessage('error', 'Vui lòng chọn ca sáng hoặc ca chiều.');
+                        return;
+                  }
+
+                  if (!assignmentForm.storeLedgerId) {
+                        showMessage('error', 'Vui lòng chọn cửa hàng.');
+                        return;
+                  }
+
+                  if (!assignmentForm.primaryResidentId) {
+                        showMessage('error', 'Vui lòng chọn học viên trực chính.');
+                        return;
+                  }
+
+                  if (!assignedToIds.includes(Number(assignmentForm.primaryResidentId))) {
+                        showMessage('error', 'Học viên trực chính phải nằm trong danh sách được phân công.');
+                        return;
+                  }
+            }
+
             try {
                   const result = await assignDutyBatchMutation.mutateAsync({
                         dutyConfigId,
@@ -1221,6 +1288,18 @@ export default function DailyRoutine() {
                         startTime: assignmentForm.startTime || null,
                         endTime: assignmentForm.endTime || null,
                         notes: assignmentForm.notes || null,
+                        storeShiftType: isStoreDuty
+                              ? assignmentForm.storeShiftType || null
+                              : null,
+                        storeLedgerId: isStoreDuty
+                              ? Number(assignmentForm.storeLedgerId || 0) || null
+                              : null,
+                        primaryResidentId: isStoreDuty
+                              ? Number(assignmentForm.primaryResidentId || 0) || null
+                              : null,
+                        openingCashPlanned: isStoreDuty
+                              ? Number(assignmentForm.openingCashPlanned || 0)
+                              : null,
                   } as any);
 
                   setSelectedDate(assignmentForm.assignedDate);
@@ -1248,6 +1327,10 @@ export default function DailyRoutine() {
                         monthWeeks: ['1'],
                         monthWeekDays: ['monday'],
                         notes: '',
+                        storeShiftType: '',
+                        storeLedgerId: '',
+                        primaryResidentId: '',
+                        openingCashPlanned: '0',
                   });
 
                   await dutiesQuery.refetch();
@@ -1660,6 +1743,7 @@ export default function DailyRoutine() {
                                     dutyConfigs={dutyConfigs as any[]}
                                     selectedDutyConfig={selectedDutyConfig}
                                     assigneeOptions={getAssigneeOptions()}
+                                    storeLedgers={storeLedgers}
                                     previewEnabled={isAssignmentPreviewReady}
                                     previewLoading={assignmentPreviewQuery.isLoading}
                                     preview={assignmentPreview}

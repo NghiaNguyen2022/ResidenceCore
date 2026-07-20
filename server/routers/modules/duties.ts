@@ -52,6 +52,12 @@ const assignmentScopeInput = z.object({
       startTime: z.string().optional().nullable(),
       endTime: z.string().optional().nullable(),
       notes: z.string().optional().nullable(),
+
+      // 16L2 — Chỉ dùng khi công tác là Trực cửa hàng.
+      storeShiftType: z.enum(["morning", "afternoon"]).optional().nullable(),
+      storeLedgerId: z.number().int().positive().optional().nullable(),
+      primaryResidentId: z.number().int().positive().optional().nullable(),
+      openingCashPlanned: z.number().min(0).optional().nullable(),
 });
 
 /**
@@ -796,7 +802,10 @@ export const dutiesRouter = router({
                   try {
                         requireDutyManagementAccess(ctx.user);
 
-                        const result = await db.assignDutyBatch(input);
+                        const result = await db.assignDutyBatch({
+                              ...input,
+                              createdBy: Number(ctx.user?.id || 0) || null,
+                        });
 
                         await notifyDutyAssigned({
                               dutyConfigId: input.dutyConfigId,

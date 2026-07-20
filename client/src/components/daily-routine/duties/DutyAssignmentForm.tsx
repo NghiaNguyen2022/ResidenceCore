@@ -37,6 +37,10 @@ type AssignmentForm = {
       monthWeeks: MonthWeek[];
       monthWeekDays: DayOfWeek[];
       notes: string;
+      storeShiftType: '' | 'morning' | 'afternoon';
+      storeLedgerId: string;
+      primaryResidentId: string;
+      openingCashPlanned: string;
 };
 
 type DutyAssignmentFormProps = {
@@ -45,6 +49,7 @@ type DutyAssignmentFormProps = {
 
       dutyConfigs: any[];
       selectedDutyConfig?: any | null;
+      storeLedgers?: any[];
       assigneeOptions: Array<{
             id: number | string;
             label: string;
@@ -196,6 +201,28 @@ function getDutyTypeLabel(dutyConfig?: any | null) {
       return 'Theo ngày';
 }
 
+function normalizeCode(value: string) {
+      return value
+            .trim()
+            .toUpperCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^A-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+}
+
+function isStoreDutyConfig(dutyConfig?: any | null) {
+      const code = normalizeCode(String(dutyConfig?.dutyCode || ''));
+      const name = normalizeCode(String(dutyConfig?.dutyName || ''));
+
+      return (
+            code === 'STORE_SHIFT' ||
+            code === 'TRUC_CUA_HANG' ||
+            code.includes('CUA_HANG') ||
+            name.includes('TRUC_CUA_HANG')
+      );
+}
+
 function getScheduleSummary(dutyConfig?: any | null) {
       const type = getDutyConfigType(dutyConfig);
 
@@ -316,6 +343,7 @@ export function DutyAssignmentForm({
       onChange,
       dutyConfigs,
       selectedDutyConfig,
+      storeLedgers = [],
       assigneeOptions,
       previewEnabled,
       previewLoading,
@@ -326,6 +354,7 @@ export function DutyAssignmentForm({
       fullScreen = false,
 }: DutyAssignmentFormProps) {
       const [showRepeatOptions, setShowRepeatOptions] = useState(form.repeatType !== 'once');
+      const isStoreDuty = isStoreDutyConfig(selectedDutyConfig);
 
       const updateForm = (patch: Partial<AssignmentForm>) => {
             const nextForm = {
@@ -405,7 +434,35 @@ export function DutyAssignmentForm({
                                                       String(item.id) === event.target.value
                                           );
 
-                                          updateForm(buildPatchFromDutyConfig(duty, form));
+                                          const patch = buildPatchFromDutyConfig(duty, form);
+                                          const storeDuty = isStoreDutyConfig(duty);
+
+                                          updateForm({
+                                                ...patch,
+                                                assignedToType: storeDuty ? 'resident' : form.assignedToType,
+                                                assignedToId: '',
+                                                assignedToIds: [],
+                                                storeShiftType: storeDuty ? form.storeShiftType || 'morning' : '',
+                                                storeLedgerId:
+                                                      storeDuty
+                                                            ? form.storeLedgerId ||
+                                                              String(storeLedgers[0]?.id || '')
+                                                            : '',
+                                                primaryResidentId: '',
+                                                openingCashPlanned: storeDuty
+                                                      ? form.openingCashPlanned || '0'
+                                                      : '0',
+                                                startTime: storeDuty
+                                                      ? form.storeShiftType === 'afternoon'
+                                                            ? '13:00'
+                                                            : '07:00'
+                                                      : patch.startTime || '',
+                                                endTime: storeDuty
+                                                      ? form.storeShiftType === 'afternoon'
+                                                            ? '19:00'
+                                                            : '14:00'
+                                                      : patch.endTime || '',
+                                          });
                                     }}
                                     className="h-10 w-full rounded-xl border border-amber-100 bg-white/88 px-3 text-sm outline-none focus:ring-2 focus:ring-amber-100/80"
                               >
@@ -494,9 +551,9 @@ export function DutyAssignmentForm({
                                           className="h-10 w-full rounded-xl border border-amber-100 bg-white/88 px-3 text-sm outline-none focus:ring-2 focus:ring-amber-100/80"
                                     >
                                           <option value="resident">Học viên</option>
-                                          <option value="team">Tổ</option>
-                                          <option value="room">Phòng</option>
-                                          <option value="committee">Ban</option>
+                                          {!isStoreDuty && <option value="team">Tổ</option>}
+                                          {!isStoreDuty && <option value="room">Phòng</option>}
+                                          {!isStoreDuty && <option value="committee">Ban</option>}
                                     </select>
                               </label>
 
@@ -526,6 +583,11 @@ export function DutyAssignmentForm({
                                                                   updateForm({
                                                                         assignedToIds: nextIds,
                                                                         assignedToId: nextIds[0] || '',
+                                                                        primaryResidentId:
+                                                                              isStoreDuty &&
+                                                                              !nextIds.includes(form.primaryResidentId)
+                                                                                    ? nextIds[0] || ''
+                                                                                    : form.primaryResidentId,
                                                                   });
                                                             }}
                                                             className={[
@@ -578,6 +640,113 @@ export function DutyAssignmentForm({
                                     </p>
                               </div>
                         </div>
+
+                        {isStoreDuty && (
+                              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                                    <div className="mb-3">
+                                          <p className="text-sm font-bold text-amber-950">
+                                                Thiết lập ca trực cửa hàng
+                                          </p>
+                                          <p className="mt-1 text-xs leading-5 text-amber-800">
+                                                Ca sáng được truy cập từ 07:00–14:00; ca chiều từ 13:00–19:00.
+                                                Mã truy cập sẽ được triển khai ở bước 16L3.
+                                          </p>
+                                    </div>
+
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                          <label className="space-y-1.5">
+                                                <Label>Ca trực</Label>
+                                                <select
+                                                      value={form.storeShiftType}
+                                                      onChange={(event) => {
+                                                            const shiftType = event.target.value as
+                                                                  | 'morning'
+                                                                  | 'afternoon';
+
+                                                            updateForm({
+                                                                  storeShiftType: shiftType,
+                                                                  startTime:
+                                                                        shiftType === 'afternoon'
+                                                                              ? '13:00'
+                                                                              : '07:00',
+                                                                  endTime:
+                                                                        shiftType === 'afternoon'
+                                                                              ? '19:00'
+                                                                              : '14:00',
+                                                            });
+                                                      }}
+                                                      className="h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-amber-100"
+                                                >
+                                                      <option value="">Chọn ca</option>
+                                                      <option value="morning">Ca sáng · 07:00–14:00</option>
+                                                      <option value="afternoon">Ca chiều · 13:00–19:00</option>
+                                                </select>
+                                          </label>
+
+                                          <label className="space-y-1.5">
+                                                <Label>Cửa hàng</Label>
+                                                <select
+                                                      value={form.storeLedgerId}
+                                                      onChange={(event) =>
+                                                            updateForm({
+                                                                  storeLedgerId: event.target.value,
+                                                            })
+                                                      }
+                                                      className="h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-amber-100"
+                                                >
+                                                      <option value="">Chọn cửa hàng</option>
+                                                      {storeLedgers.map((ledger: any) => (
+                                                            <option key={ledger.id} value={ledger.id}>
+                                                                  {ledger.ledgerName || ledger.ledgerCode}
+                                                            </option>
+                                                      ))}
+                                                </select>
+                                          </label>
+
+                                          <label className="space-y-1.5">
+                                                <Label>Học viên trực chính</Label>
+                                                <select
+                                                      value={form.primaryResidentId}
+                                                      onChange={(event) =>
+                                                            updateForm({
+                                                                  primaryResidentId: event.target.value,
+                                                            })
+                                                      }
+                                                      className="h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-amber-100"
+                                                >
+                                                      <option value="">Chọn người trực chính</option>
+                                                      {assigneeOptions
+                                                            .filter((option) =>
+                                                                  (form.assignedToIds || []).includes(
+                                                                        String(option.id)
+                                                                  )
+                                                            )
+                                                            .map((option) => (
+                                                                  <option key={option.id} value={option.id}>
+                                                                        {option.label}
+                                                                  </option>
+                                                            ))}
+                                                </select>
+                                          </label>
+
+                                          <label className="space-y-1.5">
+                                                <Label>Tiền đầu ca dự kiến</Label>
+                                                <Input
+                                                      type="number"
+                                                      min="0"
+                                                      step="1000"
+                                                      value={form.openingCashPlanned}
+                                                      onChange={(event) =>
+                                                            updateForm({
+                                                                  openingCashPlanned: event.target.value,
+                                                            })
+                                                      }
+                                                      className="rounded-xl border-amber-200 bg-white"
+                                                />
+                                          </label>
+                                    </div>
+                              </div>
+                        )}
 
                         <label className="space-y-1.5">
                               <Label>Nơi làm / ghi chú ngắn</Label>

@@ -21,6 +21,11 @@ import {
       InsertDutyEvaluation,
       InsertScheduleConflict,
 } from "../../drizzle/schema";
+import {
+      storeDutyAssignments,
+      storeDutyMembers,
+      storeShifts,
+} from "../../drizzle/storeLedger";
 import { eq, and, or, gte, lte, between, like, sql, inArray } from "drizzle-orm";
 
 // ============================================================================
@@ -1305,6 +1310,13 @@ export type PreviewDutyAssignmentInput = {
       startTime?: string | null;
       endTime?: string | null;
       notes?: string | null;
+
+      // 16L2 — Thông tin ca trực cửa hàng.
+      storeShiftType?: "morning" | "afternoon" | null;
+      storeLedgerId?: number | null;
+      primaryResidentId?: number | null;
+      openingCashPlanned?: number | null;
+      createdBy?: number | null;
 };
 
 export type PreviewDutyAssignmentItem = {
@@ -1635,28 +1647,219 @@ export async function previewDutyAssignment(
       };
 }
 
+
+function getStoreShiftTimeConfig(shiftType: "morning" | "afternoon") {
+      if (shiftType === "morning") {
+            return {
+                  scheduledFrom: "07:00:00",
+                  scheduledTo: "13:00:00",
+                  accessValidFrom: "07:00:00",
+                  accessValidUntil: "14:00:00",
+            };
+      }
+
+      return {
+            scheduledFrom: "13:00:00",
+            scheduledTo: "18:00:00",
+            accessValidFrom: "13:00:00",
+            accessValidUntil: "19:00:00",
+      };
+}
+
+async function createStoreShiftForDutyDate(
+      db: any,
+      input: PreviewDutyAssignmentInput,
+      assignedDate: string,
+      assignmentRows: Array<{ assignmentId: number; residentId: number }>,
+) {
+      if (!input.storeShiftType) return null;
+
+      if (input.assignedToType !== "resident") {
+            throw new Error("Công tác Trực cửa hàng chỉ được phân công trực tiếp cho học viên.");
+      }
+
+      const ledgerId = Number(input.storeLedgerId || 0);
+      if (!ledgerId) {
+            throw new Error("Vui lòng chọn cửa hàng cho ca trực.");
+      }
+
+      if (!assignmentRows.length) return null;
+
+      const residentIds = Array.from(
+            new Set(assignmentRows.map((row) => Number(row.residentId || 0)).filter(Boolean)),
+      );
+      const primaryResidentId =
+            Number(input.primaryResidentId || 0) || residentIds[0] || 0;
+
+      if (!primaryResidentId || !residentIds.includes(primaryResidentId)) {
+            throw new Error("Học viên trực chính phải nằm trong danh sách được phân công.");
+      }
+
+      const existingShift = await db
+            .select()
+            .from(storeShifts)
+            .where(
+                  and(
+                        eq(storeShifts.ledgerId, ledgerId),
+                        sql`DATE(${storeShifts.shiftDate}) = ${assignedDate}`,
+                        eq(storeShifts.shiftType, input.storeShiftType),
+                  ),
+            )
+            .limit(1);
+
+      if (existingShift.length > 0) {
+            throw new Error(
+                  `Cửa hàng đã có ${input.storeShiftType === "morning" ? "ca sáng" : "ca chiều"} ngày ${assignedDate}.`,
+            );
+      }
+
+      const dutyAssignmentId =
+            assignmentRows.find((row) => row.residentId === primaryResidentId)?.assignmentId ||
+            assignmentRows[0].assignmentId;
+
+      const [storeDutyResult]: any = await db.insert(storeDutyAssignments).values({
+            dutyAssignmentId,
+            ledgerId,
+            shiftDate: toInsertDate(assignedDate),
+            shiftType: input.storeShiftType,
+            primaryResidentId,
+            managerId: input.createdBy ?? null,
+            openingCashPlanned: String(Number(input.openingCashPlanned || 0).toFixed(2)),
+            status: "scheduled",
+            notes: input.notes || null,
+            createdBy: input.createdBy ?? null,
+      } as any);
+
+      const storeDutyAssignmentId = Number(storeDutyResult?.insertId || 0);
+      if (!storeDutyAssignmentId) {
+            throw new Error("Không thể tạo liên kết công tác với ca trực cửa hàng.");
+      }
+
+      await db.insert(storeDutyMembers).values(
+            residentIds.map((residentId) => ({
+                  storeDutyAssignmentId,
+                  residentId,
+                  memberRole: residentId === primaryResidentId ? "primary" : "assistant",
+                  status: "assigned",
+            })) as any,
+      );
+
+      const shiftTime = getStoreShiftTimeConfig(input.storeShiftType);
+      const [shiftResult]: any = await db.insert(storeShifts).values({
+            storeDutyAssignmentId,
+            ledgerId,
+            shiftDate: toInsertDate(assignedDate),
+            shiftType: input.storeShiftType,
+            scheduledFrom: createWallClockDate(assignedDate, shiftTime.scheduledFrom),
+            scheduledTo: createWallClockDate(assignedDate, shiftTime.scheduledTo),
+            accessValidFrom: createWallClockDate(assignedDate, shiftTime.accessValidFrom),
+            accessValidUntil: createWallClockDate(assignedDate, shiftTime.accessValidUntil),
+            primaryResidentId,
+            openingCash: String(Number(input.openingCashPlanned || 0).toFixed(2)),
+            expectedClosingCash: String(Number(input.openingCashPlanned || 0).toFixed(2)),
+            cashDifference: "0.00",
+            status: "scheduled",
+            notes: input.notes || null,
+            createdBy: input.createdBy ?? null,
+      } as any);
+
+      return {
+            storeDutyAssignmentId,
+            storeShiftId: Number(shiftResult?.insertId || 0),
+            shiftDate: assignedDate,
+            shiftType: input.storeShiftType,
+            residentIds,
+            primaryResidentId,
+      };
+}
+
 export async function assignDutyBatch(input: PreviewDutyAssignmentInput) {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
+      if (input.storeShiftType && input.assignedToType !== "resident") {
+            throw new Error("Công tác Trực cửa hàng chỉ được giao trực tiếp cho học viên.");
+      }
+
       const preview = await previewDutyAssignment(input);
-      const createdItems: PreviewDutyAssignmentItem[] = [];
+
+      if (input.storeShiftType) {
+            const ledgerId = Number(input.storeLedgerId || 0);
+            if (!ledgerId) {
+                  throw new Error("Vui lòng chọn cửa hàng cho ca trực.");
+            }
+
+            for (const assignedDate of Array.from(
+                  new Set(preview.items.filter((item) => item.canCreate).map((item) => item.date)),
+            )) {
+                  const existingShift = await db
+                        .select()
+                        .from(storeShifts)
+                        .where(
+                              and(
+                                    eq(storeShifts.ledgerId, ledgerId),
+                                    sql`DATE(${storeShifts.shiftDate}) = ${assignedDate}`,
+                                    eq(storeShifts.shiftType, input.storeShiftType),
+                              ),
+                        )
+                        .limit(1);
+
+                  if (existingShift.length > 0) {
+                        throw new Error(
+                              `Cửa hàng đã có ${
+                                    input.storeShiftType === "morning" ? "ca sáng" : "ca chiều"
+                              } ngày ${assignedDate}.`,
+                        );
+                  }
+            }
+      }
+
+      const createdItems: Array<PreviewDutyAssignmentItem & { assignmentId?: number }> = [];
       const skippedItems = preview.items.filter((item) => !item.canCreate);
+      const createdByDate = new Map<
+            string,
+            Array<{ assignmentId: number; residentId: number }>
+      >();
 
       for (const item of preview.items.filter((row) => row.canCreate)) {
+            const residentId = Number((item as any).assignedToId || 0);
             const payload = normalizeDutyAssignmentForInsert({
                   dutyConfigId: input.dutyConfigId,
-                  residentId: input.assignedToType === "resident" ? ((item as any).assignedToId || null) : null,
+                  residentId: input.assignedToType === "resident" ? residentId || null : null,
                   assignedToType: input.assignedToType,
-                  assignedToId: (item as any).assignedToId,
+                  assignedToId: residentId,
                   assignedDate: item.date,
                   startDateTime: input.startTime,
                   endDateTime: input.endTime,
                   notes: input.notes || undefined,
             } as any);
 
-            await db.insert(dutyAssignments).values(payload);
-            createdItems.push(item);
+            const [result]: any = await db.insert(dutyAssignments).values(payload);
+            const assignmentId = Number(result?.insertId || 0);
+
+            createdItems.push({
+                  ...item,
+                  assignmentId: assignmentId || undefined,
+            });
+
+            if (input.storeShiftType && assignmentId && residentId) {
+                  const rows = createdByDate.get(item.date) || [];
+                  rows.push({ assignmentId, residentId });
+                  createdByDate.set(item.date, rows);
+            }
+      }
+
+      const storeShiftsCreated: any[] = [];
+      if (input.storeShiftType) {
+            for (const [assignedDate, assignmentRows] of createdByDate.entries()) {
+                  const createdShift = await createStoreShiftForDutyDate(
+                        db,
+                        input,
+                        assignedDate,
+                        assignmentRows,
+                  );
+                  if (createdShift) storeShiftsCreated.push(createdShift);
+            }
       }
 
       return {
@@ -1664,10 +1867,12 @@ export async function assignDutyBatch(input: PreviewDutyAssignmentInput) {
             skipped: skippedItems.length,
             createdItems,
             skippedItems,
+            storeShiftsCreated,
             summary: {
                   totalDays: preview.items.length,
                   createdCount: createdItems.length,
                   skippedCount: skippedItems.length,
+                  storeShiftCount: storeShiftsCreated.length,
             },
       };
 }

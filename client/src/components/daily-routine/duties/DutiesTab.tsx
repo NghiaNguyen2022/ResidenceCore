@@ -45,6 +45,10 @@ type AssignmentForm = {
       monthWeeks: MonthWeek[];
       monthWeekDays: DayOfWeek[];
       notes: string;
+      storeShiftType: '' | 'morning' | 'afternoon';
+      storeLedgerId: string;
+      primaryResidentId: string;
+      openingCashPlanned: string;
 };
 
 type SmartAssigneeOption = {
@@ -66,6 +70,7 @@ type DutiesTabProps = {
       dutyConfigs: any[];
       selectedDutyConfig?: any | null;
       assigneeOptions: SmartAssigneeOption[];
+      storeLedgers?: any[];
 
       previewEnabled: boolean;
       previewLoading?: boolean;
@@ -112,6 +117,7 @@ export function DutiesTab({
       dutyConfigs,
       selectedDutyConfig,
       assigneeOptions,
+      storeLedgers = [],
       previewEnabled,
       previewLoading,
       preview,
@@ -210,6 +216,9 @@ export function DutiesTab({
                   repeatType: 'once',
                   repeatEndDate: selectedDate,
                   assignWholeWeek: false,
+                  storeShiftType: '',
+                  primaryResidentId: '',
+                  openingCashPlanned: '0',
             });
             setIsAssignmentModalOpen(true);
       };
@@ -315,6 +324,7 @@ export function DutiesTab({
                                                 dutyConfigs={dutyConfigs}
                                                 selectedDutyConfig={selectedDutyConfig}
                                                 assigneeOptions={assigneeOptions}
+                                                storeLedgers={storeLedgers}
                                                 previewEnabled={previewEnabled}
                                                 previewLoading={previewLoading}
                                                 preview={preview}
