@@ -4,6 +4,7 @@ import { protectedProcedure, router } from "../../_core/trpc";
 import { isManager } from "../../_core/rbac";
 import { storeLedgerService } from "../../services/storeLedgerService";
 import { storeDutyAccessService } from "../../services/storeDutyAccessService";
+import { storeShiftHandoverService } from "../../services/storeShiftHandoverService";
 
 function requireStoreLedgerAccess(user: {
       id?: number;
@@ -66,6 +67,82 @@ const productInputSchema = z.object({
 
 
 export const storeLedgerRouter = router({
+      getMyShiftHandover: protectedProcedure
+            .input(
+                  z.object({
+                        storeShiftId: z.number().int().positive(),
+                        storeAccessToken: z.string().trim().min(20),
+                  }),
+            )
+            .query(async ({ ctx, input }) => {
+                  return storeShiftHandoverService.getMyHandover({
+                        user: ctx.user,
+                        storeShiftId: input.storeShiftId,
+                        accessToken: input.storeAccessToken,
+                  });
+            }),
+
+      saveMyShiftHandover: protectedProcedure
+            .input(
+                  z.object({
+                        storeShiftId: z.number().int().positive(),
+                        storeAccessToken: z.string().trim().min(20),
+                        countedCash: z.number().min(0),
+                        differenceReason: z.string().trim().optional().nullable(),
+                        notes: z.string().trim().optional().nullable(),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  return storeShiftHandoverService.saveMyHandover({
+                        user: ctx.user,
+                        ...input,
+                  });
+            }),
+
+      signMyShiftHandover: protectedProcedure
+            .input(
+                  z.object({
+                        storeShiftId: z.number().int().positive(),
+                        storeAccessToken: z.string().trim().min(20),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  return storeShiftHandoverService.giverSign({
+                        user: ctx.user,
+                        ...input,
+                  });
+            }),
+
+      receiveMyShiftHandover: protectedProcedure
+            .input(
+                  z.object({
+                        storeShiftId: z.number().int().positive(),
+                        storeAccessToken: z.string().trim().min(20),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  return storeShiftHandoverService.receiverSign({
+                        user: ctx.user,
+                        ...input,
+                  });
+            }),
+
+      listShiftHandovers: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive().optional().nullable(),
+                        shiftDate: z.string().optional().nullable(),
+                        limit: z.number().int().min(1).max(200).optional(),
+                  }).optional(),
+            )
+            .query(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeShiftHandoverService.listForManager({
+                        user: ctx.user,
+                        ...(input || {}),
+                  });
+            }),
+
       issueDutyAccessCode: protectedProcedure
             .input(
                   z.object({

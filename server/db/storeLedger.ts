@@ -1233,6 +1233,69 @@ export async function getLatestStoreShiftHandover(storeShiftId: number) {
       return rows[0] ?? null;
 }
 
+
+export async function getStoreShiftHandoverToShift(handoverToShiftId: number) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeShiftHandovers)
+            .where(eq(storeShiftHandovers.handoverToShiftId, handoverToShiftId))
+            .orderBy(desc(storeShiftHandovers.id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function listStoreShiftHandovers(input: {
+      ledgerId?: number | null;
+      shiftDate?: string | null;
+      limit?: number;
+} = {}) {
+      const db = await dbOrThrow();
+      const conditions: any[] = [];
+
+      if (input.ledgerId) {
+            conditions.push(eq(storeShifts.ledgerId, input.ledgerId));
+      }
+      if (input.shiftDate) {
+            conditions.push(eq(storeShifts.shiftDate, input.shiftDate));
+      }
+
+      return db
+            .select({
+                  id: storeShiftHandovers.id,
+                  storeShiftId: storeShiftHandovers.storeShiftId,
+                  handoverType: storeShiftHandovers.handoverType,
+                  handoverToShiftId: storeShiftHandovers.handoverToShiftId,
+                  openingCash: storeShiftHandovers.openingCash,
+                  totalSales: storeShiftHandovers.totalSales,
+                  totalOtherIncome: storeShiftHandovers.totalOtherIncome,
+                  totalPurchases: storeShiftHandovers.totalPurchases,
+                  totalOtherExpense: storeShiftHandovers.totalOtherExpense,
+                  expectedCash: storeShiftHandovers.expectedCash,
+                  countedCash: storeShiftHandovers.countedCash,
+                  differenceAmount: storeShiftHandovers.differenceAmount,
+                  differenceReason: storeShiftHandovers.differenceReason,
+                  notes: storeShiftHandovers.notes,
+                  handedOverByResidentId: storeShiftHandovers.handedOverByResidentId,
+                  receivedByResidentId: storeShiftHandovers.receivedByResidentId,
+                  handedOverAt: storeShiftHandovers.handedOverAt,
+                  receivedAt: storeShiftHandovers.receivedAt,
+                  giverSignedAt: storeShiftHandovers.giverSignedAt,
+                  receiverSignedAt: storeShiftHandovers.receiverSignedAt,
+                  status: storeShiftHandovers.status,
+                  createdAt: storeShiftHandovers.createdAt,
+                  updatedAt: storeShiftHandovers.updatedAt,
+                  ledgerId: storeShifts.ledgerId,
+                  shiftDate: storeShifts.shiftDate,
+                  shiftType: storeShifts.shiftType,
+            })
+            .from(storeShiftHandovers)
+            .innerJoin(storeShifts, eq(storeShifts.id, storeShiftHandovers.storeShiftId))
+            .where(conditions.length ? and(...conditions) : undefined)
+            .orderBy(desc(storeShifts.shiftDate), desc(storeShiftHandovers.id))
+            .limit(input.limit ?? 100);
+}
+
 export async function updateStoreShiftHandover(
       id: number,
       data: Partial<InsertStoreShiftHandover>,

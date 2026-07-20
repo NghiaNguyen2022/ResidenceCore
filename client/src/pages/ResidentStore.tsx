@@ -32,7 +32,7 @@ type ResidentStoreAccess = {
       validUntil?: string | null;
 };
 
-type StoreTab = "shift" | "sales" | "purchase" | "transactions" | "closing";
+type StoreTab = "shift" | "sales" | "purchase" | "transactions" | "handover" | "closing";
 
 type DocumentLine = {
       productId: number;
@@ -131,6 +131,9 @@ export default function ResidentStore() {
       const [saleLines, setSaleLines] = useState<DocumentLine[]>([emptyLine()]);
       const [purchaseLines, setPurchaseLines] = useState<DocumentLine[]>([emptyLine()]);
       const [closingDate, setClosingDate] = useState(getTodayYmd());
+      const [handoverCountedCash, setHandoverCountedCash] = useState("");
+      const [handoverDifferenceReason, setHandoverDifferenceReason] = useState("");
+      const [handoverNotes, setHandoverNotes] = useState("");
 
       const accessInput = access
             ? {
@@ -233,6 +236,67 @@ export default function ResidentStore() {
                   retry: false,
             },
       ) ?? { data: [], isLoading: false, error: null, refetch: () => undefined };
+
+      const handoverQuery = storeApi?.getMyShiftHandover?.useQuery?.(
+            accessInput
+                  ? {
+                        storeShiftId: accessInput.storeShiftId,
+                        storeAccessToken: accessInput.storeAccessToken,
+                  }
+                  : {
+                        storeShiftId: 0,
+                        storeAccessToken: "",
+                  },
+            {
+                  enabled: Boolean(accessInput),
+                  retry: false,
+                  refetchOnWindowFocus: true,
+            },
+      ) ?? { data: null, isLoading: false, error: null, refetch: () => undefined };
+
+      const handoverData = handoverQuery.data as any;
+      const handover = handoverData?.handover;
+
+      useEffect(() => {
+            if (!handover) return;
+            setHandoverCountedCash(String(Number(handover.countedCash || 0)));
+            setHandoverDifferenceReason(handover.differenceReason || "");
+            setHandoverNotes(handover.notes || "");
+      }, [handover?.id, handover?.updatedAt]);
+
+      const saveHandoverMutation = storeApi?.saveMyShiftHandover?.useMutation?.({
+            onSuccess: async () => {
+                  toast.success("Đã lưu bàn giao ca.");
+                  await handoverQuery.refetch?.();
+            },
+            onError: (error: any) =>
+                  toast.error(error?.message || "Không thể lưu bàn giao ca."),
+      });
+
+      const signHandoverMutation = storeApi?.signMyShiftHandover?.useMutation?.({
+            onSuccess: async () => {
+                  toast.success("Đã ký giao ca.");
+                  await Promise.allSettled([
+                        handoverQuery.refetch?.(),
+                        sessionQuery.refetch?.(),
+                  ]);
+            },
+            onError: (error: any) =>
+                  toast.error(error?.message || "Không thể ký giao ca."),
+      });
+
+      const receiveHandoverMutation = storeApi?.receiveMyShiftHandover?.useMutation?.({
+            onSuccess: async () => {
+                  toast.success("Đã xác nhận nhận ca.");
+                  await Promise.allSettled([
+                        handoverQuery.refetch?.(),
+                        sessionQuery.refetch?.(),
+                        transactionsQuery.refetch?.(),
+                  ]);
+            },
+            onError: (error: any) =>
+                  toast.error(error?.message || "Không thể xác nhận nhận ca."),
+      });
 
       const summary = useMemo(() => {
             const transactions = Array.isArray(transactionsQuery.data)
@@ -419,6 +483,7 @@ export default function ResidentStore() {
             { key: "sales", label: "Bán hàng", icon: <ShoppingCart className="h-4 w-4" /> },
             { key: "purchase", label: "Nhập hàng", icon: <PackagePlus className="h-4 w-4" /> },
             { key: "transactions", label: "Giao dịch ca", icon: <ReceiptText className="h-4 w-4" /> },
+            { key: "handover", label: "Bàn giao ca", icon: <RefreshCw className="h-4 w-4" /> },
             ...(isAfternoon
                   ? [{
                         key: "closing" as const,
@@ -747,6 +812,188 @@ export default function ResidentStore() {
                                                       </div>
                                                 ) : null}
                                           </div>
+                                    </Card>
+                              ) : null}
+
+                              {activeTab === "handover" ? (
+                                    <Card className="mt-4 rounded-[30px] border-amber-100/80 bg-white/92 p-5 shadow-[0_18px_48px_rgba(120,53,15,0.06)]">
+                                          <div className="flex flex-col gap-3 border-b border-amber-100 pb-4 md:flex-row md:items-start md:justify-between">
+                                                <div>
+                                                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                                                            Bàn giao ca Cửa hàng
+                                                      </p>
+                                                      <h2 className="mt-1 text-xl font-black text-slate-950">
+                                                            {isAfternoon ? "Xác nhận nhận từ ca sáng" : "Lập bàn giao sang ca chiều"}
+                                                      </h2>
+                                                      <p className="mt-2 text-sm leading-6 text-slate-500">
+                                                            Tiền dự kiến = tiền đầu ca + tổng thu − tổng chi. Sau khi hai bên ký, biên bản bị khóa.
+                                                      </p>
+                                                </div>
+                                                <Badge variant={handover?.status === "completed" ? "default" : "secondary"}>
+                                                      {handover?.status === "completed"
+                                                            ? "Đã hoàn tất"
+                                                            : handover?.status === "giver_signed"
+                                                                  ? "Chờ ca chiều nhận"
+                                                                  : handover
+                                                                        ? "Bản nháp"
+                                                                        : "Chưa lập"}
+                                                </Badge>
+                                          </div>
+
+                                          {handoverQuery.isLoading ? (
+                                                <div className="mt-4 rounded-2xl border border-dashed border-amber-200 bg-amber-50/40 p-8 text-center text-sm text-slate-500">
+                                                      Đang tải dữ liệu bàn giao...
+                                                </div>
+                                          ) : handoverQuery.error ? (
+                                                <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">
+                                                      {handoverQuery.error.message}
+                                                </div>
+                                          ) : !isAfternoon ? (
+                                                <>
+                                                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                                                            {[
+                                                                  ["Tiền đầu ca", handoverData?.totals?.openingCash],
+                                                                  ["Tổng thu", Number(handoverData?.totals?.totalSales || 0) + Number(handoverData?.totals?.totalOtherIncome || 0)],
+                                                                  ["Tổng chi", Number(handoverData?.totals?.totalPurchases || 0) + Number(handoverData?.totals?.totalOtherExpense || 0)],
+                                                                  ["Tiền dự kiến", handoverData?.totals?.expectedCash],
+                                                                  ["Tiền thực tế", handover?.countedCash],
+                                                                  ["Chênh lệch", handover?.differenceAmount],
+                                                            ].map(([label, value]) => (
+                                                                  <div key={String(label)} className="rounded-2xl border border-amber-100 bg-amber-50/45 p-4">
+                                                                        <p className="text-xs font-bold text-slate-500">{label}</p>
+                                                                        <p className="mt-2 text-lg font-black text-slate-950">
+                                                                              {formatMoney(value)} đ
+                                                                        </p>
+                                                                  </div>
+                                                            ))}
+                                                      </div>
+
+                                                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                                            <label className="space-y-1.5">
+                                                                  <span className="text-xs font-bold text-slate-600">Tiền mặt thực tế cuối ca</span>
+                                                                  <input
+                                                                        inputMode="numeric"
+                                                                        disabled={!handoverData?.canEdit}
+                                                                        value={handoverCountedCash}
+                                                                        onChange={(event) => setHandoverCountedCash(event.target.value)}
+                                                                        className="w-full rounded-2xl border border-amber-100 bg-white px-4 py-3 text-sm outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100 disabled:bg-slate-50"
+                                                                        placeholder="Nhập số tiền thực tế"
+                                                                  />
+                                                            </label>
+                                                            <label className="space-y-1.5">
+                                                                  <span className="text-xs font-bold text-slate-600">Lý do chênh lệch</span>
+                                                                  <input
+                                                                        disabled={!handoverData?.canEdit}
+                                                                        value={handoverDifferenceReason}
+                                                                        onChange={(event) => setHandoverDifferenceReason(event.target.value)}
+                                                                        className="w-full rounded-2xl border border-amber-100 bg-white px-4 py-3 text-sm outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100 disabled:bg-slate-50"
+                                                                        placeholder="Không bắt buộc nếu không chênh lệch"
+                                                                  />
+                                                            </label>
+                                                      </div>
+
+                                                      <label className="mt-3 block space-y-1.5">
+                                                            <span className="text-xs font-bold text-slate-600">Ghi chú bàn giao</span>
+                                                            <textarea
+                                                                  disabled={!handoverData?.canEdit}
+                                                                  value={handoverNotes}
+                                                                  onChange={(event) => setHandoverNotes(event.target.value)}
+                                                                  rows={3}
+                                                                  className="w-full rounded-2xl border border-amber-100 bg-white px-4 py-3 text-sm outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100 disabled:bg-slate-50"
+                                                            />
+                                                      </label>
+
+                                                      <div className="mt-5 flex flex-wrap justify-end gap-2">
+                                                            {handoverData?.canEdit ? (
+                                                                  <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        disabled={saveHandoverMutation?.isPending}
+                                                                        onClick={() =>
+                                                                              saveHandoverMutation?.mutate?.({
+                                                                                    ...accessInput,
+                                                                                    countedCash: parseAmount(handoverCountedCash),
+                                                                                    differenceReason: handoverDifferenceReason.trim() || null,
+                                                                                    notes: handoverNotes.trim() || null,
+                                                                              })
+                                                                        }
+                                                                        className="rounded-full"
+                                                                  >
+                                                                        Lưu bản nháp
+                                                                  </Button>
+                                                            ) : null}
+
+                                                            {handoverData?.canGiverSign ? (
+                                                                  <Button
+                                                                        type="button"
+                                                                        disabled={signHandoverMutation?.isPending}
+                                                                        onClick={() =>
+                                                                              signHandoverMutation?.mutate?.({
+                                                                                    ...accessInput,
+                                                                              })
+                                                                        }
+                                                                        className="rounded-full bg-amber-500 px-6 font-bold text-white hover:bg-amber-600"
+                                                                  >
+                                                                        Ký và giao ca
+                                                                  </Button>
+                                                            ) : null}
+                                                      </div>
+                                                </>
+                                          ) : !handover ? (
+                                                <div className="mt-4 rounded-2xl border border-dashed border-amber-200 bg-amber-50/40 p-8 text-center">
+                                                      <p className="font-bold text-slate-900">Ca sáng chưa gửi bàn giao</p>
+                                                      <p className="mt-2 text-sm text-slate-500">Dữ liệu sẽ xuất hiện sau khi người giao ký.</p>
+                                                </div>
+                                          ) : (
+                                                <>
+                                                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                                                            {[
+                                                                  ["Tiền đầu ca sáng", handover.openingCash],
+                                                                  ["Tổng thu", Number(handover.totalSales || 0) + Number(handover.totalOtherIncome || 0)],
+                                                                  ["Tổng chi", Number(handover.totalPurchases || 0) + Number(handover.totalOtherExpense || 0)],
+                                                                  ["Tiền dự kiến", handover.expectedCash],
+                                                                  ["Tiền thực nhận", handover.countedCash],
+                                                                  ["Chênh lệch", handover.differenceAmount],
+                                                            ].map(([label, value]) => (
+                                                                  <div key={String(label)} className="rounded-2xl border border-amber-100 bg-amber-50/45 p-4">
+                                                                        <p className="text-xs font-bold text-slate-500">{label}</p>
+                                                                        <p className="mt-2 text-lg font-black text-slate-950">
+                                                                              {formatMoney(value)} đ
+                                                                        </p>
+                                                                  </div>
+                                                            ))}
+                                                      </div>
+
+                                                      {handover.differenceReason ? (
+                                                            <div className="mt-3 rounded-2xl border border-amber-100 bg-white p-4 text-sm text-slate-600">
+                                                                  <strong>Lý do chênh lệch:</strong> {handover.differenceReason}
+                                                            </div>
+                                                      ) : null}
+
+                                                      <div className="mt-5 flex justify-end">
+                                                            {handoverData?.canReceive ? (
+                                                                  <Button
+                                                                        type="button"
+                                                                        disabled={receiveHandoverMutation?.isPending}
+                                                                        onClick={() =>
+                                                                              receiveHandoverMutation?.mutate?.({
+                                                                                    ...accessInput,
+                                                                              })
+                                                                        }
+                                                                        className="rounded-full bg-amber-500 px-6 font-bold text-white hover:bg-amber-600"
+                                                                  >
+                                                                        Xác nhận đã nhận ca
+                                                                  </Button>
+                                                            ) : (
+                                                                  <Badge variant="outline">
+                                                                        {handover.status === "completed"
+                                                                              ? "Hai bên đã xác nhận"
+                                                                              : "Đang chờ người giao ký"}
+                                                                  </Badge>
+                                                            )}
+                                                      </div>
+                                                </>
+                                          )}
                                     </Card>
                               ) : null}
 
