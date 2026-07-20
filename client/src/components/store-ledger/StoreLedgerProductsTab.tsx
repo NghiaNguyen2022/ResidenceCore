@@ -66,12 +66,12 @@ export function StoreLedgerProductsTab({
       const [page, setPage] = useState(1);
 
       const lowStockProducts = useMemo(
-            () => allProducts.filter((product: any) => {
+            () => products.filter((product: any) => {
                   const stock = Number(product.currentStock || 0);
                   const minStock = Number(product.minStock || 0);
                   return stock <= 0 || (minStock > 0 && stock <= minStock);
             }),
-            [allProducts],
+            [products],
       );
 
       const categorySummary = useMemo(() => {
@@ -101,54 +101,37 @@ export function StoreLedgerProductsTab({
             <div className="space-y-4">
                   <section id="store-product-list" tabIndex={-1} className="scroll-mt-24 space-y-4 outline-none transition focus:ring-4 focus:ring-amber-100/80">
                         <div className="rounded-[1.4rem] border border-[#eadfca] bg-white/95 p-3.5 shadow-sm">
-                              <div className="flex min-w-0 flex-col gap-2.5 xl:flex-row xl:items-center">
-                                    <div className="relative min-w-0 flex-1">
-                                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                              <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto_auto] xl:items-center">
+                                    <div className="relative min-w-0">
+                                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                           <input
                                                 value={productSearch}
                                                 onChange={(event) => setProductSearch(event.target.value)}
-                                                className={`${inputClass} h-11 pl-9`}
+                                                className={`${inputClass} pl-9`}
                                                 placeholder="Tìm tên hàng, mã hàng hoặc nhóm hàng..."
                                           />
                                     </div>
-
-                                    <div className="flex max-w-full flex-wrap items-center gap-2 xl:shrink-0 xl:justify-end">
-                                          <label className={`inline-flex h-10 cursor-pointer items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-black transition ${lowStockOnly ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50/60"}`}>
-                                                <input
-                                                      type="checkbox"
-                                                      checked={lowStockOnly}
-                                                      onChange={(event) => setLowStockOnly(event.target.checked)}
-                                                      className="h-4 w-4 shrink-0 rounded border-amber-300 accent-amber-600"
-                                                />
-                                                Sắp hết
-                                          </label>
-                                          <label className={`inline-flex h-10 cursor-pointer items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-black transition ${showInactiveProducts ? "border-slate-300 bg-slate-100 text-slate-800" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"}`}>
-                                                <input
-                                                      type="checkbox"
-                                                      checked={showInactiveProducts}
-                                                      onChange={(event) => setShowInactiveProducts(event.target.checked)}
-                                                      className="h-4 w-4 shrink-0 rounded border-slate-300 accent-slate-700"
-                                                />
-                                                Ngừng bán
-                                          </label>
-                                          <div className="inline-flex h-10 shrink-0 items-center rounded-xl border border-slate-200 bg-slate-50 p-1">
-                                                <button
-                                                      type="button"
-                                                      onClick={() => setViewMode("list")}
-                                                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${viewMode === "list" ? "bg-white text-amber-700 shadow-sm" : "text-slate-400 hover:text-slate-700"}`}
-                                                      title="Xem dạng danh sách"
-                                                >
-                                                      <List className="h-4 w-4" />
-                                                </button>
-                                                <button
-                                                      type="button"
-                                                      onClick={() => setViewMode("grid")}
-                                                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${viewMode === "grid" ? "bg-white text-amber-700 shadow-sm" : "text-slate-400 hover:text-slate-700"}`}
-                                                      title="Xem dạng lưới"
-                                                >
-                                                      <Grid2X2 className="h-4 w-4" />
-                                                </button>
-                                          </div>
+                                    <label className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-black transition ${lowStockOnly ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+                                          <input
+                                                type="checkbox"
+                                                checked={lowStockOnly}
+                                                onChange={(event) => setLowStockOnly(event.target.checked)}
+                                                className="h-4 w-4 rounded border-amber-300"
+                                          />
+                                          Sắp hết
+                                    </label>
+                                    <label className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-black transition ${showInactiveProducts ? "border-slate-300 bg-slate-100 text-slate-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+                                          <input
+                                                type="checkbox"
+                                                checked={showInactiveProducts}
+                                                onChange={(event) => setShowInactiveProducts(event.target.checked)}
+                                                className="h-4 w-4 rounded border-slate-300"
+                                          />
+                                          Hiện ngừng kinh doanh
+                                    </label>
+                                    <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+                                          <button type="button" onClick={() => setViewMode("list")} className={`rounded-lg p-2 ${viewMode === "list" ? "bg-white text-amber-700 shadow-sm" : "text-slate-400"}`} title="Danh sách"><List className="h-4 w-4" /></button>
+                                          <button type="button" onClick={() => setViewMode("grid")} className={`rounded-lg p-2 ${viewMode === "grid" ? "bg-white text-amber-700 shadow-sm" : "text-slate-400"}`} title="Lưới"><Grid2X2 className="h-4 w-4" /></button>
                                     </div>
                               </div>
                               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -166,7 +149,7 @@ export function StoreLedgerProductsTab({
                               </div>
                         </div>
 
-                        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_260px] xl:grid-cols-[minmax(0,1fr)_280px]">
+                        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
                               <section className="min-w-0 overflow-hidden rounded-[1.4rem] border border-[#eadfca] bg-white/95 shadow-sm">
                                     <div className="flex flex-col gap-3 border-b border-[#efe5d3] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                           <div>
@@ -175,13 +158,12 @@ export function StoreLedgerProductsTab({
                                                       {products.length ? `Hiển thị ${pageStart + 1}–${Math.min(pageStart + pageSize, products.length)} trong ${products.length} mặt hàng` : "Không có mặt hàng"}
                                                 </p>
                                           </div>
-                                          <label className="inline-flex items-center">
-                                                <span className="sr-only">Số sản phẩm mỗi trang</span>
+                                          <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-500">
+                                                Hiển thị
                                                 <select
-                                                      aria-label="Số sản phẩm mỗi trang"
                                                       value={pageSize}
                                                       onChange={(event) => setPageSize(Number(event.target.value) as 7 | 10)}
-                                                      className="min-w-[132px] rounded-xl border border-[#e5d8bd] bg-white px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-amber-300"
+                                                      className="rounded-xl border border-[#e5d8bd] bg-white px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-amber-300"
                                                 >
                                                       <option value={7}>7 sản phẩm</option>
                                                       <option value={10}>10 sản phẩm</option>
@@ -239,7 +221,7 @@ export function StoreLedgerProductsTab({
                                     ) : null}
                               </section>
 
-                              <aside className="min-w-0 space-y-3 lg:sticky lg:top-4 lg:self-start">
+                              <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
                                     <section className="rounded-[1.35rem] border border-[#eadfca] bg-white/95 p-4 shadow-sm">
                                           <div className="flex items-center justify-between gap-3">
                                                 <h3 className="text-sm font-black text-slate-950">Phân bổ nhóm hàng</h3>
@@ -329,28 +311,27 @@ function ProductListRow({ product, onEdit, onPrice, onDelete, onToggleActive, de
       const inactive = product.isActive === false;
       return (
             <article className={`px-4 py-3 transition ${inactive ? "bg-slate-50/80 opacity-80" : "hover:bg-amber-50/25"}`}>
-                  <div className="flex min-w-0 items-start gap-3">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-100 bg-amber-50/60">
-                              {image ? <img src={image} alt={product.productName} className="h-full w-full object-cover" /> : <ImageIcon className="h-5 w-5 text-amber-500" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                    <button type="button" onClick={() => onPrice(product)} className="max-w-full truncate text-left text-base font-black text-slate-950 hover:text-amber-700">{product.productName}</button>
-                                    <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">{productCategoryLabel(product.category)}</span>
-                                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">{product.unit || "cái"}</span>
-                                    {lowStock && !inactive ? <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${stock <= 0 ? "bg-rose-50 text-rose-700" : "bg-orange-50 text-orange-700"}`}>{stock <= 0 ? "Hết hàng" : "Sắp hết"}</span> : null}
-                                    {inactive ? <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-black text-slate-600">Ngừng kinh doanh</span> : null}
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-center">
+                        <div className="flex min-w-0 items-center gap-3">
+                              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-100 bg-amber-50/60">
+                                    {image ? <img src={image} alt={product.productName} className="h-full w-full object-cover" /> : <ImageIcon className="h-5 w-5 text-amber-500" />}
                               </div>
-                              <p className="mt-1 text-xs font-semibold text-slate-500">Tồn {formatMoney(stock)} {product.unit || ""}{minStock > 0 ? ` · Tối thiểu ${formatMoney(minStock)}` : ""}</p>
+                              <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                          <button type="button" onClick={() => onPrice(product)} className="truncate text-left text-base font-black text-slate-950 hover:text-amber-700">{product.productName}</button>
+                                          <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">{productCategoryLabel(product.category)}</span>
+                                          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">{product.unit || "cái"}</span>
+                                          {lowStock && !inactive ? <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${stock <= 0 ? "bg-rose-50 text-rose-700" : "bg-orange-50 text-orange-700"}`}>{stock <= 0 ? "Hết hàng" : "Sắp hết"}</span> : null}
+                                          {inactive ? <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-black text-slate-600">Ngừng kinh doanh</span> : null}
+                                    </div>
+                                    <p className="mt-1 text-xs font-semibold text-slate-500">Tồn {formatMoney(stock)} {product.unit || ""}{minStock > 0 ? ` · Tối thiểu ${formatMoney(minStock)}` : ""}</p>
+                              </div>
                         </div>
-                  </div>
-
-                  <div className="mt-3 flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                        <div className="grid w-full max-w-[300px] grid-cols-2 gap-2 text-xs">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
                               <PriceBox label="Giá vốn" value={cost > 0 ? `${formatMoney(cost)}đ` : "—"} />
                               <PriceBox label="Giá bán" value={sale > 0 ? `${formatMoney(sale)}đ` : "—"} amber />
                         </div>
-                        <div className="flex min-w-0 flex-wrap gap-2 xl:justify-end">
+                        <div className="flex flex-wrap gap-2 lg:justify-end">
                               <ActionButton label="Sửa" onClick={() => onEdit(product)} />
                               <ActionButton label="Thông tin giá" onClick={() => onPrice(product)} amber />
                               <ActionButton label={inactive ? "Kinh doanh lại" : "Ngừng kinh doanh"} onClick={() => onToggleActive(product)} muted={!inactive} success={inactive} disabled={updating} />
