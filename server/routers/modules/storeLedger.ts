@@ -5,6 +5,7 @@ import { isManager } from "../../_core/rbac";
 import { storeLedgerService } from "../../services/storeLedgerService";
 import { storeDutyAccessService } from "../../services/storeDutyAccessService";
 import { storeShiftHandoverService } from "../../services/storeShiftHandoverService";
+import { storeShiftClosingService } from "../../services/storeShiftClosingService";
 
 function requireStoreLedgerAccess(user: {
       id?: number;
@@ -528,10 +529,21 @@ export const storeLedgerRouter = router({
                         });
                   }
                   const { storeShiftId, storeAccessToken, ...closeInput } = input;
-                  return storeLedgerService.closeDaily({
+                  const closing = await storeLedgerService.closeDaily({
                         ...closeInput,
                         createdBy: getUserId(ctx),
                   });
+
+                  if (access.accessMode === "resident") {
+                        return storeShiftClosingService.afterResidentClose({
+                              user: ctx.user,
+                              storeShiftId: Number(storeShiftId),
+                              accessToken: String(storeAccessToken),
+                              closing,
+                        });
+                  }
+
+                  return closing;
             }),
 
 
@@ -546,14 +558,16 @@ export const storeLedgerRouter = router({
             .input(z.object({ id: z.number().int().positive() }))
             .mutation(async ({ ctx, input }) => {
                   requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.reviewDailyClosing(input.id, getUserId(ctx));
+                  const closing = await storeLedgerService.reviewDailyClosing(input.id, getUserId(ctx));
+                  return storeShiftClosingService.afterManagerReview(ctx.user, closing);
             }),
 
       confirmDailyClosing: protectedProcedure
             .input(z.object({ id: z.number().int().positive() }))
             .mutation(async ({ ctx, input }) => {
                   requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.confirmDailyClosing(input.id, getUserId(ctx));
+                  const closing = await storeLedgerService.confirmDailyClosing(input.id, getUserId(ctx));
+                  return storeShiftClosingService.afterManagerConfirm(ctx.user, closing);
             }),
 
       // Compatibility endpoint for older clients.
@@ -562,6 +576,28 @@ export const storeLedgerRouter = router({
             .mutation(async ({ ctx, input }) => {
                   requireStoreLedgerAccess(ctx.user);
                   return storeLedgerService.confirmDailyClosing(input.id, getUserId(ctx));
+            }),
+
+      reopenDailyClosing: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number().int().positive(),
+                        reason: z.string().trim().min(5),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeShiftClosingService.reopenDailyClosing({
+                        user: ctx.user,
+                        closingId: input.id,
+                        reason: input.reason,
+                  });
+            }),
+
+      checkOverdueStoreClosings: protectedProcedure
+            .mutation(async ({ ctx }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeShiftClosingService.markOverdueClosings();
             }),
 
       cancelDailyClosing: protectedProcedure

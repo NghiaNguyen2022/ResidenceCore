@@ -1024,6 +1024,33 @@ export async function updateStoreShift(id: number, data: Partial<InsertStoreShif
       return getStoreShiftById(id);
 }
 
+
+export async function getStoreAfternoonShiftByLedgerDate(input: {
+      ledgerId: number;
+      shiftDate: string;
+}) {
+      return getStoreShiftByLedgerDateType({
+            ledgerId: input.ledgerId,
+            shiftDate: input.shiftDate,
+            shiftType: "afternoon",
+      });
+}
+
+export async function listOverdueStoreAfternoonShifts(now: Date = new Date()) {
+      const db = await dbOrThrow();
+      return db
+            .select()
+            .from(storeShifts)
+            .where(
+                  and(
+                        eq(storeShifts.shiftType, "afternoon"),
+                        sql`${storeShifts.accessValidUntil} < ${now}`,
+                        sql`${storeShifts.status} IN ('scheduled','access_issued','opened','in_progress','handover_pending','handed_over','closing_pending')`,
+                  ),
+            )
+            .orderBy(storeShifts.accessValidUntil, storeShifts.id);
+}
+
 export async function createStoreDutyAccessSession(
       data: InsertStoreDutyAccessSession,
 ) {

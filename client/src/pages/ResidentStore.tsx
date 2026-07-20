@@ -373,9 +373,13 @@ export default function ResidentStore() {
       ) ?? { data: null, isLoading: false, error: null, refetch: () => undefined };
 
       const closeDailyMutation = storeApi?.closeDaily?.useMutation?.({
-            onSuccess: async () => {
-                  toast.success("Đã chốt ngày. Quản lý sẽ review và xác nhận.");
-                  await invalidateStoreData();
+            onSuccess: async (result: any) => {
+                  toast.success(
+                        result?.message ||
+                        "Đã chốt ngày. Quản lý sẽ review và xác nhận.",
+                  );
+                  clearStoredAccess();
+                  window.location.href = "/my-duties";
             },
             onError: (error: any) => {
                   toast.error(error?.message || "Không thể chốt ngày.");
