@@ -1,6 +1,6 @@
 import { mysqlTable, int, varchar, text, mediumtext, timestamp, boolean, date, mysqlEnum, decimal, index, unique } from "drizzle-orm/mysql-core";
-import { users } from "./core";
-import { residents } from "./residents";
+import { users } from "./core.ts";
+import { residents } from "./residents.ts";
 
 // Keep column names explicit. Do not reuse a mysqlEnum builder with a generic name,
 // because Drizzle uses the enum builder name as the SQL column name.

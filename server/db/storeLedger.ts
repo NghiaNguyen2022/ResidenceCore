@@ -10,6 +10,11 @@ import {
       storeDocuments,
       storeDocumentLines,
       storeStockMovements,
+      storeDutyAssignments,
+      storeDutyMembers,
+      storeShifts,
+      storeDutyAccessSessions,
+      storeShiftHandovers,
       type InsertStoreDailyClosing,
       type InsertStoreLedger,
       type InsertStoreProduct,
@@ -19,7 +24,12 @@ import {
       type InsertStoreDocument,
       type InsertStoreDocumentLine,
       type InsertStoreStockMovement,
-} from "../../drizzle/schema";
+      type InsertStoreDutyAssignment,
+      type InsertStoreDutyMember,
+      type InsertStoreShift,
+      type InsertStoreDutyAccessSession,
+      type InsertStoreShiftHandover,
+} from "../../drizzle/storeLedger";
 
 
 export type StoreProductListInput = {
@@ -880,3 +890,251 @@ export async function clearStoreLedgerTransactionsClosing(closingId: number) {
             .set({ dailyClosingId: null } as any)
             .where(eq(storeLedgerTransactions.dailyClosingId, closingId));
 }
+
+// ============================================================================
+// STORE DUTY / SHIFT FOUNDATION (16L1)
+// Các hàm này chỉ tạo nền dữ liệu. Chưa thay quyền hoặc luồng Cửa hàng hiện tại.
+// ============================================================================
+
+export async function createStoreDutyAssignment(data: InsertStoreDutyAssignment) {
+      const db = await dbOrThrow();
+      const [result]: any = await db.insert(storeDutyAssignments).values(data);
+      const insertId = Number(result?.insertId || 0);
+      return insertId ? getStoreDutyAssignmentById(insertId) : result;
+}
+
+export async function getStoreDutyAssignmentById(id: number) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeDutyAssignments)
+            .where(eq(storeDutyAssignments.id, id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function getStoreDutyAssignmentByDutyAssignmentId(dutyAssignmentId: number) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeDutyAssignments)
+            .where(eq(storeDutyAssignments.dutyAssignmentId, dutyAssignmentId))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function updateStoreDutyAssignment(
+      id: number,
+      data: Partial<InsertStoreDutyAssignment>,
+) {
+      const db = await dbOrThrow();
+      await db
+            .update(storeDutyAssignments)
+            .set(data)
+            .where(eq(storeDutyAssignments.id, id));
+      return getStoreDutyAssignmentById(id);
+}
+
+export async function replaceStoreDutyMembers(
+      storeDutyAssignmentId: number,
+      members: Array<{
+            residentId: number;
+            memberRole?: "primary" | "assistant" | "receiver";
+            status?: "assigned" | "confirmed" | "completed" | "cancelled";
+      }>,
+) {
+      const db = await dbOrThrow();
+      await db
+            .delete(storeDutyMembers)
+            .where(eq(storeDutyMembers.storeDutyAssignmentId, storeDutyAssignmentId));
+
+      if (members.length) {
+            await db.insert(storeDutyMembers).values(
+                  members.map((member) => ({
+                        storeDutyAssignmentId,
+                        residentId: member.residentId,
+                        memberRole: member.memberRole ?? "assistant",
+                        status: member.status ?? "assigned",
+                  })) as InsertStoreDutyMember[],
+            );
+      }
+
+      return listStoreDutyMembers(storeDutyAssignmentId);
+}
+
+export async function listStoreDutyMembers(storeDutyAssignmentId: number) {
+      const db = await dbOrThrow();
+      return db
+            .select()
+            .from(storeDutyMembers)
+            .where(eq(storeDutyMembers.storeDutyAssignmentId, storeDutyAssignmentId))
+            .orderBy(storeDutyMembers.id);
+}
+
+export async function createStoreShift(data: InsertStoreShift) {
+      const db = await dbOrThrow();
+      const [result]: any = await db.insert(storeShifts).values(data);
+      const insertId = Number(result?.insertId || 0);
+      return insertId ? getStoreShiftById(insertId) : result;
+}
+
+export async function getStoreShiftById(id: number) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeShifts)
+            .where(eq(storeShifts.id, id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function getStoreShiftByAssignmentId(storeDutyAssignmentId: number) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeShifts)
+            .where(eq(storeShifts.storeDutyAssignmentId, storeDutyAssignmentId))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function getStoreShiftByLedgerDateType(input: {
+      ledgerId: number;
+      shiftDate: string;
+      shiftType: "morning" | "afternoon";
+}) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeShifts)
+            .where(
+                  and(
+                        eq(storeShifts.ledgerId, input.ledgerId),
+                        eq(storeShifts.shiftDate, input.shiftDate),
+                        eq(storeShifts.shiftType, input.shiftType),
+                  ),
+            )
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function updateStoreShift(id: number, data: Partial<InsertStoreShift>) {
+      const db = await dbOrThrow();
+      await db.update(storeShifts).set(data).where(eq(storeShifts.id, id));
+      return getStoreShiftById(id);
+}
+
+export async function createStoreDutyAccessSession(
+      data: InsertStoreDutyAccessSession,
+) {
+      const db = await dbOrThrow();
+      const [result]: any = await db.insert(storeDutyAccessSessions).values(data);
+      const insertId = Number(result?.insertId || 0);
+      return insertId ? getStoreDutyAccessSessionById(insertId) : result;
+}
+
+export async function getStoreDutyAccessSessionById(id: number) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeDutyAccessSessions)
+            .where(eq(storeDutyAccessSessions.id, id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function getActiveStoreDutyAccessSession(input: {
+      storeShiftId: number;
+      residentId: number;
+}) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeDutyAccessSessions)
+            .where(
+                  and(
+                        eq(storeDutyAccessSessions.storeShiftId, input.storeShiftId),
+                        eq(storeDutyAccessSessions.residentId, input.residentId),
+                        eq(storeDutyAccessSessions.status, "active"),
+                  ),
+            )
+            .orderBy(desc(storeDutyAccessSessions.id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function updateStoreDutyAccessSession(
+      id: number,
+      data: Partial<InsertStoreDutyAccessSession>,
+) {
+      const db = await dbOrThrow();
+      await db
+            .update(storeDutyAccessSessions)
+            .set(data)
+            .where(eq(storeDutyAccessSessions.id, id));
+      return getStoreDutyAccessSessionById(id);
+}
+
+export async function revokeStoreDutyAccessSessions(input: {
+      storeShiftId: number;
+      residentId?: number | null;
+      revokedAt?: Date;
+}) {
+      const db = await dbOrThrow();
+      const conditions: any[] = [
+            eq(storeDutyAccessSessions.storeShiftId, input.storeShiftId),
+      ];
+      if (input.residentId) {
+            conditions.push(eq(storeDutyAccessSessions.residentId, input.residentId));
+      }
+
+      await db
+            .update(storeDutyAccessSessions)
+            .set({
+                  status: "revoked",
+                  revokedAt: input.revokedAt ?? new Date(),
+                  sessionExpiresAt: input.revokedAt ?? new Date(),
+            } as any)
+            .where(and(...conditions));
+}
+
+export async function createStoreShiftHandover(data: InsertStoreShiftHandover) {
+      const db = await dbOrThrow();
+      const [result]: any = await db.insert(storeShiftHandovers).values(data);
+      const insertId = Number(result?.insertId || 0);
+      return insertId ? getStoreShiftHandoverById(insertId) : result;
+}
+
+export async function getStoreShiftHandoverById(id: number) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeShiftHandovers)
+            .where(eq(storeShiftHandovers.id, id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function getLatestStoreShiftHandover(storeShiftId: number) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeShiftHandovers)
+            .where(eq(storeShiftHandovers.storeShiftId, storeShiftId))
+            .orderBy(desc(storeShiftHandovers.id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function updateStoreShiftHandover(
+      id: number,
+      data: Partial<InsertStoreShiftHandover>,
+) {
+      const db = await dbOrThrow();
+      await db
+            .update(storeShiftHandovers)
+            .set(data)
+            .where(eq(storeShiftHandovers.id, id));
+      return getStoreShiftHandoverById(id);
+}
+

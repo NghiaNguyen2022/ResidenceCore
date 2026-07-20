@@ -1478,7 +1478,7 @@ export async function listFinanceTransactions(input: {
             if (!closing?.id) continue;
 
             const transactionResult = await db.execute(sql`
-                  SELECT transactionCode, direction, amount, title, partnerName, status
+                  SELECT id, transactionCode, direction, amount, title, partnerName, status
                   FROM storeLedgerTransactions
                   WHERE dailyClosingId = ${Number(closing.id)}
                         AND isActive = 1
@@ -1489,20 +1489,68 @@ export async function listFinanceTransactions(input: {
             const transactions = getRows(transactionResult);
             if (!transactions.length) continue;
 
+            const transactionIds = transactions.map((item: any) => Number(item.id || 0)).filter((id: number) => id > 0);
+            const documentLinesByTransactionId = new Map<number, any[]>();
+            if (transactionIds.length) {
+                  const documentLinesResult = await db.execute(sql`
+                        SELECT
+                              d.ledgerTransactionId,
+                              d.documentCode,
+                              d.partnerName,
+                              dl.quantity,
+                              dl.unitCost,
+                              dl.unitPrice,
+                              dl.lineAmount,
+                              p.productName,
+                              p.unit AS productUnit
+                        FROM storeDocuments d
+                        INNER JOIN storeDocumentLines dl ON dl.documentId = d.id
+                        LEFT JOIN storeProducts p ON p.id = dl.productId
+                        WHERE d.ledgerTransactionId IN (${sql.join(transactionIds.map((id: number) => sql`${id}`), sql`, `)})
+                        ORDER BY d.id ASC, dl.lineNo ASC, dl.id ASC
+                  `);
+                  for (const line of getRows(documentLinesResult)) {
+                        const transactionId = Number(line.ledgerTransactionId || 0);
+                        if (!transactionId) continue;
+                        const current = documentLinesByTransactionId.get(transactionId) || [];
+                        current.push(line);
+                        documentLinesByTransactionId.set(transactionId, current);
+                  }
+            }
+
             const directionLabel = String(row.direction) === "in" ? "thu" : "chi";
+            const totalLabel = String(row.direction) === "in" ? "Tổng thu" : "Tổng chi";
+            const partnerLabel = String(row.direction) === "in" ? "Khách hàng" : "Nhà cung cấp / nguồn giao";
+            const money = (value: unknown) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value || 0));
             const details = transactions.map((item: any, index: number) => {
                   const title = String(item?.title || (directionLabel === "thu" ? "Khoản thu" : "Khoản chi")).trim();
                   const partner = String(item?.partnerName || "").trim();
                   const code = String(item?.transactionCode || "").trim();
-                  const amount = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(item?.amount || 0));
-                  return `${index + 1}. ${title}${partner ? ` · ${partner}` : ""} — ${amount}đ${code ? ` [${code}]` : ""}`;
+                  const amount = money(item?.amount);
+                  const documentLines = documentLinesByTransactionId.get(Number(item.id || 0)) || [];
+                  const lineDetails = documentLines.map((line: any) => {
+                        const quantity = money(line.quantity);
+                        const unitValue = money(String(row.direction) === "in" ? line.unitPrice : line.unitCost);
+                        const lineAmount = money(line.lineAmount);
+                        const productName = String(line.productName || "Hàng hóa").trim();
+                        const productUnit = String(line.productUnit || "").trim();
+                        return `   - ${productName}: ${quantity}${productUnit ? ` ${productUnit}` : ""} × ${unitValue}đ = ${lineAmount}đ`;
+                  });
+                  return [
+                        `${index + 1}. ${title}${code ? ` [${code}]` : ""}`,
+                        partner ? `   ${partnerLabel}: ${partner}` : "",
+                        ...lineDetails,
+                        `   Cộng giao dịch: ${amount}đ`,
+                  ].filter(Boolean).join("\n");
             });
             const closingDate = String(closing.closingDate || row.transactionDate).slice(0, 10);
             const closingCode = String(closing.closingCode || batchId);
+            const total = transactions.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
             const detailedDescription = [
                   `Chốt sổ cửa hàng ngày ${closingDate} · ${closingCode}`,
                   `Chi tiết từng giao dịch ${directionLabel}:`,
                   ...details,
+                  `${totalLabel}: ${money(total)}đ`,
             ].join("\n");
 
             row.description = detailedDescription;

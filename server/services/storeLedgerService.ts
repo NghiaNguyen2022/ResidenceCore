@@ -60,6 +60,34 @@ function formatFinanceMoney(value: unknown) {
       return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
+async function attachClosingDocuments(closingDate: string, transactions: any[]) {
+      const [saleDocuments, stockInDocuments] = await Promise.all([
+            storeLedgerDb.listStoreDocuments({
+                  documentType: "sale",
+                  fromDate: closingDate,
+                  toDate: closingDate,
+                  limit: 300,
+            }),
+            storeLedgerDb.listStoreDocuments({
+                  documentType: "stock_in",
+                  fromDate: closingDate,
+                  toDate: closingDate,
+                  limit: 300,
+            }),
+      ]);
+
+      const documentByTransactionId = new Map<number, any>();
+      [...saleDocuments, ...stockInDocuments].forEach((document: any) => {
+            const transactionId = Number(document?.ledgerTransactionId || 0);
+            if (transactionId) documentByTransactionId.set(transactionId, document);
+      });
+
+      return transactions.map((transaction: any) => ({
+            ...transaction,
+            storeDocument: documentByTransactionId.get(Number(transaction?.id || 0)) || null,
+      }));
+}
+
 function buildClosingFinanceDescription(input: {
       closingDate: string;
       closingCode: string;
@@ -67,6 +95,7 @@ function buildClosingFinanceDescription(input: {
       transactions: any[];
 }) {
       const directionLabel = input.direction === "in" ? "thu" : "chi";
+      const totalLabel = input.direction === "in" ? "Tổng thu" : "Tổng chi";
       const rows = input.transactions
             .filter((item: any) => item?.status !== "cancelled" && item?.direction === input.direction)
             .map((item: any, index: number) => {
@@ -74,7 +103,30 @@ function buildClosingFinanceDescription(input: {
                   const partner = String(item?.partnerName || "").trim();
                   const code = String(item?.transactionCode || "").trim();
                   const amount = formatFinanceMoney(item?.amount);
-                  return `${index + 1}. ${title}${partner ? ` · ${partner}` : ""} — ${amount}đ${code ? ` [${code}]` : ""}`;
+                  const document = item?.storeDocument;
+                  const partnerLabel = input.direction === "in" ? "Khách hàng" : "Nhà cung cấp / nguồn giao";
+                  const lines = Array.isArray(document?.lines) ? document.lines : [];
+                  const lineDetails = lines.map((line: any) => {
+                        const productName = String(line?.productName || line?.name || "Hàng hóa").trim();
+                        const unit = String(line?.productUnit || line?.unit || "").trim();
+                        const quantity = formatFinanceMoney(line?.quantity);
+                        const unitValue = formatFinanceMoney(
+                              input.direction === "in"
+                                    ? line?.unitPrice ?? line?.unitValue
+                                    : line?.unitCost ?? line?.unitValue,
+                        );
+                        const lineAmount = formatFinanceMoney(
+                              line?.lineAmount ?? Number(line?.quantity || 0) * Number(input.direction === "in" ? line?.unitPrice || line?.unitValue || 0 : line?.unitCost || line?.unitValue || 0),
+                        );
+                        return `   - ${productName}: ${quantity}${unit ? ` ${unit}` : ""} × ${unitValue}đ = ${lineAmount}đ`;
+                  });
+
+                  return [
+                        `${index + 1}. ${title}${code ? ` [${code}]` : ""}`,
+                        partner ? `   ${partnerLabel}: ${partner}` : "",
+                        ...lineDetails,
+                        `   Cộng giao dịch: ${amount}đ`,
+                  ].filter(Boolean).join("\n");
             });
 
       const heading = `Chốt sổ cửa hàng ngày ${input.closingDate} · ${input.closingCode}`;
@@ -82,7 +134,11 @@ function buildClosingFinanceDescription(input: {
             return `${heading}\nKhông có giao dịch ${directionLabel} hợp lệ trong ngày chốt.`;
       }
 
-      return `${heading}\nChi tiết từng giao dịch ${directionLabel}:\n${rows.join("\n")}`;
+      const total = input.transactions
+            .filter((item: any) => item?.status !== "cancelled" && item?.direction === input.direction)
+            .reduce((sum: number, item: any) => sum + Number(item?.amount || 0), 0);
+
+      return `${heading}\nChi tiết từng giao dịch ${directionLabel}:\n${rows.join("\n")}\n${totalLabel}: ${formatFinanceMoney(total)}đ`;
 }
 
 export const storeLedgerService = {
@@ -617,7 +673,9 @@ export const storeLedgerService = {
                   throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy ngày chốt." });
             }
 
-            const closingTransactions = await storeLedgerDb.listStoreLedgerTransactionsByClosing(id);
+            const rawClosingTransactions = await storeLedgerDb.listStoreLedgerTransactionsByClosing(id);
+            const closingDateForDocuments = normalizeDateYmd((closing as any).closingDate, "Ngày chốt sổ không hợp lệ.");
+            const closingTransactions = await attachClosingDocuments(closingDateForDocuments, rawClosingTransactions);
 
             if (Boolean((closing as any).postedToFinance)) {
                   const existingBatchId = String((closing as any).financeBatchId || `STORE-${String((closing as any).closingCode || id)}`);
