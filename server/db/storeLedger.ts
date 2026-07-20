@@ -1063,6 +1063,113 @@ export async function getActiveStoreDutyAccessSession(input: {
       return rows[0] ?? null;
 }
 
+
+export async function getLatestStoreDutyAccessSession(input: {
+      storeShiftId: number;
+      residentId: number;
+}) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeDutyAccessSessions)
+            .where(
+                  and(
+                        eq(storeDutyAccessSessions.storeShiftId, input.storeShiftId),
+                        eq(storeDutyAccessSessions.residentId, input.residentId),
+                  ),
+            )
+            .orderBy(desc(storeDutyAccessSessions.id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function getLatestPendingStoreDutyAccessSession(input: {
+      storeShiftId: number;
+      residentId: number;
+}) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeDutyAccessSessions)
+            .where(
+                  and(
+                        eq(storeDutyAccessSessions.storeShiftId, input.storeShiftId),
+                        eq(storeDutyAccessSessions.residentId, input.residentId),
+                        eq(storeDutyAccessSessions.status, "pending"),
+                  ),
+            )
+            .orderBy(desc(storeDutyAccessSessions.id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function getStoreDutyAccessSessionByTokenHash(accessTokenHash: string) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeDutyAccessSessions)
+            .where(eq(storeDutyAccessSessions.accessTokenHash, accessTokenHash))
+            .orderBy(desc(storeDutyAccessSessions.id))
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function getStoreDutyMember(input: {
+      storeDutyAssignmentId: number;
+      residentId: number;
+}) {
+      const db = await dbOrThrow();
+      const rows = await db
+            .select()
+            .from(storeDutyMembers)
+            .where(
+                  and(
+                        eq(storeDutyMembers.storeDutyAssignmentId, input.storeDutyAssignmentId),
+                        eq(storeDutyMembers.residentId, input.residentId),
+                  ),
+            )
+            .limit(1);
+      return rows[0] ?? null;
+}
+
+export async function listStoreShiftCandidatesForResident(residentId: number) {
+      const db = await dbOrThrow();
+      return db
+            .select({
+                  storeShiftId: storeShifts.id,
+                  storeDutyAssignmentId: storeShifts.storeDutyAssignmentId,
+                  ledgerId: storeShifts.ledgerId,
+                  ledgerName: storeLedgers.ledgerName,
+                  shiftDate: storeShifts.shiftDate,
+                  shiftType: storeShifts.shiftType,
+                  scheduledFrom: storeShifts.scheduledFrom,
+                  scheduledTo: storeShifts.scheduledTo,
+                  accessValidFrom: storeShifts.accessValidFrom,
+                  accessValidUntil: storeShifts.accessValidUntil,
+                  shiftStatus: storeShifts.status,
+                  memberRole: storeDutyMembers.memberRole,
+            })
+            .from(storeDutyMembers)
+            .innerJoin(
+                  storeDutyAssignments,
+                  eq(storeDutyAssignments.id, storeDutyMembers.storeDutyAssignmentId),
+            )
+            .innerJoin(
+                  storeShifts,
+                  eq(storeShifts.storeDutyAssignmentId, storeDutyAssignments.id),
+            )
+            .innerJoin(storeLedgers, eq(storeLedgers.id, storeShifts.ledgerId))
+            .where(
+                  and(
+                        eq(storeDutyMembers.residentId, residentId),
+                        sql`${storeDutyMembers.status} <> 'cancelled'`,
+                        sql`${storeShifts.status} NOT IN ('cancelled','confirmed','expired')`,
+                        sql`${storeShifts.accessValidUntil} >= NOW()`,
+                  ),
+            )
+            .orderBy(storeShifts.accessValidFrom, storeShifts.id);
+}
+
 export async function updateStoreDutyAccessSession(
       id: number,
       data: Partial<InsertStoreDutyAccessSession>,

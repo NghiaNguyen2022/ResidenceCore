@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, protectedProcedure } from "../../_core/trpc";
 import { residentPortalService } from "../../services/residentPortalService";
 import { residentPortalAccessService } from "../../services/residentPortalAccessService";
+import { storeDutyAccessService } from "../../services/storeDutyAccessService";
 import {
       getUnreadNotificationCountForUser,
       listNotificationsForUser,
@@ -23,6 +24,49 @@ function getUserIdFromContext(ctx: any) {
 }
 
 export const residentPortalRouter = router({
+      getMyStoreDutyAccess: protectedProcedure.query(async ({ ctx }) => {
+            const userId = getUserIdFromContext(ctx);
+            return storeDutyAccessService.getMyCurrentShift(userId);
+      }),
+
+      verifyMyStoreAccessCode: protectedProcedure
+            .input(
+                  z.object({
+                        storeShiftId: z.number().int().positive(),
+                        accessCode: z.string().trim().length(6),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  const userId = getUserIdFromContext(ctx);
+                  const portalSessionId =
+                        ctx?.session?.id ??
+                        ctx?.session?.sessionId ??
+                        null;
+
+                  return storeDutyAccessService.verifyMyAccessCode({
+                        userId,
+                        storeShiftId: input.storeShiftId,
+                        accessCode: input.accessCode,
+                        portalSessionId,
+                  });
+            }),
+
+      getMyStoreAccessSession: protectedProcedure
+            .input(
+                  z.object({
+                        storeShiftId: z.number().int().positive(),
+                        accessToken: z.string().trim().min(20),
+                  }),
+            )
+            .query(async ({ ctx, input }) => {
+                  const userId = getUserIdFromContext(ctx);
+                  return storeDutyAccessService.getMyActiveAccessSession({
+                        userId,
+                        storeShiftId: input.storeShiftId,
+                        accessToken: input.accessToken,
+                  });
+            }),
+
       me: protectedProcedure.query(async ({ ctx }) => {
             const userId = getUserIdFromContext(ctx);
             return residentPortalService.me(userId);

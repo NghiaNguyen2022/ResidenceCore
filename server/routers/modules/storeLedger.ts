@@ -3,6 +3,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../../_core/trpc";
 import { isManager } from "../../_core/rbac";
 import { storeLedgerService } from "../../services/storeLedgerService";
+import { storeDutyAccessService } from "../../services/storeDutyAccessService";
 
 function requireStoreLedgerAccess(user: {
       id?: number;
@@ -16,6 +17,27 @@ function requireStoreLedgerAccess(user: {
 
 function getUserId(ctx: any) {
       return Number(ctx?.user?.id ?? ctx?.session?.user?.id ?? ctx?.auth?.user?.id ?? ctx?.userId ?? 0) || null;
+}
+
+const residentStoreAccessSchema = {
+      storeShiftId: z.number().int().positive().optional().nullable(),
+      storeAccessToken: z.string().trim().min(20).optional().nullable(),
+};
+
+async function requireStoreOperationAccess(input: {
+      ctx: any;
+      storeShiftId?: number | null;
+      storeAccessToken?: string | null;
+      ledgerId?: number | null;
+      touchActivity?: boolean;
+}) {
+      return storeDutyAccessService.authorizeStoreAction({
+            user: input.ctx.user,
+            storeShiftId: input.storeShiftId,
+            accessToken: input.storeAccessToken,
+            ledgerId: input.ledgerId,
+            touchActivity: input.touchActivity,
+      });
 }
 
 const ledgerTypeSchema = z.enum(["store", "fund", "other"]);
@@ -44,6 +66,21 @@ const productInputSchema = z.object({
 
 
 export const storeLedgerRouter = router({
+      issueDutyAccessCode: protectedProcedure
+            .input(
+                  z.object({
+                        storeShiftId: z.number().int().positive(),
+                        residentId: z.number().int().positive(),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeDutyAccessService.issueAccessCode({
+                        ...input,
+                        issuedBy: getUserId(ctx),
+                  });
+            }),
+
 
 
       listDocuments: protectedProcedure
@@ -56,17 +93,33 @@ export const storeLedgerRouter = router({
                         search: z.string().optional().nullable(),
                         limit: z.number().int().min(1).max(300).optional(),
                         offset: z.number().int().min(0).optional(),
+                        ...residentStoreAccessSchema,
                   }).optional(),
             )
             .query(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.listDocuments(input || {});
+                  await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input?.storeShiftId,
+                        storeAccessToken: input?.storeAccessToken,
+                        ledgerId: input?.ledgerId,
+                  });
+                  const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
+                  return storeLedgerService.listDocuments(queryInput);
             }),
 
       getDocument: protectedProcedure
-            .input(z.object({ id: z.number().int().positive() }))
+            .input(
+                  z.object({
+                        id: z.number().int().positive(),
+                        ...residentStoreAccessSchema,
+                  }),
+            )
             .query(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
+                  await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input.storeShiftId,
+                        storeAccessToken: input.storeAccessToken,
+                  });
                   return storeLedgerService.getDocument(input.id);
             }),
 
@@ -85,11 +138,24 @@ export const storeLedgerRouter = router({
                               unitCost: z.number().positive(),
                               notes: z.string().optional().nullable(),
                         })).min(1),
+                        ...residentStoreAccessSchema,
                   }),
             )
             .mutation(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.createStockInDocument({ ...input, createdBy: getUserId(ctx) });
+                  const access = await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input.storeShiftId,
+                        storeAccessToken: input.storeAccessToken,
+                        ledgerId: input.ledgerId,
+                  });
+                  const { storeShiftId, storeAccessToken, ...documentInput } = input;
+                  return storeLedgerService.createStockInDocument({
+                        ...documentInput,
+                        createdBy: getUserId(ctx),
+                        storeShiftId: access.storeShiftId,
+                        storeDutyAssignmentId: access.storeDutyAssignmentId,
+                        createdByResidentId: access.residentId,
+                  } as any);
             }),
 
       createSaleDocument: protectedProcedure
@@ -106,11 +172,24 @@ export const storeLedgerRouter = router({
                               unitPrice: z.number().positive().optional().nullable(),
                               notes: z.string().optional().nullable(),
                         })).min(1),
+                        ...residentStoreAccessSchema,
                   }),
             )
             .mutation(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.createSaleDocument({ ...input, createdBy: getUserId(ctx) });
+                  const access = await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input.storeShiftId,
+                        storeAccessToken: input.storeAccessToken,
+                        ledgerId: input.ledgerId,
+                  });
+                  const { storeShiftId, storeAccessToken, ...documentInput } = input;
+                  return storeLedgerService.createSaleDocument({
+                        ...documentInput,
+                        createdBy: getUserId(ctx),
+                        storeShiftId: access.storeShiftId,
+                        storeDutyAssignmentId: access.storeDutyAssignmentId,
+                        createdByResidentId: access.residentId,
+                  } as any);
             }),
 
       listProducts: protectedProcedure
@@ -120,11 +199,19 @@ export const storeLedgerRouter = router({
                         category: z.string().optional().nullable(),
                         isActive: z.boolean().optional().nullable(),
                         lowStockOnly: z.boolean().optional().nullable(),
+                        ...residentStoreAccessSchema,
                   }).optional(),
             )
             .query(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.listProducts(input || { isActive: true });
+                  await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input?.storeShiftId,
+                        storeAccessToken: input?.storeAccessToken,
+                  });
+                  const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
+                  return storeLedgerService.listProducts(
+                        Object.keys(queryInput).length ? queryInput : { isActive: true },
+                  );
             }),
 
       listStockMovements: protectedProcedure
@@ -135,11 +222,17 @@ export const storeLedgerRouter = router({
                         movementTypes: z.array(z.enum(["purchase", "production_in", "self_supply_in", "other_in", "sale", "adjustment_in", "adjustment_out", "return"])).optional().nullable(),
                         limit: z.number().int().min(1).max(300).optional(),
                         offset: z.number().int().min(0).optional(),
+                        ...residentStoreAccessSchema,
                   }).optional(),
             )
             .query(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.listStockMovements(input || {});
+                  await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input?.storeShiftId,
+                        storeAccessToken: input?.storeAccessToken,
+                  });
+                  const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
+                  return storeLedgerService.listStockMovements(queryInput);
             }),
 
       createProduct: protectedProcedure
@@ -187,10 +280,27 @@ export const storeLedgerRouter = router({
             }),
 
       listLedgers: protectedProcedure
-            .input(z.object({ search: z.string().optional().nullable(), isActive: z.boolean().optional().nullable() }).optional())
+            .input(
+                  z.object({
+                        search: z.string().optional().nullable(),
+                        isActive: z.boolean().optional().nullable(),
+                        ...residentStoreAccessSchema,
+                  }).optional(),
+            )
             .query(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.listLedgers(input || { isActive: true });
+                  const access = await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input?.storeShiftId,
+                        storeAccessToken: input?.storeAccessToken,
+                        touchActivity: false,
+                  });
+                  const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
+                  const ledgers = await storeLedgerService.listLedgers(
+                        Object.keys(queryInput).length ? queryInput : { isActive: true },
+                  );
+                  return access.accessMode === "resident"
+                        ? ledgers.filter((item: any) => Number(item.id) === Number(access.ledgerId))
+                        : ledgers;
             }),
 
       createLedger: protectedProcedure
@@ -231,11 +341,18 @@ export const storeLedgerRouter = router({
                         ledgerId: z.number().int().positive().optional().nullable(),
                         fromDate: z.string().optional().nullable(),
                         toDate: z.string().optional().nullable(),
+                        ...residentStoreAccessSchema,
                   }).optional(),
             )
             .query(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.getSummary(input || {});
+                  await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input?.storeShiftId,
+                        storeAccessToken: input?.storeAccessToken,
+                        ledgerId: input?.ledgerId,
+                  });
+                  const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
+                  return storeLedgerService.getSummary(queryInput);
             }),
 
       listTransactions: protectedProcedure
@@ -248,11 +365,18 @@ export const storeLedgerRouter = router({
                         search: z.string().optional().nullable(),
                         limit: z.number().int().min(1).max(300).optional(),
                         offset: z.number().int().min(0).optional(),
+                        ...residentStoreAccessSchema,
                   }).optional(),
             )
             .query(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.listTransactions(input || {});
+                  await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input?.storeShiftId,
+                        storeAccessToken: input?.storeAccessToken,
+                        ledgerId: input?.ledgerId,
+                  });
+                  const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
+                  return storeLedgerService.listTransactions(queryInput);
             }),
 
 
@@ -265,11 +389,18 @@ export const storeLedgerRouter = router({
                         toDate: z.string().optional().nullable(),
                         limit: z.number().int().min(1).max(120).optional(),
                         offset: z.number().int().min(0).optional(),
+                        ...residentStoreAccessSchema,
                   }).optional(),
             )
             .query(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.listDailyClosings(input || {});
+                  await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input?.storeShiftId,
+                        storeAccessToken: input?.storeAccessToken,
+                        ledgerId: input?.ledgerId,
+                  });
+                  const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
+                  return storeLedgerService.listDailyClosings(queryInput);
             }),
 
       previewDailyClosing: protectedProcedure
@@ -277,11 +408,24 @@ export const storeLedgerRouter = router({
                   z.object({
                         ledgerId: z.number().int().positive(),
                         closingDate: z.string().trim().min(1),
+                        ...residentStoreAccessSchema,
                   }),
             )
             .query(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.previewDailyClosing(input);
+                  const access = await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input.storeShiftId,
+                        storeAccessToken: input.storeAccessToken,
+                        ledgerId: input.ledgerId,
+                  });
+                  if (access.accessMode === "resident" && access.shiftType !== "afternoon") {
+                        throw new TRPCError({
+                              code: "FORBIDDEN",
+                              message: "Chỉ học viên trực ca chiều mới được xem trước chốt ngày.",
+                        });
+                  }
+                  const { storeShiftId, storeAccessToken, ...queryInput } = input;
+                  return storeLedgerService.previewDailyClosing(queryInput);
             }),
 
       closeDaily: protectedProcedure
@@ -290,11 +434,27 @@ export const storeLedgerRouter = router({
                         ledgerId: z.number().int().positive(),
                         closingDate: z.string().trim().min(1),
                         notes: z.string().optional().nullable(),
+                        ...residentStoreAccessSchema,
                   }),
             )
             .mutation(async ({ ctx, input }) => {
-                  requireStoreLedgerAccess(ctx.user);
-                  return storeLedgerService.closeDaily({ ...input, createdBy: getUserId(ctx) });
+                  const access = await requireStoreOperationAccess({
+                        ctx,
+                        storeShiftId: input.storeShiftId,
+                        storeAccessToken: input.storeAccessToken,
+                        ledgerId: input.ledgerId,
+                  });
+                  if (access.accessMode === "resident" && access.shiftType !== "afternoon") {
+                        throw new TRPCError({
+                              code: "FORBIDDEN",
+                              message: "Chỉ học viên trực ca chiều mới được chốt ngày.",
+                        });
+                  }
+                  const { storeShiftId, storeAccessToken, ...closeInput } = input;
+                  return storeLedgerService.closeDaily({
+                        ...closeInput,
+                        createdBy: getUserId(ctx),
+                  });
             }),
 
 

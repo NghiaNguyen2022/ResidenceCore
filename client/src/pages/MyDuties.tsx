@@ -93,6 +93,38 @@ export default function MyDuties() {
       const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
       const isResident = user?.role === "resident";
       const [filter, setFilter] = useState<DutyFilter>("all");
+      const [storeAccessOpen, setStoreAccessOpen] = useState(false);
+      const [storeAccessCode, setStoreAccessCode] = useState("");
+
+      const storeAccessQuery = trpc.residentPortal.getMyStoreDutyAccess.useQuery(
+            undefined,
+            {
+                  enabled: Boolean(user) && isResident,
+                  retry: 1,
+            },
+      );
+
+      const verifyStoreAccessMutation =
+            trpc.residentPortal.verifyMyStoreAccessCode.useMutation({
+                  onSuccess: (result) => {
+                        sessionStorage.setItem(
+                              "residentStoreAccess",
+                              JSON.stringify({
+                                    accessToken: result.accessToken,
+                                    storeShiftId: result.storeShiftId,
+                                    ledgerId: result.ledgerId,
+                                    validUntil: result.validUntil,
+                              }),
+                        );
+                        setStoreAccessOpen(false);
+                        setStoreAccessCode("");
+                        storeAccessQuery.refetch();
+                        toast.success(result.message || "Đã mở quyền Cửa hàng.");
+                  },
+                  onError: (error) => {
+                        toast.error(error.message || "Mã truy cập không hợp lệ.");
+                  },
+            });
 
       const todayQuery = trpc.residentPortal.getTodayOverview.useQuery(undefined, {
             enabled: Boolean(user) && isResident,
@@ -150,6 +182,9 @@ export default function MyDuties() {
             { key: "completed", label: "Hoàn thành", count: dutyStats.completed },
             { key: "other", label: "Khác", count: dutyStats.other },
       ];
+
+      const storeAccess = storeAccessQuery.data as any;
+      const currentStoreShift = storeAccess?.shift;
 
       if (!canShowResidentView) {
             return (
@@ -211,6 +246,85 @@ export default function MyDuties() {
                                           </Card>
                                     ))}
                               </div>
+
+                              {storeAccess?.hasShift ? (
+                                    <Card className="mt-4 rounded-[28px] border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.98),rgba(255,255,255,0.96))] p-5 shadow-[0_18px_46px_rgba(120,53,15,0.07)]">
+                                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                                <div>
+                                                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+                                                            Ca trực Cửa hàng
+                                                      </p>
+                                                      <h2 className="mt-1 text-lg font-semibold text-[#17335f]">
+                                                            {currentStoreShift?.ledgerName || "Cửa hàng"} ·{" "}
+                                                            {currentStoreShift?.shiftType === "morning" ? "Ca sáng" : "Ca chiều"}
+                                                      </h2>
+                                                      <p className="mt-1 text-sm text-slate-500">{storeAccess.message}</p>
+                                                </div>
+                                                <Button
+                                                      type="button"
+                                                      disabled={!storeAccess.canEnter}
+                                                      onClick={() => setStoreAccessOpen(true)}
+                                                      className="rounded-full bg-amber-500 px-5 font-semibold text-white hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400"
+                                                >
+                                                      Vào cửa hàng
+                                                </Button>
+                                          </div>
+                                    </Card>
+                              ) : null}
+
+                              {storeAccessOpen ? (
+                                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
+                                          <div className="w-full max-w-md rounded-[28px] border border-amber-100 bg-white p-5 shadow-2xl">
+                                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+                                                      Xác thực ca trực
+                                                </p>
+                                                <h2 className="mt-1 text-xl font-semibold text-[#17335f]">
+                                                      Nhập mã vào Cửa hàng
+                                                </h2>
+                                                <p className="mt-2 text-sm leading-6 text-slate-500">
+                                                      Nhập mã 6 số do quản lý cấp cho đúng ca trực hiện tại.
+                                                </p>
+                                                <input
+                                                      inputMode="numeric"
+                                                      maxLength={6}
+                                                      value={storeAccessCode}
+                                                      onChange={(event) =>
+                                                            setStoreAccessCode(
+                                                                  event.target.value.replace(/\D/g, "").slice(0, 6),
+                                                            )
+                                                      }
+                                                      className="mt-4 w-full rounded-2xl border border-amber-200 bg-amber-50/50 px-4 py-3 text-center text-2xl font-bold tracking-[0.35em] text-[#17335f] outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
+                                                      placeholder="000000"
+                                                />
+                                                <div className="mt-5 flex justify-end gap-2">
+                                                      <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                  setStoreAccessOpen(false);
+                                                                  setStoreAccessCode("");
+                                                            }}
+                                                            className="rounded-full"
+                                                      >
+                                                            Hủy
+                                                      </Button>
+                                                      <Button
+                                                            type="button"
+                                                            disabled={storeAccessCode.length !== 6 || verifyStoreAccessMutation.isPending}
+                                                            onClick={() =>
+                                                                  verifyStoreAccessMutation.mutate({
+                                                                        storeShiftId: Number(currentStoreShift?.id),
+                                                                        accessCode: storeAccessCode,
+                                                                  })
+                                                            }
+                                                            className="rounded-full bg-amber-500 text-white hover:bg-amber-600"
+                                                      >
+                                                            {verifyStoreAccessMutation.isPending ? "Đang xác thực..." : "Xác nhận"}
+                                                      </Button>
+                                                </div>
+                                          </div>
+                                    </div>
+                              ) : null}
 
                               <Card className="mt-4 overflow-hidden rounded-[30px] border-amber-100/80 bg-white/90 shadow-[0_18px_48px_rgba(120,53,15,0.065)]">
                                     <div className="flex flex-col gap-3 border-b border-amber-100/70 bg-[linear-gradient(135deg,rgba(255,251,235,0.94),rgba(255,255,255,0.9))] px-5 py-4 md:flex-row md:items-center md:justify-between">
