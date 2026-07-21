@@ -263,6 +263,37 @@ export const storeDutyAccessService = {
             };
       },
 
+      async issueAccessCodeByDutyAssignment(input: {
+            dutyAssignmentId: number;
+            residentId: number;
+            issuedBy: number | null;
+      }) {
+            const storeDutyAssignment =
+                  await storeDb.getStoreDutyAssignmentByDutyAssignmentId(
+                        input.dutyAssignmentId,
+                  );
+
+            if (!storeDutyAssignment?.id) {
+                  throw new Error(
+                        "Phân công này chưa được liên kết với ca trực Cửa hàng.",
+                  );
+            }
+
+            const shift = await storeDb.getStoreShiftByAssignmentId(
+                  Number(storeDutyAssignment.id),
+            );
+
+            if (!shift?.id) {
+                  throw new Error("Không tìm thấy ca trực Cửa hàng tương ứng.");
+            }
+
+            return this.issueAccessCode({
+                  storeShiftId: Number(shift.id),
+                  residentId: input.residentId,
+                  issuedBy: input.issuedBy,
+            });
+      },
+
       async verifyMyAccessCode(input: {
             userId: number;
             storeShiftId: number;

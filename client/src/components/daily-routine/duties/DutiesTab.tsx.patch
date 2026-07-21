@@ -1,0 +1,24 @@
+diff --git a/client/src/components/daily-routine/duties/DutiesTab.tsx b/client/src/components/daily-routine/duties/DutiesTab.tsx
+--- a/client/src/components/daily-routine/duties/DutiesTab.tsx
++++ b/client/src/components/daily-routine/duties/DutiesTab.tsx
+@@
+       onCompleteDuty: (assignment: any) => void;
+       onSkipDuty: (assignment: any) => void;
+       onCancelDuty: (assignment: any) => void;
++      onIssueStoreCode?: (assignment: any) => void;
++      isIssuingStoreCode?: boolean;
+       onOpenToday?: () => void;
+@@
+       onCompleteDuty,
+       onSkipDuty,
+       onCancelDuty,
++      onIssueStoreCode,
++      isIssuingStoreCode,
+ }: DutiesTabProps) {
+@@
+                               onCompleteDuty={onCompleteDuty}
+                               onSkipDuty={onSkipDuty}
+                               onCancelDuty={onCancelDuty}
++                              onIssueStoreCode={onIssueStoreCode}
++                              isIssuingStoreCode={isIssuingStoreCode}
+                         />

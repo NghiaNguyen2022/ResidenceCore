@@ -144,6 +144,21 @@ export const storeLedgerRouter = router({
                   });
             }),
 
+      issueDutyAccessCodeByAssignment: protectedProcedure
+            .input(
+                  z.object({
+                        dutyAssignmentId: z.number().int().positive(),
+                        residentId: z.number().int().positive(),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  requireStoreLedgerAccess(ctx.user);
+                  return storeDutyAccessService.issueAccessCodeByDutyAssignment({
+                        ...input,
+                        issuedBy: getUserId(ctx),
+                  });
+            }),
+
       issueDutyAccessCode: protectedProcedure
             .input(
                   z.object({

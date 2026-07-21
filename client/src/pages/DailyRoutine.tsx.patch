@@ -1,0 +1,68 @@
+diff --git a/client/src/pages/DailyRoutine.tsx b/client/src/pages/DailyRoutine.tsx
+--- a/client/src/pages/DailyRoutine.tsx
++++ b/client/src/pages/DailyRoutine.tsx
+@@
+       const completeAssignmentMutation = trpc.duties.completeAssignment.useMutation();
+       const skipAssignmentMutation = trpc.duties.skipAssignment.useMutation();
+       const assignDutyBatchMutation = trpc.duties.assignDutyBatch.useMutation();
+       const cancelAssignmentMutation = trpc.duties.cancelAssignment.useMutation();
+       const deleteDutyConfigMutation = trpc.duties.deleteConfig.useMutation();
++      const issueStoreCodeMutation =
++            (trpc as any).storeLedger.issueDutyAccessCodeByAssignment.useMutation();
+@@
+       const skipAssignment = async (assignment: any) => {
+@@
+       };
++
++      const issueStoreAccessCode = async (assignment: any) => {
++            const assignmentRows = getAssignmentGroupRows(assignment);
++            const storeAssignment = assignmentRows.find(
++                  (row: any) =>
++                        Number(
++                              row?.residentId ||
++                                    row?.assignedToId ||
++                                    row?.assigned_to_id ||
++                                    0
++                        ) > 0
++            );
++
++            const residentId = Number(
++                  storeAssignment?.residentId ||
++                        storeAssignment?.assignedToId ||
++                        storeAssignment?.assigned_to_id ||
++                        0
++            );
++
++            if (!storeAssignment?.id || !residentId) {
++                  showMessage(
++                        'error',
++                        'Không xác định được học viên của ca trực Cửa hàng.'
++                  );
++                  return;
++            }
++
++            try {
++                  const result = await issueStoreCodeMutation.mutateAsync({
++                        dutyAssignmentId: Number(storeAssignment.id),
++                        residentId,
++                  });
++
++                  showMessage(
++                        'success',
++                        result?.message ||
++                              'Đã gửi mã vào Cửa hàng qua Thông báo của học viên.'
++                  );
++            } catch (err: any) {
++                  showMessage(
++                        'error',
++                        err?.message || 'Không thể phát hành mã vào Cửa hàng.'
++                  );
++            }
++      };
+@@
+                                     onCompleteDuty={completeAssignment}
+                                     onSkipDuty={skipAssignment}
+                                     onCancelDuty={requestCancelAssignment}
++                                    onIssueStoreCode={issueStoreAccessCode}
++                                    isIssuingStoreCode={issueStoreCodeMutation.isPending}
+                               />
