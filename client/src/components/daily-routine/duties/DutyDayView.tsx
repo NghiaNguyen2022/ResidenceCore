@@ -1,7 +1,17 @@
 'use client';
 
-import { CheckCircle2, SkipForward, X } from 'lucide-react';
+import { useState } from 'react';
+import {
+      CheckCircle2,
+      ChevronDown,
+      ChevronUp,
+      KeyRound,
+      SkipForward,
+      X,
+} from 'lucide-react';
+import { toast } from 'sonner';
 
+import { trpc } from '@/lib/trpc';
 import {
       Badge,
       DateNavigator,
@@ -51,21 +61,17 @@ function normalizeDutyStatus(status?: string | null) {
 }
 
 function isFinalDutyStatus(status?: string | null) {
-      const normalizedStatus = normalizeDutyStatus(status);
-
-      return ['completed', 'skipped', 'absent', 'cancelled'].includes(normalizedStatus);
+      return ['completed', 'skipped', 'absent', 'cancelled'].includes(
+            normalizeDutyStatus(status)
+      );
 }
 
 function formatTimeText(value?: string | Date | null) {
       if (!value) return '--:--';
-
-      if (value instanceof Date) {
-            return value.toTimeString().slice(0, 5);
-      }
+      if (value instanceof Date) return value.toTimeString().slice(0, 5);
 
       const text = String(value);
       if (text.includes('T')) return text.slice(11, 16);
-
       return text.slice(0, 5);
 }
 
@@ -109,8 +115,7 @@ function getDutyConfigType(dutyConfig?: any | null) {
 }
 
 function isDailyDutyConfig(dutyConfig: any) {
-      const type = getDutyConfigType(dutyConfig);
-      return type === 'daily' && dutyConfig?.isActive !== false;
+      return getDutyConfigType(dutyConfig) === 'daily' && dutyConfig?.isActive !== false;
 }
 
 function getDutyConfigName(dutyConfig: any) {
@@ -178,18 +183,15 @@ function getGroupKey(assignment: any, selectedDate: string) {
 }
 
 function getGroupStatus(assignments: any[]) {
-      if (assignments.every((assignment) => normalizeDutyStatus(assignment.status) === 'completed')) {
+      if (assignments.every((item) => normalizeDutyStatus(item.status) === 'completed')) {
             return 'completed';
       }
-
-      if (assignments.every((assignment) => normalizeDutyStatus(assignment.status) === 'cancelled')) {
+      if (assignments.every((item) => normalizeDutyStatus(item.status) === 'cancelled')) {
             return 'cancelled';
       }
-
-      if (assignments.every((assignment) => isFinalDutyStatus(assignment.status))) {
+      if (assignments.every((item) => isFinalDutyStatus(item.status))) {
             return 'skipped';
       }
-
       return 'pending';
 }
 
@@ -198,7 +200,6 @@ function getGroupStatusLabel(status: string) {
       if (status === 'completed') return 'Đã hoàn thành';
       if (status === 'cancelled') return 'Đã hủy';
       if (status === 'skipped') return 'Đã xử lý';
-
       return 'Chưa hoàn thành';
 }
 
@@ -207,48 +208,40 @@ function getGroupStatusClass(status: string) {
       if (status === 'completed') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
       if (status === 'cancelled') return 'border-slate-200 bg-slate-100 text-slate-500';
       if (status === 'skipped') return 'border-amber-100 bg-amber-50 text-amber-700';
-
       return 'border-amber-100 bg-white/80 text-amber-800';
 }
 
-function buildDutyGroups(assignments: any[], selectedDate: string, dutyConfigs: any[] = []): DutyGroup[] {
+function buildDutyGroups(
+      assignments: any[],
+      selectedDate: string,
+      dutyConfigs: any[] = []
+): DutyGroup[] {
       const groupMap = new Map<string, any[]>();
 
       assignments.forEach((assignment) => {
             const key = getGroupKey(assignment, selectedDate);
-            const current = groupMap.get(key) || [];
-            current.push(assignment);
-            groupMap.set(key, current);
+            groupMap.set(key, [...(groupMap.get(key) || []), assignment]);
       });
 
       const assignedDutyConfigIds = new Set(
-            assignments
-                  .map(getAssignmentDutyConfigId)
-                  .filter(Boolean)
+            assignments.map(getAssignmentDutyConfigId).filter(Boolean)
       );
 
-      dutyConfigs
-            .filter(isDailyDutyConfig)
-            .forEach((dutyConfig) => {
-                  const dutyConfigId = String(dutyConfig?.id || '');
+      dutyConfigs.filter(isDailyDutyConfig).forEach((dutyConfig) => {
+            const dutyConfigId = String(dutyConfig?.id || '');
+            if (dutyConfigId && assignedDutyConfigIds.has(dutyConfigId)) return;
 
-                  if (dutyConfigId && assignedDutyConfigIds.has(dutyConfigId)) {
-                        return;
-                  }
+            const key = getDutyConfigKey(dutyConfig, selectedDate);
+            if (groupMap.has(key)) return;
 
-                  const key = getDutyConfigKey(dutyConfig, selectedDate);
-                  if (groupMap.has(key)) return;
-
-                  groupMap.set(key, [
-                        {
-                              id: `unassigned-${dutyConfig?.id}`,
-                              dutyConfigId: dutyConfig?.id,
-                              dutyConfig,
-                              status: 'unassigned',
-                              isUnassignedDuty: true,
-                        },
-                  ]);
-            });
+            groupMap.set(key, [{
+                  id: `unassigned-${dutyConfig?.id}`,
+                  dutyConfigId: dutyConfig?.id,
+                  dutyConfig,
+                  status: 'unassigned',
+                  isUnassignedDuty: true,
+            }]);
+      });
 
       return Array.from(groupMap.entries())
             .map(([key, rows]) => {
@@ -301,6 +294,10 @@ function InfoBox({ label, children }: { label: string; children: React.ReactNode
       );
 }
 
+function isStoreDuty(group: DutyGroup) {
+      return String(group.dutyName || '').toLowerCase().includes('cửa hàng');
+}
+
 export function DutyDayView({
       selectedDate,
       onDateChange,
@@ -314,7 +311,51 @@ export function DutyDayView({
       onSkipDuty,
       onCancelDuty,
 }: DutyDayViewProps) {
+      const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
       const dutyGroups = buildDutyGroups(assignments, selectedDate, dutyConfigs);
+
+      const issueCodeMutation =
+            (trpc as any).storeLedger.issueDutyAccessCodeByAssignment.useMutation({
+                  onSuccess: (result: any) => {
+                        toast.success(
+                              result?.message ||
+                                    'Đã gửi mã vào Cửa hàng qua Thông báo của học viên.'
+                        );
+                  },
+                  onError: (error: any) => {
+                        toast.error(
+                              error?.message || 'Không thể phát hành mã vào Cửa hàng.'
+                        );
+                  },
+            });
+
+      const issueStoreCode = (group: DutyGroup) => {
+            const assignment = group.assignments.find((item: any) =>
+                  Number(
+                        item?.residentId ||
+                              item?.assignedToId ||
+                              item?.assigned_to_id ||
+                              0
+                  ) > 0
+            );
+
+            const residentId = Number(
+                  assignment?.residentId ||
+                        assignment?.assignedToId ||
+                        assignment?.assigned_to_id ||
+                        0
+            );
+
+            if (!assignment?.id || !residentId) {
+                  toast.error('Không xác định được học viên của ca trực Cửa hàng.');
+                  return;
+            }
+
+            issueCodeMutation.mutate({
+                  dutyAssignmentId: Number(assignment.id),
+                  residentId,
+            });
+      };
 
       return (
             <SectionCard
@@ -334,7 +375,6 @@ export function DutyDayView({
                                     <option value="skipped">Vắng / không làm</option>
                                     <option value="cancelled">Đã hủy</option>
                               </select>
-
                               <DateNavigator value={selectedDate} onChange={onDateChange} />
                         </div>
                   }
@@ -351,6 +391,7 @@ export function DutyDayView({
                               {dutyGroups.map((group) => {
                                     const isFinal = isFinalDutyStatus(group.status);
                                     const isOverdue = group.visualState === 'overdue';
+                                    const expanded = expandedGroupId === group.id;
 
                                     return (
                                           <div
@@ -379,17 +420,14 @@ export function DutyDayView({
                                                                         <h3 className="text-base font-bold leading-tight text-slate-900">
                                                                               {group.dutyName}
                                                                         </h3>
-
                                                                         <Badge className={getGroupStatusClass(group.status)}>
                                                                               {getGroupStatusLabel(group.status)}
                                                                         </Badge>
-
                                                                         {group.assignments.length > 1 && (
                                                                               <Badge className="border-amber-100 bg-white/82 text-amber-800">
                                                                                     {group.assignments.length} người/đối tượng
                                                                               </Badge>
                                                                         )}
-
                                                                         {isOverdue && !isFinal && (
                                                                               <Badge className="border-rose-100 bg-rose-50 text-rose-700">
                                                                                     Đã quá giờ
@@ -399,17 +437,29 @@ export function DutyDayView({
                                                             </div>
 
                                                             {group.status === 'unassigned' ? (
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => onAssignDutyConfig?.(group.representative.dutyConfig)}
+                                                                        className="inline-flex items-center gap-2 rounded-xl border border-violet-100 bg-violet-50 px-3 py-1.5 text-sm font-semibold text-violet-700 transition hover:bg-violet-100"
+                                                                  >
+                                                                        Phân công
+                                                                  </button>
+                                                            ) : (
                                                                   <div className="flex flex-wrap gap-2">
                                                                         <button
                                                                               type="button"
-                                                                              onClick={() => onAssignDutyConfig?.(group.representative.dutyConfig)}
-                                                                              className="inline-flex items-center gap-2 rounded-xl border border-violet-100 bg-violet-50 px-3 py-1.5 text-sm font-semibold text-violet-700 transition hover:bg-violet-100"
+                                                                              onClick={() =>
+                                                                                    setExpandedGroupId(expanded ? null : group.id)
+                                                                              }
+                                                                              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                                                                         >
-                                                                              Phân công
+                                                                              {expanded ? (
+                                                                                    <ChevronUp className="h-4 w-4" />
+                                                                              ) : (
+                                                                                    <ChevronDown className="h-4 w-4" />
+                                                                              )}
+                                                                              {expanded ? 'Thu gọn' : 'Chi tiết'}
                                                                         </button>
-                                                                  </div>
-                                                            ) : (
-                                                                  <div className="flex flex-wrap gap-2">
                                                                         <button
                                                                               type="button"
                                                                               onClick={() => onCompleteDuty(group.representative)}
@@ -448,7 +498,7 @@ export function DutyDayView({
                                                                   </p>
                                                                   {group.status === 'unassigned' ? (
                                                                         <p className="mt-1 text-sm font-semibold text-violet-700">
-                                                                              Công tác daily chưa có người được phân công.
+                                                                              Công tác hằng ngày chưa có người được phân công.
                                                                         </p>
                                                                   ) : (
                                                                         <div className="mt-1 flex flex-wrap gap-1.5">
@@ -464,6 +514,56 @@ export function DutyDayView({
                                                                   )}
                                                             </div>
                                                       </div>
+
+                                                      {expanded && (
+                                                            <div className="rounded-2xl border border-amber-100 bg-white/90 p-4">
+                                                                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                                                        <InfoBox label="Ngày">{group.date}</InfoBox>
+                                                                        <InfoBox label="Khung giờ">{group.timeRange}</InfoBox>
+                                                                        <InfoBox label="Nơi làm">{group.place}</InfoBox>
+                                                                        <InfoBox label="Trạng thái">
+                                                                              {getGroupStatusLabel(group.status)}
+                                                                        </InfoBox>
+                                                                  </div>
+
+                                                                  {isStoreDuty(group) && (
+                                                                        <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                                                                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                                                                    <div>
+                                                                                          <p className="font-semibold text-indigo-900">
+                                                                                                Quyền vào Cửa hàng
+                                                                                          </p>
+                                                                                          <p className="mt-1 text-sm text-indigo-700">
+                                                                                                Mã mới sẽ được gửi qua mục Thông báo của học viên.
+                                                                                          </p>
+                                                                                    </div>
+                                                                                    <button
+                                                                                          type="button"
+                                                                                          disabled={issueCodeMutation.isPending}
+                                                                                          onClick={() => issueStoreCode(group)}
+                                                                                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                                                                                    >
+                                                                                          <KeyRound className="h-4 w-4" />
+                                                                                          {issueCodeMutation.isPending
+                                                                                                ? 'Đang gửi mã'
+                                                                                                : 'Gửi mã qua Thông báo'}
+                                                                                    </button>
+                                                                              </div>
+                                                                        </div>
+                                                                  )}
+
+                                                                  {group.representative?.notes && (
+                                                                        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                                                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                                                                    Ghi chú
+                                                                              </p>
+                                                                              <p className="mt-1 text-sm leading-6 text-slate-700">
+                                                                                    {group.representative.notes}
+                                                                              </p>
+                                                                        </div>
+                                                                  )}
+                                                            </div>
+                                                      )}
                                                 </div>
                                           </div>
                                     );
