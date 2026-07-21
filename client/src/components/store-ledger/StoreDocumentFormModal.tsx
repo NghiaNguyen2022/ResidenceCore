@@ -14,86 +14,15 @@ import {
   getTodayYmd,
   parseCurrencyInput,
 } from "@/components/store-ledger/storeLedgerUtils";
+import {
+  getPurchasePriceReference,
+  getSalePriceReference,
+} from "@/lib/storePriceDefaults";
 import type {
   StoreDocumentDraft,
   StoreDocumentLineDraft,
   StoreDocumentType,
 } from "./storeDocumentTypes";
-
-type PriceReference = {
-  value: number;
-  source:
-    | "latest_purchase"
-    | "average_purchase"
-    | "sale_price"
-    | "purchase_fallback"
-    | "none";
-  note: string;
-};
-
-function getPurchaseReference(product: any): PriceReference {
-  const latestPurchasePrice = Number(product?.defaultCostPrice || 0);
-  if (latestPurchasePrice > 0) {
-    return {
-      value: latestPurchasePrice,
-      source: "latest_purchase",
-      note: "Giá mua gần nhất",
-    };
-  }
-
-  const averagePurchasePrice = Number(product?.averageCostPrice || 0);
-  if (averagePurchasePrice > 0) {
-    return {
-      value: averagePurchasePrice,
-      source: "average_purchase",
-      note: "Chưa có giá mua gần nhất · đang dùng giá mua trung bình",
-    };
-  }
-
-  return {
-    value: 0,
-    source: "none",
-    note: "Chưa có dữ liệu giá mua",
-  };
-}
-
-function getSaleReference(product: any): PriceReference {
-  const salePrice = Number(
-    product?.currentSalePrice || product?.defaultSalePrice || 0,
-  );
-
-  if (salePrice > 0) {
-    return {
-      value: salePrice,
-      source: "sale_price",
-      note: "Giá bán hiện hành",
-    };
-  }
-
-  const purchaseReference = getPurchaseReference(product);
-  if (purchaseReference.value > 0) {
-    return {
-      value: purchaseReference.value,
-      source: "purchase_fallback",
-      note: `Chưa có giá bán · đang tạm dùng ${purchaseReference.note.toLowerCase()}`,
-    };
-  }
-
-  return {
-    value: 0,
-    source: "none",
-    note: "Chưa có giá bán hoặc giá mua tham chiếu",
-  };
-}
-
-function getPriceReference(
-  product: any,
-  type: StoreDocumentType,
-): PriceReference {
-  return type === "stock_in"
-    ? getPurchaseReference(product)
-    : getSaleReference(product);
-}
 
 function emptyLine(
   products: any[],
@@ -102,18 +31,26 @@ function emptyLine(
   const product = products.find(
     (item) =>
       item?.isActive !== false &&
-      (type === "stock_in" || Number(item.currentStock || 0) > 0),
+      (type === "stock_in" ||
+        Number(item.currentStock || 0) > 0),
   );
 
-  const price = getPriceReference(product, type);
+  const reference =
+    type === "stock_in"
+      ? getPurchasePriceReference(product)
+      : getSalePriceReference(product);
 
   return {
-    key: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    key: `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`,
     productId: product?.id ? String(product.id) : "",
     quantity: "",
     unitValue:
-      price.value > 0 ? formatCurrencyInput(price.value) : "",
-    notes: "",
+      reference.value > 0
+        ? formatCurrencyInput(reference.value)
+        : "",
+    notes: reference.note,
   };
 }
 
@@ -153,7 +90,9 @@ export function StoreDocumentFormModal({
   );
 
   useEffect(() => {
-    if (open) setDraft(createDraft(products, type));
+    if (open) {
+      setDraft(createDraft(products, type));
+    }
   }, [open, type, products]);
 
   const totalQuantity = useMemo(
@@ -178,53 +117,12 @@ export function StoreDocumentFormModal({
     [draft.lines],
   );
 
-  const duplicateProductIds = useMemo(() => {
-    const counts = new Map<string, number>();
-
-    draft.lines.forEach((line) => {
-      if (line.productId) {
-        counts.set(
-          line.productId,
-          (counts.get(line.productId) || 0) + 1,
-        );
-      }
-    });
-
-    return new Set(
-      Array.from(counts.entries())
-        .filter(([, count]) => count > 1)
-        .map(([id]) => id),
-    );
-  }, [draft.lines]);
-
-  const hasInvalidLine = draft.lines.some(
+  const invalid = draft.lines.some(
     (line) =>
       !line.productId ||
       parseCurrencyInput(line.quantity) <= 0 ||
       parseCurrencyInput(line.unitValue) <= 0,
   );
-
-  const overStockLines = useMemo(() => {
-    if (type !== "sale") return new Set<string>();
-
-    return new Set(
-      draft.lines
-        .filter((line) => {
-          const product = products.find(
-            (item) => String(item.id) === line.productId,
-          );
-
-          return (
-            product &&
-            parseCurrencyInput(line.quantity) >
-              Number(product.currentStock || 0)
-          );
-        })
-        .map((line) => line.key),
-    );
-  }, [draft.lines, products, type]);
-
-  if (!open) return null;
 
   function updateLine(
     key: string,
@@ -238,22 +136,7 @@ export function StoreDocumentFormModal({
     }));
   }
 
-  function addLine() {
-    setDraft((current) => ({
-      ...current,
-      lines: [...current.lines, emptyLine(products, type)],
-    }));
-  }
-
-  function removeLine(key: string) {
-    setDraft((current) => ({
-      ...current,
-      lines:
-        current.lines.length > 1
-          ? current.lines.filter((line) => line.key !== key)
-          : current.lines,
-    }));
-  }
+  if (!open) return null;
 
   return (
     <Modal
@@ -291,7 +174,9 @@ export function StoreDocumentFormModal({
           ) : null}
 
           <Field
-            label={type === "stock_in" ? "Ngày nhập" : "Ngày bán"}
+            label={
+              type === "stock_in" ? "Ngày nhập" : "Ngày bán"
+            }
           >
             <FormDateInput
               value={draft.documentDate}
@@ -335,28 +220,38 @@ export function StoreDocumentFormModal({
               className={inputClass}
             >
               <option value="cash">Tiền mặt</option>
-              <option value="bank_transfer">Chuyển khoản</option>
+              <option value="bank_transfer">
+                Chuyển khoản
+              </option>
               <option value="other">Khác</option>
             </select>
           </Field>
         </div>
 
         <section className="overflow-hidden rounded-[1.25rem] border border-[#eadfca] bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eadfca] bg-amber-50/45 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-[#eadfca] bg-amber-50/45 px-4 py-3">
             <div>
               <h3 className="text-base font-black text-slate-950">
                 Hàng hóa trong phiếu
               </h3>
               <p className="text-xs font-medium text-slate-500">
                 {type === "stock_in"
-                  ? "Giá nhập mặc định lấy giá mua gần nhất; nếu chưa có thì dùng giá mua trung bình."
-                  : "Có giá bán thì dùng giá bán; chưa có sẽ tạm dùng giá mua và hiển thị ghi chú."}
+                  ? "Giá nhập lấy giá mua gần nhất; chưa có thì dùng giá mua trung bình."
+                  : "Có giá bán thì dùng giá bán; chưa có sẽ dùng giá mua và ghi chú."}
               </p>
             </div>
 
             <button
               type="button"
-              onClick={addLine}
+              onClick={() =>
+                setDraft((current) => ({
+                  ...current,
+                  lines: [
+                    ...current.lines,
+                    emptyLine(products, type),
+                  ],
+                }))
+              }
               className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white"
             >
               <Plus className="h-4 w-4" />
@@ -366,19 +261,19 @@ export function StoreDocumentFormModal({
 
           <div className="space-y-2.5 p-3">
             {draft.lines.map((line, index) => {
-              const selectedProduct = products.find(
+              const product = products.find(
                 (item) =>
                   String(item.id) === line.productId,
               );
+              const reference =
+                type === "stock_in"
+                  ? getPurchasePriceReference(product)
+                  : getSalePriceReference(product);
               const quantity = parseCurrencyInput(
                 line.quantity,
               );
               const unitValue = parseCurrencyInput(
                 line.unitValue,
-              );
-              const priceReference = getPriceReference(
-                selectedProduct,
-                type,
               );
 
               return (
@@ -386,29 +281,32 @@ export function StoreDocumentFormModal({
                   key={line.key}
                   className="rounded-2xl border border-slate-200/80 bg-slate-50/55 p-3"
                 >
-                  <div className="grid gap-2.5 md:grid-cols-[minmax(220px,1.7fr)_110px_160px_130px_40px] md:items-end">
+                  <div className="grid gap-2.5 md:grid-cols-[minmax(220px,1.7fr)_120px_180px_145px_42px] md:items-start">
                     <Field label={`Hàng hóa ${index + 1}`}>
                       <select
                         value={line.productId}
                         onChange={(event) => {
-                          const product = products.find(
+                          const selected = products.find(
                             (item) =>
                               String(item.id) ===
                               event.target.value,
                           );
-                          const reference = getPriceReference(
-                            product,
-                            type,
-                          );
+                          const nextReference =
+                            type === "stock_in"
+                              ? getPurchasePriceReference(
+                                  selected,
+                                )
+                              : getSalePriceReference(selected);
 
                           updateLine(line.key, {
                             productId: event.target.value,
                             unitValue:
-                              reference.value > 0
+                              nextReference.value > 0
                                 ? formatCurrencyInput(
-                                    reference.value,
+                                    nextReference.value,
                                   )
                                 : "",
+                            notes: nextReference.note,
                           });
                         }}
                         className={inputClass}
@@ -416,31 +314,19 @@ export function StoreDocumentFormModal({
                         <option value="">
                           Chọn hàng hóa
                         </option>
-
-                        {products.map((product) => {
-                          const selectedElsewhere =
-                            draft.lines.some(
-                              (other) =>
-                                other.key !== line.key &&
-                                other.productId ===
-                                  String(product.id),
-                            );
-
-                          return (
-                            <option
-                              key={product.id}
-                              value={product.id}
-                              disabled={selectedElsewhere}
-                            >
-                              {product.productName}
-                              {type === "sale"
-                                ? ` · tồn ${formatMoney(
-                                    product.currentStock,
-                                  )} ${product.unit || ""}`
-                                : ` · ${product.unit || ""}`}
-                            </option>
-                          );
-                        })}
+                        {products.map((item) => (
+                          <option
+                            key={item.id}
+                            value={item.id}
+                          >
+                            {item.productName}
+                            {type === "sale"
+                              ? ` · tồn ${formatMoney(
+                                  item.currentStock,
+                                )} ${item.unit || ""}`
+                              : ` · ${item.unit || ""}`}
+                          </option>
+                        ))}
                       </select>
                     </Field>
 
@@ -474,23 +360,23 @@ export function StoreDocumentFormModal({
                             unitValue: formatCurrencyInput(
                               event.target.value,
                             ),
+                            notes:
+                              type === "stock_in"
+                                ? "Giá mua nhập thủ công"
+                                : "Giá bán nhập thủ công",
                           })
                         }
-                        className={`${inputClass} text-right`}
+                        className={`${inputClass} text-right font-bold`}
                       />
-
-                      {selectedProduct ? (
-                        <p
-                          className={`mt-1 text-[11px] font-semibold ${
-                            priceReference.source ===
-                            "purchase_fallback"
-                              ? "text-amber-700"
-                              : "text-slate-500"
-                          }`}
-                        >
-                          {priceReference.note}
-                        </p>
-                      ) : null}
+                      <p
+                        className={`mt-1 min-h-[16px] text-[11px] font-semibold ${
+                          reference.isPurchaseFallback
+                            ? "text-amber-700"
+                            : "text-slate-500"
+                        }`}
+                      >
+                        {line.notes || reference.note}
+                      </p>
                     </Field>
 
                     <div className="rounded-xl bg-white px-3 py-2 text-right ring-1 ring-slate-100">
@@ -500,44 +386,31 @@ export function StoreDocumentFormModal({
                       <p className="mt-0.5 whitespace-nowrap text-sm font-black text-slate-950">
                         {formatMoney(quantity * unitValue)} đ
                       </p>
-
-                      {type === "sale" &&
-                      selectedProduct ? (
+                      {type === "sale" && product ? (
                         <p className="text-[11px] font-semibold text-slate-500">
-                          Tồn{" "}
-                          {formatMoney(
-                            selectedProduct.currentStock,
-                          )}{" "}
-                          {selectedProduct.unit || ""}
+                          Tồn {formatMoney(product.currentStock)}{" "}
+                          {product.unit || ""}
                         </p>
                       ) : null}
                     </div>
 
                     <button
                       type="button"
-                      onClick={() => removeLine(line.key)}
-                      className="rounded-xl border border-rose-100 bg-white p-2 text-rose-600 shadow-sm disabled:opacity-40"
                       disabled={draft.lines.length <= 1}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          lines: current.lines.filter(
+                            (item) =>
+                              item.key !== line.key,
+                          ),
+                        }))
+                      }
+                      className="rounded-xl border border-rose-100 bg-white p-2 text-rose-600 disabled:opacity-40"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-
-                  {duplicateProductIds.has(
-                    line.productId,
-                  ) ? (
-                    <p className="mt-2 text-xs font-bold text-rose-600">
-                      Hàng hóa này đã có trong phiếu. Hãy
-                      gộp số lượng vào một dòng.
-                    </p>
-                  ) : null}
-
-                  {overStockLines.has(line.key) ? (
-                    <p className="mt-2 text-xs font-bold text-rose-600">
-                      Số lượng bán vượt tồn hiện tại. Vui
-                      lòng giảm số lượng trước khi lưu.
-                    </p>
-                  ) : null}
                 </div>
               );
             })}
@@ -553,7 +426,6 @@ export function StoreDocumentFormModal({
               {formatMoney(totalQuantity)}
             </p>
           </div>
-
           <div className="sm:text-right">
             <p className="text-xs font-semibold text-slate-500">
               {type === "stock_in"
@@ -580,61 +452,28 @@ export function StoreDocumentFormModal({
           />
         </Field>
 
-        {duplicateProductIds.size ? (
-          <ErrorText>
-            Mỗi hàng hóa chỉ được xuất hiện một lần trong
-            phiếu.
-          </ErrorText>
-        ) : null}
-
-        {overStockLines.size ? (
-          <ErrorText>
-            Có hàng hóa đang bán vượt số lượng tồn kho.
-          </ErrorText>
-        ) : null}
-
         {error ? <ErrorText>{error}</ErrorText> : null}
 
-        <div className="sticky bottom-0 -mx-5 flex flex-col gap-2 border-t border-[#eadfca] bg-white/95 px-5 pb-1 pt-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs font-medium text-slate-500">
-            {hasInvalidLine
-              ? "Hoàn tất hàng hóa, số lượng và đơn giá trước khi lưu."
-              : duplicateProductIds.size
-                ? "Mỗi hàng hóa chỉ được xuất hiện một lần trong phiếu."
-                : overStockLines.size
-                  ? "Có hàng hóa đang bán vượt tồn hiện tại."
-                  : `${draft.lines.length} dòng hàng · Tổng ${formatMoney(
-                      totalAmount,
-                    )} đ`}
-          </p>
-
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50"
-            >
-              Hủy
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onSave(draft)}
-              disabled={Boolean(
-                loading ||
-                  duplicateProductIds.size ||
-                  overStockLines.size ||
-                  hasInvalidLine,
-              )}
-              className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-slate-950/15 disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              {loading
-                ? "Đang lưu..."
-                : type === "stock_in"
-                  ? "Lưu phiếu nhập"
-                  : "Lưu phiếu bán"}
-            </button>
-          </div>
+        <div className="flex justify-end gap-2 border-t border-[#eadfca] pt-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            onClick={() => onSave(draft)}
+            disabled={Boolean(loading || invalid)}
+            className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white disabled:opacity-45"
+          >
+            {loading
+              ? "Đang lưu..."
+              : type === "stock_in"
+                ? "Lưu phiếu nhập"
+                : "Lưu phiếu bán"}
+          </button>
         </div>
       </div>
     </Modal>
