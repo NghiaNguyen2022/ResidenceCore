@@ -68,32 +68,14 @@ function asDate(value: Date | string | null | undefined) {
 }
 
 /**
- * Các cột giờ ca Cửa hàng là DATETIME dạng "wall clock" Việt Nam.
- * MySQL/Drizzle trả 07:00 thành Date 07:00Z, nhưng nghiệp vụ cần hiểu đó là
- * 07:00 Asia/Ho_Chi_Minh (= 00:00Z). Việt Nam cố định UTC+7, không có DST.
+ * storeShifts.accessValidFrom/accessValidUntil là TIMESTAMP.
+ * MySQL/Drizzle đã trả về đúng thời điểm UTC, ví dụ:
+ * 00:00Z = 07:00 Asia/Ho_Chi_Minh.
+ * Không được trừ thêm 7 giờ lần nữa.
  */
-function asVietnamWallClockInstant(
-      value: Date | string | null | undefined,
-) {
-      const date = asDate(value);
-      if (!date) return null;
-
-      return new Date(
-            Date.UTC(
-                  date.getUTCFullYear(),
-                  date.getUTCMonth(),
-                  date.getUTCDate(),
-                  date.getUTCHours() - 7,
-                  date.getUTCMinutes(),
-                  date.getUTCSeconds(),
-                  date.getUTCMilliseconds(),
-            ),
-      );
-}
-
 function isWithinAccessWindow(shift: any, now = new Date()) {
-      const validFrom = asVietnamWallClockInstant(shift?.accessValidFrom);
-      const validUntil = asVietnamWallClockInstant(shift?.accessValidUntil);
+      const validFrom = asDate(shift?.accessValidFrom);
+      const validUntil = asDate(shift?.accessValidUntil);
 
       return Boolean(
             validFrom &&
@@ -436,7 +418,7 @@ export const storeDutyAccessService = {
                   lastStoreActivityAt: verifiedAt,
                   sessionExpiresAt: minDate(
                         addMinutes(verifiedAt, STORE_IDLE_TIMEOUT_MINUTES),
-                        asVietnamWallClockInstant(shift.accessValidUntil)!,
+                        asDate(shift.accessValidUntil)!,
                   ),
                   status: "active",
             } as any);
@@ -503,7 +485,7 @@ export const storeDutyAccessService = {
             if (!shift) throw new Error("Không tìm thấy ca trực Cửa hàng.");
 
             const now = new Date();
-            const shiftEnd = asVietnamWallClockInstant(shift.accessValidUntil);
+            const shiftEnd = asDate(shift.accessValidUntil);
             const sessionExpiresAt = asDate(session.sessionExpiresAt);
             const lastActivityAt =
                   asDate(session.lastStoreActivityAt) ||
