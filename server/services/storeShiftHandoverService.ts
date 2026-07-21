@@ -75,7 +75,16 @@ async function getAuthorizedResident(input: {
  * đúng cửa hàng + đúng ngày + giao dịch còn hiệu lực.
  */
 async function calculateShiftCash(shift: any) {
-      const shiftDate = toDateKey(shift.shiftDate);
+      const shiftDate = toDateKey(
+            shift.accessValidFrom ||
+                  shift.scheduledFrom ||
+                  shift.shiftDate,
+      );
+
+      if (!shiftDate) {
+            throw new Error("Không xác định được ngày giao dịch của ca Cửa hàng.");
+      }
+
       const transactions = await storeDb.listStoreLedgerTransactions({
             ledgerId: Number(shift.ledgerId),
             fromDate: shiftDate,
@@ -119,6 +128,7 @@ async function calculateShiftCash(shift: any) {
             openingCash + totalSales + totalOtherIncome - totalPurchases - totalOtherExpense;
 
       return {
+            queryDate: shiftDate,
             openingCash,
             totalSales,
             totalOtherIncome,
@@ -134,7 +144,11 @@ async function findReceiverShift(shift: any) {
 
       return storeDb.getStoreShiftByLedgerDateType({
             ledgerId: Number(shift.ledgerId),
-            shiftDate: toDateKey(shift.shiftDate),
+            shiftDate: toDateKey(
+                  shift.accessValidFrom ||
+                        shift.scheduledFrom ||
+                        shift.shiftDate,
+            ),
             shiftType: "afternoon",
       });
 }
