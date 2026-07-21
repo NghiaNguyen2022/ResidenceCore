@@ -76,18 +76,11 @@ async function calculateShiftCash(shift: any) {
             limit: 500,
       });
 
-      const linkedTransactions = transactions.filter(
-            (item: any) => Number(item.storeShiftId || 0) === Number(shift.id),
-      );
-
-      const shiftTransactions =
-            linkedTransactions.length > 0
-                  ? linkedTransactions
-                  : transactions.filter(
-                        (item: any) => !Number(item.storeShiftId || 0),
-                  );
-
-      const validTransactions = shiftTransactions.filter(
+      // Dùng cùng nguồn với card Tổng thu/Tổng chi trên ResidentStore:
+      // toàn bộ giao dịch hợp lệ của đúng cửa hàng và đúng ngày.
+      // Không lọc lại storeShiftId vì dữ liệu hiện tại có cả giao dịch cũ
+      // chưa gắn ca; lọc thêm sẽ làm card có tiền nhưng bàn giao bằng 0.
+      const validTransactions = transactions.filter(
             (item: any) =>
                   item.isActive !== false &&
                   !["cancelled", "void"].includes(
