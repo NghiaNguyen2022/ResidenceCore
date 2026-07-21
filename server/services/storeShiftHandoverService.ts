@@ -11,6 +11,32 @@ function asMoney(value: unknown) {
       return toMoney(value).toFixed(2);
 }
 
+function toDateKey(value: unknown) {
+      if (!value) return "";
+
+      if (typeof value === "string") {
+            const matched = value.match(/^\d{4}-\d{2}-\d{2}/);
+            if (matched) return matched[0];
+      }
+
+      const date = value instanceof Date ? value : new Date(String(value));
+      if (Number.isNaN(date.getTime())) {
+            throw new Error("Ngày ca trực Cửa hàng không hợp lệ.");
+      }
+
+      const parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Ho_Chi_Minh",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+      }).formatToParts(date);
+
+      const part = (type: string) =>
+            parts.find((item) => item.type === type)?.value || "";
+
+      return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 async function getResidentOrThrow(userId: number) {
       const resident = await dutyDb.getResidentByUserId(userId);
       if (!resident?.id) throw new Error("Không tìm thấy hồ sơ học viên.");
@@ -40,35 +66,86 @@ async function getAuthorizedResident(input: {
 }
 
 async function calculateShiftCash(shift: any) {
+      const shiftDate = toDateKey(shift.shiftDate);
+
       const transactions = await storeDb.listStoreLedgerTransactions({
             ledgerId: Number(shift.ledgerId),
-            fromDate: String(shift.shiftDate),
-            toDate: String(shift.shiftDate),
+            fromDate: shiftDate,
+            toDate: shiftDate,
             direction: "all",
             limit: 500,
       });
 
-      const totalSales = transactions
-            .filter((item: any) => item.direction === "in" && item.category === "sales")
-            .reduce((sum: number, item: any) => sum + toMoney(item.amount), 0);
+      const linkedTransactions = transactions.filter(
+            (item: any) => Number(item.storeShiftId || 0) === Number(shift.id),
+      );
 
-      const totalOtherIncome = transactions
-            .filter((item: any) => item.direction === "in" && item.category !== "sales")
-            .reduce((sum: number, item: any) => sum + toMoney(item.amount), 0);
+      const shiftTransactions =
+            linkedTransactions.length > 0
+                  ? linkedTransactions
+                  : transactions.filter(
+                        (item: any) => !Number(item.storeShiftId || 0),
+                  );
 
-      const totalPurchases = transactions
-            .filter((item: any) =>
-                  item.direction === "out" &&
-                  ["purchase_stock", "purchase"].includes(String(item.category || "")),
+      const validTransactions = shiftTransactions.filter(
+            (item: any) =>
+                  item.isActive !== false &&
+                  !["cancelled", "void"].includes(
+                        String(item.status || "").toLowerCase(),
+                  ),
+      );
+
+      const totalSales = validTransactions
+            .filter(
+                  (item: any) =>
+                        item.direction === "in" &&
+                        item.category === "sales",
             )
-            .reduce((sum: number, item: any) => sum + toMoney(item.amount), 0);
+            .reduce(
+                  (sum: number, item: any) =>
+                        sum + toMoney(item.amount),
+                  0,
+            );
 
-      const totalOtherExpense = transactions
-            .filter((item: any) =>
-                  item.direction === "out" &&
-                  !["purchase_stock", "purchase"].includes(String(item.category || "")),
+      const totalOtherIncome = validTransactions
+            .filter(
+                  (item: any) =>
+                        item.direction === "in" &&
+                        item.category !== "sales",
             )
-            .reduce((sum: number, item: any) => sum + toMoney(item.amount), 0);
+            .reduce(
+                  (sum: number, item: any) =>
+                        sum + toMoney(item.amount),
+                  0,
+            );
+
+      const totalPurchases = validTransactions
+            .filter(
+                  (item: any) =>
+                        item.direction === "out" &&
+                        ["purchase_stock", "purchase"].includes(
+                              String(item.category || ""),
+                        ),
+            )
+            .reduce(
+                  (sum: number, item: any) =>
+                        sum + toMoney(item.amount),
+                  0,
+            );
+
+      const totalOtherExpense = validTransactions
+            .filter(
+                  (item: any) =>
+                        item.direction === "out" &&
+                        !["purchase_stock", "purchase"].includes(
+                              String(item.category || ""),
+                        ),
+            )
+            .reduce(
+                  (sum: number, item: any) =>
+                        sum + toMoney(item.amount),
+                  0,
+            );
 
       const openingCash = toMoney(shift.openingCash);
       const expectedCash =
@@ -85,6 +162,7 @@ async function calculateShiftCash(shift: any) {
             totalPurchases,
             totalOtherExpense,
             expectedCash,
+            transactionCount: validTransactions.length,
       };
 }
 
@@ -93,7 +171,7 @@ async function findReceiverShift(shift: any) {
 
       return storeDb.getStoreShiftByLedgerDateType({
             ledgerId: Number(shift.ledgerId),
-            shiftDate: String(shift.shiftDate),
+            shiftDate: toDateKey(shift.shiftDate),
             shiftType: "afternoon",
       });
 }
@@ -107,10 +185,14 @@ export const storeShiftHandoverService = {
             const { access, shift } = await getAuthorizedResident(input);
             const residentId = Number(access.residentId);
 
-            let handover =
+            const handover =
                   shift.shiftType === "morning"
-                        ? await storeDb.getLatestStoreShiftHandover(Number(shift.id))
-                        : await storeDb.getStoreShiftHandoverToShift(Number(shift.id));
+                        ? await storeDb.getLatestStoreShiftHandover(
+                                Number(shift.id),
+                          )
+                        : await storeDb.getStoreShiftHandoverToShift(
+                                Number(shift.id),
+                          );
 
             const receiverShift =
                   shift.shiftType === "morning"
@@ -134,13 +216,18 @@ export const storeShiftHandoverService = {
                   residentId,
                   receiverShift: receiverShift
                         ? {
-                              id: Number(receiverShift.id),
-                              primaryResidentId: receiverShift.primaryResidentId
-                                    ? Number(receiverShift.primaryResidentId)
-                                    : null,
-                              openingCash: toMoney(receiverShift.openingCash),
-                              status: receiverShift.status,
-                        }
+                                id: Number(receiverShift.id),
+                                primaryResidentId:
+                                      receiverShift.primaryResidentId
+                                            ? Number(
+                                                    receiverShift.primaryResidentId,
+                                              )
+                                            : null,
+                                openingCash: toMoney(
+                                      receiverShift.openingCash,
+                                ),
+                                status: receiverShift.status,
+                          }
                         : null,
                   totals,
                   handover,
@@ -167,47 +254,71 @@ export const storeShiftHandoverService = {
             notes?: string | null;
       }) {
             const { access, shift } = await getAuthorizedResident(input);
+
             if (shift.shiftType !== "morning") {
-                  throw new Error("Chỉ ca sáng được lập bàn giao sang ca chiều.");
+                  throw new Error(
+                        "Chỉ ca sáng được lập bàn giao sang ca chiều.",
+                  );
             }
 
             const receiverShift = await findReceiverShift(shift);
             if (!receiverShift) {
-                  throw new Error("Chưa có ca chiều cùng ngày để nhận bàn giao.");
+                  throw new Error(
+                        "Chưa có ca chiều cùng ngày để nhận bàn giao.",
+                  );
             }
 
-            const current = await storeDb.getLatestStoreShiftHandover(Number(shift.id));
+            const current =
+                  await storeDb.getLatestStoreShiftHandover(
+                        Number(shift.id),
+                  );
+
             if (current && current.status !== "draft") {
-                  throw new Error("Bàn giao đã ký, không thể chỉnh sửa.");
+                  throw new Error(
+                        "Bàn giao đã ký, không thể chỉnh sửa.",
+                  );
             }
 
             const totals = await calculateShiftCash(shift);
             const countedCash = toMoney(input.countedCash);
+
             if (countedCash < 0) {
                   throw new Error("Tiền thực tế không được âm.");
             }
 
-            const differenceAmount = countedCash - totals.expectedCash;
+            const differenceAmount =
+                  countedCash - totals.expectedCash;
+
             const payload = {
                   storeShiftId: Number(shift.id),
                   handoverType: "shift_to_shift",
                   handoverToShiftId: Number(receiverShift.id),
                   openingCash: asMoney(totals.openingCash),
                   totalSales: asMoney(totals.totalSales),
-                  totalOtherIncome: asMoney(totals.totalOtherIncome),
+                  totalOtherIncome: asMoney(
+                        totals.totalOtherIncome,
+                  ),
                   totalPurchases: asMoney(totals.totalPurchases),
-                  totalOtherExpense: asMoney(totals.totalOtherExpense),
+                  totalOtherExpense: asMoney(
+                        totals.totalOtherExpense,
+                  ),
                   expectedCash: asMoney(totals.expectedCash),
                   countedCash: asMoney(countedCash),
                   differenceAmount: asMoney(differenceAmount),
-                  differenceReason: input.differenceReason?.trim() || null,
+                  differenceReason:
+                        input.differenceReason?.trim() || null,
                   notes: input.notes?.trim() || null,
-                  handedOverByResidentId: Number(access.residentId),
+                  handedOverByResidentId: Number(
+                        access.residentId,
+                  ),
                   status: "draft",
             } as any;
 
             if (current) {
-                  return storeDb.updateStoreShiftHandover(Number(current.id), payload);
+                  return storeDb.updateStoreShiftHandover(
+                        Number(current.id),
+                        payload,
+                  );
             }
 
             return storeDb.createStoreShiftHandover(payload);
@@ -218,32 +329,55 @@ export const storeShiftHandoverService = {
             accessToken: string;
             storeShiftId: number;
       }) {
-            const { access, shift } = await getAuthorizedResident(input);
+            const { access, shift } =
+                  await getAuthorizedResident(input);
+
             if (shift.shiftType !== "morning") {
                   throw new Error("Chỉ ca sáng được ký giao.");
             }
 
-            const handover = await storeDb.getLatestStoreShiftHandover(Number(shift.id));
-            if (!handover) throw new Error("Chưa lập biên bản bàn giao.");
-            if (handover.status !== "draft") {
-                  throw new Error("Bàn giao đã được ký hoặc hoàn tất.");
+            const handover =
+                  await storeDb.getLatestStoreShiftHandover(
+                        Number(shift.id),
+                  );
+
+            if (!handover) {
+                  throw new Error("Chưa lập biên bản bàn giao.");
             }
-            if (Number(handover.handedOverByResidentId) !== Number(access.residentId)) {
-                  throw new Error("Chỉ người lập bàn giao được ký giao.");
+
+            if (handover.status !== "draft") {
+                  throw new Error(
+                        "Bàn giao đã được ký hoặc hoàn tất.",
+                  );
+            }
+
+            if (
+                  Number(handover.handedOverByResidentId) !==
+                  Number(access.residentId)
+            ) {
+                  throw new Error(
+                        "Chỉ người lập bàn giao được ký giao.",
+                  );
             }
 
             const now = new Date();
-            await storeDb.updateStoreShiftHandover(Number(handover.id), {
-                  giverSignedAt: now,
-                  handedOverAt: now,
-                  status: "giver_signed",
-            } as any);
+
+            await storeDb.updateStoreShiftHandover(
+                  Number(handover.id),
+                  {
+                        giverSignedAt: now,
+                        handedOverAt: now,
+                        status: "giver_signed",
+                  } as any,
+            );
 
             await storeDb.updateStoreShift(Number(shift.id), {
                   status: "handover_pending",
             } as any);
 
-            return storeDb.getLatestStoreShiftHandover(Number(shift.id));
+            return storeDb.getLatestStoreShiftHandover(
+                  Number(shift.id),
+            );
       },
 
       async receiverSign(input: {
@@ -251,42 +385,70 @@ export const storeShiftHandoverService = {
             accessToken: string;
             storeShiftId: number;
       }) {
-            const { access, shift } = await getAuthorizedResident(input);
+            const { access, shift } =
+                  await getAuthorizedResident(input);
+
             if (shift.shiftType !== "afternoon") {
                   throw new Error("Chỉ ca chiều được ký nhận.");
             }
 
-            const handover = await storeDb.getStoreShiftHandoverToShift(Number(shift.id));
-            if (!handover) throw new Error("Chưa có bàn giao từ ca sáng.");
+            const handover =
+                  await storeDb.getStoreShiftHandoverToShift(
+                        Number(shift.id),
+                  );
+
+            if (!handover) {
+                  throw new Error(
+                        "Chưa có bàn giao từ ca sáng.",
+                  );
+            }
+
             if (handover.status !== "giver_signed") {
-                  throw new Error("Bàn giao chưa được người giao ký hoặc đã hoàn tất.");
+                  throw new Error(
+                        "Bàn giao chưa được người giao ký hoặc đã hoàn tất.",
+                  );
             }
 
             const now = new Date();
-            await storeDb.updateStoreShiftHandover(Number(handover.id), {
-                  receivedByResidentId: Number(access.residentId),
-                  receiverSignedAt: now,
-                  receivedAt: now,
-                  status: "completed",
-            } as any);
 
-            await storeDb.updateStoreShift(Number(handover.storeShiftId), {
-                  status: "handed_over",
-                  handedOverAt: now,
-                  countedClosingCash: handover.countedCash,
-                  expectedClosingCash: handover.expectedCash,
-                  cashDifference: handover.differenceAmount,
-            } as any);
+            await storeDb.updateStoreShiftHandover(
+                  Number(handover.id),
+                  {
+                        receivedByResidentId: Number(
+                              access.residentId,
+                        ),
+                        receiverSignedAt: now,
+                        receivedAt: now,
+                        status: "completed",
+                  } as any,
+            );
+
+            await storeDb.updateStoreShift(
+                  Number(handover.storeShiftId),
+                  {
+                        status: "handed_over",
+                        handedOverAt: now,
+                        countedClosingCash: handover.countedCash,
+                        expectedClosingCash: handover.expectedCash,
+                        cashDifference:
+                              handover.differenceAmount,
+                  } as any,
+            );
 
             await storeDb.updateStoreShift(Number(shift.id), {
                   openingCash: handover.countedCash,
-                  status:
-                        ["scheduled", "access_issued", "opened"].includes(String(shift.status))
-                              ? "in_progress"
-                              : shift.status,
+                  status: [
+                        "scheduled",
+                        "access_issued",
+                        "opened",
+                  ].includes(String(shift.status))
+                        ? "in_progress"
+                        : shift.status,
             } as any);
 
-            return storeDb.getStoreShiftHandoverToShift(Number(shift.id));
+            return storeDb.getStoreShiftHandoverToShift(
+                  Number(shift.id),
+            );
       },
 
       async listForManager(input: {
@@ -297,11 +459,15 @@ export const storeShiftHandoverService = {
       }) {
             const roles = new Set([
                   input.user?.role,
-                  ...(Array.isArray(input.user?.roles) ? input.user.roles : []),
+                  ...(Array.isArray(input.user?.roles)
+                        ? input.user.roles
+                        : []),
             ]);
 
             if (!roles.has("manager")) {
-                  throw new Error("Bạn không có quyền xem danh sách bàn giao.");
+                  throw new Error(
+                        "Bạn không có quyền xem danh sách bàn giao.",
+                  );
             }
 
             return storeDb.listStoreShiftHandovers({
