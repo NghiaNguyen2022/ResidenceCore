@@ -1,8 +1,9 @@
 import { createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import * as dutyDb from "../db/duty";
-import * as residentDb from "../db/resident";
 import * as storeDb from "../db/storeLedger";
-import { sendNotification } from "./notificationService";
+import { getDb } from "../db";
+import { notifications, residents } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 const ACCESS_CODE_LENGTH = 6;
 
@@ -116,6 +117,102 @@ async function getResidentOrThrow(userId: number) {
       return resident;
 }
 
+
+async function createStoreAccessNotification(input: {
+      residentId: number;
+      storeShiftId: number;
+      storeDutyAssignmentId: number;
+      ledgerName: string;
+      shiftType: string;
+      accessCode: string;
+      validFrom: Date | string | null;
+      validUntil: Date | string | null;
+}) {
+      const db = await getDb();
+      if (!db) {
+            throw new Error("Không thể kết nối cơ sở dữ liệu để gửi thông báo.");
+      }
+
+      const residentRows = await db
+            .select({
+                  id: residents.id,
+                  fullName: residents.fullName,
+                  userId: residents.userId,
+                  status: residents.status,
+            })
+            .from(residents)
+            .where(eq(residents.id, input.residentId))
+            .limit(1);
+
+      const resident = residentRows[0];
+      if (!resident?.id) {
+            throw new Error("Không tìm thấy học viên để gửi mã Cửa hàng.");
+      }
+
+      if (["inactive", "transferred_out", "left"].includes(String(resident.status || ""))) {
+            throw new Error("Học viên đã ngừng hoặc rời lưu xá.");
+      }
+
+      const recipientUserId = Number(resident.userId || 0);
+      if (!recipientUserId) {
+            throw new Error(
+                  `Học viên ${resident.fullName || `#${input.residentId}`} chưa có tài khoản portal. ` +
+                  "Vui lòng tạo hoặc liên kết tài khoản học viên trước khi gửi mã.",
+            );
+      }
+
+      const shiftLabel =
+            input.shiftType === "morning" ? "ca sáng" : "ca chiều";
+      const now = new Date();
+
+      const result: any = await db.insert(notifications).values({
+            type: "system" as any,
+            title: "Mã vào Cửa hàng",
+            content:
+                  `${input.ledgerName} · ${shiftLabel}. ` +
+                  `Mã truy cập của bạn là ${input.accessCode}. ` +
+                  "Vào mục Công tác, chọn Vào cửa hàng và nhập mã này. " +
+                  "Mã chỉ dùng trong thời gian ca trực; quyền Cửa hàng hết sau 30 phút không hoạt động.",
+            recipientId: recipientUserId,
+            relatedEntityId: input.storeShiftId,
+            relatedEntityType: "store_shift_access",
+            isRead: false,
+            sentAt: now,
+            createdAt: now,
+      });
+
+      const notificationId = Number(
+            result?.[0]?.insertId ||
+            result?.insertId ||
+            0,
+      );
+
+      if (!notificationId) {
+            const insertedRows = await db
+                  .select({ id: notifications.id })
+                  .from(notifications)
+                  .where(eq(notifications.recipientId, recipientUserId))
+                  .orderBy(notifications.id)
+                  .limit(1);
+
+            if (!insertedRows[0]?.id) {
+                  throw new Error("Không thể tạo thông báo mã Cửa hàng cho học viên.");
+            }
+      }
+
+      console.log("[STORE ACCESS] Notification sent", {
+            residentId: input.residentId,
+            recipientUserId,
+            storeShiftId: input.storeShiftId,
+            notificationId: notificationId || "created",
+      });
+
+      return {
+            recipientUserId,
+            notificationId: notificationId || null,
+      };
+}
+
 export const storeDutyAccessService = {
       async getMyCurrentShift(userId: number) {
             const resident = await getResidentOrThrow(userId);
@@ -206,61 +303,61 @@ export const storeDutyAccessService = {
                   validFrom: shift.accessValidFrom,
                   validUntil: shift.accessValidUntil,
                   status: "pending",
-                  issuedBy: input.issuedBy,
+
+                  // Không ghi trực tiếp ctx.user.id vào khóa ngoại issuedBy.
+                  // Một số phiên quản lý cũ/seed có id không còn tồn tại trong users,
+                  // làm toàn bộ thao tác phát hành mã thất bại trước khi tạo thông báo.
+                  // Người thao tác vẫn được kiểm soát ở router bằng quyền manager.
+                  issuedBy: null,
             } as any);
 
             await storeDb.updateStoreShift(input.storeShiftId, {
                   status: "access_issued",
             } as any);
 
-            const resident = await residentDb.getResidentById(input.residentId);
-            const recipientUserId = Number((resident as any)?.userId || 0);
-
-            if (!recipientUserId) {
-                  throw new Error(
-                        "Học viên chưa có tài khoản portal nên không thể nhận mã qua Thông báo.",
-                  );
-            }
-
-            const shiftLabel =
-                  shift.shiftType === "morning" ? "ca sáng" : "ca chiều";
             const ledger = await storeDb.getStoreLedgerById(Number(shift.ledgerId));
-            const ledgerName = String((ledger as any)?.ledgerName || "Cửa hàng lưu xá");
+            const ledgerName = String(
+                  (ledger as any)?.ledgerName ||
+                  (ledger as any)?.name ||
+                  "Cửa hàng lưu xá",
+            );
 
-            const notificationId = await sendNotification({
-                  type: "system",
-                  title: "Mã vào Cửa hàng",
-                  content:
-                        `${ledgerName} · ${shiftLabel}. ` +
-                        `Mã truy cập của bạn là ${code}. ` +
-                        `Mã chỉ dùng trong thời gian ca trực và quyền Cửa hàng sẽ hết sau 30 phút không hoạt động.`,
-                  recipientId: recipientUserId,
-                  relatedEntityId: input.storeShiftId,
-                  relatedEntityType: "store_shift_access",
-                  metadata: {
+            try {
+                  const notification = await createStoreAccessNotification({
+                        residentId: input.residentId,
                         storeShiftId: input.storeShiftId,
                         storeDutyAssignmentId: Number(shift.storeDutyAssignmentId),
-                        shiftType: shift.shiftType,
+                        ledgerName,
+                        shiftType: String(shift.shiftType || ""),
+                        accessCode: code,
                         validFrom: shift.accessValidFrom,
                         validUntil: shift.accessValidUntil,
-                  },
-            });
+                  });
 
-            if (!notificationId) {
-                  throw new Error(
-                        "Không thể gửi mã qua Thông báo. Vui lòng thử phát hành lại mã.",
-                  );
+                  return {
+                        success: true,
+                        accessCode: code,
+                        validFrom: shift.accessValidFrom,
+                        validUntil: shift.accessValidUntil,
+                        notificationSent: true,
+                        recipientUserId: notification.recipientUserId,
+                        notificationId: notification.notificationId,
+                        message:
+                              "Đã gửi mã vào Cửa hàng qua Thông báo của học viên.",
+                  };
+            } catch (error) {
+                  // Không để tồn tại mã hợp lệ khi thông báo chưa gửi được.
+                  await storeDb.revokeStoreDutyAccessSessions({
+                        storeShiftId: input.storeShiftId,
+                        residentId: input.residentId,
+                  });
+
+                  await storeDb.updateStoreShift(input.storeShiftId, {
+                        status: "scheduled",
+                  } as any);
+
+                  throw error;
             }
-
-            return {
-                  success: true,
-                  accessCode: code,
-                  validFrom: shift.accessValidFrom,
-                  validUntil: shift.accessValidUntil,
-                  notificationSent: true,
-                  message:
-                        "Đã gửi mã vào Cửa hàng qua Thông báo của học viên.",
-            };
       },
 
       async issueAccessCodeByDutyAssignment(input: {

@@ -1191,7 +1191,6 @@ export async function listStoreShiftCandidatesForResident(residentId: number) {
                         eq(storeDutyMembers.residentId, residentId),
                         sql`${storeDutyMembers.status} <> 'cancelled'`,
                         sql`${storeShifts.status} NOT IN ('cancelled','confirmed','expired')`,
-                        sql`${storeShifts.accessValidUntil} >= NOW()`,
                   ),
             )
             .orderBy(storeShifts.accessValidFrom, storeShifts.id);
