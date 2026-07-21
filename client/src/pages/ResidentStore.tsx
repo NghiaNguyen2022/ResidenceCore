@@ -299,6 +299,7 @@ export default function ResidentStore() {
                                       accessInput.storeShiftId,
                                 storeAccessToken:
                                       accessInput.storeAccessToken,
+                                businessDate: documentDate,
                           }
                         : {
                                 storeShiftId: 0,
@@ -1607,6 +1608,8 @@ export default function ResidentStore() {
                                                                         saveHandoverMutation?.mutate?.(
                                                                               {
                                                                                     ...accessInput,
+                                                                                    businessDate:
+                                                                                          documentDate,
                                                                                     countedCash:
                                                                                           parseAmount(
                                                                                                 handoverCountedCash,

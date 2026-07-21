@@ -74,12 +74,18 @@ async function getAuthorizedResident(input: {
  * Dùng cùng nguồn dữ liệu với card Tổng thu/Tổng chi của trang học viên:
  * đúng cửa hàng + đúng ngày + giao dịch còn hiệu lực.
  */
-async function calculateShiftCash(shift: any) {
-      const shiftDate = toDateKey(
-            shift.accessValidFrom ||
-                  shift.scheduledFrom ||
-                  shift.shiftDate,
-      );
+async function calculateShiftCash(
+      shift: any,
+      businessDate?: string | null,
+) {
+      const shiftDate =
+            businessDate && /^\d{4}-\d{2}-\d{2}$/.test(businessDate)
+                  ? businessDate
+                  : toDateKey(
+                          shift.accessValidFrom ||
+                                shift.scheduledFrom ||
+                                shift.shiftDate,
+                    );
 
       if (!shiftDate) {
             throw new Error("Không xác định được ngày giao dịch của ca Cửa hàng.");
@@ -158,6 +164,7 @@ export const storeShiftHandoverService = {
             user: any;
             accessToken: string;
             storeShiftId: number;
+            businessDate?: string | null;
       }) {
             const { access, shift } = await getAuthorizedResident(input);
             const residentId = Number(access.residentId);
@@ -213,6 +220,7 @@ export const storeShiftHandoverService = {
             user: any;
             accessToken: string;
             storeShiftId: number;
+            businessDate?: string | null;
             countedCash: number;
             differenceReason?: string | null;
             notes?: string | null;
@@ -232,7 +240,10 @@ export const storeShiftHandoverService = {
                   throw new Error("Bàn giao đã ký, không thể chỉnh sửa.");
             }
 
-            const totals = await calculateShiftCash(shift);
+            const totals = await calculateShiftCash(
+                  shift,
+                  input.businessDate,
+            );
             const countedCash = toMoney(input.countedCash);
             if (countedCash < 0) throw new Error("Tiền thực tế không được âm.");
 
