@@ -1,0 +1,218 @@
+diff --git a/client/src/pages/ResidentStore.tsx b/client/src/pages/ResidentStore.tsx
+--- a/client/src/pages/ResidentStore.tsx
++++ b/client/src/pages/ResidentStore.tsx
+@@
+-      const [access] = useState<ResidentStoreAccess | null>(() => getStoredAccess());
++      const [access, setAccess] = useState<ResidentStoreAccess | null>(() => getStoredAccess());
++      const [reauthOpen, setReauthOpen] = useState(false);
++      const [reauthCode, setReauthCode] = useState("");
++      const [reauthMessage, setReauthMessage] = useState("");
+@@
+-                  enabled: Boolean(access),
++                  enabled: Boolean(access) && !reauthOpen,
+@@
+-                  refetchInterval: access ? 60000 : false,
++                  refetchInterval: access && !reauthOpen ? 60000 : false,
+@@
+-                  enabled: Boolean(accessInput),
++                  enabled: Boolean(accessInput) && !reauthOpen,
+@@
+-                  enabled: Boolean(accessInput),
++                  enabled: Boolean(accessInput) && !reauthOpen,
+@@
+-                  enabled: Boolean(accessInput && ledgerId),
++                  enabled: Boolean(accessInput && ledgerId) && !reauthOpen,
+@@
+-                  enabled: Boolean(accessInput && ledgerId),
++                  enabled: Boolean(accessInput && ledgerId) && !reauthOpen,
+@@
+-                  enabled: Boolean(accessInput && ledgerId),
++                  enabled: Boolean(accessInput && ledgerId) && !reauthOpen,
+@@
+-                  enabled: Boolean(accessInput),
++                  enabled: Boolean(accessInput) && !reauthOpen,
+@@
+       const handoverData = handoverQuery.data as any;
+       const handover = handoverData?.handover;
+
++      const isShiftEndedError = (error: any) => {
++            const message = String(error?.message || error || "").toLowerCase();
++            return (
++                  message.includes("ca trực đã kết thúc") ||
++                  message.includes("mã vào cửa hàng đã hết hạn")
++            );
++      };
++
++      const isStoreSessionError = (error: any) => {
++            const message = String(error?.message || error || "").toLowerCase();
++            return [
++                  "phiên cửa hàng đã hết",
++                  "phiên quyền cửa hàng không hợp lệ",
++                  "quyền cửa hàng đã hết",
++                  "30 phút không hoạt động",
++            ].some((keyword) => message.includes(keyword));
++      };
++
++      const requireStoreReauth = (message?: string) => {
++            clearStoredAccess();
++            setReauthMessage(
++                  message ||
++                        "Phiên Cửa hàng đã hết. Vui lòng nhập lại mã vào Cửa hàng.",
++            );
++            setReauthCode("");
++            setReauthOpen(true);
++      };
++
++      const handleStoreError = (error: any, fallback: string) => {
++            if (isShiftEndedError(error)) {
++                  clearStoredAccess();
++                  toast.error(error?.message || "Ca trực đã kết thúc.");
++                  window.location.replace("/my-duties");
++                  return;
++            }
++
++            if (isStoreSessionError(error)) {
++                  requireStoreReauth(error?.message);
++                  return;
++            }
++
++            toast.error(error?.message || fallback);
++      };
++
++      const verifyStoreAccessMutation =
++            residentApi?.verifyMyStoreAccessCode?.useMutation?.({
++                  onSuccess: (result: any) => {
++                        const nextAccess: ResidentStoreAccess = {
++                              accessToken: String(result.accessToken),
++                              storeShiftId: Number(result.storeShiftId),
++                              ledgerId: Number(result.ledgerId || access?.ledgerId || 0),
++                              validUntil: result.validUntil || null,
++                        };
++
++                        sessionStorage.setItem(
++                              "residentStoreAccess",
++                              JSON.stringify(nextAccess),
++                        );
++                        setAccess(nextAccess);
++                        setReauthOpen(false);
++                        setReauthCode("");
++                        setReauthMessage("");
++                        toast.success("Đã mở lại phiên Cửa hàng.");
++                  },
++                  onError: (error: any) => {
++                        if (isShiftEndedError(error)) {
++                              clearStoredAccess();
++                              toast.error(error?.message || "Ca trực đã kết thúc.");
++                              window.location.replace("/my-duties");
++                              return;
++                        }
++                        toast.error(error?.message || "Mã vào Cửa hàng không đúng.");
++                  },
++            });
++
+@@
+-            onError: (error: any) =>
+-                  toast.error(error?.message || "Không thể lưu bàn giao ca."),
++            onError: (error: any) =>
++                  handleStoreError(error, "Không thể lưu bàn giao ca."),
+@@
+-            onError: (error: any) =>
+-                  toast.error(error?.message || "Không thể ký giao ca."),
++            onError: (error: any) =>
++                  handleStoreError(error, "Không thể ký giao ca."),
+@@
+-            onError: (error: any) =>
+-                  toast.error(error?.message || "Không thể xác nhận nhận ca."),
++            onError: (error: any) =>
++                  handleStoreError(error, "Không thể xác nhận nhận ca."),
+@@
+       useEffect(() => {
+             if (!sessionQuery.error) return;
+
+-            clearStoredAccess();
+-            toast.error(sessionQuery.error.message || "Quyền Cửa hàng đã hết hiệu lực.");
+-            window.location.href = "/my-duties";
++            handleStoreError(
++                  sessionQuery.error,
++                  "Quyền Cửa hàng đã hết hiệu lực.",
++            );
+       }, [sessionQuery.error]);
+@@
+       return (
+             <ResidenceCareLayout>
++                  {reauthOpen && access ? (
++                        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
++                              <div className="w-full max-w-md rounded-[28px] border border-amber-100 bg-white p-6 shadow-2xl">
++                                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
++                                          Phiên Cửa hàng đã timeout
++                                    </p>
++                                    <h2 className="mt-2 text-2xl font-black text-slate-950">
++                                          Nhập lại mã vào Cửa hàng
++                                    </h2>
++                                    <p className="mt-2 text-sm leading-6 text-slate-500">
++                                          {reauthMessage}
++                                    </p>
++
++                                    <input
++                                          autoFocus
++                                          inputMode="numeric"
++                                          maxLength={6}
++                                          value={reauthCode}
++                                          onChange={(event) =>
++                                                setReauthCode(
++                                                      event.target.value
++                                                            .replace(/\D/g, "")
++                                                            .slice(0, 6),
++                                                )
++                                          }
++                                          onKeyDown={(event) => {
++                                                if (
++                                                      event.key === "Enter" &&
++                                                      reauthCode.length === 6
++                                                ) {
++                                                      verifyStoreAccessMutation?.mutate?.({
++                                                            storeShiftId: access.storeShiftId,
++                                                            accessCode: reauthCode,
++                                                      });
++                                                }
++                                          }}
++                                          placeholder="Nhập mã 6 số"
++                                          className="mt-5 w-full rounded-2xl border border-amber-200 bg-amber-50/45 px-4 py-3 text-center text-2xl font-black tracking-[0.35em] outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
++                                    />
++
++                                    <div className="mt-5 flex gap-3">
++                                          <Button
++                                                type="button"
++                                                variant="outline"
++                                                onClick={() => {
++                                                      clearStoredAccess();
++                                                      window.location.replace("/my-duties");
++                                                }}
++                                                className="flex-1 rounded-full"
++                                          >
++                                                Về Công tác
++                                          </Button>
++                                          <Button
++                                                type="button"
++                                                disabled={
++                                                      reauthCode.length !== 6 ||
++                                                      verifyStoreAccessMutation?.isPending
++                                                }
++                                                onClick={() =>
++                                                      verifyStoreAccessMutation?.mutate?.({
++                                                            storeShiftId: access.storeShiftId,
++                                                            accessCode: reauthCode,
++                                                      })
++                                                }
++                                                className="flex-1 rounded-full bg-amber-500 font-bold text-white hover:bg-amber-600"
++                                          >
++                                                {verifyStoreAccessMutation?.isPending
++                                                      ? "Đang xác thực"
++                                                      : "Vào lại Cửa hàng"}
++                                          </Button>
++                                    </div>
++                              </div>
++                        </div>
++                  ) : null}
++
+                   <div className={residenceMediumStyle.page}>

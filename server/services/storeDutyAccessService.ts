@@ -215,7 +215,7 @@ export const storeDutyAccessService = {
                   };
             }
 
-            const accessSession = await storeDb.getLatestStoreDutyAccessSession({
+            let accessSession = await storeDb.getLatestStoreDutyAccessSession({
                   storeShiftId: Number(shift.storeShiftId),
                   residentId: resident.id,
             });
@@ -225,6 +225,28 @@ export const storeDutyAccessService = {
                   !["cancelled", "closed", "confirmed", "expired"].includes(
                         String(shift.shiftStatus || "")
                   );
+
+            // Tự cấp mã lần đầu khi học viên mở trang Công tác trong giờ ca.
+            // Nếu đã có mã pending/active thì giữ nguyên; cấp lại thủ công vẫn đi qua
+            // issueAccessCode() và sẽ thu hồi mã cũ trước khi tạo mã mới.
+            if (
+                  canEnter &&
+                  (!accessSession ||
+                        !["pending", "active"].includes(
+                              String(accessSession.status || ""),
+                        ))
+            ) {
+                  await this.issueAccessCode({
+                        storeShiftId: Number(shift.storeShiftId),
+                        residentId: resident.id,
+                        issuedBy: null,
+                  });
+
+                  accessSession = await storeDb.getLatestStoreDutyAccessSession({
+                        storeShiftId: Number(shift.storeShiftId),
+                        residentId: resident.id,
+                  });
+            }
 
             return {
                   hasShift: true,
@@ -510,16 +532,31 @@ export const storeDutyAccessService = {
                         String(shift.status || ""),
                   );
 
-            if (idleExpired || sessionExpired || shiftExpired) {
+            if (shiftExpired) {
                   await storeDb.updateStoreDutyAccessSession(session.id, {
                         status: "expired",
+                        accessTokenHash: null,
+                        portalSessionId: null,
                         sessionExpiresAt: now,
                   } as any);
 
+                  throw new Error("Ca trực đã kết thúc. Mã vào Cửa hàng đã hết hạn.");
+            }
+
+            if (idleExpired || sessionExpired) {
+                  // Timeout chỉ đóng phiên thao tác, không hủy mã ca.
+                  // Đưa session về pending để học viên nhập lại đúng mã đã nhận.
+                  await storeDb.updateStoreDutyAccessSession(session.id, {
+                        status: "pending",
+                        accessTokenHash: null,
+                        portalSessionId: null,
+                        verifiedAt: null,
+                        lastStoreActivityAt: null,
+                        sessionExpiresAt: null,
+                  } as any);
+
                   throw new Error(
-                        shiftExpired
-                              ? "Ca trực đã kết thúc."
-                              : "Quyền Cửa hàng đã hết sau 30 phút không hoạt động. Vui lòng nhập lại mã.",
+                        "Phiên Cửa hàng đã hết sau 30 phút không hoạt động. Vui lòng nhập lại mã vào Cửa hàng.",
                   );
             }
 

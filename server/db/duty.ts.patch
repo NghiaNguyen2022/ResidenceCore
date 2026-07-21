@@ -1,0 +1,114 @@
+diff --git a/server/db/duty.ts b/server/db/duty.ts
+--- a/server/db/duty.ts
++++ b/server/db/duty.ts
+@@
+-      const existingShift = await db
++      const existingShiftRows = await db
+             .select()
+             .from(storeShifts)
+             .where(
+                   and(
+                         eq(storeShifts.ledgerId, ledgerId),
+@@
+             )
+             .limit(1);
+
+-      if (existingShift.length > 0) {
+-            throw new Error(
+-                  `Cửa hàng đã có ${input.storeShiftType === "morning" ? "ca sáng" : "ca chiều"} ngày ${assignedDate}.`,
+-            );
++      const existingShift = existingShiftRows[0] as any;
++
++      if (existingShift?.id) {
++            const existingStoreDutyAssignmentId = Number(
++                  existingShift.storeDutyAssignmentId || 0,
++            );
++
++            if (!existingStoreDutyAssignmentId) {
++                  throw new Error(
++                        "Ca Cửa hàng hiện có chưa liên kết với phân công công tác.",
++                  );
++            }
++
++            const existingMembers = await db
++                  .select({
++                        residentId: storeDutyMembers.residentId,
++                  })
++                  .from(storeDutyMembers)
++                  .where(
++                        eq(
++                              storeDutyMembers.storeDutyAssignmentId,
++                              existingStoreDutyAssignmentId,
++                        ),
++                  );
++
++            const existingResidentIds = new Set(
++                  existingMembers.map((row: any) => Number(row.residentId)),
++            );
++
++            const newResidentIds = residentIds.filter(
++                  (residentId) => !existingResidentIds.has(residentId),
++            );
++
++            if (newResidentIds.length > 0) {
++                  await db.insert(storeDutyMembers).values(
++                        newResidentIds.map((residentId) => ({
++                              storeDutyAssignmentId:
++                                    existingStoreDutyAssignmentId,
++                              residentId,
++                              memberRole:
++                                    residentId ===
++                                    Number(existingShift.primaryResidentId || 0)
++                                          ? "primary"
++                                          : "assistant",
++                              status: "assigned",
++                        })) as any,
++                  );
++            }
++
++            return {
++                  storeDutyAssignmentId: existingStoreDutyAssignmentId,
++                  storeShiftId: Number(existingShift.id),
++                  shiftDate: assignedDate,
++                  shiftType: input.storeShiftType,
++                  residentIds,
++                  primaryResidentId: Number(
++                        existingShift.primaryResidentId || primaryResidentId,
++                  ),
++                  reusedExistingShift: true,
++            };
+       }
+@@
+-      if (input.storeShiftType) {
+-            const ledgerId = Number(input.storeLedgerId || 0);
+-            if (!ledgerId) {
+-                  throw new Error("Vui lòng chọn cửa hàng cho ca trực.");
+-            }
+-
+-            for (const assignedDate of Array.from(
+-                  new Set(preview.items.filter((item) => item.canCreate).map((item) => item.date)),
+-            )) {
+-                  const existingShift = await db
+-                        .select()
+-                        .from(storeShifts)
+-                        .where(
+-                              and(
+-                                    eq(storeShifts.ledgerId, ledgerId),
+-                                    sql`DATE(${storeShifts.shiftDate}) = ${assignedDate}`,
+-                                    eq(storeShifts.shiftType, input.storeShiftType),
+-                              ),
+-                        )
+-                        .limit(1);
+-
+-                  if (existingShift.length > 0) {
+-                        throw new Error(
+-                              `Cửa hàng đã có ${
+-                                    input.storeShiftType === "morning" ? "ca sáng" : "ca chiều"
+-                              } ngày ${assignedDate}.`,
+-                        );
+-                  }
+-            }
+-      }
++      if (input.storeShiftType && !Number(input.storeLedgerId || 0)) {
++            throw new Error("Vui lòng chọn cửa hàng cho ca trực.");
++      }
