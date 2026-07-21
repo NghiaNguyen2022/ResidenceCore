@@ -1,6 +1,8 @@
 import { createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import * as dutyDb from "../db/duty";
+import * as residentDb from "../db/resident";
 import * as storeDb from "../db/storeLedger";
+import { sendNotification } from "./notificationService";
 
 const ACCESS_CODE_LENGTH = 6;
 
@@ -64,9 +66,33 @@ function asDate(value: Date | string | null | undefined) {
       return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/**
+ * Các cột giờ ca Cửa hàng là DATETIME dạng "wall clock" Việt Nam.
+ * MySQL/Drizzle trả 07:00 thành Date 07:00Z, nhưng nghiệp vụ cần hiểu đó là
+ * 07:00 Asia/Ho_Chi_Minh (= 00:00Z). Việt Nam cố định UTC+7, không có DST.
+ */
+function asVietnamWallClockInstant(
+      value: Date | string | null | undefined,
+) {
+      const date = asDate(value);
+      if (!date) return null;
+
+      return new Date(
+            Date.UTC(
+                  date.getUTCFullYear(),
+                  date.getUTCMonth(),
+                  date.getUTCDate(),
+                  date.getUTCHours() - 7,
+                  date.getUTCMinutes(),
+                  date.getUTCSeconds(),
+                  date.getUTCMilliseconds(),
+            ),
+      );
+}
+
 function isWithinAccessWindow(shift: any, now = new Date()) {
-      const validFrom = asDate(shift?.accessValidFrom);
-      const validUntil = asDate(shift?.accessValidUntil);
+      const validFrom = asVietnamWallClockInstant(shift?.accessValidFrom);
+      const validUntil = asVietnamWallClockInstant(shift?.accessValidUntil);
 
       return Boolean(
             validFrom &&
@@ -140,7 +166,9 @@ export const storeDutyAccessService = {
                   },
                   accessStatus: accessSession?.status || null,
                   message: canEnter
-                        ? "Ca trực đang trong thời gian cho phép truy cập."
+                        ? accessSession?.status === "pending"
+                              ? "Mã vào Cửa hàng đã được gửi qua Thông báo. Hãy vào Thông báo để xem."
+                              : "Ca trực đang trong thời gian cho phép truy cập."
                         : "Chưa đến giờ hoặc ca trực đã kết thúc.",
             };
       },
@@ -185,11 +213,53 @@ export const storeDutyAccessService = {
                   status: "access_issued",
             } as any);
 
+            const resident = await residentDb.getResidentById(input.residentId);
+            const recipientUserId = Number((resident as any)?.userId || 0);
+
+            if (!recipientUserId) {
+                  throw new Error(
+                        "Học viên chưa có tài khoản portal nên không thể nhận mã qua Thông báo.",
+                  );
+            }
+
+            const shiftLabel =
+                  shift.shiftType === "morning" ? "ca sáng" : "ca chiều";
+            const ledger = await storeDb.getStoreLedgerById(Number(shift.ledgerId));
+            const ledgerName = String((ledger as any)?.ledgerName || "Cửa hàng lưu xá");
+
+            const notificationId = await sendNotification({
+                  type: "system",
+                  title: "Mã vào Cửa hàng",
+                  content:
+                        `${ledgerName} · ${shiftLabel}. ` +
+                        `Mã truy cập của bạn là ${code}. ` +
+                        `Mã chỉ dùng trong thời gian ca trực và quyền Cửa hàng sẽ hết sau 30 phút không hoạt động.`,
+                  recipientId: recipientUserId,
+                  relatedEntityId: input.storeShiftId,
+                  relatedEntityType: "store_shift_access",
+                  metadata: {
+                        storeShiftId: input.storeShiftId,
+                        storeDutyAssignmentId: Number(shift.storeDutyAssignmentId),
+                        shiftType: shift.shiftType,
+                        validFrom: shift.accessValidFrom,
+                        validUntil: shift.accessValidUntil,
+                  },
+            });
+
+            if (!notificationId) {
+                  throw new Error(
+                        "Không thể gửi mã qua Thông báo. Vui lòng thử phát hành lại mã.",
+                  );
+            }
+
             return {
                   success: true,
                   accessCode: code,
                   validFrom: shift.accessValidFrom,
                   validUntil: shift.accessValidUntil,
+                  notificationSent: true,
+                  message:
+                        "Đã gửi mã vào Cửa hàng qua Thông báo của học viên.",
             };
       },
 
@@ -238,7 +308,7 @@ export const storeDutyAccessService = {
                   lastStoreActivityAt: verifiedAt,
                   sessionExpiresAt: minDate(
                         addMinutes(verifiedAt, STORE_IDLE_TIMEOUT_MINUTES),
-                        asDate(shift.accessValidUntil)!,
+                        asVietnamWallClockInstant(shift.accessValidUntil)!,
                   ),
                   status: "active",
             } as any);
@@ -305,7 +375,7 @@ export const storeDutyAccessService = {
             if (!shift) throw new Error("Không tìm thấy ca trực Cửa hàng.");
 
             const now = new Date();
-            const shiftEnd = asDate(shift.accessValidUntil);
+            const shiftEnd = asVietnamWallClockInstant(shift.accessValidUntil);
             const sessionExpiresAt = asDate(session.sessionExpiresAt);
             const lastActivityAt =
                   asDate(session.lastStoreActivityAt) ||
