@@ -4,6 +4,7 @@ import { adminProcedure, protectedProcedure, publicProcedure, router } from "./t
 import {
       getAppSetting,
       upsertAppSetting,
+      getDefaultDisplayMode,
       getEffectiveDisplayMode,
       getModuleDisplayMode,
       setModuleDisplayMode,
@@ -43,10 +44,9 @@ export const systemRouter = router({
                         return { moduleKey, mode } as const;
                   }
 
-                  const defaultMode = await getAppSetting("defaultDisplayMode");
                   return {
                         moduleKey: null,
-                        mode: (defaultMode?.value as "simple" | "detailed") || "detailed",
+                        mode: await getDefaultDisplayMode(),
                   } as const;
             }),
 

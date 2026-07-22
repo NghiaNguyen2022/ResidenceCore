@@ -5,6 +5,7 @@ import {
       ArrowDownToLine,
       ArrowUpFromLine,
       CircleDollarSign,
+      ClipboardList,
       Clock3,
       LogOut,
       PackagePlus,
@@ -13,12 +14,12 @@ import {
       ShieldCheck,
       ShoppingCart,
 } from "lucide-react";
-import { useLocation } from "wouter";
 import { toast } from "sonner";
 
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { FormDateInput } from "@/components/shared";
 import { residenceMediumStyle } from "@/components/shared/styleMedium";
+import { ResidentStorePreorders } from "@/components/resident-store/ResidentStorePreorders";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -32,12 +33,16 @@ type ResidentStoreAccess = {
       accessToken: string;
       storeShiftId: number;
       ledgerId: number;
+      ledgerName?: string | null;
+      shiftDate: string;
+      shiftType: "morning" | "afternoon";
       validUntil?: string | null;
 };
 
 type StoreTab =
       | "shift"
       | "sales"
+      | "preorders"
       | "purchase"
       | "transactions"
       | "handover"
@@ -70,21 +75,35 @@ function getStoredAccess(): ResidentStoreAccess | null {
 
       try {
             const raw =
-                  window.sessionStorage.getItem("residentStoreAccess");
+                  window.sessionStorage.getItem(
+                        "residentStoreSelection",
+                  );
             if (!raw) return null;
 
             const parsed = JSON.parse(raw);
             if (
-                  !parsed?.accessToken ||
-                  !Number(parsed?.storeShiftId)
+                  !Number(parsed?.storeShiftId) ||
+                  !parsed?.shiftDate ||
+                  !["morning", "afternoon"].includes(
+                        String(parsed?.shiftType || ""),
+                  )
             ) {
                   return null;
             }
 
             return {
-                  accessToken: String(parsed.accessToken),
-                  storeShiftId: Number(parsed.storeShiftId),
+                  accessToken:
+                        String(
+                              parsed.accessToken ||
+                                    "assigned-store-shift-access",
+                        ),
+                  storeShiftId: Number(
+                        parsed.storeShiftId,
+                  ),
                   ledgerId: Number(parsed.ledgerId || 0),
+                  ledgerName: parsed.ledgerName || null,
+                  shiftDate: String(parsed.shiftDate),
+                  shiftType: parsed.shiftType,
                   validUntil: parsed.validUntil || null,
             };
       } catch {
@@ -92,9 +111,23 @@ function getStoredAccess(): ResidentStoreAccess | null {
       }
 }
 
+function saveStoredAccess(access: ResidentStoreAccess) {
+      if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(
+                  "residentStoreSelection",
+                  JSON.stringify(access),
+            );
+      }
+}
+
 function clearStoredAccess() {
       if (typeof window !== "undefined") {
-            window.sessionStorage.removeItem("residentStoreAccess");
+            window.sessionStorage.removeItem(
+                  "residentStoreSelection",
+            );
+            window.sessionStorage.removeItem(
+                  "residentStoreAccess",
+            );
       }
 }
 
@@ -144,31 +177,18 @@ function formatDateTime(value?: string | null) {
       }).format(date);
 }
 
-function isStoreSessionError(error: unknown) {
-      const message = String(
-            (error as any)?.message ||
-                  (error as any)?.data?.message ||
-                  error ||
-                  "",
-      ).toLowerCase();
-
-      return [
-            "phiên quyền cửa hàng không hợp lệ",
-            "quyền cửa hàng đã hết",
-            "phiên cửa hàng đã hết",
-            "30 phút không hoạt động",
-            "ca trực đã kết thúc",
-      ].some((keyword) => message.includes(keyword));
-}
-
 export default function ResidentStore() {
-      const [, navigate] = useLocation();
       const storeApi = (trpc as any).storeLedger;
       const residentApi = (trpc as any).residentPortal;
 
-      const [access] = useState<ResidentStoreAccess | null>(
-            () => getStoredAccess(),
-      );
+      const [access, setAccess] =
+            useState<ResidentStoreAccess | null>(
+                  () => getStoredAccess(),
+            );
+      const [selectedShiftDate, setSelectedShiftDate] =
+            useState(getTodayYmd());
+      const [selectedShiftType, setSelectedShiftType] =
+            useState<"morning" | "afternoon">("morning");
       const [activeTab, setActiveTab] =
             useState<StoreTab>("shift");
       const [documentDate, setDocumentDate] =
@@ -190,38 +210,72 @@ export default function ResidentStore() {
       ] = useState("");
       const [handoverNotes, setHandoverNotes] = useState("");
 
-      const accessInput = access
-            ? {
-                    storeShiftId: access.storeShiftId,
-                    storeAccessToken: access.accessToken,
-              }
-            : null;
-
-      const sessionQuery =
-            residentApi?.getMyStoreAccessSession?.useQuery?.(
-                  access
-                        ? {
-                                storeShiftId: access.storeShiftId,
-                                accessToken: access.accessToken,
-                          }
-                        : {
-                                storeShiftId: 0,
-                                accessToken: "",
-                          },
+      const shiftOptionsQuery =
+            residentApi?.listMyStoreShiftOptions?.useQuery?.(
                   {
-                        enabled: Boolean(access),
+                        shiftDate: selectedShiftDate,
+                  },
+                  {
                         retry: false,
-                        refetchInterval: access ? 60000 : false,
                         refetchOnWindowFocus: true,
                   },
             ) ?? {
-                  data: null,
+                  data: [],
                   isLoading: false,
                   error: null,
                   refetch: () => undefined,
             };
 
-      const shiftSession = sessionQuery.data as any;
+      const openAssignedShiftMutation =
+            residentApi?.openMyAssignedStoreShift?.useMutation?.({
+                  onSuccess: (result: any) => {
+                        const nextAccess: ResidentStoreAccess = {
+                              accessToken:
+                                    "assigned-store-shift-access",
+                              storeShiftId: Number(
+                                    result.storeShiftId,
+                              ),
+                              ledgerId: Number(result.ledgerId),
+                              ledgerName:
+                                    result.ledgerName || null,
+                              shiftDate: String(
+                                    result.shiftDate,
+                              ),
+                              shiftType: result.shiftType,
+                              validUntil:
+                                    result.validUntil || null,
+                        };
+
+                        saveStoredAccess(nextAccess);
+                        setAccess(nextAccess);
+                        setDocumentDate(
+                              nextAccess.shiftDate,
+                        );
+                        setClosingDate(
+                              nextAccess.shiftDate,
+                        );
+                        setActiveTab("shift");
+                        toast.success(
+                              "Đã mở Cửa hàng theo ca được phân công.",
+                        );
+                  },
+                  onError: (error: any) => {
+                        toast.error(
+                              error?.message ||
+                                    "Bạn không được phân công vào ngày và ca đã chọn.",
+                        );
+                  },
+            });
+
+      const accessInput = access
+            ? {
+                    storeShiftId: access.storeShiftId,
+                    storeAccessToken:
+                          access.accessToken,
+              }
+            : null;
+
+      const shiftSession = access as any;
       const isAfternoon =
             shiftSession?.shiftType === "afternoon";
 
@@ -349,32 +403,6 @@ export default function ResidentStore() {
             };
 
       useEffect(() => {
-            if (!access) navigate("/my-duties");
-      }, [access, navigate]);
-
-      useEffect(() => {
-            const error =
-                  sessionQuery.error ||
-                  productsQuery.error ||
-                  transactionsQuery.error ||
-                  handoverQuery.error;
-
-            if (!error || !isStoreSessionError(error)) return;
-
-            clearStoredAccess();
-            toast.error(
-                  (error as any)?.message ||
-                        "Phiên Cửa hàng đã hết. Vui lòng vào lại.",
-            );
-            window.location.replace("/my-duties");
-      }, [
-            sessionQuery.error,
-            productsQuery.error,
-            transactionsQuery.error,
-            handoverQuery.error,
-      ]);
-
-      useEffect(() => {
             if (!handover) return;
             setHandoverCountedCash(
                   formatInputMoney(handover.countedCash),
@@ -426,7 +454,6 @@ export default function ResidentStore() {
             await Promise.allSettled([
                   productsQuery.refetch?.(),
                   transactionsQuery.refetch?.(),
-                  sessionQuery.refetch?.(),
                   handoverQuery.refetch?.(),
             ]);
       };
@@ -482,8 +509,7 @@ export default function ResidentStore() {
                         toast.success("Đã ký giao ca.");
                         await Promise.allSettled([
                               handoverQuery.refetch?.(),
-                              sessionQuery.refetch?.(),
-                        ]);
+                                    ]);
                   },
                   onError: (error: any) =>
                         toast.error(
@@ -647,7 +673,165 @@ export default function ResidentStore() {
             });
       };
 
-      if (!access) return null;
+      if (!access) {
+            const options = Array.isArray(
+                  shiftOptionsQuery.data,
+            )
+                  ? shiftOptionsQuery.data
+                  : [];
+
+            const selectedOption = options.find(
+                  (item: any) =>
+                        String(item.shiftDate) ===
+                              selectedShiftDate &&
+                        item.shiftType ===
+                              selectedShiftType,
+            );
+
+            return (
+                  <ResidenceCareLayout>
+                        <div className={residenceMediumStyle.page}>
+                              <div
+                                    className={
+                                          residenceMediumStyle.pageAura
+                                    }
+                              />
+                              <div
+                                    className={
+                                          residenceMediumStyle.pageShell
+                                    }
+                              >
+                                    <Card className="mx-auto max-w-3xl rounded-[30px] border-amber-100/80 bg-white/95 p-6 shadow-[0_22px_60px_rgba(120,53,15,0.08)]">
+                                          <div className="text-center">
+                                                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-700">
+                                                      Cửa hàng lưu xá
+                                                </p>
+                                                <h1 className="mt-2 text-[28px] font-black tracking-tight text-slate-950">
+                                                      Chọn ngày và ca trực
+                                                </h1>
+                                                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                                                      Chọn đúng ngày và ca đã được phân công. Không cần mã truy cập và không timeout phiên Cửa hàng.
+                                                </p>
+                                          </div>
+
+                                          <div className="mt-6 grid gap-4 md:grid-cols-2">
+                                                <div>
+                                                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                                                            Ngày trực
+                                                      </p>
+                                                      <FormDateInput
+                                                            value={
+                                                                  selectedShiftDate
+                                                            }
+                                                            onChange={(event: any) =>
+                                                                  setSelectedShiftDate(
+                                                                        event.target.value,
+                                                                  )
+                                                            }
+                                                      />
+                                                </div>
+
+                                                <div>
+                                                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                                                            Ca trực
+                                                      </p>
+                                                      <div className="grid grid-cols-2 gap-2">
+                                                            {[
+                                                                  [
+                                                                        "morning",
+                                                                        "Ca sáng",
+                                                                  ],
+                                                                  [
+                                                                        "afternoon",
+                                                                        "Ca chiều",
+                                                                  ],
+                                                            ].map(
+                                                                  ([
+                                                                        value,
+                                                                        label,
+                                                                  ]) => (
+                                                                        <button
+                                                                              key={
+                                                                                    value
+                                                                              }
+                                                                              type="button"
+                                                                              onClick={() =>
+                                                                                    setSelectedShiftType(
+                                                                                          value as
+                                                                                                | "morning"
+                                                                                                | "afternoon",
+                                                                                    )
+                                                                              }
+                                                                              className={[
+                                                                                    "rounded-2xl border px-4 py-3 text-sm font-black transition",
+                                                                                    selectedShiftType ===
+                                                                                    value
+                                                                                          ? "border-amber-300 bg-amber-400 text-slate-950"
+                                                                                          : "border-amber-100 bg-white text-slate-600 hover:bg-amber-50",
+                                                                              ].join(
+                                                                                    " ",
+                                                                              )}
+                                                                        >
+                                                                              {
+                                                                                    label
+                                                                              }
+                                                                        </button>
+                                                                  ),
+                                                            )}
+                                                      </div>
+                                                </div>
+                                          </div>
+
+                                          <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50/45 p-4 text-sm">
+                                                {shiftOptionsQuery.isLoading ? (
+                                                      <p className="text-slate-500">
+                                                            Đang kiểm tra phân công...
+                                                      </p>
+                                                ) : selectedOption ? (
+                                                      <div>
+                                                            <p className="font-black text-emerald-700">
+                                                                  Bạn có phân công trong ngày và ca này.
+                                                            </p>
+                                                            <p className="mt-1 text-xs text-slate-500">
+                                                                  {selectedOption.ledgerName ||
+                                                                        "Cửa hàng lưu xá"}
+                                                            </p>
+                                                      </div>
+                                                ) : (
+                                                      <p className="font-semibold text-slate-500">
+                                                            Không tìm thấy phân công phù hợp.
+                                                      </p>
+                                                )}
+                                          </div>
+
+                                          <div className="mt-5 flex justify-end">
+                                                <Button
+                                                      type="button"
+                                                      disabled={
+                                                            !selectedOption ||
+                                                            openAssignedShiftMutation?.isPending
+                                                      }
+                                                      onClick={() =>
+                                                            openAssignedShiftMutation?.mutate?.(
+                                                                  {
+                                                                        shiftDate:
+                                                                              selectedShiftDate,
+                                                                        shiftType:
+                                                                              selectedShiftType,
+                                                                  },
+                                                            )
+                                                      }
+                                                      className="rounded-full bg-amber-500 px-6 font-black text-white hover:bg-amber-600"
+                                                >
+                                                      Vào Cửa hàng
+                                                </Button>
+                                          </div>
+                                    </Card>
+                              </div>
+                        </div>
+                  </ResidenceCareLayout>
+            );
+      }
 
       const tabs: Array<{
             key: StoreTab;
@@ -663,6 +847,11 @@ export default function ResidentStore() {
                   key: "sales",
                   label: "Bán hàng",
                   icon: <ShoppingCart className="h-4 w-4" />,
+            },
+            {
+                  key: "preorders",
+                  label: "Đặt hàng trước",
+                  icon: <ClipboardList className="h-4 w-4" />,
             },
             {
                   key: "purchase",
@@ -736,8 +925,12 @@ export default function ResidentStore() {
                                                 variant="outline"
                                                 onClick={() => {
                                                       clearStoredAccess();
-                                                      window.location.replace(
-                                                            "/my-duties",
+                                                      setAccess(null);
+                                                      setSelectedShiftDate(
+                                                            getTodayYmd(),
+                                                      );
+                                                      setSelectedShiftType(
+                                                            "morning",
                                                       );
                                                 }}
                                                 className="rounded-full border-amber-200 bg-white/90"
@@ -1155,6 +1348,19 @@ export default function ResidentStore() {
                                                 </Button>
                                           </div>
                                     </Card>
+                              ) : null}
+
+                              {activeTab === "preorders" &&
+                              accessInput &&
+                              ledgerId ? (
+                                    <div className="mt-4">
+                                          <ResidentStorePreorders
+                                                ledgerId={ledgerId}
+                                                accessInput={accessInput}
+                                                products={products}
+                                                businessDate={documentDate}
+                                          />
+                                    </div>
                               ) : null}
 
                               {activeTab === "transactions" ? (

@@ -76,12 +76,30 @@ export async function setModuleDisplayMode(moduleKey: string, mode: DisplayMode)
       }
 }
 
+function normalizeDisplayMode(value: unknown): DisplayMode | null {
+      if (value === "simple" || value === "detailed") return value;
+
+      if (value && typeof value === "object" && "displayMode" in (value as Record<string, unknown>)) {
+            const inner = (value as Record<string, unknown>).displayMode;
+            if (inner === "simple" || inner === "detailed") return inner;
+      }
+
+      return null;
+}
+
+// appSettings.value là cột JSON, nhưng dữ liệu cũ từng lưu dạng { displayMode: "..." }
+// thay vì lưu thẳng chuỗi "simple"/"detailed". Chuẩn hoá cả hai dạng ở đây,
+// mặc định "simple" khi chưa có cấu hình để tài khoản mới luôn thấy giao diện đơn giản.
+export async function getDefaultDisplayMode(): Promise<DisplayMode> {
+      const defaultMode = await getAppSetting("defaultDisplayMode");
+      return normalizeDisplayMode(defaultMode?.value) || "simple";
+}
+
 export async function getEffectiveDisplayMode(moduleKey: string) {
       const moduleMode = await getModuleDisplayMode(moduleKey);
       if (moduleMode) {
             return moduleMode.mode;
       }
 
-      const defaultMode = await getAppSetting("defaultDisplayMode");
-      return (defaultMode?.value as DisplayMode) || "detailed";
+      return getDefaultDisplayMode();
 }

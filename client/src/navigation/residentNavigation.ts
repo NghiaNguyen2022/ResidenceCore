@@ -1,32 +1,5 @@
 import type { NavigationItem } from "./types";
 
-function hasResidentStoreAccess() {
-      if (typeof window === "undefined") return false;
-
-      try {
-            const raw = window.sessionStorage.getItem("residentStoreAccess");
-            if (!raw) return false;
-
-            const parsed = JSON.parse(raw);
-            const validUntil = parsed?.validUntil ? new Date(parsed.validUntil).getTime() : 0;
-
-            return Boolean(
-                  parsed?.accessToken &&
-                  Number(parsed?.storeShiftId) > 0 &&
-                  validUntil > Date.now(),
-            );
-      } catch {
-            return false;
-      }
-}
-
-const storeNavigationItem: NavigationItem = {
-      label: "Cửa hàng",
-      path: "/resident/store",
-      icon: "🛍️",
-      roles: ["resident"],
-};
-
 export const residentNavigation: NavigationItem[] = [
       {
             label: "Hôm nay",
@@ -51,7 +24,12 @@ export const residentNavigation: NavigationItem[] = [
                         icon: "✅",
                         roles: ["resident"],
                   },
-                  ...(hasResidentStoreAccess() ? [storeNavigationItem] : []),
+                  {
+                        label: "Cửa hàng",
+                        path: "/resident/store",
+                        icon: "🛍️",
+                        roles: ["resident"],
+                  },
                   {
                         label: "Tài chính",
                         path: "/resident/finance",

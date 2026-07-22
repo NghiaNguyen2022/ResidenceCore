@@ -67,6 +67,60 @@ function asDate(value: Date | string | null | undefined) {
       return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function toVietnamDateKey(
+      value: Date | string | null | undefined,
+) {
+      if (
+            typeof value === "string" &&
+            /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+      ) {
+            return value.trim();
+      }
+
+      const date = asDate(value);
+      if (!date) return "";
+
+      const parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Ho_Chi_Minh",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+      }).formatToParts(date);
+
+      const part = (type: string) =>
+            parts.find((item) => item.type === type)?.value || "";
+
+      return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function getStoreShiftDateKey(shift: any) {
+      if (
+            typeof shift?.shiftDate === "string" &&
+            /^\d{4}-\d{2}-\d{2}$/.test(
+                  shift.shiftDate.trim(),
+            )
+      ) {
+            return shift.shiftDate.trim();
+      }
+
+      return toVietnamDateKey(
+            shift?.accessValidFrom ||
+                  shift?.scheduledFrom ||
+                  shift?.shiftDate,
+      );
+}
+
+function isOpenableShiftStatus(status: unknown) {
+      return ![
+            "cancelled",
+            "closed",
+            "confirmed",
+            "expired",
+            "handed_over",
+            "closing_pending",
+      ].includes(String(status || ""));
+}
+
 /**
  * storeShifts.accessValidFrom/accessValidUntil là TIMESTAMP.
  * MySQL/Drizzle đã trả về đúng thời điểm UTC, ví dụ:
@@ -196,81 +250,104 @@ async function createStoreAccessNotification(input: {
 }
 
 export const storeDutyAccessService = {
-      async getMyCurrentShift(userId: number) {
+      async listMyAssignedShiftOptions(
+            userId: number,
+            input: { shiftDate?: string | null } = {},
+      ) {
             const resident = await getResidentOrThrow(userId);
-            const candidates = await storeDb.listStoreShiftCandidatesForResident(resident.id);
-            const now = new Date();
-
-            const shift =
-                  candidates.find((item: any) => isWithinAccessWindow(item, now)) ||
-                  candidates[0] ||
-                  null;
-
-            if (!shift) {
-                  return {
-                        hasShift: false,
-                        canEnter: false,
-                        shift: null,
-                        message: "Hiện không có ca trực Cửa hàng được phân công.",
-                  };
-            }
-
-            let accessSession = await storeDb.getLatestStoreDutyAccessSession({
-                  storeShiftId: Number(shift.storeShiftId),
-                  residentId: resident.id,
-            });
-
-            const canEnter =
-                  isWithinAccessWindow(shift, now) &&
-                  !["cancelled", "closed", "confirmed", "expired"].includes(
-                        String(shift.shiftStatus || "")
+            const candidates =
+                  await storeDb.listStoreShiftCandidatesForResident(
+                        resident.id,
                   );
 
-            // Tự cấp mã lần đầu khi học viên mở trang Công tác trong giờ ca.
-            // Nếu đã có mã pending/active thì giữ nguyên; cấp lại thủ công vẫn đi qua
-            // issueAccessCode() và sẽ thu hồi mã cũ trước khi tạo mã mới.
-            if (
-                  canEnter &&
-                  (!accessSession ||
-                        !["pending", "active"].includes(
-                              String(accessSession.status || ""),
-                        ))
-            ) {
-                  await this.issueAccessCode({
-                        storeShiftId: Number(shift.storeShiftId),
-                        residentId: resident.id,
-                        issuedBy: null,
-                  });
+            return candidates
+                  .filter((item: any) => {
+                        const shiftDate =
+                              getStoreShiftDateKey(item);
 
-                  accessSession = await storeDb.getLatestStoreDutyAccessSession({
-                        storeShiftId: Number(shift.storeShiftId),
-                        residentId: resident.id,
-                  });
+                        return (
+                              isOpenableShiftStatus(
+                                    item.shiftStatus,
+                              ) &&
+                              (!input.shiftDate ||
+                                    shiftDate ===
+                                          input.shiftDate)
+                        );
+                  })
+                  .map((item: any) => ({
+                        storeShiftId: Number(
+                              item.storeShiftId,
+                        ),
+                        storeDutyAssignmentId: Number(
+                              item.storeDutyAssignmentId,
+                        ),
+                        ledgerId: Number(item.ledgerId),
+                        ledgerName: item.ledgerName,
+                        shiftDate:
+                              getStoreShiftDateKey(item),
+                        shiftType: item.shiftType,
+                        scheduledFrom: item.scheduledFrom,
+                        scheduledTo: item.scheduledTo,
+                        validUntil:
+                              item.accessValidUntil,
+                        status: item.shiftStatus,
+                        memberRole: item.memberRole,
+                  }));
+      },
+
+      async openMyAssignedShift(input: {
+            userId: number;
+            shiftDate: string;
+            shiftType: "morning" | "afternoon";
+      }) {
+            const options =
+                  await this.listMyAssignedShiftOptions(
+                        input.userId,
+                        {
+                              shiftDate:
+                                    input.shiftDate,
+                        },
+                  );
+
+            const selected = options.find(
+                  (item: any) =>
+                        item.shiftDate ===
+                              input.shiftDate &&
+                        item.shiftType ===
+                              input.shiftType,
+            );
+
+            if (!selected) {
+                  throw new Error(
+                        "Bạn không được phân công vào ngày và ca đã chọn.",
+                  );
             }
 
             return {
-                  hasShift: true,
-                  canEnter,
-                  shift: {
-                        id: Number(shift.storeShiftId),
-                        storeDutyAssignmentId: Number(shift.storeDutyAssignmentId),
-                        ledgerId: Number(shift.ledgerId),
-                        ledgerName: shift.ledgerName,
-                        shiftDate: shift.shiftDate,
-                        shiftType: shift.shiftType,
-                        scheduledFrom: shift.scheduledFrom,
-                        scheduledTo: shift.scheduledTo,
-                        accessValidFrom: shift.accessValidFrom,
-                        accessValidUntil: shift.accessValidUntil,
-                        status: shift.shiftStatus,
-                        memberRole: shift.memberRole,
-                  },
-                  accessStatus: accessSession?.status || null,
-                  message: canEnter
-                        ? accessSession?.status === "pending"
-                              ? "Mã vào Cửa hàng đã được gửi qua Thông báo. Hãy vào Thông báo để xem."
-                              : "Ca trực đang trong thời gian cho phép truy cập."
-                        : "Chưa đến giờ hoặc ca trực đã kết thúc.",
+                  success: true,
+                  accessToken:
+                        "assigned-store-shift-access",
+                  storeShiftId:
+                        selected.storeShiftId,
+                  ledgerId: selected.ledgerId,
+                  ledgerName: selected.ledgerName,
+                  shiftDate: selected.shiftDate,
+                  shiftType: selected.shiftType,
+                  validUntil: selected.validUntil,
+                  message:
+                        "Đã mở Cửa hàng theo ca được phân công.",
+            };
+      },
+
+      async getMyCurrentShift(userId: number) {
+            await getResidentOrThrow(userId);
+
+            return {
+                  hasShift: false,
+                  canEnter: false,
+                  shift: null,
+                  message:
+                        "Vào menu Cửa hàng để chọn ngày và ca trực.",
             };
       },
 
@@ -482,101 +559,60 @@ export const storeDutyAccessService = {
             const userId = Number(input.user?.id || 0);
             if (!userId) throw new Error("Phiên đăng nhập không hợp lệ.");
 
-            const accessToken = String(input.accessToken || "").trim();
-            const storeShiftId = Number(input.storeShiftId || 0);
-
-            if (!accessToken || !storeShiftId) {
-                  throw new Error("Quyền Cửa hàng đã hết hoặc chưa được mở.");
-            }
-
-            const resident = await getResidentOrThrow(userId);
-            const session = await storeDb.getStoreDutyAccessSessionByTokenHash(
-                  hashValue(accessToken),
+            const storeShiftId = Number(
+                  input.storeShiftId || 0,
             );
 
-            if (
-                  !session ||
-                  Number(session.storeShiftId) !== storeShiftId ||
-                  Number(session.residentId) !== Number(resident.id) ||
-                  session.status !== "active"
-            ) {
-                  throw new Error("Phiên quyền Cửa hàng không hợp lệ.");
+            if (!storeShiftId) {
+                  throw new Error(
+                        "Vui lòng chọn ngày và ca Cửa hàng.",
+                  );
             }
 
-            const shift = await storeDb.getStoreShiftById(storeShiftId);
-            if (!shift) throw new Error("Không tìm thấy ca trực Cửa hàng.");
-
-            const now = new Date();
-            const shiftEnd = asDate(shift.accessValidUntil);
-            const sessionExpiresAt = asDate(session.sessionExpiresAt);
-            const lastActivityAt =
-                  asDate(session.lastStoreActivityAt) ||
-                  asDate(session.verifiedAt);
-
-            const idleExpired =
-                  !lastActivityAt ||
-                  now.getTime() >
-                        addMinutes(
-                              lastActivityAt,
-                              STORE_IDLE_TIMEOUT_MINUTES,
-                        ).getTime();
-
-            const sessionExpired =
-                  !sessionExpiresAt ||
-                  now.getTime() > sessionExpiresAt.getTime();
-
-            const shiftExpired =
-                  !shiftEnd ||
-                  now.getTime() > shiftEnd.getTime() ||
-                  ["closed", "confirmed", "expired", "cancelled"].includes(
-                        String(shift.status || ""),
+            const resident =
+                  await getResidentOrThrow(userId);
+            const shift =
+                  await storeDb.getStoreShiftById(
+                        storeShiftId,
                   );
 
-            if (shiftExpired) {
-                  await storeDb.updateStoreDutyAccessSession(session.id, {
-                        status: "expired",
-                        accessTokenHash: null,
-                        portalSessionId: null,
-                        sessionExpiresAt: now,
-                  } as any);
-
-                  throw new Error("Ca trực đã kết thúc. Mã vào Cửa hàng đã hết hạn.");
+            if (!shift) {
+                  throw new Error(
+                        "Không tìm thấy ca trực Cửa hàng.",
+                  );
             }
 
-            if (idleExpired || sessionExpired) {
-                  // Timeout chỉ đóng phiên thao tác, không hủy mã ca.
-                  // Đưa session về pending để học viên nhập lại đúng mã đã nhận.
-                  await storeDb.updateStoreDutyAccessSession(session.id, {
-                        status: "pending",
-                        accessTokenHash: null,
-                        portalSessionId: null,
-                        verifiedAt: null,
-                        lastStoreActivityAt: null,
-                        sessionExpiresAt: null,
-                  } as any);
-
+            if (!isOpenableShiftStatus(shift.status)) {
                   throw new Error(
-                        "Phiên Cửa hàng đã hết sau 30 phút không hoạt động. Vui lòng nhập lại mã vào Cửa hàng.",
+                        "Ca Cửa hàng đã kết thúc hoặc bị khóa.",
+                  );
+            }
+
+            const member =
+                  await storeDb.getStoreDutyMember({
+                        storeDutyAssignmentId: Number(
+                              shift.storeDutyAssignmentId,
+                        ),
+                        residentId: resident.id,
+                  });
+
+            if (
+                  !member ||
+                  member.status === "cancelled"
+            ) {
+                  throw new Error(
+                        "Bạn không được phân công vào ca Cửa hàng này.",
                   );
             }
 
             if (
                   input.ledgerId &&
-                  Number(input.ledgerId) !== Number(shift.ledgerId)
+                  Number(input.ledgerId) !==
+                        Number(shift.ledgerId)
             ) {
-                  throw new Error("Phiên quyền không thuộc cửa hàng đã chọn.");
-            }
-
-            if (input.touchActivity !== false) {
-                  const nextExpiry = minDate(
-                        addMinutes(now, STORE_IDLE_TIMEOUT_MINUTES),
-                        shiftEnd,
+                  throw new Error(
+                        "Ca được chọn không thuộc cửa hàng hiện tại.",
                   );
-
-                  await storeDb.updateStoreDutyAccessSession(session.id, {
-                        lastStoreActivityAt: now,
-                        sessionExpiresAt: nextExpiry,
-                  } as any);
             }
 
             return {
@@ -605,38 +641,30 @@ export const storeDutyAccessService = {
             accessToken: string;
             storeShiftId: number;
       }) {
-            const resident = await getResidentOrThrow(input.userId);
-            const session = await storeDb.getStoreDutyAccessSessionByTokenHash(
-                  hashValue(input.accessToken),
-            );
-
-            if (
-                  !session ||
-                  Number(session.storeShiftId) !== input.storeShiftId ||
-                  Number(session.residentId) !== Number(resident.id)
-            ) {
-                  return { active: false, reason: "invalid" };
-            }
-
             try {
-                  const access = await this.authorizeStoreAction({
-                        user: { id: input.userId, role: "resident" },
-                        accessToken: input.accessToken,
-                        storeShiftId: input.storeShiftId,
-                        touchActivity: false,
-                  });
+                  const access =
+                        await this.authorizeStoreAction({
+                              user: {
+                                    id: input.userId,
+                                    role: "resident",
+                              },
+                              storeShiftId:
+                                    input.storeShiftId,
+                              touchActivity: false,
+                        });
 
                   return {
                         active: true,
                         access,
-                        expiresAt: session.sessionExpiresAt,
+                        expiresAt: null,
                   };
             } catch (error: any) {
                   return {
                         active: false,
-                        reason: error?.message || "expired",
+                        reason:
+                              error?.message ||
+                              "invalid",
                   };
             }
-
       },
 };

@@ -5,13 +5,10 @@ import {
       CheckCircle2,
       ChevronDown,
       ChevronUp,
-      KeyRound,
       SkipForward,
       X,
 } from 'lucide-react';
-import { toast } from 'sonner';
 
-import { trpc } from '@/lib/trpc';
 import {
       Badge,
       DateNavigator,
@@ -294,10 +291,6 @@ function InfoBox({ label, children }: { label: string; children: React.ReactNode
       );
 }
 
-function isStoreDuty(group: DutyGroup) {
-      return String(group.dutyName || '').toLowerCase().includes('cửa hàng');
-}
-
 export function DutyDayView({
       selectedDate,
       onDateChange,
@@ -313,49 +306,6 @@ export function DutyDayView({
 }: DutyDayViewProps) {
       const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
       const dutyGroups = buildDutyGroups(assignments, selectedDate, dutyConfigs);
-
-      const issueCodeMutation =
-            (trpc as any).storeLedger.issueDutyAccessCodeByAssignment.useMutation({
-                  onSuccess: (result: any) => {
-                        toast.success(
-                              result?.message ||
-                                    'Đã gửi mã vào Cửa hàng qua Thông báo của học viên.'
-                        );
-                  },
-                  onError: (error: any) => {
-                        toast.error(
-                              error?.message || 'Không thể phát hành mã vào Cửa hàng.'
-                        );
-                  },
-            });
-
-      const issueStoreCode = (group: DutyGroup) => {
-            const assignment = group.assignments.find((item: any) =>
-                  Number(
-                        item?.residentId ||
-                              item?.assignedToId ||
-                              item?.assigned_to_id ||
-                              0
-                  ) > 0
-            );
-
-            const residentId = Number(
-                  assignment?.residentId ||
-                        assignment?.assignedToId ||
-                        assignment?.assigned_to_id ||
-                        0
-            );
-
-            if (!assignment?.id || !residentId) {
-                  toast.error('Không xác định được học viên của ca trực Cửa hàng.');
-                  return;
-            }
-
-            issueCodeMutation.mutate({
-                  dutyAssignmentId: Number(assignment.id),
-                  residentId,
-            });
-      };
 
       return (
             <SectionCard
@@ -525,32 +475,6 @@ export function DutyDayView({
                                                                               {getGroupStatusLabel(group.status)}
                                                                         </InfoBox>
                                                                   </div>
-
-                                                                  {isStoreDuty(group) && (
-                                                                        <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
-                                                                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                                                                    <div>
-                                                                                          <p className="font-semibold text-indigo-900">
-                                                                                                Quyền vào Cửa hàng
-                                                                                          </p>
-                                                                                          <p className="mt-1 text-sm text-indigo-700">
-                                                                                                Mã mới sẽ được gửi qua mục Thông báo của học viên.
-                                                                                          </p>
-                                                                                    </div>
-                                                                                    <button
-                                                                                          type="button"
-                                                                                          disabled={issueCodeMutation.isPending}
-                                                                                          onClick={() => issueStoreCode(group)}
-                                                                                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
-                                                                                    >
-                                                                                          <KeyRound className="h-4 w-4" />
-                                                                                          {issueCodeMutation.isPending
-                                                                                                ? 'Đang gửi mã'
-                                                                                                : 'Gửi mã qua Thông báo'}
-                                                                                    </button>
-                                                                              </div>
-                                                                        </div>
-                                                                  )}
 
                                                                   {group.representative?.notes && (
                                                                         <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">

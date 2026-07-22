@@ -6,6 +6,7 @@ import { storeLedgerService } from "../../services/storeLedgerService";
 import { storeDutyAccessService } from "../../services/storeDutyAccessService";
 import { storeShiftHandoverService } from "../../services/storeShiftHandoverService";
 import { storeShiftClosingService } from "../../services/storeShiftClosingService";
+import { storePreorderService } from "../../services/storePreorderService";
 
 function requireStoreLedgerAccess(user: {
       id?: number;
@@ -707,4 +708,81 @@ export const storeLedgerRouter = router({
                   requireStoreLedgerAccess(ctx.user);
                   return storeLedgerService.deleteTransaction(input.id);
             }),
+
+      listPreorders: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive(),
+                        status: z.enum(["pending", "confirmed", "preparing", "ready", "completed", "cancelled"]).optional().nullable(),
+                        ...residentStoreAccessSchema,
+                  }),
+            )
+            .query(async ({ ctx, input }) =>
+                  storePreorderService.list({ user: ctx.user, ...input }),
+            ),
+
+      getPreorder: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number().int().positive(),
+                        ...residentStoreAccessSchema,
+                  }),
+            )
+            .query(async ({ ctx, input }) =>
+                  storePreorderService.get({ user: ctx.user, ...input }),
+            ),
+
+      createPreorder: protectedProcedure
+            .input(
+                  z.object({
+                        ledgerId: z.number().int().positive(),
+                        storeShiftId: z.number().int().positive(),
+                        storeAccessToken: z.string().optional().nullable(),
+                        orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+                        customerName: z.string().trim().min(1),
+                        customerPhone: z.string().trim().min(8),
+                        deliveryAddress: z.string().trim().optional().nullable(),
+                        fulfillmentType: z.enum(["pickup", "delivery"]),
+                        requestedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+                        depositAmount: z.number().min(0).optional().nullable(),
+                        notes: z.string().trim().optional().nullable(),
+                        lines: z.array(
+                              z.object({
+                                    productId: z.number().int().positive(),
+                                    quantity: z.number().positive(),
+                                    unitPrice: z.number().positive(),
+                                    notes: z.string().trim().optional().nullable(),
+                              }),
+                        ).min(1),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) =>
+                  storePreorderService.create({ user: ctx.user, ...input }),
+            ),
+
+      updatePreorderStatus: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number().int().positive(),
+                        status: z.enum(["pending", "confirmed", "preparing", "ready", "cancelled"]),
+                        ...residentStoreAccessSchema,
+                  }),
+            )
+            .mutation(async ({ ctx, input }) =>
+                  storePreorderService.updateStatus({ user: ctx.user, ...input }),
+            ),
+
+      completePreorder: protectedProcedure
+            .input(
+                  z.object({
+                        id: z.number().int().positive(),
+                        storeShiftId: z.number().int().positive(),
+                        storeAccessToken: z.string().optional().nullable(),
+                        completionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+                        paymentMethod: z.string().trim().optional().nullable(),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) =>
+                  storePreorderService.complete({ user: ctx.user, ...input }),
+            ),
 });

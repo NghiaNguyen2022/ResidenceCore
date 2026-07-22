@@ -24,6 +24,55 @@ function getUserIdFromContext(ctx: any) {
 }
 
 export const residentPortalRouter = router({
+      listMyStoreShiftOptions: protectedProcedure
+            .input(
+                  z
+                        .object({
+                              shiftDate: z
+                                    .string()
+                                    .regex(
+                                          /^\d{4}-\d{2}-\d{2}$/,
+                                    )
+                                    .optional()
+                                    .nullable(),
+                        })
+                        .optional(),
+            )
+            .query(async ({ ctx, input }) => {
+                  const userId =
+                        getUserIdFromContext(ctx);
+
+                  return storeDutyAccessService.listMyAssignedShiftOptions(
+                        userId,
+                        input || {},
+                  );
+            }),
+
+      openMyAssignedStoreShift: protectedProcedure
+            .input(
+                  z.object({
+                        shiftDate: z
+                              .string()
+                              .regex(
+                                    /^\d{4}-\d{2}-\d{2}$/,
+                              ),
+                        shiftType: z.enum([
+                              "morning",
+                              "afternoon",
+                        ]),
+                  }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                  const userId =
+                        getUserIdFromContext(ctx);
+
+                  return storeDutyAccessService.openMyAssignedShift({
+                        userId,
+                        shiftDate: input.shiftDate,
+                        shiftType: input.shiftType,
+                  });
+            }),
+
       getMyStoreDutyAccess: protectedProcedure.query(async ({ ctx }) => {
             const userId = getUserIdFromContext(ctx);
             return storeDutyAccessService.getMyCurrentShift(userId);
