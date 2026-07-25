@@ -610,3 +610,113 @@ hoặc tạm tắt safe update nếu người dùng chủ động muốn, nhưng
   - [ ] Sổ cửa hàng: thu/chi theo ngày khớp phiếu.
   - [ ] Sổ chung Finance: chỉ nhận tổng sau khi manager xác nhận.
 - [ ] Không test nhiều ledger, nhiều ngày, nhiều loại nguồn cùng lúc trong P0.
+
+---
+
+### D15 — Smoke test main flow trên browser
+
+- [x] Dev server chạy được tại `http://localhost:3000/`.
+- [x] Đồng bộ seed demo manager với UI login: `admin / Admin@123`.
+- [x] Login manager qua browser thành công.
+- [x] Luồng đổi mật khẩu lần đầu hiển thị đúng và đổi mật khẩu xong quay về login.
+- [x] Sau khi login lại, các route P0 render không 404, không runtime crash:
+  - [x] `/dashboard`
+  - [x] `/members`
+  - [x] `/organization`
+  - [x] `/finance`
+  - [x] `/daily-routine`
+  - [x] `/duties`
+  - [x] `/store-ledger`
+- [x] Simple menu không còn menu Phòng trong nhánh chính; route `/rooms` vẫn giữ cho Detailed mode.
+- [x] Chặn lỗi console local do analytics `/umami` trỏ nhầm về app localhost.
+- [x] Browser smoke trên tab mới không còn error/warn console cho main routes.
+- [x] `npm run check` pass.
+- [x] `npm test` pass.
+- [x] `npm run build` pass.
+- [x] Bổ sung test tự động cho store duty access: chọn ngày/ca, không token, current shift ghi được, non-current chỉ đọc/chốt, sai ledger/member bị chặn.
+- [ ] Bổ sung test tự động cho seed default manager để đảm bảo user tồn tại thì password demo vẫn được reset đúng.
+- [ ] Bổ sung browser/e2e test đăng nhập + mở 7 route P0.
+- [ ] Tạo dữ liệu resident portal riêng để test `/resident/store` bằng tài khoản học viên, không dùng manager.
+
+---
+
+## Snapshot toàn dự án — sau bước store duty access test
+
+### Trạng thái tổng
+
+- [x] Main flow quản lý đã smoke test browser: Dashboard, Học viên, Tổ chức, Tài chính, Sinh hoạt hằng ngày, Công tác, Store ledger.
+- [x] Simple mode đã tập trung main flow, không đưa Phòng/Cửa hàng vào nhánh chính.
+- [x] UI premium đã apply cho các màn hình chính ưu tiên: Học viên, Tổ chức, Duties, Finance, DailyRoutine, StoreLedger ở mức đủ đi luồng.
+- [x] Login demo manager đã đồng bộ seed/UI và đi được qua đổi mật khẩu lần đầu.
+- [x] Typecheck pass.
+- [x] Unit test pass: 10 tests / 3 files.
+- [x] Production build pass.
+
+### Main flow P0 còn cần làm
+
+- [ ] Tạo bộ dữ liệu test resident portal chuẩn: 2 học viên có user portal, 1 ca sáng, 1 ca chiều, cùng 1 ledger.
+- [ ] Smoke test browser bằng tài khoản học viên thật cho `/resident/store`.
+- [ ] Test thao tác cửa hàng học viên theo kịch bản 1 ngày / 2 ca:
+  - [ ] Ca sáng vào đúng ngày+ca và ghi bán/nhập.
+  - [ ] Ca sáng bàn giao sang ca chiều.
+  - [ ] Ca chiều nhận bàn giao, ghi phát sinh nếu có, chốt ngày.
+  - [ ] Ngoài phiên hiện tại chỉ xem/chốt, không thêm/xóa/sửa giao dịch.
+- [ ] Manager review/chốt sổ cửa hàng và đẩy tổng thu/chi sang Finance.
+- [ ] Thêm e2e smoke login + mở 7 route P0.
+
+### P1 sau khi P0 ổn
+
+- [ ] Viết test seed default manager: user đã tồn tại vẫn reset password demo đúng.
+- [ ] Tách chunk build lớn: `index`, `Dashboard`, `Members`, `FinanceLite`, `StoreLedger` nếu cần tối ưu tải.
+- [ ] Chuẩn hóa encoding một số file/comment cũ đang hiện mojibake trong terminal.
+- [ ] Polish sâu responsive/mobile cho StoreLedger và ResidentStore.
+- [ ] Gom style header/form thành pattern reusable hơn để áp dụng đều cho các form còn lại.
+
+---
+
+## Demo readiness audit — ngoài module Cửa hàng
+
+### Đủ để demo main flow quản lý
+
+- [x] Auth local đăng nhập được bằng tài khoản demo manager.
+- [x] Đổi mật khẩu lần đầu hoạt động.
+- [x] Dashboard render dữ liệu tổng quan.
+- [x] Học viên render danh sách, thẻ/list, trạng thái hồ sơ.
+- [x] Tổ chức render cơ cấu, nhiệm kỳ, Tổ/Ban, bổ nhiệm.
+- [x] Tài chính lưu xá render kỳ thu, khoản phải thu, thu chi.
+- [x] Sinh hoạt hằng ngày render lịch/công tác trong ngày.
+- [x] Công tác / Trực nhật render phân công và mẫu công tác.
+- [x] Người dùng & quyền truy cập có route ở detailed mode.
+- [x] Portal học viên đã có route chính: hôm nay, hồ sơ, công tác, tài chính, thông báo, hoạt động.
+
+### Thiếu P0 trước khi deploy demo sạch
+
+- [ ] Đóng gói seed demo repeatable thành command, ví dụ `npm run db:seed-demo`.
+- [ ] Đồng bộ seed demo cũ `ResidenceCore_reset_demo_phase2.sql` với login hiện tại:
+  - [ ] `admin / Admin@123`.
+  - [ ] role chính là `manager`, không quay về role `admin` cũ.
+  - [ ] không mâu thuẫn với `seedDefaultManager.ts`.
+- [ ] Tạo script/guide deploy demo ngắn: migrate DB, seed manager/demo, build, start.
+- [ ] Kiểm tra DB demo mới tinh có đủ dữ liệu cho 7 route P0, không chỉ có tài khoản admin.
+- [ ] Chạy smoke browser sau khi reset DB demo từ đầu.
+- [ ] Chốt danh sách menu Simple cho demo: chỉ hiện Dashboard, Học viên, Tổ chức, Tài chính, Sinh hoạt, Công tác.
+- [ ] Ẩn hoặc giữ disabled các module chưa demo: Phòng ở trong Simple, Hoạt động nâng cao, Nội quy nâng cao, học tập/kỹ năng/phụng vụ/báo cáo.
+- [ ] Kiểm tra `.env.example` hoặc guide env deploy có đủ: DB, JWT, STORE_ACCESS_SECRET, PORT, analytics optional.
+- [ ] Quyết định storage demo: không cần Forge/S3 nếu chỉ dùng ảnh base64/url; nếu cần upload ngoài thì bổ sung env storage.
+
+### P1 sau demo
+
+- [ ] Nối hoặc archive các page orphan chưa vào route/menu: học tập nâng cao, kỹ năng, phụng vụ, báo cáo, phụ huynh, smart assignment.
+- [ ] Chuẩn hóa docs local/deploy guide đang còn nhắc OAuth/Manus cũ trong khi app hiện dùng local auth.
+- [ ] Bổ sung e2e route smoke tự động cho manager và resident.
+- [ ] Tối ưu bundle lớn trước khi public demo rộng.
+
+---
+
+## Tài liệu nghiệp vụ
+
+- [x] Tạo Business Process Document dạng DOCX: `docs/ResidenceCore_Business_Process_Document.docx`.
+- [x] Nội dung bao gồm: mục tiêu/phạm vi, vai trò, quy trình nghiệp vụ theo module, luồng demo đề xuất, checklist deploy demo, rủi ro và phụ lục route/router.
+- [x] Kiểm tra cấu trúc DOCX: 53 paragraphs, 17 tables, 1 section, heading hierarchy đầy đủ.
+- [x] Kiểm tra table geometry: tất cả bảng có `tblW` và `tblGrid`.
+- [ ] Visual render QA bằng LibreOffice/soffice chưa chạy được trên máy hiện tại vì thiếu executable `soffice`.

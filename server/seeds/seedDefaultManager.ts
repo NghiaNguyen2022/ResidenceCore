@@ -3,6 +3,8 @@ import { getDb } from "../db/connection";
 import { hashPassword } from "../_core/password";
 import { roles, userRoles, users } from "../../drizzle/schema";
 
+const DEFAULT_MANAGER_PASSWORD = "Admin@123";
+
 async function seedDefaultManager() {
       const db = await getDb();
 
@@ -38,17 +40,19 @@ async function seedDefaultManager() {
 
       if (existingAdminUser) {
             adminUserId = existingAdminUser.id;
+            const passwordHash = await hashPassword(DEFAULT_MANAGER_PASSWORD);
 
             await db
                   .update(users)
                   .set({
+                        passwordHash,
                         role: "manager",
                         isActive: true,
                         mustChangePassword: true,
                   })
                   .where(eq(users.id, adminUserId));
       } else {
-            const passwordHash = await hashPassword("admin");
+            const passwordHash = await hashPassword(DEFAULT_MANAGER_PASSWORD);
 
             await db.insert(users).values({
                   username: "admin",
@@ -114,7 +118,7 @@ async function seedDefaultManager() {
 
       console.log("Default manager user has been seeded successfully.");
       console.log("Username: admin");
-      console.log("Default password: admin");
+      console.log(`Default password: ${DEFAULT_MANAGER_PASSWORD}`);
       console.log("Role: manager");
       console.log("mustChangePassword: true");
 }
