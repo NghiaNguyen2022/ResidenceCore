@@ -716,7 +716,38 @@ hoặc tạm tắt safe update nếu người dùng chủ động muốn, nhưng
 ## Tài liệu nghiệp vụ
 
 - [x] Tạo Business Process Document dạng DOCX: `docs/ResidenceCore_Business_Process_Document.docx`.
+- [x] Tạo Blueprint dạng DOCX: `docs/ResidenceCore_Blueprint.docx`.
+- [x] Tạo User Guide / User Manual dạng DOCX, ngôn ngữ dễ hiểu: `docs/ResidenceCore_User_Guide.docx`.
+- [x] Tạo Implementation & Deployment Standard dạng DOCX: `docs/ResidenceCore_Implementation_Deployment_Standard.docx`.
+- [x] Tạo bộ tài liệu BA chi tiết dạng DOCX:
+  - [x] SRS chi tiết: `docs/ResidenceCore_SRS_Detailed.docx`.
+  - [x] BA Blueprint chi tiết: `docs/ResidenceCore_BA_Blueprint_Detailed.docx`.
+  - [x] User Manual chi tiết: `docs/ResidenceCore_User_Manual_Detailed.docx`.
 - [x] Nội dung bao gồm: mục tiêu/phạm vi, vai trò, quy trình nghiệp vụ theo module, luồng demo đề xuất, checklist deploy demo, rủi ro và phụ lục route/router.
+- [x] Nội dung Implementation Standard gồm: chuẩn triển khai, môi trường, migration/seed, build/deploy, smoke test, UAT, bảo mật, vận hành, rollback và checklist release.
+- [x] Nội dung SRS chi tiết gồm: scope P0/P1/P2, stakeholder, thuật ngữ, phân quyền, functional requirements FR-01 đến FR-10, NFR, data requirements, UAT scenarios, traceability, rủi ro và acceptance criteria.
+- [x] Nội dung BA Blueprint chi tiết gồm: product vision, capability map, user journey, module/data/navigation/deployment blueprint, roadmap và open items.
+- [x] Nội dung User Manual chi tiết gồm: hướng dẫn theo vai trò manager/resident, từng màn hình P0, cửa hàng mở rộng, checklist demo, lỗi thường gặp và quy tắc vận hành.
+- [x] Bổ sung diagram kiểu UML/workflow/data flow vào bộ tài liệu BA:
+  - [x] Manager workflow main flow P0.
+  - [x] Data flow context giữa Manager/Resident, ResidenceCore, Database và Documents.
+  - [x] Resident store shift workflow: chọn ngày/ca, kiểm tra phân công, phân quyền phiên hiện tại.
+  - [x] BA delivery process theo vai trò BA/PO, Dev, QA/UAT, Ops.
+- [x] Bổ sung screenshot backlog trong User Manual: danh sách màn hình/route/nội dung cần chụp cho Login, Dashboard, Members, Organization, Finance, DailyRoutine, Duties, Resident Portal, Resident Store và Store Cashflow.
+- [x] Chụp screenshot thật cho manager P0 và nhúng vào User Manual:
+  - [x] Dashboard.
+  - [x] Học viên.
+  - [x] Tổ chức lưu xá.
+  - [x] Tài chính lưu xá.
+  - [x] Sinh hoạt hằng ngày.
+  - [x] Công tác / Trực nhật.
+- [x] Bổ sung hướng dẫn từng bước dạng 1.1, 1.2, 1.3... cho Login, Dashboard, Học viên, Tổ chức, Tài chính, Sinh hoạt, Công tác, Portal học viên.
 - [x] Kiểm tra cấu trúc DOCX: 53 paragraphs, 17 tables, 1 section, heading hierarchy đầy đủ.
+- [x] Kiểm tra cấu trúc Blueprint: 29 paragraphs, 8 tables, 1 section, heading hierarchy đầy đủ.
+- [x] Kiểm tra cấu trúc User Guide: 96 paragraphs, 5 tables, 1 section, heading hierarchy đầy đủ.
+- [x] Kiểm tra cấu trúc Implementation Standard: 106 paragraphs, 19 tables, 1 section, 31 headings, heading hierarchy đầy đủ.
+- [x] Kiểm tra cấu trúc SRS chi tiết: 79 paragraphs, 24 tables, 1 section, 30 headings, 3 images, heading hierarchy đầy đủ.
+- [x] Kiểm tra cấu trúc BA Blueprint chi tiết: 45 paragraphs, 11 tables, 1 section, 13 headings, 4 images, heading hierarchy đầy đủ.
+- [x] Kiểm tra cấu trúc User Manual chi tiết: 163 paragraphs, 20 tables, 1 section, 38 headings, 9 images, heading hierarchy đầy đủ.
 - [x] Kiểm tra table geometry: tất cả bảng có `tblW` và `tblGrid`.
 - [ ] Visual render QA bằng LibreOffice/soffice chưa chạy được trên máy hiện tại vì thiếu executable `soffice`.
