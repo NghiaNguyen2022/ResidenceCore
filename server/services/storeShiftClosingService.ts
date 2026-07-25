@@ -48,6 +48,7 @@ export const storeShiftClosingService = {
                   storeShiftId: input.storeShiftId,
                   accessToken: input.accessToken,
                   ledgerId: Number(input.closing?.ledgerId || 0),
+                  operation: "close",
                   touchActivity: true,
             });
             if (access.accessMode !== "resident" || access.shiftType !== "afternoon") {

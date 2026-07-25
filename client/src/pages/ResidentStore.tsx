@@ -36,6 +36,7 @@ type ResidentStoreAccess = {
       ledgerName?: string | null;
       shiftDate: string;
       shiftType: "morning" | "afternoon";
+      validFrom?: string | null;
       validUntil?: string | null;
 };
 
@@ -104,6 +105,7 @@ function getStoredAccess(): ResidentStoreAccess | null {
                   ledgerName: parsed.ledgerName || null,
                   shiftDate: String(parsed.shiftDate),
                   shiftType: parsed.shiftType,
+                  validFrom: parsed.validFrom || null,
                   validUntil: parsed.validUntil || null,
             };
       } catch {
@@ -177,6 +179,16 @@ function formatDateTime(value?: string | null) {
       }).format(date);
 }
 
+function isWithinShiftWindow(access?: ResidentStoreAccess | null) {
+      if (!access?.validFrom || !access.validUntil) return false;
+
+      const now = Date.now();
+      const from = new Date(access.validFrom).getTime();
+      const until = new Date(access.validUntil).getTime();
+
+      return Number.isFinite(from) && Number.isFinite(until) && now >= from && now <= until;
+}
+
 export default function ResidentStore() {
       const storeApi = (trpc as any).storeLedger;
       const residentApi = (trpc as any).residentPortal;
@@ -242,6 +254,8 @@ export default function ResidentStore() {
                                     result.shiftDate,
                               ),
                               shiftType: result.shiftType,
+                              validFrom:
+                                    result.validFrom || null,
                               validUntil:
                                     result.validUntil || null,
                         };
@@ -278,6 +292,17 @@ export default function ResidentStore() {
       const shiftSession = access as any;
       const isAfternoon =
             shiftSession?.shiftType === "afternoon";
+      const canWriteStore = isWithinShiftWindow(access);
+      const isReadOnlyShift = Boolean(access && !canWriteStore);
+
+      useEffect(() => {
+            if (
+                  isReadOnlyShift &&
+                  ["sales", "purchase", "preorders", "handover"].includes(activeTab)
+            ) {
+                  setActiveTab(isAfternoon ? "closing" : "transactions");
+            }
+      }, [activeTab, isAfternoon, isReadOnlyShift]);
 
       const ledgersQuery =
             storeApi?.listLedgers?.useQuery?.(
@@ -606,6 +631,10 @@ export default function ResidentStore() {
 
       const submitSale = () => {
             if (!accessInput || !ledgerId) return;
+            if (!canWriteStore) {
+                  toast.error("Ca này không phải phiên hiện tại, không thể tạo phiếu bán.");
+                  return;
+            }
 
             const lines = saleLines
                   .map((line) => ({
@@ -640,6 +669,10 @@ export default function ResidentStore() {
 
       const submitPurchase = () => {
             if (!accessInput || !ledgerId) return;
+            if (!canWriteStore) {
+                  toast.error("Ca này không phải phiên hiện tại, không thể tạo phiếu nhập.");
+                  return;
+            }
 
             const lines = purchaseLines
                   .map((line) => ({
@@ -843,31 +876,39 @@ export default function ResidentStore() {
                   label: "Ca hiện tại",
                   icon: <Clock3 className="h-4 w-4" />,
             },
-            {
-                  key: "sales",
-                  label: "Bán hàng",
-                  icon: <ShoppingCart className="h-4 w-4" />,
-            },
-            {
-                  key: "preorders",
-                  label: "Đặt hàng trước",
-                  icon: <ClipboardList className="h-4 w-4" />,
-            },
-            {
-                  key: "purchase",
-                  label: "Nhập hàng",
-                  icon: <PackagePlus className="h-4 w-4" />,
-            },
+            ...(canWriteStore
+                  ? [
+                          {
+                                key: "sales" as const,
+                                label: "Bán hàng",
+                                icon: <ShoppingCart className="h-4 w-4" />,
+                          },
+                          {
+                                key: "preorders" as const,
+                                label: "Đặt hàng trước",
+                                icon: <ClipboardList className="h-4 w-4" />,
+                          },
+                          {
+                                key: "purchase" as const,
+                                label: "Nhập hàng",
+                                icon: <PackagePlus className="h-4 w-4" />,
+                          },
+                    ]
+                  : []),
             {
                   key: "transactions",
                   label: "Giao dịch ca",
                   icon: <ReceiptText className="h-4 w-4" />,
             },
-            {
-                  key: "handover",
-                  label: "Bàn giao ca",
-                  icon: <RefreshCw className="h-4 w-4" />,
-            },
+            ...(canWriteStore
+                  ? [
+                          {
+                                key: "handover" as const,
+                                label: "Bàn giao ca",
+                                icon: <RefreshCw className="h-4 w-4" />,
+                          },
+                    ]
+                  : []),
             ...(isAfternoon
                   ? [
                           {
@@ -906,16 +947,14 @@ export default function ResidentStore() {
                               <header className="relative overflow-hidden rounded-[32px] border border-amber-100/80 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.2),transparent_34%),linear-gradient(135deg,rgba(255,251,235,0.98),rgba(255,255,255,0.96))] px-5 py-6 shadow-[0_24px_70px_rgba(120,53,15,0.08)] md:px-8">
                                     <div className="mx-auto max-w-3xl text-center">
                                           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-700">
-                                                Quyền tạm thời
-                                                theo ca
+                                                Phiên theo ngày
+                                                và ca
                                           </p>
                                           <h1 className="mt-2 text-[28px] font-black tracking-tight text-slate-950 md:text-[34px]">
                                                 Cửa hàng
                                           </h1>
                                           <p className="mx-auto mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">
-                                                Chỉ các nghiệp vụ
-                                                được phép trong ca
-                                                trực hiện tại.
+                                                Chọn đúng ngày và ca được phân công. Ca hiện tại được ghi nhận nghiệp vụ; ca cũ chỉ xem và chốt sổ.
                                           </p>
                                     </div>
 
@@ -940,6 +979,12 @@ export default function ResidentStore() {
                                           </Button>
                                     </div>
                               </header>
+
+                              {isReadOnlyShift ? (
+                                    <div className="mt-4 rounded-3xl border border-sky-100 bg-sky-50/80 px-5 py-4 text-sm font-semibold text-sky-800 shadow-sm">
+                                          Ca này không phải phiên hiện tại. Bạn chỉ có thể xem dữ liệu và chốt sổ nếu là ca chiều; các thao tác thêm, xóa, sửa giao dịch đã được khóa.
+                                    </div>
+                              ) : null}
 
                               <div className="mt-4 flex flex-wrap justify-center gap-2">
                                     {tabs.map((tab) => (
@@ -1074,8 +1119,8 @@ export default function ResidentStore() {
                                                             value={
                                                                   documentDate
                                                             }
-                                                            onChange={
-                                                                  setDocumentDate
+                                                            onChange={(event) =>
+                                                                  setDocumentDate(event.target.value)
                                                             }
                                                       />
                                                 </div>
@@ -1894,8 +1939,8 @@ export default function ResidentStore() {
                                                       value={
                                                             closingDate
                                                       }
-                                                      onChange={
-                                                            setClosingDate
+                                                      onChange={(event) =>
+                                                            setClosingDate(event.target.value)
                                                       }
                                                 />
                                           </div>

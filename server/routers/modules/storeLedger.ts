@@ -32,6 +32,7 @@ async function requireStoreOperationAccess(input: {
       storeShiftId?: number | null;
       storeAccessToken?: string | null;
       ledgerId?: number | null;
+      operation?: "read" | "write" | "close";
       touchActivity?: boolean;
 }) {
       return storeDutyAccessService.authorizeStoreAction({
@@ -39,6 +40,7 @@ async function requireStoreOperationAccess(input: {
             storeShiftId: input.storeShiftId,
             accessToken: input.storeAccessToken,
             ledgerId: input.ledgerId,
+            operation: input.operation,
             touchActivity: input.touchActivity,
       });
 }
@@ -97,7 +99,11 @@ export const storeLedgerRouter = router({
             .mutation(async ({ ctx, input }) => {
                   return storeShiftHandoverService.saveMyHandover({
                         user: ctx.user,
-                        ...input,
+                        storeShiftId: input.storeShiftId,
+                        accessToken: input.storeAccessToken,
+                        countedCash: input.countedCash,
+                        differenceReason: input.differenceReason,
+                        notes: input.notes,
                   });
             }),
 
@@ -111,7 +117,8 @@ export const storeLedgerRouter = router({
             .mutation(async ({ ctx, input }) => {
                   return storeShiftHandoverService.giverSign({
                         user: ctx.user,
-                        ...input,
+                        storeShiftId: input.storeShiftId,
+                        accessToken: input.storeAccessToken,
                   });
             }),
 
@@ -125,7 +132,8 @@ export const storeLedgerRouter = router({
             .mutation(async ({ ctx, input }) => {
                   return storeShiftHandoverService.receiverSign({
                         user: ctx.user,
-                        ...input,
+                        storeShiftId: input.storeShiftId,
+                        accessToken: input.storeAccessToken,
                   });
             }),
 
@@ -196,6 +204,7 @@ export const storeLedgerRouter = router({
                         storeShiftId: input?.storeShiftId,
                         storeAccessToken: input?.storeAccessToken,
                         ledgerId: input?.ledgerId,
+                        operation: "read",
                   });
                   const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
                   return storeLedgerService.listDocuments(queryInput);
@@ -213,6 +222,7 @@ export const storeLedgerRouter = router({
                         ctx,
                         storeShiftId: input.storeShiftId,
                         storeAccessToken: input.storeAccessToken,
+                        operation: "read",
                   });
                   return storeLedgerService.getDocument(input.id);
             }),
@@ -301,6 +311,7 @@ export const storeLedgerRouter = router({
                         ctx,
                         storeShiftId: input?.storeShiftId,
                         storeAccessToken: input?.storeAccessToken,
+                        operation: "read",
                   });
                   const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
                   return storeLedgerService.listProducts(
@@ -324,6 +335,7 @@ export const storeLedgerRouter = router({
                         ctx,
                         storeShiftId: input?.storeShiftId,
                         storeAccessToken: input?.storeAccessToken,
+                        operation: "read",
                   });
                   const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
                   return storeLedgerService.listStockMovements(queryInput);
@@ -386,6 +398,7 @@ export const storeLedgerRouter = router({
                         ctx,
                         storeShiftId: input?.storeShiftId,
                         storeAccessToken: input?.storeAccessToken,
+                        operation: "read",
                         touchActivity: false,
                   });
                   const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
@@ -444,6 +457,7 @@ export const storeLedgerRouter = router({
                         storeShiftId: input?.storeShiftId,
                         storeAccessToken: input?.storeAccessToken,
                         ledgerId: input?.ledgerId,
+                        operation: "read",
                   });
                   const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
                   return storeLedgerService.getSummary(queryInput);
@@ -468,6 +482,7 @@ export const storeLedgerRouter = router({
                         storeShiftId: input?.storeShiftId,
                         storeAccessToken: input?.storeAccessToken,
                         ledgerId: input?.ledgerId,
+                        operation: "read",
                   });
                   const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
                   return storeLedgerService.listTransactions(queryInput);
@@ -492,6 +507,7 @@ export const storeLedgerRouter = router({
                         storeShiftId: input?.storeShiftId,
                         storeAccessToken: input?.storeAccessToken,
                         ledgerId: input?.ledgerId,
+                        operation: "read",
                   });
                   const { storeShiftId, storeAccessToken, ...queryInput } = input || {};
                   return storeLedgerService.listDailyClosings(queryInput);
@@ -511,6 +527,7 @@ export const storeLedgerRouter = router({
                         storeShiftId: input.storeShiftId,
                         storeAccessToken: input.storeAccessToken,
                         ledgerId: input.ledgerId,
+                        operation: "close",
                   });
                   if (access.accessMode === "resident" && access.shiftType !== "afternoon") {
                         throw new TRPCError({
@@ -537,6 +554,7 @@ export const storeLedgerRouter = router({
                         storeShiftId: input.storeShiftId,
                         storeAccessToken: input.storeAccessToken,
                         ledgerId: input.ledgerId,
+                        operation: "close",
                   });
                   if (access.accessMode === "resident" && access.shiftType !== "afternoon") {
                         throw new TRPCError({

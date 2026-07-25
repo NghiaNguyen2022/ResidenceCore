@@ -87,6 +87,10 @@ async function dbOrThrow() {
       return db;
 }
 
+function dateParam(value: string) {
+      return sql`${value}`;
+}
+
 
 export async function listStoreProducts(input: StoreProductListInput = {}) {
       const db = await dbOrThrow();
@@ -156,7 +160,7 @@ export async function getActiveStoreProductSalePrice(productId: number, effectiv
       const rows = await db
             .select()
             .from(storeProductSalePriceHistories)
-            .where(and(eq(storeProductSalePriceHistories.productId, productId), lte(storeProductSalePriceHistories.effectiveDate, effectiveDate)))
+            .where(and(eq(storeProductSalePriceHistories.productId, productId), lte(storeProductSalePriceHistories.effectiveDate, dateParam(effectiveDate))))
             .orderBy(desc(storeProductSalePriceHistories.effectiveDate), desc(storeProductSalePriceHistories.id))
             .limit(1);
       return rows[0] ?? null;
@@ -167,7 +171,7 @@ export async function getStoreProductSalePriceHistoryByDate(productId: number, e
       const rows = await db
             .select()
             .from(storeProductSalePriceHistories)
-            .where(and(eq(storeProductSalePriceHistories.productId, productId), eq(storeProductSalePriceHistories.effectiveDate, effectiveDate)))
+            .where(and(eq(storeProductSalePriceHistories.productId, productId), eq(storeProductSalePriceHistories.effectiveDate, dateParam(effectiveDate))))
             .limit(1);
       return rows[0] ?? null;
 }
@@ -303,8 +307,8 @@ export async function listStoreStockMovementsByProduct(productId: number) {
 export async function listStoreStockMovements(input: StoreStockMovementListInput = {}) {
       const db = await dbOrThrow();
       const conditions = [];
-      if (input.fromDate) conditions.push(gte(storeStockMovements.movementDate, input.fromDate));
-      if (input.toDate) conditions.push(lte(storeStockMovements.movementDate, input.toDate));
+      if (input.fromDate) conditions.push(gte(storeStockMovements.movementDate, dateParam(input.fromDate)));
+      if (input.toDate) conditions.push(lte(storeStockMovements.movementDate, dateParam(input.toDate)));
       if (input.movementTypes?.length) {
             conditions.push(sql`${storeStockMovements.movementType} IN (${sql.join(input.movementTypes.map((value) => sql`${value}`), sql`, `)})` as any);
       }
@@ -389,8 +393,8 @@ export async function listStoreDocuments(input: StoreDocumentListInput = {}) {
       const documentConditions: any[] = [];
       if (input.ledgerId) documentConditions.push(eq(storeDocuments.ledgerId, input.ledgerId));
       if (input.documentType) documentConditions.push(eq(storeDocuments.documentType, input.documentType));
-      if (input.fromDate) documentConditions.push(gte(storeDocuments.documentDate, input.fromDate));
-      if (input.toDate) documentConditions.push(lte(storeDocuments.documentDate, input.toDate));
+      if (input.fromDate) documentConditions.push(gte(storeDocuments.documentDate, dateParam(input.fromDate)));
+      if (input.toDate) documentConditions.push(lte(storeDocuments.documentDate, dateParam(input.toDate)));
       if (search) {
             const keyword = `%${search}%`;
             documentConditions.push(or(
@@ -428,8 +432,8 @@ export async function listStoreDocuments(input: StoreDocumentListInput = {}) {
       // trước khi cơ chế tự tạo cửa hàng mặc định ra đời, nên không khóa lịch sử cũ
       // theo ledgerId hiện tại. Nếu lọc ở đây, giao dịch vẫn thấy trong Sổ thu chi
       // nhưng biến mất khỏi Lịch sử mua/bán.
-      if (input.fromDate) transactionConditions.push(gte(storeLedgerTransactions.transactionDate, input.fromDate));
-      if (input.toDate) transactionConditions.push(lte(storeLedgerTransactions.transactionDate, input.toDate));
+      if (input.fromDate) transactionConditions.push(gte(storeLedgerTransactions.transactionDate, dateParam(input.fromDate)));
+      if (input.toDate) transactionConditions.push(lte(storeLedgerTransactions.transactionDate, dateParam(input.toDate)));
       if (input.documentType === "sale") {
             transactionConditions.push(and(
                   eq(storeLedgerTransactions.direction, "in"),
@@ -543,8 +547,8 @@ export async function listStoreDocuments(input: StoreDocumentListInput = {}) {
                         eq(storeStockMovements.movementType, "other_in" as any),
                   ),
             ];
-            if (input.fromDate) movementConditions.push(gte(storeStockMovements.movementDate, input.fromDate));
-            if (input.toDate) movementConditions.push(lte(storeStockMovements.movementDate, input.toDate));
+            if (input.fromDate) movementConditions.push(gte(storeStockMovements.movementDate, dateParam(input.fromDate)));
+            if (input.toDate) movementConditions.push(lte(storeStockMovements.movementDate, dateParam(input.toDate)));
 
             const internalRows = await db
                   .select({
@@ -683,20 +687,19 @@ export async function listStoreLedgerTransactions(input: StoreLedgerTransactionL
 
       if (input.ledgerId) conditions.push(eq(storeLedgerTransactions.ledgerId, input.ledgerId));
       if (input.direction && input.direction !== "all") conditions.push(eq(storeLedgerTransactions.direction, input.direction));
-      if (input.fromDate) conditions.push(gte(storeLedgerTransactions.transactionDate, input.fromDate));
-      if (input.toDate) conditions.push(lte(storeLedgerTransactions.transactionDate, input.toDate));
+      if (input.fromDate) conditions.push(gte(storeLedgerTransactions.transactionDate, dateParam(input.fromDate)));
+      if (input.toDate) conditions.push(lte(storeLedgerTransactions.transactionDate, dateParam(input.toDate)));
 
       const search = input.search?.trim();
       if (search) {
             const keyword = `%${search}%`;
-            conditions.push(
-                  or(
-                        like(storeLedgerTransactions.transactionCode, keyword),
-                        like(storeLedgerTransactions.title, keyword),
-                        like(storeLedgerTransactions.category, keyword),
-                        like(storeLedgerTransactions.partnerName, keyword),
-                  ),
+            const searchCondition = or(
+                  like(storeLedgerTransactions.transactionCode, keyword),
+                  like(storeLedgerTransactions.title, keyword),
+                  like(storeLedgerTransactions.category, keyword),
+                  like(storeLedgerTransactions.partnerName, keyword),
             );
+            if (searchCondition) conditions.push(searchCondition);
       }
 
       return db
@@ -749,8 +752,8 @@ export async function getStoreLedgerSummary(input: { ledgerId?: number | null; f
       const conditions = [eq(storeLedgerTransactions.isActive, true), eq(storeLedgerTransactions.status, "posted" as any)];
 
       if (input.ledgerId) conditions.push(eq(storeLedgerTransactions.ledgerId, input.ledgerId));
-      if (input.fromDate) conditions.push(gte(storeLedgerTransactions.transactionDate, input.fromDate));
-      if (input.toDate) conditions.push(lte(storeLedgerTransactions.transactionDate, input.toDate));
+      if (input.fromDate) conditions.push(gte(storeLedgerTransactions.transactionDate, dateParam(input.fromDate)));
+      if (input.toDate) conditions.push(lte(storeLedgerTransactions.transactionDate, dateParam(input.toDate)));
 
       const rows = await db
             .select({
@@ -778,8 +781,8 @@ export async function listStoreDailyClosings(input: StoreDailyClosingListInput =
       const conditions = [];
 
       if (input.ledgerId) conditions.push(eq(storeDailyClosings.ledgerId, input.ledgerId));
-      if (input.fromDate) conditions.push(gte(storeDailyClosings.closingDate, input.fromDate));
-      if (input.toDate) conditions.push(lte(storeDailyClosings.closingDate, input.toDate));
+      if (input.fromDate) conditions.push(gte(storeDailyClosings.closingDate, dateParam(input.fromDate)));
+      if (input.toDate) conditions.push(lte(storeDailyClosings.closingDate, dateParam(input.toDate)));
 
       return db
             .select()
@@ -801,7 +804,7 @@ export async function getStoreDailyClosingByDate(ledgerId: number, closingDate: 
       const rows = await db
             .select()
             .from(storeDailyClosings)
-            .where(and(eq(storeDailyClosings.ledgerId, ledgerId), eq(storeDailyClosings.closingDate, closingDate)))
+            .where(and(eq(storeDailyClosings.ledgerId, ledgerId), eq(storeDailyClosings.closingDate, dateParam(closingDate))))
             .limit(1);
       return rows[0] ?? null;
 }
@@ -827,7 +830,7 @@ export async function listUnclosedStoreLedgerTransactions(input: { ledgerId: num
             .where(
                   and(
                         eq(storeLedgerTransactions.ledgerId, input.ledgerId),
-                        eq(storeLedgerTransactions.transactionDate, input.closingDate),
+                        eq(storeLedgerTransactions.transactionDate, dateParam(input.closingDate)),
                         eq(storeLedgerTransactions.isActive, true),
                         eq(storeLedgerTransactions.status, "posted" as any),
                         isNull(storeLedgerTransactions.dailyClosingId),
@@ -848,7 +851,7 @@ export async function getUnclosedStoreLedgerSummary(input: { ledgerId: number; c
             .where(
                   and(
                         eq(storeLedgerTransactions.ledgerId, input.ledgerId),
-                        eq(storeLedgerTransactions.transactionDate, input.closingDate),
+                        eq(storeLedgerTransactions.transactionDate, dateParam(input.closingDate)),
                         eq(storeLedgerTransactions.isActive, true),
                         eq(storeLedgerTransactions.status, "posted" as any),
                         isNull(storeLedgerTransactions.dailyClosingId),
@@ -874,7 +877,7 @@ export async function markStoreLedgerTransactionsClosed(input: { ledgerId: numbe
             .where(
                   and(
                         eq(storeLedgerTransactions.ledgerId, input.ledgerId),
-                        eq(storeLedgerTransactions.transactionDate, input.closingDate),
+                        eq(storeLedgerTransactions.transactionDate, dateParam(input.closingDate)),
                         eq(storeLedgerTransactions.isActive, true),
                         eq(storeLedgerTransactions.status, "posted" as any),
                         isNull(storeLedgerTransactions.dailyClosingId),
@@ -1010,7 +1013,7 @@ export async function getStoreShiftByLedgerDateType(input: {
             .where(
                   and(
                         eq(storeShifts.ledgerId, input.ledgerId),
-                        eq(storeShifts.shiftDate, input.shiftDate),
+                        eq(storeShifts.shiftDate, dateParam(input.shiftDate)),
                         eq(storeShifts.shiftType, input.shiftType),
                   ),
             )
@@ -1283,7 +1286,7 @@ export async function listStoreShiftHandovers(input: {
             conditions.push(eq(storeShifts.ledgerId, input.ledgerId));
       }
       if (input.shiftDate) {
-            conditions.push(eq(storeShifts.shiftDate, input.shiftDate));
+            conditions.push(eq(storeShifts.shiftDate, dateParam(input.shiftDate)));
       }
 
       return db
@@ -1333,4 +1336,3 @@ export async function updateStoreShiftHandover(
             .where(eq(storeShiftHandovers.id, id));
       return getStoreShiftHandoverById(id);
 }
-

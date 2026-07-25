@@ -88,8 +88,8 @@ export const residentPortalRouter = router({
             .mutation(async ({ ctx, input }) => {
                   const userId = getUserIdFromContext(ctx);
                   const portalSessionId =
-                        ctx?.session?.id ??
-                        ctx?.session?.sessionId ??
+                        (ctx as any)?.session?.id ??
+                        (ctx as any)?.session?.sessionId ??
                         null;
 
                   return storeDutyAccessService.verifyMyAccessCode({

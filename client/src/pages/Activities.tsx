@@ -704,8 +704,16 @@ export default function Activities() {
                 <EmptyState
                   title="Chưa có hoạt động nào"
                   description="Tạo hoạt động đầu tiên để demo lịch sinh hoạt, họp, thiện nguyện hoặc sự kiện chung của lưu xá."
-                  actionLabel="Tạo hoạt động"
-                  onAction={openCreate}
+                  action={
+                    <Button
+                      type="button"
+                      className={residenceMediumStyle.buttonCardPrimary}
+                      onClick={openCreate}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Tạo hoạt động
+                    </Button>
+                  }
                 />
               ) : (
                 <div className="space-y-2">
@@ -888,8 +896,8 @@ export default function Activities() {
                     <div className="activity-modal-time-field min-w-0">
                       <TimePickerInput
                         value={form.startTime}
-                        onChange={(value) =>
-                          setForm((prev) => ({ ...prev, startTime: value }))
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, startTime: event.target.value }))
                         }
                         placeholder="Bắt đầu"
                       />
@@ -897,8 +905,8 @@ export default function Activities() {
                     <div className="activity-modal-time-field min-w-0">
                       <TimePickerInput
                         value={form.endTime}
-                        onChange={(value) =>
-                          setForm((prev) => ({ ...prev, endTime: value }))
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, endTime: event.target.value }))
                         }
                         placeholder="Kết thúc"
                       />
@@ -1010,10 +1018,11 @@ export default function Activities() {
           confirmLabel="Hủy hoạt động"
           variant="danger"
           loading={cancelMutation.isPending}
-          onConfirm={() =>
-            activityToCancel &&
-            cancelMutation.mutate({ id: activityToCancel.id })
-          }
+          onConfirm={() => {
+            if (activityToCancel) {
+              cancelMutation.mutate({ id: activityToCancel.id });
+            }
+          }}
         />
 
         <ConfirmDialog
@@ -1024,10 +1033,11 @@ export default function Activities() {
           confirmLabel="Xóa"
           variant="danger"
           loading={deleteMutation.isPending}
-          onConfirm={() =>
-            activityToDelete &&
-            deleteMutation.mutate({ id: activityToDelete.id })
-          }
+          onConfirm={() => {
+            if (activityToDelete) {
+              deleteMutation.mutate({ id: activityToDelete.id });
+            }
+          }}
         />
       </div>
     </ResidenceCareLayout>

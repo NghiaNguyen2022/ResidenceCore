@@ -288,6 +288,7 @@ export const storeDutyAccessService = {
                         shiftType: item.shiftType,
                         scheduledFrom: item.scheduledFrom,
                         scheduledTo: item.scheduledTo,
+                        validFrom: item.accessValidFrom,
                         validUntil:
                               item.accessValidUntil,
                         status: item.shiftStatus,
@@ -333,6 +334,7 @@ export const storeDutyAccessService = {
                   ledgerName: selected.ledgerName,
                   shiftDate: selected.shiftDate,
                   shiftType: selected.shiftType,
+                  validFrom: selected.validFrom,
                   validUntil: selected.validUntil,
                   message:
                         "Đã mở Cửa hàng theo ca được phân công.",
@@ -545,6 +547,7 @@ export const storeDutyAccessService = {
             accessToken?: string | null;
             storeShiftId?: number | null;
             ledgerId?: number | null;
+            operation?: "read" | "write" | "close";
             touchActivity?: boolean;
       }) {
             if (!isResidentUser(input.user)) {
@@ -615,6 +618,16 @@ export const storeDutyAccessService = {
                   );
             }
 
+            const now = new Date();
+            const operation = input.operation || "write";
+            const isCurrentShift = isWithinAccessWindow(shift, now);
+
+            if (!isCurrentShift && operation === "write") {
+                  throw new Error(
+                        "Ca trực này không phải phiên hiện tại. Chỉ được xem và chốt sổ, không được thêm/xóa/sửa giao dịch.",
+                  );
+            }
+
             return {
                   accessMode: "resident" as const,
                   residentId: resident.id,
@@ -632,6 +645,8 @@ export const storeDutyAccessService = {
                         })
                   )?.memberRole,
                   shiftType: shift.shiftType,
+                  isCurrentShift,
+                  operation,
                   validUntil: shift.accessValidUntil,
             };
       },
@@ -650,6 +665,8 @@ export const storeDutyAccessService = {
                               },
                               storeShiftId:
                                     input.storeShiftId,
+                              accessToken: input.accessToken,
+                              operation: "read",
                               touchActivity: false,
                         });
 

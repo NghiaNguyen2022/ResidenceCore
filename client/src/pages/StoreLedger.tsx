@@ -1146,51 +1146,14 @@ export default function StoreLedger() {
                                                                         <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
                                                                               {activeTabMeta.label}
                                                                         </p>
-                                                                        <h2 className="text-xl font-black text-slate-950">
-                                                                              {activeStoreTab === "sales"
-                                                                                    ? "Bán hàng"
-                                                                                    : activeStoreTab === "purchase"
-                                                                                          ? "Nhập kho đa nguồn"
-                                                                                          : "Tổng hợp thu chi cửa hàng"}
-                                                                        </h2>
+                                                                        <h3 className="text-xl font-black text-slate-950">
+                                                                              Tổng hợp thu chi cửa hàng
+                                                                        </h3>
                                                                         <p className="mt-1 text-sm font-semibold text-slate-500">
                                                                               {activeTabMeta.description}
                                                                         </p>
                                                                   </div>
                                                                   <div className="flex flex-wrap gap-2">
-                                                                        {activeStoreTab === "sales" ? (
-                                                                              <button
-                                                                                    type="button"
-                                                                                    onClick={openSaleStockModal}
-                                                                                    disabled={!activeLedgerId}
-                                                                                    className={residenceMediumStyle.buttonCardPrimary}
-                                                                              >
-                                                                                    <Plus className="h-4 w-4" />
-                                                                                    Tạo phiếu bán
-                                                                              </button>
-                                                                        ) : null}
-                                                                        {activeStoreTab === "purchase" ? (
-                                                                              <>
-                                                                                    <button
-                                                                                          type="button"
-                                                                                          onClick={openPurchaseStockModal}
-                                                                                          disabled={!activeLedgerId || !products.length}
-                                                                                          className={residenceMediumStyle.buttonCardPrimary}
-                                                                                    >
-                                                                                          <Plus className="h-4 w-4" />
-                                                                                          Tạo phiếu nhập
-                                                                                    </button>
-                                                                                    <button
-                                                                                          type="button"
-                                                                                          onClick={() => openTransactionModal("out")}
-                                                                                          disabled={!activeLedgerId}
-                                                                                          className="inline-flex items-center gap-2 rounded-2xl border border-rose-100 bg-white px-4 py-2.5 text-sm font-bold text-rose-700 shadow-sm hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                                                                    >
-                                                                                          <Plus className="h-4 w-4" />
-                                                                                          Chi vận hành
-                                                                                    </button>
-                                                                              </>
-                                                                        ) : null}
                                                                         {activeStoreTab === "cashflow" ? (
                                                                               <button
                                                                                     type="button"

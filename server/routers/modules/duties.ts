@@ -27,7 +27,9 @@ function isInactiveResidentStatus(status?: string | null) {
       );
 }
 
-function assertActiveResidentForDuty(resident: any) {
+function assertActiveResidentForDuty<T extends { id?: unknown; status?: string | null } | null | undefined>(
+      resident: T,
+): asserts resident is NonNullable<T> & { id: number; status?: string | null } {
       if (!resident?.id) {
             throw new TRPCError({
                   code: "NOT_FOUND",

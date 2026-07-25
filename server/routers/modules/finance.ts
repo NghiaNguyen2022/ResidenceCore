@@ -190,8 +190,8 @@ export const financeRouter = router({
 
                         for (const line of input.lines) {
                               const amount = line.items
-                                    .filter((item) => item.selected)
-                                    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+                                    .filter((item: any) => item.selected)
+                                    .reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
 
                               if (amount > 0) {
                                     await notifyDebtGenerated(line.residentId, amount, input.billingMonth);

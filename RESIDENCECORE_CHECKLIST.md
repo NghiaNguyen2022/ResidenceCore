@@ -479,3 +479,134 @@ hoặc tạm tắt safe update nếu người dùng chủ động muốn, nhưng
 - [ ] Runtime kiểm tra bộ lọc ngày và Thu/Chi.
 - [ ] Runtime kiểm tra chốt trực tiếp từ group ngày.
 - [ ] Chạy `pnpm check`, `pnpm test`, `pnpm build`.
+
+
+---
+
+### D13 — Main flow cleanup: Simple mode + typecheck nền
+
+- [x] Simple manager menu giữ main flow trước: Dashboard, Học viên, Tổ chức, Tài chính, Sinh hoạt hằng ngày, Công tác.
+- [x] Simple mode không hiển thị Phòng ở.
+- [x] Simple mode tạm ẩn Store khỏi menu để tránh lệch trọng tâm main flow.
+- [x] Activities/Discipline đưa về trạng thái Sau trong Simple mode.
+- [x] Sửa typecheck Activities với shared `EmptyState`, `TimePickerInput`, confirm handler.
+- [x] Sửa typecheck ResidentStore với shared `FormDateInput`.
+- [x] Sửa typecheck StoreLedger tab cashflow và Drizzle date conditions.
+- [x] Sửa typecheck resident duty/portal guards và store handover input mapping.
+- [x] `tsc --noEmit` pass.
+- [x] `vitest run` pass.
+- [ ] Runtime smoke test Simple menu trên browser.
+- [ ] Tiếp tục polish UI các trang main flow còn lệch header/form style.
+
+
+---
+
+### D14 — Luồng test Trực cửa hàng và sổ sách đơn giản
+
+#### D14.1 — Chuẩn bị dữ liệu test tối thiểu
+
+- [ ] Có 1 manager.
+- [ ] Có 2 học viên resident có tài khoản portal: 1 người trực ca sáng, 1 người trực ca chiều.
+- [ ] Có 1 cửa hàng chính/ledger active.
+- [ ] Có ít nhất 2 sản phẩm active:
+  - [ ] Sản phẩm A có tồn đầu hoặc được nhập trước khi bán.
+  - [ ] Sản phẩm B dùng để test nhập kho.
+- [ ] Có cấu hình công tác loại `Trực cửa hàng`.
+- [ ] Có ngày test cố định, ví dụ hôm nay, để dễ đối chiếu sổ.
+
+#### D14.2 — Manager phân công ca trực cửa hàng
+
+- [ ] Manager vào Công tác / Trực nhật.
+- [ ] Tạo phân công Trực cửa hàng ca sáng cho resident A.
+- [ ] Chọn đúng cửa hàng/ledger.
+- [ ] Nhập tiền đầu ca dự kiến.
+- [ ] Tạo phân công Trực cửa hàng ca chiều cho resident B cùng ngày/cùng ledger.
+- [ ] Hệ thống tạo `storeShifts` tương ứng:
+  - [ ] Ca sáng: 07:00-12:00, access 07:00-13:00.
+  - [ ] Ca chiều: 13:00-18:00, access 13:00-19:00.
+- [ ] Không cho tạo trùng cùng ledger + cùng ngày + cùng loại ca.
+- [ ] Không cho phân công Trực cửa hàng cho tổ/nhóm, chỉ trực tiếp học viên.
+
+#### D14.3 — Resident chọn ngày/ca để vào cửa hàng
+
+- [ ] Resident A vào `/resident/store`.
+- [ ] Chọn ngày test và ca sáng.
+- [ ] Nếu ngày + ca sáng đúng phân công của resident A thì vào được phiên cửa hàng ngày đó.
+- [ ] Resident B vào `/resident/store`.
+- [ ] Chọn ngày test và ca chiều.
+- [ ] Nếu ngày + ca chiều đúng phân công của resident B thì vào được phiên cửa hàng ngày đó.
+- [ ] Resident không thuộc ca đã chọn không vào được phiên cửa hàng.
+- [ ] Resident chọn nhầm ngày/ca không thuộc mình thì bị chặn rõ ràng.
+
+#### D14.4 — Resident vào ca và thao tác cửa hàng
+
+- [ ] Resident A vào `/my-duties`, thấy công tác Trực cửa hàng.
+- [ ] Resident A chọn đúng ngày + ca sáng trong `/resident/store`.
+- [ ] Nếu ca sáng là phiên hiện tại thì được thêm giao dịch/phiếu bán/phiếu nhập theo quyền.
+- [ ] Nếu ca sáng không phải phiên hiện tại thì chỉ được xem và chốt sổ nếu đúng rule, không được thêm/xóa/sửa giao dịch.
+- [x] UI `/resident/store` ẩn tab ghi nhận bán/nhập/bàn giao khi ca không phải phiên hiện tại.
+- [x] UI `/resident/store` hiển thị cảnh báo chế độ chỉ xem/chốt sổ khi ca không phải phiên hiện tại.
+- [x] UI `/resident/store` chặn submit bán/nhập nếu ca không phải phiên hiện tại.
+- [ ] Resident chỉ thấy đúng ledger của ca trực.
+- [ ] Resident không tạo/sửa sản phẩm, không sửa ledger.
+- [ ] Resident được xem sản phẩm, sổ phát sinh, nhập/bán theo quyền ca.
+
+#### D14.5 — Ca sáng bán/nhập và bàn giao
+
+- [ ] Resident A tạo phiếu bán sản phẩm A.
+- [ ] Tồn sản phẩm A giảm.
+- [ ] Sổ phát sinh có khoản thu `sales`.
+- [ ] Resident A tạo phiếu nhập kho sản phẩm B nguồn mua hàng.
+- [ ] Tồn sản phẩm B tăng.
+- [ ] Sổ phát sinh có khoản chi mua hàng.
+- [ ] Resident A lập bàn giao sang ca chiều.
+- [ ] Expected cash = tiền đầu ca + tổng thu - tổng chi.
+- [ ] Nhập tiền thực tế thấp/cao hơn expected cash thì lưu chênh lệch và lý do.
+- [ ] Resident A ký giao.
+- [ ] Sau khi ký giao, bàn giao không được chỉnh sửa.
+
+#### D14.6 — Ca chiều nhận bàn giao và chốt ngày
+
+- [ ] Resident B vào ca chiều bằng cách chọn đúng ngày + ca chiều của mình.
+- [ ] Resident B xem bàn giao từ ca sáng.
+- [ ] Resident B ký nhận.
+- [ ] Tiền đầu ca chiều được cập nhật bằng tiền thực tế bàn giao.
+- [ ] Resident B tiếp tục bán/nhập nếu có.
+- [ ] Resident B xem trước chốt ngày.
+- [ ] Chỉ ca chiều được chốt ngày.
+- [ ] Chốt ngày tạo daily closing trạng thái chờ review/closed theo rule hiện tại.
+- [ ] Sau khi resident chốt ngày, quyền cửa hàng của ca chiều bị kết thúc.
+
+#### D14.7 — Manager review, xác nhận và đẩy sổ chung
+
+- [ ] Manager vào `/store-cashflow`.
+- [ ] Xem group theo ngày: tổng thu, tổng chi, chênh lệch, trạng thái.
+- [ ] Review ngày chốt.
+- [ ] Xác nhận ngày chốt.
+- [ ] Finance nhận đúng 2 dòng tổng hợp theo batch ngày:
+  - [ ] Tổng thu cửa hàng.
+  - [ ] Tổng chi cửa hàng.
+- [ ] Xác nhận lại không tạo trùng dòng Finance.
+- [ ] Dòng Finance nguồn `store_daily_closing` không cho xóa trực tiếp từ Finance.
+- [ ] Sau xác nhận không thể mở lại/chỉnh ngày chốt.
+
+#### D14.8 — Luồng âm tính bắt buộc
+
+- [ ] Resident không thuộc ca không vào được cửa hàng dù biết ngày/ca.
+- [ ] Resident ca sáng không được chốt ngày.
+- [ ] Resident ca chiều không được ký giao thay ca sáng.
+- [ ] Bán vượt tồn bị chặn, không tạo thu.
+- [ ] Ngày đã chốt/review/confirmed không cho tạo thêm phát sinh.
+- [ ] Hủy giao dịch đã chốt bị chặn hoặc yêu cầu mở lại theo rule manager.
+- [ ] Chọn đúng ca nhưng không phải phiên hiện tại: mọi thao tác thêm/xóa/sửa giao dịch bị chặn.
+
+#### D14.9 — Nguyên tắc test sổ sách đơn giản nhất
+
+- [ ] Chỉ dùng 1 cửa hàng chính trong smoke test.
+- [ ] Chỉ dùng 1 ngày test, 2 ca: sáng và chiều.
+- [ ] Chỉ dùng 2 sản phẩm, 1 phiếu nhập, 1 phiếu bán, 1 khoản chi vận hành nếu cần.
+- [ ] Đối chiếu theo 3 bảng số:
+  - [ ] Tồn kho: nhập tăng, bán giảm, không âm.
+  - [ ] Sổ cửa hàng: thu/chi theo ngày khớp phiếu.
+  - [ ] Sổ chung Finance: chỉ nhận tổng sau khi manager xác nhận.
+- [ ] Không test nhiều ledger, nhiều ngày, nhiều loại nguồn cùng lúc trong P0.

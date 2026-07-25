@@ -141,7 +141,9 @@ function isInactiveResidentStatus(status?: string | null) {
       return ["inactive", "transferred_out", "left"].includes(String(status || "").toLowerCase());
 }
 
-function assertActivePortalUser(user: any) {
+function assertActivePortalUser<T extends { id?: unknown; isActive?: boolean | null; passwordHash?: string | null } | null | undefined>(
+      user: T,
+): asserts user is NonNullable<T> & { id: number; isActive?: boolean; passwordHash: string } {
       if (!user) {
             throw new Error("Không tìm thấy tài khoản đăng nhập.");
       }
@@ -151,7 +153,11 @@ function assertActivePortalUser(user: any) {
       }
 }
 
-function assertActiveLinkedResident(resident: any) {
+function assertActiveLinkedResident<
+      T extends { id?: unknown; status?: string | null; fullName?: string | null; residentCode?: string | null } | null | undefined,
+>(
+      resident: T,
+): asserts resident is NonNullable<T> & { id: number; status?: string | null; fullName?: string | null; residentCode?: string | null } {
       if (!resident?.id) {
             throw new Error("Tài khoản chưa được liên kết với hồ sơ học viên.");
       }
