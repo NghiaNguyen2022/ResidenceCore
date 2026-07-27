@@ -44,9 +44,58 @@ export const simpleManagerNavigation: NavigationItem[] = [
                         roles: ["manager"],
                   },
                   {
-                        label: "Công tác / Trực nhật",
-                        path: "/duties",
-                        icon: "🧹",
+                        label: "Hoạt động / Sự kiện",
+                        path: "/activities",
+                        icon: "🎯",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Điểm danh",
+                        path: "/attendance",
+                        icon: "✅",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Lịch điểm danh",
+                        path: "/attendance-schedules",
+                        icon: "🗓️",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Nội quy & Nhắc nhở",
+                        path: "/discipline-rules",
+                        icon: "📌",
+                        roles: ["manager"],
+                  },
+            ],
+      },
+      {
+            label: "Quản lý cửa hàng",
+            icon: "🛒",
+            roles: ["manager"],
+            children: [
+                  {
+                        label: "Dữ liệu sản phẩm",
+                        path: "/store-products",
+                        icon: "🏷️",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Mua hàng / Nhập kho",
+                        path: "/store-purchase",
+                        icon: "📦",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Bán hàng",
+                        path: "/store-sales",
+                        icon: "🧾",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Tổng hợp thu chi",
+                        path: "/store-cashflow",
+                        icon: "📒",
                         roles: ["manager"],
                   },
             ],
@@ -57,17 +106,21 @@ export const simpleManagerNavigation: NavigationItem[] = [
             roles: ["manager"],
             children: [
                   {
-                        label: "Hoạt động / Sự kiện",
-                        path: "/activities",
-                        icon: "🎯",
+                        label: "Người dùng & quyền truy cập",
+                        path: "/settings/users",
+                        icon: "🔐",
                         roles: ["manager"],
-                        badge: "Sau",
-                        disabled: true,
                   },
+            ],
+      },
+      {
+            label: "Sắp ra mắt",
+            icon: "🔜",
+            roles: ["manager"],
+            children: [
                   {
-                        label: "Nội quy & Nhắc nhở",
-                        path: "/discipline-rules",
-                        icon: "📌",
+                        label: "Báo cáo",
+                        icon: "📈",
                         roles: ["manager"],
                         badge: "Sau",
                         disabled: true,
@@ -106,6 +159,24 @@ export const detailedManagerNavigation: NavigationItem[] = [
                         icon: "🚪",
                         roles: ["manager"],
                   },
+                  {
+                        label: "Gia đình / Liên hệ",
+                        path: "/parents",
+                        icon: "☎️",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Thông tin học tập",
+                        path: "/academic-info",
+                        icon: "🎓",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Lịch học",
+                        path: "/study-schedule",
+                        icon: "📚",
+                        roles: ["manager"],
+                  },
             ],
       },
       {
@@ -123,6 +194,36 @@ export const detailedManagerNavigation: NavigationItem[] = [
                         label: "Công tác / Trực nhật",
                         path: "/duties",
                         icon: "🧹",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Phân công thông minh",
+                        path: "/smart-assignment",
+                        icon: "⚡",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Điểm danh",
+                        path: "/attendance",
+                        icon: "✅",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Lịch điểm danh",
+                        path: "/attendance-schedules",
+                        icon: "🗓️",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Câu lạc bộ",
+                        path: "/clubs",
+                        icon: "🎨",
+                        roles: ["manager"],
+                  },
+                  {
+                        label: "Kỹ năng",
+                        path: "/skills",
+                        icon: "🧠",
                         roles: ["manager"],
                   },
                   {
@@ -194,6 +295,12 @@ export const detailedManagerNavigation: NavigationItem[] = [
                         icon: "🔐",
                         roles: ["manager"],
                   },
+                  {
+                        label: "Cài đặt thông báo",
+                        path: "/settings/notifications",
+                        icon: "🔔",
+                        roles: ["manager"],
+                  },
             ],
       },
       {
@@ -201,20 +308,6 @@ export const detailedManagerNavigation: NavigationItem[] = [
             icon: "🔜",
             roles: ["manager"],
             children: [
-                  {
-                        label: "Gia đình / Liên hệ",
-                        icon: "☎️",
-                        roles: ["manager"],
-                        badge: "Sau",
-                        disabled: true,
-                  },
-                  {
-                        label: "Phân công thông minh",
-                        icon: "⚡",
-                        roles: ["manager"],
-                        badge: "Sau",
-                        disabled: true,
-                  },
                   {
                         label: "Phụng vụ",
                         icon: "⛪",
@@ -232,13 +325,6 @@ export const detailedManagerNavigation: NavigationItem[] = [
                   {
                         label: "Báo cáo sinh hoạt",
                         icon: "📋",
-                        roles: ["manager"],
-                        badge: "Sau",
-                        disabled: true,
-                  },
-                  {
-                        label: "Kỹ năng",
-                        icon: "🧠",
                         roles: ["manager"],
                         badge: "Sau",
                         disabled: true,

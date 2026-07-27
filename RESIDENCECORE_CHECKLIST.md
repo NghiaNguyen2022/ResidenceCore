@@ -1,7 +1,7 @@
 # RESIDENCECORE_CHECKLIST.md — Tổng checklist ResidenceCore / App Lưu Xá
 
-Cập nhật đến: **Việc 16K4 — Nhập hàng / chi mua hàng tăng tồn, tính lại giá vốn**  
-Trạng thái tổng: **Việc 1–15 DONE/PASS; Việc 16 đang triển khai Quản lý cửa hàng**.
+Cập nhật đến: **27/07/2026 — Audit tổng thể tính năng theo code hiện tại**
+Trạng thái tổng: **Luồng quản lý P0 đã có và từng smoke PASS; Portal/Cửa hàng còn thiếu runtime UAT; nhiều module nâng cao mới ở mức code rời, chưa nối route/menu/API đầy đủ**.
 
 ---
 
@@ -751,3 +751,256 @@ hoặc tạm tắt safe update nếu người dùng chủ động muốn, nhưng
 - [x] Kiểm tra cấu trúc User Manual chi tiết: 163 paragraphs, 20 tables, 1 section, 38 headings, 9 images, heading hierarchy đầy đủ.
 - [x] Kiểm tra table geometry: tất cả bảng có `tblW` và `tblGrid`.
 - [ ] Visual render QA bằng LibreOffice/soffice chưa chạy được trên máy hiện tại vì thiếu executable `soffice`.
+
+---
+
+## Audit tổng thể tính năng — 27/07/2026
+
+> Quy ước riêng cho snapshot này:
+> - `[x]` Có đủ luồng chính trong code và đã có bằng chứng test/smoke trước đó.
+> - `[-]` Đã có code nhưng chưa đủ UAT/runtime hoặc còn thiếu một phần quan trọng.
+> - `[ ]` Chưa nối vào sản phẩm hiện hành, mới là page rời/backlog hoặc chưa có bằng chứng triển khai.
+> - `[!]` Có rủi ro cần xử lý trước khi phát hành.
+
+### 1. Nền tảng, xác thực và phân quyền
+
+- [x] React 19 + Vite + TypeScript; backend Express + tRPC + Drizzle/MySQL.
+- [x] Đăng nhập local bằng username/password.
+- [x] Đăng xuất và xóa cookie phiên đăng nhập.
+- [x] Lấy thông tin người dùng hiện tại (`auth.me`).
+- [x] Đổi mật khẩu bắt buộc lần đầu.
+- [x] Cập nhật hồ sơ cá nhân và đổi mật khẩu cá nhân.
+- [x] Phân vai trò chính `manager` / `resident`.
+- [x] Layout và menu tách theo vai trò.
+- [-] Quản lý người dùng và gán role đã có route `/settings/users` trong Detailed mode; coverage test còn mỏng.
+- [!] Chưa có bộ test tự động đầy đủ cho login sai, khóa user, rate limit, hết hạn phiên và toàn bộ ma trận quyền.
+- [!] Chưa xác nhận cách ly đa đơn vị/đa lưu xá; code hiện tại chủ yếu vận hành theo một ResidenceCore.
+
+### 2. Dashboard quản lý
+
+- [x] Route `/dashboard`.
+- [x] API tổng hợp dashboard.
+- [x] Hiển thị số liệu tổng quan.
+- [x] Đã từng browser smoke PASS trong main flow P0.
+- [-] Chưa có e2e tự động kiểm tra số liệu dashboard với database seed mới tinh.
+
+### 3. Học viên và hồ sơ
+
+- [x] Route `/members`.
+- [x] Danh sách, tìm kiếm, thống kê và xem chi tiết học viên.
+- [x] Tạo, sửa, cho rời lưu xá và kích hoạt lại học viên.
+- [x] Gán phòng có kiểm tra trạng thái và sức chứa; giữ lịch sử gán phòng.
+- [x] Quản lý cha/mẹ/người giám hộ trong hồ sơ học viên.
+- [x] Quản lý thông tin học tập và lịch học.
+- [x] Tạo tài khoản portal cho một hoặc nhiều học viên.
+- [x] Main flow đã từng browser smoke PASS.
+- [-] Chưa có unit/integration test đầy đủ cho CRUD hồ sơ, phụ huynh, học tập và cấp tài khoản hàng loạt.
+
+### 4. Phòng ở
+
+- [x] Route `/rooms` trong Detailed mode.
+- [x] Danh sách, tạo, sửa và quản lý trạng thái phòng.
+- [x] Xem cư dân/phân bổ phòng và kiểm tra sức chứa trong luồng gán.
+- [-] Phòng được chủ động ẩn khỏi Simple mode.
+- [!] Tổ/khu trong form phòng còn hard-code (`TODO` trong `Rooms.tsx`), chưa lấy từ backend.
+- [-] Chưa có browser/e2e test riêng cho toàn bộ vòng đời phòng.
+
+### 5. Tổ chức lưu xá
+
+- [x] Route hợp nhất `/organization`.
+- [x] Quản lý vai trò/chức vụ.
+- [x] Quản lý nhiệm kỳ và nhiệm kỳ đang hoạt động.
+- [x] Quản lý Tổ/Ban/đơn vị.
+- [x] Bổ nhiệm, kết thúc và xóa phân công chức vụ.
+- [x] Quản lý thành viên Tổ/Ban, chuyển tổ và đồng bộ trưởng/phó.
+- [x] Main flow đã từng browser smoke PASS.
+- [-] Chưa có test tự động bao phủ toàn bộ CRUD và các ràng buộc nhiệm kỳ/chức vụ.
+
+### 6. Sinh hoạt hằng ngày
+
+- [x] Route `/daily-routine`.
+- [x] Xem lịch theo ngày và tổng quan hôm nay.
+- [x] Tạo, sửa, hoàn thành, hủy và xóa lịch sinh hoạt.
+- [x] Quản lý mẫu lịch và các mục trong mẫu.
+- [x] Main flow đã từng browser smoke PASS.
+- [-] Chưa có e2e cho tạo mẫu → áp dụng → hoàn thành/hủy trên UI.
+
+### 7. Công tác / Trực nhật
+
+- [x] Route quản lý `/duties` và route học viên `/my-duties`.
+- [x] Quản lý mẫu công tác, cấu hình và checklist.
+- [x] Phân công đơn lẻ, hàng loạt, theo ngày/khoảng ngày/đối tượng.
+- [x] Hoàn thành, bỏ qua, hủy và đánh giá công tác.
+- [x] Gợi ý phân công thông minh ở backend.
+- [x] Guard manager và endpoint dành cho resident đã được kiểm tra.
+- [x] Có unit test resident duty và store duty access.
+- [-] Chưa có browser e2e toàn bộ vòng đời phân công → thực hiện → đánh giá.
+
+### 8. Tài chính lưu xá
+
+- [x] Route `/finance`.
+- [x] Tổng quan tài chính.
+- [x] Danh mục khoản phí.
+- [x] Kỳ thu, xem chi tiết, preview và áp dụng kỳ thu.
+- [x] Khoản phải thu theo học viên; tạo hàng loạt, cập nhật và hủy.
+- [x] Giao dịch thu/chi; ghi nhận thanh toán và xóa theo guard.
+- [x] Bỏ qua học viên inactive/đã rời và chặn dữ liệu trùng theo kỳ.
+- [x] Main flow đã từng browser smoke PASS.
+- [-] Chưa có integration/e2e đối chiếu số dư và rollback giao dịch trên database sạch.
+
+### 9. Hoạt động / Sự kiện
+
+- [x] Route manager `/activities` và resident `/resident/activities`.
+- [x] API danh sách, thống kê, chi tiết, tạo, sửa, hủy và xóa.
+- [x] Portal học viên xem hoạt động.
+- [-] Simple mode đang để disabled/badge “Sau”; Detailed mode mới mở.
+- [-] Checklist cũ còn mục “chốt 14L PASS chính thức”.
+- [-] Chưa có test tự động hoặc UAT cuối xác nhận toàn bộ luồng.
+
+### 10. Nội quy và nhắc nhở
+
+- [-] Có route `/discipline-rules` và trang nội quy cho resident.
+- [-] Simple mode đang disabled; Detailed mode có menu Nội quy.
+- [-] Chưa thấy router backend chuyên biệt được đăng ký trong `appRouter`.
+- [ ] Vi phạm/kỷ luật nâng cao (`DisciplineCases`) chưa nối vào route/menu hiện hành.
+- [!] Cần audit dữ liệu thật và quyền CRUD trước khi công bố hoàn thành.
+
+### 11. Thông báo nội bộ
+
+- [x] Resident có route `/resident/notifications`.
+- [x] API lấy danh sách, đếm chưa đọc và đánh dấu đã đọc.
+- [x] Badge chưa đọc và popup lite đã được triển khai theo checklist lịch sử.
+- [-] Trang cấu hình sở thích thông báo tồn tại nhưng chưa nối route/menu.
+- [-] Chưa có test tự động cho tạo/phân phối/đọc thông báo.
+
+### 12. Portal học viên
+
+- [x] Hôm nay: `/resident/today`.
+- [x] Hồ sơ: `/my-profile`; có thêm route thông tin `/resident/information`.
+- [x] Công tác: `/my-duties`.
+- [x] Tài chính: `/resident/finance`.
+- [x] Thông báo: `/resident/notifications`.
+- [x] Hoạt động: `/resident/activities`.
+- [x] Context học viên liên kết, phạm vi tổ chức và phạm vi công tác.
+- [-] Các route vai trò/tổ/ban đã có trong `App.tsx` nhưng chưa nằm trong menu resident chính.
+- [-] Chưa có bộ seed portal chuẩn gồm 2 học viên và tài khoản thật để UAT lặp lại.
+- [!] Chưa có browser e2e đăng nhập resident và đi toàn bộ portal.
+
+### 13. Cửa hàng / Kho / Sổ cửa hàng
+
+- [x] Các route manager: `/store-products`, `/store-purchase`, `/store-sales`, `/store-cashflow`; route tổng `/store-ledger`.
+- [x] Sản phẩm, ảnh sản phẩm, giá bán và lịch sử giá.
+- [x] Nhập hàng/mua hàng, tăng tồn và tính lại giá vốn.
+- [x] Bán hàng, giảm tồn và ghi khoản thu.
+- [x] Sổ thu/chi, phiếu nhiều dòng và preview chứng từ.
+- [x] Ca trực cửa hàng gắn với công tác.
+- [x] Chọn ngày/ca, token truy cập, kiểm tra đúng resident/ledger/phiên hiện tại.
+- [x] Ngoài phiên hiện tại chỉ xem/chốt; UI và backend có guard.
+- [x] Bàn giao ca, expected cash, tiền thực tế và chênh lệch.
+- [x] Chốt ngày, manager review/xác nhận và cơ chế đẩy tổng hợp sang Finance đã có trong code.
+- [x] Có test tự động cho quyền truy cập ca cửa hàng.
+- [-] Chưa UAT trọn luồng 1 ngày/2 ca/2 học viên trên browser với dữ liệu thật.
+- [-] Chưa xác nhận runtime: ca sáng bán/nhập → bàn giao → ca chiều nhận/chốt → manager xác nhận → Finance nhận đúng hai dòng.
+- [!] Đây là phần P0 lớn nhất còn mở trước khi demo sạch.
+
+### 14. Người dùng, role và hồ sơ cá nhân
+
+- [x] Route manager `/settings/users`.
+- [x] API danh sách/tạo/sửa user và bật/tắt trạng thái.
+- [x] API danh sách role và gán role cho user.
+- [x] Route `/my-profile` và API cập nhật hồ sơ/đổi mật khẩu.
+- [-] Chưa có test tự động bao phủ CRUD user, khóa tài khoản và gán/thu hồi role.
+
+### 15. Các module mở rộng
+
+- [x] Phụ huynh độc lập (`Parents`) — đã nối route `/parents`, menu Detailed và API `members` thật ngày 27/07/2026.
+- [-] Học tập nâng cao:
+  - [x] Thông tin học tập (`AcademicInfo`) đã nối route `/academic-info`, menu Detailed và API `members` thật.
+  - [x] Lịch học (`Schedule`) đã nối route `/study-schedule`, menu Detailed và API `members` thật.
+  - [ ] Đánh giá học tập (`AcademicEvaluations`) mới có page, chưa có backend nghiệp vụ.
+- [-] Điểm danh:
+  - [x] Router `attendance` hiện hành có manager guard.
+  - [x] Quản lý danh sách, tạo và sửa lịch điểm danh tại `/attendance-schedules`.
+  - [x] Điểm danh theo ngày + lịch tại `/attendance`.
+  - [x] Tải dữ liệu đã lưu, cập nhật trạng thái/ghi chú và lưu hàng loạt có transaction.
+  - [x] Hai màn hình đã nối menu Detailed; không xuất hiện trong Simple mode.
+  - [x] Dùng date/time picker shared.
+  - [x] Test manager/resident guard và validation thời gian.
+  - [x] Xóa lịch bằng confirm modal custom; backend chặn xóa lịch đã phát sinh điểm danh.
+  - [ ] Browser UAT với database thật.
+- [-] Câu lạc bộ:
+  - [x] Thay toàn bộ dữ liệu mẫu trong `Clubs` bằng API/database thật.
+  - [x] Schema và migration `20260727_clubs_module.sql`.
+  - [x] CRUD câu lạc bộ; validate mã, số thành viên và sức chứa.
+  - [x] Manager guard ở router `clubs`.
+  - [x] Route `/clubs` và menu Detailed; không xuất hiện trong Simple mode.
+  - [x] Xóa bằng confirm modal custom.
+  - [x] Test guard và validation sức chứa.
+  - [ ] Chạy migration và browser UAT trên database thật.
+- [ ] Kế hoạch hoạt động: `ActivityPlans`.
+- [ ] Phụng vụ: lịch, phân công và điểm danh.
+- [-] Kỹ năng:
+  - [x] Danh mục Kỹ năng đã chuyển từ dữ liệu mẫu sang CRUD database thật.
+  - [x] Schema và migration `20260727_skills_module.sql`.
+  - [x] Manager guard, validation mã/trạng thái/cấp độ.
+  - [x] Route `/skills`, menu Detailed và confirm modal khi xóa.
+  - [x] Backend chặn xóa kỹ năng đã có lớp hoặc kết quả.
+  - [x] Test router và navigation.
+  - [ ] Chạy migration và browser UAT database thật.
+  - [ ] Lớp kỹ năng (`SkillClasses`) chưa chuyển khỏi dữ liệu mẫu.
+  - [ ] Kết quả kỹ năng (`SkillResults`) chưa chuyển khỏi dữ liệu mẫu.
+- [x] Phân công thông minh đã nối route `/smart-assignment`, menu Detailed và API `duties` thật.
+- [ ] Báo cáo tổng hợp.
+- [ ] Theo dõi phí/tài chính phiên bản cũ (`Fees`, `Financial`).
+- [-] Thiết lập:
+  - [x] Sở thích thông báo đã nối route `/settings/notifications`, menu Detailed và API `system` thật.
+  - [ ] Thiết lập ứng dụng và danh mục giáo dục chưa có backend nghiệp vụ đầy đủ.
+- [ ] Các page legacy `Residents`, `RoomDetail`, `Schedules`, `Tasks`.
+- [ ] Component showcase chỉ phục vụ phát triển, không phải tính năng người dùng.
+- [x] Test navigation xác nhận các route mở rộng đã hoàn thiện chỉ xuất hiện trong Detailed mode.
+- [!] Các page còn lại không được xem là “đã hoàn thành” chỉ vì có file TSX; cần route + menu + API thật + quyền + test + tài liệu.
+
+### 16. Chất lượng, kiểm thử và sẵn sàng phát hành
+
+- [x] TypeScript `pnpm check` PASS ngày 27/07/2026.
+- [x] Unit test PASS ngày 27/07/2026 sau danh mục Kỹ năng: 20/20 tests, 7/7 test files.
+- [x] Production build PASS ngày 27/07/2026.
+- [x] Bằng chứng gần nhất trong checklist: browser smoke manager trên 7 route P0 từng PASS.
+- [!] Build còn cảnh báo chunk `index` lớn hơn 500 kB; không chặn build nhưng cần tối ưu trước khi public rộng.
+- [ ] E2E tự động login manager + 7 route P0.
+- [ ] E2E tự động cho resident portal.
+- [ ] Integration test CRUD cho Members, Rooms, Organization, DailyRoutine, Finance và Store.
+- [ ] Test bảo mật: authorization matrix, IDOR/scope, brute force/rate limit, cookie/session.
+- [ ] Test responsive/mobile và accessibility.
+- [ ] Test migration + seed trên database trống.
+- [ ] Test backup/restore và rollback deploy.
+
+### 17. Deploy, dữ liệu demo và vận hành
+
+- [x] Có lệnh build và start production.
+- [x] Có migration Drizzle và seed default manager.
+- [x] Có tài liệu setup/deploy và bộ tài liệu BA/User Manual.
+- [-] Chưa có command `db:seed-demo` repeatable cho toàn bộ dữ liệu demo.
+- [ ] Đồng bộ script reset demo cũ với `admin / Admin@123` và role `manager`.
+- [ ] Xác nhận `.env.example`/guide đủ DB, JWT, `STORE_ACCESS_SECRET`, PORT và analytics optional.
+- [ ] Smoke test từ database sạch sau migrate + seed.
+- [ ] Checklist VPS thực tế: process manager, reverse proxy, HTTPS, firewall, backup, log rotation và rollback.
+- [!] Chưa đủ bằng chứng để đánh dấu production-ready.
+
+### 18. Thứ tự ưu tiên chốt hệ thống
+
+- [x] **P0.1:** Khôi phục dependency bằng pnpm 10.4.1; `pnpm check`, `pnpm test` và `pnpm build` PASS ngày 27/07/2026.
+- [ ] **P0.2:** Tạo seed demo repeatable gồm manager, 2 resident, 1 ledger, 2 ca và 2 sản phẩm.
+- [ ] **P0.3:** UAT browser trọn luồng resident portal và cửa hàng 1 ngày/2 ca.
+- [ ] **P0.4:** Xác nhận manager review/chốt cửa hàng và đối chiếu Finance.
+- [ ] **P0.5:** Tự động hóa smoke login + 7 route manager P0.
+- [ ] **P0.6:** Audit bảo mật/phân quyền và triển khai từ database sạch.
+- [ ] **P1:** Nối từng module nâng cao theo Definition of Done hoặc archive source orphan.
+- [ ] **P1:** Chuẩn hóa tài liệu gốc để không lẫn ResidenceCore với bộ checklist QLTruongHoc.
+
+### 19. Kết luận snapshot 27/07/2026
+
+- [x] Có thể tiếp tục demo luồng quản lý P0 dựa trên bằng chứng smoke trước đây.
+- [-] Portal resident và module cửa hàng ở mức “đã có code, cần UAT runtime cuối”.
+- [ ] Chưa thể tuyên bố toàn bộ hệ thống hoàn thành hoặc production-ready.
+- [!] `docs/MASTER_CHECKLIST.md` và `PROJECT_SUMMARY.md` đang mô tả dự án `QLTruongHoc`, không khớp với ResidenceCore hiện tại; nguồn trạng thái ResidenceCore nên dùng file này cho đến khi tài liệu được hợp nhất có chủ đích.

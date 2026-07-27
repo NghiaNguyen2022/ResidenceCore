@@ -13,6 +13,9 @@ import { residentPortalRouter } from "./routers/modules/residentPortal";
 import { activitiesRouter } from "./routers/modules/activities";
 import { financeRouter } from "./routers/modules/finance";
 import { storeLedgerRouter } from "./routers/modules/storeLedger";
+import { attendanceRouter } from "./routers/modules/attendance";
+import { clubsRouter } from "./routers/modules/clubs";
+import { skillsRouter } from "./routers/modules/skills";
 
 export const appRouter = router({
       system: systemRouter,
@@ -29,6 +32,9 @@ export const appRouter = router({
       activities: activitiesRouter,
       finance: financeRouter,
       storeLedger: storeLedgerRouter,
+      attendance: attendanceRouter,
+      clubs: clubsRouter,
+      skills: skillsRouter,
 });
 
 export type AppRouter = typeof appRouter;

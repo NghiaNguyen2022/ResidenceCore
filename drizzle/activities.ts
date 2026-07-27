@@ -34,7 +34,7 @@ export const activityStatusEnum = mysqlEnum("activityStatus", [
       "cancelled",
 ]);
 
-export const activityParticipantRoleEnum = mysqlEnum("activityParticipantRole", [
+export const activityParticipantRoleEnum = mysqlEnum("role", [
       "participant",
       "organizer",
       "volunteer",

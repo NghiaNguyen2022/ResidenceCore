@@ -25,6 +25,9 @@ import {
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
+import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/shared/overlay/ConfirmDialog';
 
 type SkillStatus = 'active' | 'inactive';
 type SkillLevel = 'basic' | 'intermediate' | 'advanced';
@@ -238,7 +241,6 @@ function validateForm({
 }
 
 export default function Skills() {
-      const [skills, setSkills] = useState<SkillItem[]>(initialSkills);
       const [searchTerm, setSearchTerm] = useState('');
       const [categoryFilter, setCategoryFilter] = useState<'all' | SkillCategory>('all');
       const [levelFilter, setLevelFilter] = useState<'all' | SkillLevel>('all');
@@ -248,6 +250,12 @@ export default function Skills() {
       const [editingSkill, setEditingSkill] = useState<SkillItem | null>(null);
       const [formData, setFormData] = useState<SkillFormData>(defaultFormData);
       const [error, setError] = useState<string | null>(null);
+      const [deleteTarget, setDeleteTarget] = useState<SkillItem | null>(null);
+      const skillsQuery = trpc.skills.list.useQuery();
+      const createMutation = trpc.skills.create.useMutation();
+      const updateMutation = trpc.skills.update.useMutation();
+      const deleteMutation = trpc.skills.delete.useMutation();
+      const skills = (skillsQuery.data || []) as SkillItem[];
 
       const filteredSkills = useMemo(() => {
             const keyword = normalizeText(searchTerm);
@@ -326,7 +334,7 @@ export default function Skills() {
             setError(null);
       };
 
-      const saveSkill = () => {
+      const saveSkill = async () => {
             const validationMessage = validateForm({
                   skills,
                   formData,
@@ -338,8 +346,7 @@ export default function Skills() {
                   return;
             }
 
-            const payload: SkillItem = {
-                  id: editingSkill?.id || getNextId(skills),
+            const payload = {
                   code: normalizeCode(formData.code),
                   name: formData.name.trim(),
                   category: formData.category,
@@ -351,20 +358,22 @@ export default function Skills() {
                   suggestedDuration: formData.suggestedDuration.trim(),
                   ownerGroup: formData.ownerGroup.trim(),
                   note: formData.note.trim() || null,
-                  classCount: editingSkill?.classCount || 0,
-                  completedCount: editingSkill?.completedCount || 0,
                   sortOrder: Number(formData.sortOrder || 0),
             };
 
-            if (editingSkill) {
-                  setSkills((current) =>
-                        current.map((item) => (item.id === editingSkill.id ? payload : item))
-                  );
-            } else {
-                  setSkills((current) => [...current, payload]);
+            try {
+                  if (editingSkill) {
+                        await updateMutation.mutateAsync({ id: editingSkill.id, ...payload });
+                        toast.success('Đã cập nhật kỹ năng.');
+                  } else {
+                        await createMutation.mutateAsync(payload);
+                        toast.success('Đã thêm kỹ năng.');
+                  }
+                  await skillsQuery.refetch();
+                  closeForm();
+            } catch (saveError) {
+                  setError(saveError instanceof Error ? saveError.message : 'Không thể lưu kỹ năng.');
             }
-
-            closeForm();
       };
 
       const deleteSkill = (item: SkillItem) => {
@@ -373,9 +382,7 @@ export default function Skills() {
                   return;
             }
 
-            if (!confirm(`Bạn có chắc chắn muốn xóa kỹ năng "${item.name}"?`)) return;
-
-            setSkills((current) => current.filter((row) => row.id !== item.id));
+            setDeleteTarget(item);
       };
 
       const clearFilters = () => {
@@ -538,7 +545,7 @@ export default function Skills() {
                               </button>
                         </div>
 
-                        {error && (
+                        {(error || skillsQuery.error) && (
                               <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
                                     <div className="flex gap-3">
                                           <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
@@ -546,7 +553,7 @@ export default function Skills() {
                                                 <p className="font-semibold">
                                                       Có lỗi khi xử lý danh mục kỹ năng.
                                                 </p>
-                                                <p className="mt-1 text-sm">{error}</p>
+                                                <p className="mt-1 text-sm">{error || skillsQuery.error?.message}</p>
                                           </div>
                                     </div>
                               </div>
@@ -668,6 +675,7 @@ export default function Skills() {
                               columns={columns}
                               data={filteredSkills}
                               getRowKey={(item) => item.id}
+                              isLoading={skillsQuery.isLoading}
                               emptyTitle="Chưa có kỹ năng"
                               emptyDescription="Thêm kỹ năng để dùng cho lớp kỹ năng và kết quả phát triển của học viên."
                         />
@@ -683,6 +691,28 @@ export default function Skills() {
                                     submitText={editingSkill ? 'Cập nhật' : 'Thêm kỹ năng'}
                               />
                         )}
+                        <ConfirmDialog
+                              open={Boolean(deleteTarget)}
+                              onOpenChange={(nextOpen) => {
+                                    if (!nextOpen) setDeleteTarget(null);
+                              }}
+                              title="Xóa kỹ năng?"
+                              description={`Bạn sắp xóa “${deleteTarget?.name || ''}”.`}
+                              confirmLabel="Xóa kỹ năng"
+                              variant="danger"
+                              loading={deleteMutation.isPending}
+                              onConfirm={async () => {
+                                    if (!deleteTarget) return;
+                                    try {
+                                          await deleteMutation.mutateAsync({ id: deleteTarget.id });
+                                          toast.success('Đã xóa kỹ năng.');
+                                          setDeleteTarget(null);
+                                          await skillsQuery.refetch();
+                                    } catch (deleteError) {
+                                          setError(deleteError instanceof Error ? deleteError.message : 'Không thể xóa kỹ năng.');
+                                    }
+                              }}
+                        />
                   </div>
             </ResidenceCareLayout>
       );

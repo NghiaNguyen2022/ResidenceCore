@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Clock } from "lucide-react";
+import { Plus, Clock, Pencil, Trash2 } from "lucide-react";
 import { ResidenceCareLayout } from "@/components/ResidenceCareLayout";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -12,6 +12,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { FormTimeInput } from "@/components/shared/form/FormTimeInput";
+import { ConfirmDialog } from "@/components/shared/overlay/ConfirmDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const scheduleSchema = z.object({
@@ -25,8 +27,12 @@ type ScheduleFormData = z.infer<typeof scheduleSchema>;
 
 export default function Schedules() {
   const [open, setOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const { data: schedules, isLoading, refetch } = trpc.attendance.listSchedules.useQuery();
   const createMutation = trpc.attendance.createSchedule.useMutation();
+  const updateMutation = trpc.attendance.updateSchedule.useMutation();
+  const deleteMutation = trpc.attendance.deleteSchedule.useMutation();
 
   const form = useForm<ScheduleFormData>({
     resolver: zodResolver(scheduleSchema) as any,
@@ -40,14 +46,42 @@ export default function Schedules() {
 
   const onSubmit = async (data: ScheduleFormData) => {
     try {
-      await createMutation.mutateAsync(data);
-      toast.success("Thêm lịch biểu thành công");
+      if (editingSchedule) {
+        await updateMutation.mutateAsync({ id: editingSchedule.id, ...data });
+        toast.success("Đã cập nhật lịch biểu");
+      } else {
+        await createMutation.mutateAsync(data);
+        toast.success("Thêm lịch biểu thành công");
+      }
       form.reset();
+      setEditingSchedule(null);
       setOpen(false);
       refetch();
     } catch (error) {
       toast.error("Có lỗi xảy ra");
     }
+  };
+
+  const openCreate = () => {
+    setEditingSchedule(null);
+    form.reset({
+      name: "",
+      type: "meal",
+      scheduledTime: "07:00",
+      isDaily: true,
+    });
+    setOpen(true);
+  };
+
+  const openEdit = (schedule: any) => {
+    setEditingSchedule(schedule);
+    form.reset({
+      name: schedule.name,
+      type: schedule.type,
+      scheduledTime: String(schedule.scheduledTime).slice(0, 5),
+      isDaily: schedule.isDaily,
+    });
+    setOpen(true);
   };
 
   const typeLabels: Record<string, string> = {
@@ -68,16 +102,19 @@ export default function Schedules() {
             <h1 className="font-serif-editorial text-5xl font-bold">Lịch biểu sinh hoạt</h1>
             <p className="text-muted-foreground detail-text">Quản lý lịch sinh hoạt chung</p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(nextOpen) => {
+            setOpen(nextOpen);
+            if (!nextOpen) setEditingSchedule(null);
+          }}>
             <DialogTrigger asChild>
-              <Button className="btn-primary gap-2">
+              <Button className="btn-primary gap-2" onClick={openCreate}>
                 <Plus className="w-4 h-4" />
                 Thêm lịch
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Thêm lịch biểu mới</DialogTitle>
+                <DialogTitle>{editingSchedule ? "Sửa lịch biểu" : "Thêm lịch biểu mới"}</DialogTitle>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -126,14 +163,14 @@ export default function Schedules() {
                       <FormItem>
                         <FormLabel>Giờ</FormLabel>
                         <FormControl>
-                          <Input type="time" {...field} />
+                          <FormTimeInput value={field.value} onChange={field.onChange} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                   <Button type="submit" className="btn-primary w-full">
-                    Thêm mới
+                    {editingSchedule ? "Lưu thay đổi" : "Thêm mới"}
                   </Button>
                 </form>
               </Form>
@@ -154,6 +191,7 @@ export default function Schedules() {
                     <TableHead>Loại</TableHead>
                     <TableHead>Thời gian</TableHead>
                     <TableHead>Tần suất</TableHead>
+                    <TableHead className="text-right">Hành động</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -168,6 +206,16 @@ export default function Schedules() {
                         </div>
                       </TableCell>
                       <TableCell>{schedule.isDaily ? "Hàng ngày" : "Theo lịch"}</TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => openEdit(schedule)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => setDeleteTarget(schedule)}>
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -177,6 +225,28 @@ export default function Schedules() {
             <div className="p-8 text-center text-muted-foreground">Không có lịch biểu nào</div>
           )}
         </Card>
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setDeleteTarget(null);
+          }}
+          title="Xóa lịch điểm danh?"
+          description="Chỉ có thể xóa lịch chưa phát sinh dữ liệu điểm danh."
+          confirmLabel="Xóa lịch"
+          variant="danger"
+          loading={deleteMutation.isPending}
+          onConfirm={async () => {
+            if (!deleteTarget) return;
+            try {
+              await deleteMutation.mutateAsync({ id: deleteTarget.id });
+              toast.success("Đã xóa lịch điểm danh");
+              setDeleteTarget(null);
+              await refetch();
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Không thể xóa lịch điểm danh");
+            }
+          }}
+        />
       </div>
     </ResidenceCareLayout>
   );

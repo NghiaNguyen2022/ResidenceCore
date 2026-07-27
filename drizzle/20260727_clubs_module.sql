@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS `clubs` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `code` varchar(50) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `clubType` enum('study','music','sports','art','volunteer','spiritual','skill','other') NOT NULL DEFAULT 'other',
+  `status` enum('active','inactive','paused') NOT NULL DEFAULT 'active',
+  `leaderName` varchar(255) NULL,
+  `mentorName` varchar(255) NULL,
+  `meetingSchedule` varchar(255) NULL,
+  `location` varchar(255) NULL,
+  `memberCount` int NOT NULL DEFAULT 0,
+  `maxMembers` int NOT NULL DEFAULT 0,
+  `objective` text NULL,
+  `note` text NULL,
+  `sortOrder` int NOT NULL DEFAULT 0,
+  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `clubs_code_unique` (`code`),
+  KEY `clubs_status_idx` (`status`),
+  KEY `clubs_type_idx` (`clubType`)
+);

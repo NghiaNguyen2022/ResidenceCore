@@ -20,6 +20,15 @@ const Activities = lazy(() => import("./pages/Activities"));
 const DisciplineRules = lazy(() => import("./pages/DisciplineRules"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const MyProfile = lazy(() => import("./pages/MyProfile"));
+const Parents = lazy(() => import("@/pages/Parents"));
+const AcademicInfo = lazy(() => import("@/pages/AcademicInfo"));
+const StudySchedule = lazy(() => import("@/pages/Schedule"));
+const SmartAssignment = lazy(() => import("@/pages/SmartAssignment"));
+const NotificationPreferences = lazy(() => import("@/pages/NotificationPreferences"));
+const Attendance = lazy(() => import("@/pages/Attendance"));
+const AttendanceSchedules = lazy(() => import("@/pages/Schedules"));
+const Clubs = lazy(() => import("@/pages/Clubs"));
+const Skills = lazy(() => import("@/pages/Skills"));
 const ResidentToday = lazy(() => import("@/pages/ResidentToday"));
 const ResidentInformation = lazy(() => import("@/pages/ResidentInformation"));
 const ResidentFinance = lazy(() => import("@/pages/ResidentFinance"));
@@ -82,6 +91,15 @@ function Router() {
                   <Route path="/store-cashflow" component={StoreLedger} />
                   <Route path="/discipline-rules" component={DisciplineRules} />
                   <Route path="/settings/users" component={UserManagement} />
+                  <Route path="/parents" component={Parents} />
+                  <Route path="/academic-info" component={AcademicInfo} />
+                  <Route path="/study-schedule" component={StudySchedule} />
+                  <Route path="/smart-assignment" component={SmartAssignment} />
+                  <Route path="/settings/notifications" component={NotificationPreferences} />
+                  <Route path="/attendance" component={Attendance} />
+                  <Route path="/attendance-schedules" component={AttendanceSchedules} />
+                  <Route path="/clubs" component={Clubs} />
+                  <Route path="/skills" component={Skills} />
                   <Route path="/my-profile" component={MyProfile} />
 
                   {/* Resident portal */}

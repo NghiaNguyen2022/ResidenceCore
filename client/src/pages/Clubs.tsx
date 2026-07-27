@@ -28,6 +28,9 @@ import {
       ConfigurableDataTable,
 } from '@/components/configurable/ConfigurableDataTable';
 import { normalizeText } from '@/lib/text';
+import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/shared/overlay/ConfirmDialog';
 
 type ClubStatus = 'active' | 'inactive' | 'paused';
 type ClubType =
@@ -72,57 +75,6 @@ type ClubFormData = {
       note: string;
       sortOrder: string;
 };
-
-const initialClubs: ClubItem[] = [
-      {
-            id: 1,
-            code: 'STUDY_GROUP',
-            name: 'Nhóm học tập',
-            clubType: 'study',
-            status: 'active',
-            leaderName: 'Tổ học tập',
-            mentorName: 'Ban học tập',
-            meetingSchedule: 'Thứ 3, Thứ 5 · 19:00 - 20:30',
-            location: 'Phòng học chung',
-            memberCount: 28,
-            maxMembers: 40,
-            objective: 'Tạo môi trường học nhóm, hỗ trợ học viên ôn tập và chia sẻ phương pháp học hiệu quả.',
-            note: 'Ưu tiên học viên cần hỗ trợ thêm trong mùa thi.',
-            sortOrder: 10,
-      },
-      {
-            id: 2,
-            code: 'MUSIC_CLUB',
-            name: 'Câu lạc bộ âm nhạc',
-            clubType: 'music',
-            status: 'active',
-            leaderName: 'Ban âm nhạc',
-            mentorName: 'Người phụ trách sinh hoạt',
-            meetingSchedule: 'Thứ 7 · 15:00 - 17:00',
-            location: 'Phòng sinh hoạt',
-            memberCount: 18,
-            maxMembers: 30,
-            objective: 'Phát triển năng khiếu âm nhạc và phục vụ các dịp sinh hoạt chung của lưu xá.',
-            note: '',
-            sortOrder: 20,
-      },
-      {
-            id: 3,
-            code: 'VOLUNTEER_TEAM',
-            name: 'Nhóm thiện nguyện',
-            clubType: 'volunteer',
-            status: 'paused',
-            leaderName: 'Ban thiện nguyện',
-            mentorName: '',
-            meetingSchedule: 'Theo kế hoạch hoạt động',
-            location: 'Lưu xá / địa điểm bên ngoài',
-            memberCount: 22,
-            maxMembers: 35,
-            objective: 'Khơi dậy tinh thần phục vụ, trách nhiệm xã hội và sự quan tâm đến cộng đồng.',
-            note: 'Tạm dừng để rà soát kế hoạch hoạt động mới.',
-            sortOrder: 30,
-      },
-];
 
 const defaultFormData: ClubFormData = {
       code: '',
@@ -208,10 +160,6 @@ function getCapacityRate(club: ClubItem) {
       return Math.min(100, Math.round(((club.memberCount || 0) / club.maxMembers) * 100));
 }
 
-function getNextId(items: ClubItem[]) {
-      return Math.max(...items.map((item) => item.id), 0) + 1;
-}
-
 function getNextSortOrder(items: ClubItem[]) {
       return String(Math.max(...items.map((item) => Number(item.sortOrder || 0)), 0) + 10);
 }
@@ -262,7 +210,6 @@ function validateForm({
 }
 
 export default function Clubs() {
-      const [clubs, setClubs] = useState<ClubItem[]>(initialClubs);
       const [searchTerm, setSearchTerm] = useState('');
       const [typeFilter, setTypeFilter] = useState<'all' | ClubType>('all');
       const [statusFilter, setStatusFilter] = useState<'all' | ClubStatus>('all');
@@ -270,6 +217,12 @@ export default function Clubs() {
       const [editingClub, setEditingClub] = useState<ClubItem | null>(null);
       const [formData, setFormData] = useState<ClubFormData>(defaultFormData);
       const [error, setError] = useState<string | null>(null);
+      const [deleteTarget, setDeleteTarget] = useState<ClubItem | null>(null);
+      const clubsQuery = trpc.clubs.list.useQuery();
+      const createMutation = trpc.clubs.create.useMutation();
+      const updateMutation = trpc.clubs.update.useMutation();
+      const deleteMutation = trpc.clubs.delete.useMutation();
+      const clubs = (clubsQuery.data || []) as ClubItem[];
 
       const filteredClubs = useMemo(() => {
             const keyword = normalizeText(searchTerm);
@@ -348,7 +301,7 @@ export default function Clubs() {
             setError(null);
       };
 
-      const handleSave = () => {
+      const handleSave = async () => {
             const validationMessage = validateForm({
                   clubs,
                   formData,
@@ -360,8 +313,7 @@ export default function Clubs() {
                   return;
             }
 
-            const payload: ClubItem = {
-                  id: editingClub?.id || getNextId(clubs),
+            const payload = {
                   code: normalizeCode(formData.code),
                   name: formData.name.trim(),
                   clubType: formData.clubType,
@@ -377,23 +329,27 @@ export default function Clubs() {
                   sortOrder: Number(formData.sortOrder || 0),
             };
 
-            if (editingClub) {
-                  setClubs((current) =>
-                        current.map((club) => (club.id === editingClub.id ? payload : club))
+            try {
+                  if (editingClub) {
+                        await updateMutation.mutateAsync({ id: editingClub.id, ...payload });
+                        toast.success('Đã cập nhật câu lạc bộ.');
+                  } else {
+                        await createMutation.mutateAsync(payload);
+                        toast.success('Đã thêm câu lạc bộ.');
+                  }
+                  await clubsQuery.refetch();
+                  closeForm();
+            } catch (saveError) {
+                  setError(
+                        saveError instanceof Error
+                              ? saveError.message
+                              : 'Không thể lưu câu lạc bộ.'
                   );
-            } else {
-                  setClubs((current) => [...current, payload]);
             }
-
-            closeForm();
       };
 
       const handleDelete = (club: ClubItem) => {
-            if (!confirm(`Bạn có chắc chắn muốn xóa "${club.name}"?`)) {
-                  return;
-            }
-
-            setClubs((current) => current.filter((item) => item.id !== club.id));
+            setDeleteTarget(club);
       };
 
       const clearFilters = () => {
@@ -566,7 +522,7 @@ export default function Clubs() {
                               </button>
                         </div>
 
-                        {error && (
+                        {(error || clubsQuery.error) && (
                               <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
                                     <div className="flex gap-3">
                                           <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
@@ -574,7 +530,9 @@ export default function Clubs() {
                                                 <p className="font-semibold">
                                                       Có lỗi khi xử lý câu lạc bộ.
                                                 </p>
-                                                <p className="mt-1 text-sm">{error}</p>
+                                                <p className="mt-1 text-sm">
+                                                      {error || clubsQuery.error?.message}
+                                                </p>
                                           </div>
                                     </div>
                               </div>
@@ -683,6 +641,7 @@ export default function Clubs() {
                               columns={columns}
                               data={filteredClubs}
                               getRowKey={(club) => club.id}
+                              isLoading={clubsQuery.isLoading}
                               emptyTitle="Chưa có câu lạc bộ"
                               emptyDescription="Thêm câu lạc bộ để quản lý các nhóm sinh hoạt và phát triển kỹ năng."
                         />
@@ -698,6 +657,32 @@ export default function Clubs() {
                                     submitText={editingClub ? 'Cập nhật' : 'Thêm câu lạc bộ'}
                               />
                         )}
+                        <ConfirmDialog
+                              open={Boolean(deleteTarget)}
+                              onOpenChange={(nextOpen) => {
+                                    if (!nextOpen) setDeleteTarget(null);
+                              }}
+                              title="Xóa câu lạc bộ?"
+                              description={`Bạn sắp xóa “${deleteTarget?.name || ''}”.`}
+                              confirmLabel="Xóa câu lạc bộ"
+                              variant="danger"
+                              loading={deleteMutation.isPending}
+                              onConfirm={async () => {
+                                    if (!deleteTarget) return;
+                                    try {
+                                          await deleteMutation.mutateAsync({ id: deleteTarget.id });
+                                          toast.success('Đã xóa câu lạc bộ.');
+                                          setDeleteTarget(null);
+                                          await clubsQuery.refetch();
+                                    } catch (deleteError) {
+                                          setError(
+                                                deleteError instanceof Error
+                                                      ? deleteError.message
+                                                      : 'Không thể xóa câu lạc bộ.'
+                                          );
+                                    }
+                              }}
+                        />
                   </div>
             </ResidenceCareLayout>
       );

@@ -64,18 +64,25 @@ function pickPrimaryContact(parentRows: Array<any>) {
       );
 }
 
+type ResidentPrimaryContactFields = {
+      primaryContactType: string | null;
+      primaryContactName: string | null;
+      primaryContactPhone: string | null;
+      primaryContactEmail: string | null;
+};
+
 async function attachPrimaryContacts<T extends { id: number }>(
       residentRows: T[]
-) {
+): Promise<Array<T & ResidentPrimaryContactFields>> {
       if (!residentRows || residentRows.length === 0) {
-            return residentRows;
+            return residentRows as Array<T & ResidentPrimaryContactFields>;
       }
 
       const db = getDb();
       const residentIds = residentRows.map((resident) => resident.id);
 
       if (residentIds.length === 0) {
-            return residentRows;
+            return residentRows as Array<T & ResidentPrimaryContactFields>;
       }
 
       const parentRows = await db

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
       AlertCircle,
       CalendarDays,
@@ -9,12 +9,14 @@ import {
       ClipboardCheck,
       Edit2,
       Search,
+      Save,
       UserCheck,
       UserMinus,
       UserX,
       Users,
       X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { trpc } from '@/lib/trpc';
 import { ResidenceCareLayout } from '@/components/ResidenceCareLayout';
@@ -182,8 +184,7 @@ function isActiveResident(resident: Resident) {
 
 export default function Attendance() {
       const [attendanceDate, setAttendanceDate] = useState(getTodayDateString());
-      const [sessionType, setSessionType] =
-            useState<AttendanceSessionType>('daily_routine');
+      const [scheduleId, setScheduleId] = useState('');
       const [searchTerm, setSearchTerm] = useState('');
       const [statusFilter, setStatusFilter] = useState<'all' | AttendanceStatus>('all');
       const [records, setRecords] = useState<Record<number, AttendanceRecord>>({});
@@ -195,6 +196,39 @@ export default function Attendance() {
             limit: 500,
             offset: 0,
       });
+      const schedulesQuery = trpc.attendance.listSchedules.useQuery();
+      const selectedScheduleId = scheduleId ? Number(scheduleId) : 0;
+      const recordsQuery = trpc.attendance.listRecords.useQuery(
+            {
+                  scheduleId: selectedScheduleId,
+                  attendanceDate,
+            },
+            { enabled: selectedScheduleId > 0 }
+      );
+      const saveBatchMutation = trpc.attendance.saveBatch.useMutation();
+
+      useEffect(() => {
+            if (!scheduleId && schedulesQuery.data?.[0]) {
+                  setScheduleId(String(schedulesQuery.data[0].id));
+            }
+      }, [scheduleId, schedulesQuery.data]);
+
+      useEffect(() => {
+            const loaded: Record<number, AttendanceRecord> = {};
+
+            for (const item of recordsQuery.data || []) {
+                  loaded[item.residentId] = {
+                        residentId: item.residentId,
+                        status: item.status,
+                        note: item.notes || '',
+                        checkedAt: item.checkInTime
+                              ? new Date(item.checkInTime).toISOString()
+                              : null,
+                  };
+            }
+
+            setRecords(loaded);
+      }, [attendanceDate, selectedScheduleId, recordsQuery.data]);
 
       const residents = useMemo(() => {
             const data = (membersQuery.data || []) as Resident[];
@@ -335,6 +369,42 @@ export default function Attendance() {
             setStatusFilter('all');
       };
 
+      const saveAttendance = async () => {
+            if (!selectedScheduleId) {
+                  setError('Vui lòng tạo và chọn lịch điểm danh trước khi lưu.');
+                  return;
+            }
+
+            try {
+                  setError(null);
+                  await saveBatchMutation.mutateAsync({
+                        scheduleId: selectedScheduleId,
+                        attendanceDate,
+                        records: residents.map((resident) => {
+                              const record = effectiveRecords[resident.id];
+
+                              return {
+                                    residentId: resident.id,
+                                    status: record.status,
+                                    notes: record.note || null,
+                                    checkedAt: record.checkedAt
+                                          ? new Date(record.checkedAt)
+                                          : new Date(),
+                              };
+                        }),
+                  });
+                  await recordsQuery.refetch();
+                  toast.success('Đã lưu điểm danh.');
+            } catch (saveError) {
+                  const message =
+                        saveError instanceof Error
+                              ? saveError.message
+                              : 'Không thể lưu điểm danh.';
+                  setError(message);
+                  toast.error(message);
+            }
+      };
+
       const columns = useMemo<ConfigurableColumn<AttendanceRow>[]>(
             () => [
                   {
@@ -460,6 +530,19 @@ export default function Attendance() {
                               <div className="flex flex-col gap-2 sm:flex-row">
                                     <button
                                           type="button"
+                                          onClick={saveAttendance}
+                                          disabled={
+                                                !selectedScheduleId ||
+                                                residents.length === 0 ||
+                                                saveBatchMutation.isPending
+                                          }
+                                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                          <Save className="h-4 w-4" />
+                                          {saveBatchMutation.isPending ? 'Đang lưu...' : 'Lưu điểm danh'}
+                                    </button>
+                                    <button
+                                          type="button"
                                           onClick={() => setStatusForAll('present')}
                                           className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 px-5 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100"
                                     >
@@ -478,7 +561,7 @@ export default function Attendance() {
                               </div>
                         </div>
 
-                        {(error || membersQuery.error) && (
+                        {(error || membersQuery.error || schedulesQuery.error || recordsQuery.error) && (
                               <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
                                     <div className="flex gap-3">
                                           <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
@@ -489,6 +572,8 @@ export default function Attendance() {
                                                 <p className="mt-1 text-sm">
                                                       {error ||
                                                             membersQuery.error?.message ||
+                                                            schedulesQuery.error?.message ||
+                                                            recordsQuery.error?.message ||
                                                             'Vui lòng kiểm tra lại dữ liệu.'}
                                                 </p>
                                           </div>
@@ -562,27 +647,19 @@ export default function Attendance() {
                                     </div>
 
                                     <div>
-                                          <Label htmlFor="sessionType">Loại điểm danh</Label>
+                                          <Label htmlFor="attendanceSchedule">Lịch điểm danh</Label>
                                           <select
-                                                id="sessionType"
-                                                value={sessionType}
-                                                onChange={(event) =>
-                                                      setSessionType(
-                                                            event.target.value as AttendanceSessionType
-                                                      )
-                                                }
+                                                id="attendanceSchedule"
+                                                value={scheduleId}
+                                                onChange={(event) => setScheduleId(event.target.value)}
                                                 className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                           >
-                                                <option value="daily_routine">
-                                                      Sinh hoạt hằng ngày
-                                                </option>
-                                                <option value="evening_study">
-                                                      Giờ học buổi tối
-                                                </option>
-                                                <option value="liturgy">Đi lễ / Kinh tối</option>
-                                                <option value="community">Sinh hoạt chung</option>
-                                                <option value="duty">Công tác / Trực nhật</option>
-                                                <option value="other">Khác</option>
+                                                <option value="">Chọn lịch điểm danh</option>
+                                                {(schedulesQuery.data || []).map((schedule) => (
+                                                      <option key={schedule.id} value={schedule.id}>
+                                                            {schedule.name} · {String(schedule.scheduledTime).slice(0, 5)}
+                                                      </option>
+                                                ))}
                                           </select>
                                     </div>
 
@@ -635,7 +712,9 @@ export default function Attendance() {
 
                               <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-blue-800">
                                     <span className="font-semibold">
-                                          {getSessionTypeLabel(sessionType)}
+                                          {schedulesQuery.data?.find(
+                                                (schedule) => schedule.id === selectedScheduleId
+                                          )?.name || 'Chưa chọn lịch điểm danh'}
                                     </span>{' '}
                                     · {new Date(attendanceDate).toLocaleDateString('vi-VN')}
                               </div>

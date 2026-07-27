@@ -18,6 +18,8 @@ export * from "./residents";
 export * from "./dailyRoutine";
 export * from "./activities";
 export * from "./storeLedger";
+export * from "./clubs";
+export * from "./skills";
 
 /**
  * TaskTypes table - Define types of household tasks

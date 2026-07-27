@@ -165,7 +165,7 @@ export default function Parents() {
     offset: 0,
   });
 
-  const members = membersQuery.data || [];
+  const members: any[] = membersQuery.data || [];
   const selectedResidentIdNumber = selectedResidentId ? Number(selectedResidentId) : 0;
   const formResidentIdNumber = formResidentId ? Number(formResidentId) : 0;
 
