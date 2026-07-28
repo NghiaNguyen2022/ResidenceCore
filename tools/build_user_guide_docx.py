@@ -340,15 +340,20 @@ set_font(cr, 11.5, italic=True, color=MUTED)
 
 meta = doc.add_paragraph()
 meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-mr = meta.add_run("Phiên bản hướng dẫn: 28/07/2026  |  Môi trường kiểm thử nội bộ")
+meta.paragraph_format.space_after = Pt(3)
+mr = meta.add_run("Phiên bản: 1.0  |  Ngày phát hành: 28/07/2026")
 set_font(mr, 10, bold=True, color=MUTED)
+
+author = doc.add_paragraph()
+author.alignment = WD_ALIGN_PARAGRAPH.CENTER
+ar = author.add_run("Tác giả: Đội ngũ triển khai ResidenceCore")
+set_font(ar, 10, color=MUTED)
 
 doc.add_page_break()
 
-doc.add_heading("Danh mục nội dung theo nhóm tính năng", level=1)
+doc.add_heading("Mục lục", level=1)
 doc.add_paragraph(
-    "Tài liệu được tổ chức theo nhóm nghiệp vụ. Trong mỗi nhóm, số mục bắt đầu lại "
-    "từ 1 và được trình bày theo dạng Nhóm.Mục để dễ tra cứu."
+    "Các chức năng được sắp xếp theo nhóm nghiệp vụ. Số mục có dạng Nhóm.Mục để người dùng dễ tra cứu."
 )
 for group_number, group_title, _, _, feature_titles in FEATURE_GROUPS:
     group_paragraph = doc.add_paragraph()
@@ -366,14 +371,12 @@ for group_number, group_title, _, _, feature_titles in FEATURE_GROUPS:
 
 support_paragraph = doc.add_paragraph()
 support_paragraph.paragraph_format.space_before = Pt(8)
-support_run = support_paragraph.add_run("Nhóm 9. Hỗ trợ vận hành và kiểm thử")
+support_run = support_paragraph.add_run("Nhóm 9. Hỗ trợ vận hành")
 set_font(support_run, 11.5, bold=True, color=DARK_BLUE)
 add_bullets(
     doc,
     [
         "9.1. Xử lý khi không thấy menu Người dùng",
-        "9.2. Checklist vận hành tiếp theo",
-        "9.3. Nhật ký kiểm thử của tài liệu",
     ],
 )
 
@@ -1467,6 +1470,67 @@ add_bullets(
         "Ảnh minh họa được chụp trực tiếp trong cùng lượt kiểm thử ngày 27/07/2026.",
     ],
 )
+
+def remove_element(element):
+    parent = element.getparent()
+    if parent is not None:
+        parent.remove(element)
+
+
+# Bản phát hành chỉ giữ nội dung dành cho người sử dụng; loại bỏ nhật ký,
+# checklist xây dựng và các kết luận UAT nội bộ.
+cut_from = None
+for paragraph in doc.paragraphs:
+    if paragraph.text.strip().startswith("9.2."):
+        cut_from = paragraph._p
+        break
+
+if cut_from is not None:
+    body = doc._element.body
+    children = list(body)
+    start_index = children.index(cut_from)
+    for child in children[start_index:]:
+        if child.tag != qn("w:sectPr"):
+            body.remove(child)
+
+internal_markers = (
+    "CHƯA ĐẠT",
+    "CẦN THEO DÕI UAT:",
+    "Lưu ý UAT:",
+    "Trong lần kiểm thử này",
+    "lần này chỉ xác nhận",
+)
+for paragraph in list(doc.paragraphs):
+    if any(marker in paragraph.text for marker in internal_markers):
+        remove_element(paragraph._p)
+        continue
+    for run in paragraph.runs:
+        if "kiểm thử" in run.text:
+            run.text = run.text.replace("kiểm thử", "kiểm tra")
+
+for table in list(doc.tables):
+    table_text = "\n".join(
+        cell.text for row in table.rows for cell in row.cells
+    )
+    if "Kết luận kiểm thử công tác" in table_text:
+        remove_element(table._tbl)
+        continue
+    for row in table.rows:
+        for cell in row.cells:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    if "kiểm thử" in run.text:
+                        run.text = run.text.replace("kiểm thử", "kiểm tra")
+
+for paragraph in doc.paragraphs:
+    if paragraph.text.strip().startswith("Nhóm 9. Hỗ trợ vận hành"):
+        paragraph.text = "Nhóm 9. Hỗ trợ vận hành"
+        paragraph.style = doc.styles["Heading 1"]
+
+doc.core_properties.title = "Hướng dẫn sử dụng ResidenceCore - Lưu xá nữ Buôn Ma Thuột"
+doc.core_properties.author = "Đội ngũ triển khai ResidenceCore"
+doc.core_properties.subject = "Sổ tay hướng dẫn vận hành hệ thống ResidenceCore"
+doc.core_properties.comments = "Phiên bản 1.0 - phát hành ngày 28/07/2026"
 
 OUTPUT.parent.mkdir(parents=True, exist_ok=True)
 doc.save(OUTPUT)
