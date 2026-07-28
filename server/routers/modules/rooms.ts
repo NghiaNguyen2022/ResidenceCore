@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
-import { router, protectedProcedure } from "../../_core/trpc";
-import { isManager } from "../../_core/rbac";
+import { router } from "../../_core/trpc";
+import { isManager, managerProcedure } from "../../_core/rbac";
 import { roomService } from "../../services/roomService";
 
 function requireRoomManagementAccess(user: {
@@ -19,7 +19,7 @@ function requireRoomManagementAccess(user: {
 }
 
 export const roomsRouter = router({
-  list: protectedProcedure
+  list: managerProcedure
     .input(
       z
         .object({
@@ -50,7 +50,7 @@ export const roomsRouter = router({
       }
     }),
 
-  getById: protectedProcedure
+  getById: managerProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       try {
@@ -72,7 +72,7 @@ export const roomsRouter = router({
       }
     }),
 
-  create: protectedProcedure
+  create: managerProcedure
     .input(
       z.object({
         roomCode: z.string().trim().min(1, "Mã phòng không được để trống"),
@@ -97,7 +97,7 @@ export const roomsRouter = router({
       }
     }),
 
-  update: protectedProcedure
+  update: managerProcedure
     .input(
       z.object({
         id: z.number(),
@@ -135,7 +135,7 @@ export const roomsRouter = router({
       }
     }),
 
-  delete: protectedProcedure
+  delete: managerProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input, ctx }) => {
       try {
@@ -153,7 +153,7 @@ export const roomsRouter = router({
       }
     }),
 
-  getStats: protectedProcedure.query(async () => {
+  getStats: managerProcedure.query(async () => {
     try {
       return await roomService.getStats();
     } catch (error) {
@@ -166,7 +166,7 @@ export const roomsRouter = router({
     }
   }),
 
-  getResidents: protectedProcedure
+  getResidents: managerProcedure
     .input(z.object({ roomId: z.number() }))
     .query(async ({ input }) => {
       try {
@@ -181,7 +181,7 @@ export const roomsRouter = router({
       }
     }),
 
-  assignResident: protectedProcedure
+  assignResident: managerProcedure
     .input(
       z.object({
         residentId: z.number(),
@@ -213,7 +213,7 @@ export const roomsRouter = router({
       }
     }),
 
-  appointLeader: protectedProcedure
+  appointLeader: managerProcedure
     .input(
       z.object({
         roomId: z.number(),
@@ -237,7 +237,7 @@ export const roomsRouter = router({
       }
     }),
 
-  getLeader: protectedProcedure
+  getLeader: managerProcedure
     .input(z.object({ roomId: z.number() }))
     .query(async ({ input }) => {
       try {
@@ -252,7 +252,7 @@ export const roomsRouter = router({
       }
     }),
 
-  getLeaderHistory: protectedProcedure
+  getLeaderHistory: managerProcedure
     .input(z.object({ roomId: z.number() }))
     .query(async ({ input }) => {
       try {

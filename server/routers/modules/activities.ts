@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { protectedProcedure, router } from "../../_core/trpc";
-import { isManager } from "../../_core/rbac";
+import { router } from "../../_core/trpc";
+import { isManager, managerProcedure, residentProcedure } from "../../_core/rbac";
 import { activityService } from "../../services/activityService";
 
 function requireActivityManagementAccess(user: {
@@ -72,47 +72,47 @@ const updateActivityInputSchema = createActivityInputSchema
       .extend({ id: z.number().int().positive() });
 
 export const activitiesRouter = router({
-      list: protectedProcedure.input(listInputSchema).query(async ({ ctx, input }) => {
+      list: managerProcedure.input(listInputSchema).query(async ({ ctx, input }) => {
             requireActivityManagementAccess(ctx.user);
             return activityService.list(input || {});
       }),
 
-      listPublic: protectedProcedure.input(listInputSchema).query(async ({ input }) => {
+      listPublic: residentProcedure.input(listInputSchema).query(async ({ input }) => {
             return activityService.listPublic(input || {});
       }),
 
-      getStats: protectedProcedure.query(async ({ ctx }) => {
+      getStats: managerProcedure.query(async ({ ctx }) => {
             requireActivityManagementAccess(ctx.user);
             return activityService.getStats();
       }),
 
-      getById: protectedProcedure
+      getById: managerProcedure
             .input(z.object({ id: z.number().int().positive() }))
             .query(async ({ ctx, input }) => {
                   requireActivityManagementAccess(ctx.user);
                   return activityService.getById(input.id);
             }),
 
-      create: protectedProcedure.input(createActivityInputSchema).mutation(async ({ ctx, input }) => {
+      create: managerProcedure.input(createActivityInputSchema).mutation(async ({ ctx, input }) => {
             requireActivityManagementAccess(ctx.user);
             const userId = getUserIdFromContext(ctx);
             return activityService.create(input, userId);
       }),
 
-      update: protectedProcedure.input(updateActivityInputSchema).mutation(async ({ ctx, input }) => {
+      update: managerProcedure.input(updateActivityInputSchema).mutation(async ({ ctx, input }) => {
             requireActivityManagementAccess(ctx.user);
             const { id, ...data } = input;
             return activityService.update(id, data);
       }),
 
-      cancel: protectedProcedure
+      cancel: managerProcedure
             .input(z.object({ id: z.number().int().positive() }))
             .mutation(async ({ ctx, input }) => {
                   requireActivityManagementAccess(ctx.user);
                   return activityService.cancel(input.id);
             }),
 
-      delete: protectedProcedure
+      delete: managerProcedure
             .input(z.object({ id: z.number().int().positive() }))
             .mutation(async ({ ctx, input }) => {
                   requireActivityManagementAccess(ctx.user);

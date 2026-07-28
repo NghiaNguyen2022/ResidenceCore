@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "../../_core/trpc";
+import { router } from "../../_core/trpc";
+import { managerProcedure as protectedProcedure } from "../../_core/rbac";
 import { isManager } from "../../_core/rbac";
 import { organizationService } from "../../services/organizationService";
 

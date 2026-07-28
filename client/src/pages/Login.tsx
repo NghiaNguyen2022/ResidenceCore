@@ -4,19 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
+import { getPostLoginPath } from "@/lib/authRedirect";
 import { toast } from "sonner";
 
 export default function Login() {
   const [, navigate] = useLocation();
+  const utils = trpc.useUtils();
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
 
   const loginMutation = trpc.auth[isLogin ? "login" : "register"].useMutation({
-    onSuccess: () => {
+    onSuccess: async (result) => {
+      await utils.auth.me.invalidate();
+      const currentUser = await utils.auth.me.fetch();
       toast.success(isLogin ? "Đăng nhập thành công!" : "Đăng ký thành công!");
-      navigate("/dashboard");
+      navigate(getPostLoginPath(currentUser ?? result.user));
     },
     onError: (error) => {
       toast.error(error.message || "Lỗi xảy ra");

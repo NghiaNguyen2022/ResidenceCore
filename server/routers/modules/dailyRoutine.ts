@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../../_core/trpc";
+import { router } from "../../_core/trpc";
+import { managerProcedure } from "../../_core/rbac";
 import { isManager } from "../../_core/rbac";
 import { TRPCError } from "@trpc/server";
 import { dailyRoutineService } from "../../services/dailyRoutineService";
@@ -33,7 +34,7 @@ export const dailyRoutineRouter = router({
        * Existing date-based daily routine APIs.
        * Giữ để không ảnh hưởng phần daily_routines cũ nếu đang dùng.
        */
-      list: protectedProcedure
+      list: managerProcedure
             .input(
                   z
                         .object({
@@ -48,11 +49,11 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.list(input ?? {});
             }),
 
-      today: protectedProcedure.query(async () => {
+      today: managerProcedure.query(async () => {
             return dailyRoutineService.today();
       }),
 
-      create: protectedProcedure
+      create: managerProcedure
             .input(
                   z.object({
                         routineDate: z.string().min(1, "Vui lòng chọn ngày sinh hoạt."),
@@ -79,7 +80,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.create(input);
             }),
 
-      update: protectedProcedure
+      update: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -107,7 +108,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.update(input);
             }),
 
-      complete: protectedProcedure
+      complete: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -119,7 +120,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.complete(input.id, ctx.user?.id ?? null);
             }),
 
-      cancel: protectedProcedure
+      cancel: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -131,7 +132,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.cancel(input.id);
             }),
 
-      remove: protectedProcedure
+      remove: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -147,7 +148,7 @@ export const dailyRoutineRouter = router({
        * Template-based daily routine APIs.
        * Dùng cho Simple Mode: mẫu lịch ngày thường / Chúa nhật / ngày đặc biệt.
        */
-      listTemplates: protectedProcedure
+      listTemplates: managerProcedure
             .input(
                   z
                         .object({
@@ -163,7 +164,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.listTemplates(input ?? {});
             }),
 
-      getTemplate: protectedProcedure
+      getTemplate: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -173,7 +174,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.getTemplate(input.id);
             }),
 
-      getTemplateWithItems: protectedProcedure
+      getTemplateWithItems: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -183,7 +184,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.getTemplateWithItems(input.id);
             }),
 
-      createTemplate: protectedProcedure
+      createTemplate: managerProcedure
             .input(
                   z.object({
                         code: z.string().trim().min(1, "Mã mẫu lịch không được để trống."),
@@ -200,7 +201,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.createTemplate(input);
             }),
 
-      updateTemplate: protectedProcedure
+      updateTemplate: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -218,7 +219,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.updateTemplate(input);
             }),
 
-      removeTemplate: protectedProcedure
+      removeTemplate: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -230,7 +231,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.removeTemplate(input.id);
             }),
 
-      listItems: protectedProcedure
+      listItems: managerProcedure
             .input(
                   z
                         .object({
@@ -245,7 +246,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.listItems(input ?? {});
             }),
 
-      getItem: protectedProcedure
+      getItem: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -255,7 +256,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.getItem(input.id);
             }),
 
-      createItem: protectedProcedure
+      createItem: managerProcedure
             .input(
                   z.object({
                         templateId: z.number().int().positive(),
@@ -274,7 +275,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.createItem(input);
             }),
 
-      updateItem: protectedProcedure
+      updateItem: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -294,7 +295,7 @@ export const dailyRoutineRouter = router({
                   return dailyRoutineService.updateItem(input);
             }),
 
-      removeItem: protectedProcedure
+      removeItem: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),

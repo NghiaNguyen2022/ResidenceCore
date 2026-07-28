@@ -167,6 +167,7 @@ export default function UserManagement() {
       const [formMessage, setFormMessage] = useState<string | null>(null);
       const [resetTargetUser, setResetTargetUser] = useState<any | null>(null);
       const [resetMessage, setResetMessage] = useState<string | null>(null);
+      const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
 
       const usersQuery = trpc.users.list.useQuery({
             search: search.trim() || undefined,
@@ -286,6 +287,7 @@ export default function UserManagement() {
       function openResetPassword(user: any) {
             setResetTargetUser(user);
             setResetMessage(null);
+            setResetSuccessMessage(null);
       }
 
       function closeResetPassword() {
@@ -303,11 +305,18 @@ export default function UserManagement() {
             }
 
             try {
+                  const accountName =
+                        resetTargetUser.name || resetTargetUser.username;
+
                   await resetPasswordMutation.mutateAsync({
                         userId: resetTargetUser.id,
                   });
 
-                  closeResetPassword();
+                  setResetTargetUser(null);
+                  setResetMessage(null);
+                  setResetSuccessMessage(
+                        `Đã đặt lại mật khẩu cho ${accountName}. Mật khẩu tạm thời: 123456. Người dùng phải đổi mật khẩu khi đăng nhập.`
+                  );
             } catch (error: any) {
                   setResetMessage(
                         error?.message || "Không thể reset mật khẩu. Vui lòng thử lại."
@@ -560,6 +569,23 @@ export default function UserManagement() {
                         )}
 
                         <div className="rounded-2xl border bg-white p-4 shadow-sm">
+                              {resetSuccessMessage && (
+                                    <div
+                                          role="status"
+                                          className="mb-4 flex items-start justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+                                    >
+                                          <span>{resetSuccessMessage}</span>
+                                          <button
+                                                type="button"
+                                                onClick={() => setResetSuccessMessage(null)}
+                                                className="shrink-0 font-semibold text-emerald-700 hover:text-emerald-900"
+                                                aria-label="Đóng thông báo"
+                                          >
+                                                ×
+                                          </button>
+                                    </div>
+                              )}
+
                               <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                     <div className="min-w-0">
                                           <h2 className="text-lg font-semibold text-slate-900">
@@ -643,6 +669,14 @@ export default function UserManagement() {
                                                             </div>
 
                                                             <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                                                  <button
+                                                                        type="button"
+                                                                        onClick={() => openResetPassword(user)}
+                                                                        className="rounded-xl border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+                                                                  >
+                                                                        Reset mật khẩu
+                                                                  </button>
+
                                                                   {canToggleAccount(user) ? (
                                                                         user.isActive ? (
                                                                               <button

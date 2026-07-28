@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "../../_core/trpc";
+import { router } from "../../_core/trpc";
+import { managerProcedure } from "../../_core/rbac";
 import { APP_ROLE_KEYS } from "../../../drizzle/schema";
 import { rolesDb } from "../../db";
 import { isManager } from "../../_core/rbac";
@@ -33,7 +34,7 @@ export const rolesRouter = router({
        * Role admin không còn dùng trong mô hình mới.
        * username admin chỉ là tài khoản mặc định có role manager.
        */
-      list: protectedProcedure.query(async ({ ctx }) => {
+      list: managerProcedure.query(async ({ ctx }) => {
             requireRoleManagementAccess(ctx.user);
 
             return rolesDb.getActiveRoles();
@@ -44,7 +45,7 @@ export const rolesRouter = router({
        *
        * Dùng khi mở form sửa người dùng/phân quyền.
        */
-      getUserRoles: protectedProcedure
+      getUserRoles: managerProcedure
             .input(
                   z.object({
                         userId: z.number().int().positive(),
@@ -63,7 +64,7 @@ export const rolesRouter = router({
        * roleKeys = ["resident", "team_leader"]
        * primaryRoleKey = "resident"
        */
-      assignUserRoles: protectedProcedure
+      assignUserRoles: managerProcedure
             .input(assignUserRolesSchema)
             .mutation(async ({ ctx, input }) => {
                   requireRoleManagementAccess(ctx.user);

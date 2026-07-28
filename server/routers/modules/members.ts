@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../../_core/trpc";
-import { isManager } from "../../_core/rbac";
+import { router } from "../../_core/trpc";
+import { isManager, managerProcedure } from "../../_core/rbac";
 import { TRPCError } from "@trpc/server";
 import { memberService } from "../../services/memberService";
 import { userDb } from "../../db";
@@ -89,7 +89,7 @@ const updateStudyScheduleSchema = studyScheduleSchema.extend({
 });
 
 export const membersRouter = router({
-      list: protectedProcedure
+      list: managerProcedure
             .input(
                   z
                         .object({
@@ -109,7 +109,7 @@ export const membersRouter = router({
                   });
             }),
 
-      getById: protectedProcedure
+      getById: managerProcedure
             .input(z.object({ id: z.number() }))
             .query(async ({ input }) => {
                   try {
@@ -128,7 +128,7 @@ export const membersRouter = router({
                   }
             }),
 
-      create: protectedProcedure
+      create: managerProcedure
             .input(
                   z.object({
                         holyName: z.string().trim().optional().nullable(),
@@ -157,7 +157,7 @@ export const membersRouter = router({
                   }
             }),
 
-      update: protectedProcedure
+      update: managerProcedure
             .input(
                   z.object({
                         id: z.number(),
@@ -193,7 +193,7 @@ export const membersRouter = router({
                   }
             }),
 
-      delete: protectedProcedure
+      delete: managerProcedure
             .input(z.object({ id: z.number() }))
             .mutation(async ({ input }) => {
                   try {
@@ -217,7 +217,7 @@ export const membersRouter = router({
                   }
             }),
 
-      markAsLeft: protectedProcedure
+      markAsLeft: managerProcedure
             .input(
                   z.object({
                         id: z.number(),
@@ -256,7 +256,7 @@ export const membersRouter = router({
                         });
                   }
             }),
-      reactivate: protectedProcedure
+      reactivate: managerProcedure
             .input(
                   z.object({
                         id: z.number(),
@@ -280,7 +280,7 @@ export const membersRouter = router({
                   }
             }),
             
-      assignRoom: protectedProcedure
+      assignRoom: managerProcedure
             .input(
                   z.object({
                         id: z.number(),
@@ -311,7 +311,7 @@ export const membersRouter = router({
                   }
             }),
 
-      getStats: protectedProcedure.query(async () => {
+      getStats: managerProcedure.query(async () => {
             try {
                   return await memberService.getStats();
             } catch (error) {
@@ -323,7 +323,7 @@ export const membersRouter = router({
             }
       }),
 
-      getParents: protectedProcedure
+      getParents: managerProcedure
             .input(z.object({ residentId: z.number() }))
             .query(async ({ input }) => {
                   try {
@@ -337,7 +337,7 @@ export const membersRouter = router({
                   }
             }),
 
-      listParents: protectedProcedure
+      listParents: managerProcedure
             .input(
                   z
                         .object({
@@ -367,7 +367,7 @@ export const membersRouter = router({
                   }
             }),
 
-      createParent: protectedProcedure
+      createParent: managerProcedure
             .input(parentSchema.extend({ residentId: z.number() }))
             .mutation(async ({ input }) => {
                   try {
@@ -382,7 +382,7 @@ export const membersRouter = router({
                   }
             }),
 
-      updateParent: protectedProcedure
+      updateParent: managerProcedure
             .input(parentSchema.partial().extend({ id: z.number() }))
             .mutation(async ({ input }) => {
                   try {
@@ -398,7 +398,7 @@ export const membersRouter = router({
                   }
             }),
 
-      deleteParent: protectedProcedure
+      deleteParent: managerProcedure
             .input(z.object({ id: z.number() }))
             .mutation(async ({ input }) => {
                   try {
@@ -413,7 +413,7 @@ export const membersRouter = router({
                   }
             }),
 
-      getEducation: protectedProcedure
+      getEducation: managerProcedure
             .input(z.object({ residentId: z.number().int().positive() }))
             .query(async ({ ctx, input }) => {
                   requireMemberManagementAccess(ctx.user);
@@ -433,7 +433,7 @@ export const membersRouter = router({
                   }
             }),
 
-      upsertEducation: protectedProcedure
+      upsertEducation: managerProcedure
             .input(educationSchema)
             .mutation(async ({ ctx, input }) => {
                   requireMemberManagementAccess(ctx.user);
@@ -453,7 +453,7 @@ export const membersRouter = router({
                   }
             }),
 
-      getStudySchedules: protectedProcedure
+      getStudySchedules: managerProcedure
             .input(z.object({ residentId: z.number().int().positive() }))
             .query(async ({ ctx, input }) => {
                   requireMemberManagementAccess(ctx.user);
@@ -473,7 +473,7 @@ export const membersRouter = router({
                   }
             }),
 
-      createStudySchedule: protectedProcedure
+      createStudySchedule: managerProcedure
             .input(studyScheduleSchema)
             .mutation(async ({ ctx, input }) => {
                   requireMemberManagementAccess(ctx.user);
@@ -493,7 +493,7 @@ export const membersRouter = router({
                   }
             }),
 
-      updateStudySchedule: protectedProcedure
+      updateStudySchedule: managerProcedure
             .input(updateStudyScheduleSchema)
             .mutation(async ({ ctx, input }) => {
                   requireMemberManagementAccess(ctx.user);
@@ -513,7 +513,7 @@ export const membersRouter = router({
                   }
             }),
 
-      deleteStudySchedule: protectedProcedure
+      deleteStudySchedule: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -538,7 +538,7 @@ export const membersRouter = router({
                   }
             }),
 
-      suggestResidentUsername: protectedProcedure
+      suggestResidentUsername: managerProcedure
             .input(suggestResidentUsernameSchema)
             .mutation(async ({ ctx, input }) => {
                   requireMemberManagementAccess(ctx.user);
@@ -552,13 +552,13 @@ export const membersRouter = router({
                   };
             }),
 
-      listResidentsWithoutUser: protectedProcedure.query(async ({ ctx }) => {
+      listResidentsWithoutUser: managerProcedure.query(async ({ ctx }) => {
             requireMemberManagementAccess(ctx.user);
 
             return userDb.listResidentsWithoutUser();
       }),
 
-      createResidentUser: protectedProcedure
+      createResidentUser: managerProcedure
             .input(createResidentUserSchema)
             .mutation(async ({ ctx, input }) => {
                   requireMemberManagementAccess(ctx.user);
@@ -579,7 +579,7 @@ export const membersRouter = router({
                   }
             }),
 
-      bulkCreateResidentUsers: protectedProcedure
+      bulkCreateResidentUsers: managerProcedure
             .input(bulkCreateResidentUsersSchema)
             .mutation(async ({ ctx, input }) => {
                   requireMemberManagementAccess(ctx.user);

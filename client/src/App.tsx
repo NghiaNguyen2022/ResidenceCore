@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch, useLocation } from "wouter";
 
 import ErrorBoundary from "./components/ErrorBoundary";
+import { RouteAccessGuard } from "./components/RouteAccessGuard";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
 const Home = lazy(() => import("./pages/Home"));
@@ -69,6 +70,7 @@ function Router() {
 
       return (
             <>
+            <RouteAccessGuard pathname={deferredLocation}>
             <Switch location={deferredLocation}>
                   <Route path="/" component={Home} />
                   <Route path="/login" component={Login} />
@@ -121,6 +123,7 @@ function Router() {
                         <Route path="/finance" component={FinanceLite} />
 <Route component={NotFound} />
             </Switch>
+            </RouteAccessGuard>
             {isNavigating && (
                   <div
                         className="fixed inset-0 z-[9998] cursor-progress bg-white/10 backdrop-blur-[1px]"

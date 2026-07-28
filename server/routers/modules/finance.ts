@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { protectedProcedure, router } from '../../_core/trpc';
+import { router } from '../../_core/trpc';
+import { managerProcedure as protectedProcedure } from '../../_core/rbac';
 import { isManager } from '../../_core/rbac';
 import * as financeDb from '../../db/finance';
 import { notifyDebtGenerated } from '../../services/notificationService';

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../../_core/trpc";
+import { router } from "../../_core/trpc";
+import { residentProcedure as protectedProcedure } from "../../_core/rbac";
 import { residentPortalService } from "../../services/residentPortalService";
 import { residentPortalAccessService } from "../../services/residentPortalAccessService";
 import { storeDutyAccessService } from "../../services/storeDutyAccessService";

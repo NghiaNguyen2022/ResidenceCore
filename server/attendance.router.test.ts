@@ -41,9 +41,9 @@ describe("attendance router", () => {
       it("blocks residents from attendance management", async () => {
             const caller = appRouter.createCaller(createContext("resident"));
 
-            await expect(caller.attendance.listSchedules()).rejects.toThrow(
-                  "Bạn không có quyền quản lý điểm danh."
-            );
+            await expect(caller.attendance.listSchedules()).rejects.toMatchObject({
+                  code: "FORBIDDEN",
+            });
       });
 
       it("returns schedules for managers", async () => {

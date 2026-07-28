@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { getNavigationByRoles } from "./navigation";
 import type { NavigationItem } from "./types";
+import { getPostLoginPath } from "../lib/authRedirect";
 
 function flattenPaths(items: NavigationItem[]): string[] {
       return items.flatMap((item) => [
@@ -62,9 +63,37 @@ describe("manager navigation", () => {
       it("does not expose manager navigation to resident-only users", () => {
             const paths = flattenPaths(getNavigationByRoles(["resident"], "simple"));
 
+            expect(paths).toEqual([
+                  "/resident/today",
+                  "/my-profile",
+                  "/my-duties",
+                  "/resident/store",
+                  "/resident/finance",
+                  "/resident/notifications",
+                  "/resident/activities",
+            ]);
             expect(paths).not.toContain("/dashboard");
             expect(paths).not.toContain("/members");
             expect(paths).not.toContain("/settings/users");
             expect(paths).not.toContain("/attendance");
+      });
+});
+
+describe("post-login navigation", () => {
+      it("opens the resident portal for a resident account", () => {
+            expect(getPostLoginPath({ role: "resident" })).toBe("/resident/today");
+      });
+
+      it("keeps manager accounts on the dashboard", () => {
+            expect(getPostLoginPath({ role: "manager" })).toBe("/dashboard");
+      });
+
+      it("prioritizes manager access for mixed-role accounts", () => {
+            expect(
+                  getPostLoginPath({
+                        role: "resident",
+                        roles: ["resident", "manager"],
+                  })
+            ).toBe("/dashboard");
       });
 });

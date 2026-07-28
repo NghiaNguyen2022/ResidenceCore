@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, CheckCircle2, Menu, X } from "lucide-react";
+import { Bell, CheckCircle2, LoaderCircle, Menu, X } from "lucide-react";
 import {
       appointedResidentNavigation,
       detailedManagerNavigation,
@@ -572,6 +572,11 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
 
       const user = authQuery.data ?? null;
 
+      useEffect(() => {
+            if (authQuery.isLoading || authQuery.isFetching || user) return;
+            window.location.href = "/login";
+      }, [authQuery.isFetching, authQuery.isLoading, user]);
+
       const accessContextQuery = trpc.residentPortal.getMyAccessContext.useQuery(undefined, {
             enabled: Boolean(user?.id) && hasRole(user, "resident"),
             retry: false,
@@ -857,6 +862,21 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
             </>
       );
 
+
+      if (authQuery.isLoading || authQuery.isFetching || !user) {
+            return (
+                  <div
+                        className="flex min-h-screen items-center justify-center bg-[linear-gradient(135deg,#fffdf8_0%,#ffffff_55%,#fff7ed_100%)]"
+                        aria-busy="true"
+                        aria-label="Đang tải tài khoản"
+                  >
+                        <div className="flex items-center gap-3 rounded-2xl border border-amber-100 bg-white/90 px-5 py-3 text-sm font-semibold text-slate-700 shadow-lg shadow-amber-950/5">
+                              <LoaderCircle className="h-5 w-5 animate-spin text-amber-600" />
+                              Đang tải tài khoản...
+                        </div>
+                  </div>
+            );
+      }
 
       return (
             <div className="min-h-screen bg-[radial-gradient(circle_at_12%_16%,rgba(251,191,36,0.16)_0%,transparent_28%),linear-gradient(135deg,#fffaf0_0%,#f8fafc_46%,#fef3c7_82%,#111827_160%)]">

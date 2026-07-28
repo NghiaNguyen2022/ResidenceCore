@@ -2,7 +2,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { isManager } from "../../_core/rbac";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { router } from "../../_core/trpc";
+import { managerProcedure } from "../../_core/rbac";
 import {
       createAttendanceSchedule,
       deleteAttendanceSchedule,
@@ -37,19 +38,19 @@ const schedulePayloadSchema = z.object({
 });
 
 export const attendanceRouter = router({
-      listSchedules: protectedProcedure.query(async ({ ctx }) => {
+      listSchedules: managerProcedure.query(async ({ ctx }) => {
             requireAttendanceManager(ctx.user);
             return listAttendanceSchedules();
       }),
 
-      createSchedule: protectedProcedure
+      createSchedule: managerProcedure
             .input(schedulePayloadSchema)
             .mutation(async ({ ctx, input }) => {
                   requireAttendanceManager(ctx.user);
                   return createAttendanceSchedule(input);
             }),
 
-      updateSchedule: protectedProcedure
+      updateSchedule: managerProcedure
             .input(schedulePayloadSchema.partial().extend({ id: z.number().int().positive() }))
             .mutation(async ({ ctx, input }) => {
                   requireAttendanceManager(ctx.user);
@@ -57,7 +58,7 @@ export const attendanceRouter = router({
                   return updateAttendanceSchedule(id, data);
             }),
 
-      deleteSchedule: protectedProcedure
+      deleteSchedule: managerProcedure
             .input(z.object({ id: z.number().int().positive() }))
             .mutation(async ({ ctx, input }) => {
                   requireAttendanceManager(ctx.user);
@@ -75,7 +76,7 @@ export const attendanceRouter = router({
                   }
             }),
 
-      listRecords: protectedProcedure
+      listRecords: managerProcedure
             .input(
                   z.object({
                         scheduleId: z.number().int().positive(),
@@ -87,7 +88,7 @@ export const attendanceRouter = router({
                   return listAttendanceRecords(input);
             }),
 
-      saveBatch: protectedProcedure
+      saveBatch: managerProcedure
             .input(
                   z.object({
                         scheduleId: z.number().int().positive(),

@@ -1,9 +1,10 @@
-import { router, protectedProcedure } from "../../_core/trpc";
+import { router } from "../../_core/trpc";
+import { managerProcedure } from "../../_core/rbac";
 import * as db from "../../db";
 import { TRPCError } from "@trpc/server";
 
 export const dashboardRouter = router({
-  getFullDashboard: protectedProcedure.query(async () => {
+  getFullDashboard: managerProcedure.query(async () => {
     try {
       const residentsStats = await db.getResidentsStats();
       const roomsStats = await db.getRoomsStats();

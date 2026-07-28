@@ -33,9 +33,9 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("skills router", () => {
       it("blocks residents", async () => {
-            await expect(appRouter.createCaller(ctx("resident")).skills.list()).rejects.toThrow(
-                  "Bạn không có quyền quản lý kỹ năng."
-            );
+            await expect(
+                  appRouter.createCaller(ctx("resident")).skills.list()
+            ).rejects.toMatchObject({ code: "FORBIDDEN" });
       });
 
       it("creates skills for managers", async () => {

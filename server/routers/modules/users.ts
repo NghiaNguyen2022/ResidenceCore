@@ -5,7 +5,8 @@ import {
       APPOINTMENT_ROLE_KEYS,
       type AppRoleKey,
 } from "../../../drizzle/schema";
-import { router, protectedProcedure } from "../../_core/trpc";
+import { router } from "../../_core/trpc";
+import { managerProcedure } from "../../_core/rbac";
 import { hashPassword } from "../../services/authService";
 import { isManager } from "../../_core/rbac";
 import { rolesDb, userDb } from "../../db";
@@ -212,7 +213,7 @@ async function requireManagedAccountIsManager(userId: number) {
 }
 
 export const usersRouter = router({
-      list: protectedProcedure
+      list: managerProcedure
             .input(
                   z
                         .object({
@@ -242,7 +243,7 @@ export const usersRouter = router({
                   });
             }),
 
-      getById: protectedProcedure
+      getById: managerProcedure
             .input(
                   z.object({
                         id: z.number().int().positive(),
@@ -267,7 +268,7 @@ export const usersRouter = router({
                   };
             }),
 
-      create: protectedProcedure
+      create: managerProcedure
             .input(createUserSchema)
             .mutation(async ({ ctx, input }) => {
                   requireUserManagementAccess(ctx.user);
@@ -349,7 +350,7 @@ export const usersRouter = router({
                   };
             }),
 
-      update: protectedProcedure
+      update: managerProcedure
             .input(updateUserSchema)
             .mutation(async ({ ctx, input }) => {
                   requireUserManagementAccess(ctx.user);
@@ -396,14 +397,14 @@ export const usersRouter = router({
                   };
             }),
 
-      activate: protectedProcedure.input(userIdSchema).mutation(async ({ ctx, input }) => {
+      activate: managerProcedure.input(userIdSchema).mutation(async ({ ctx, input }) => {
             requireUserManagementAccess(ctx.user);
             await requireManagedAccountIsManager(input.userId);
 
             return userDb.activateUser(input.userId);
       }),
 
-      deactivate: protectedProcedure
+      deactivate: managerProcedure
             .input(userIdSchema)
             .mutation(async ({ ctx, input }) => {
                   requireUserManagementAccess(ctx.user);
@@ -420,7 +421,7 @@ export const usersRouter = router({
                   return userDb.deactivateUser(input.userId);
             }),
 
-      resetPassword: protectedProcedure
+      resetPassword: managerProcedure
             .input(resetPasswordSchema)
             .mutation(async ({ ctx, input }) => {
                   requireUserManagementAccess(ctx.user);
@@ -440,7 +441,7 @@ export const usersRouter = router({
                   };
             }),
 
-      linkResident: protectedProcedure
+      linkResident: managerProcedure
             .input(linkResidentSchema)
             .mutation(async ({ ctx }) => {
                   requireUserManagementAccess(ctx.user);
@@ -452,7 +453,7 @@ export const usersRouter = router({
                   });
             }),
 
-      unlinkResident: protectedProcedure
+      unlinkResident: managerProcedure
             .input(userIdSchema)
             .mutation(async ({ ctx }) => {
                   requireUserManagementAccess(ctx.user);

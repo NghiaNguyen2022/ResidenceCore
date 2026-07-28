@@ -2,7 +2,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { isManager } from "../../_core/rbac";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { router } from "../../_core/trpc";
+import { managerProcedure } from "../../_core/rbac";
 import { createClub, deleteClub, listClubs, updateClub } from "../../db/clubs";
 
 function requireClubManager(user: { role?: string | null; roles?: string[] | null } | null | undefined) {
@@ -36,22 +37,22 @@ const clubPayloadSchema = z
       });
 
 export const clubsRouter = router({
-      list: protectedProcedure.query(async ({ ctx }) => {
+      list: managerProcedure.query(async ({ ctx }) => {
             requireClubManager(ctx.user);
             return listClubs();
       }),
-      create: protectedProcedure.input(clubPayloadSchema).mutation(async ({ ctx, input }) => {
+      create: managerProcedure.input(clubPayloadSchema).mutation(async ({ ctx, input }) => {
             requireClubManager(ctx.user);
             return createClub(input);
       }),
-      update: protectedProcedure
+      update: managerProcedure
             .input(clubPayloadSchema.and(z.object({ id: z.number().int().positive() })))
             .mutation(async ({ ctx, input }) => {
                   requireClubManager(ctx.user);
                   const { id, ...data } = input;
                   return updateClub(id, data);
             }),
-      delete: protectedProcedure
+      delete: managerProcedure
             .input(z.object({ id: z.number().int().positive() }))
             .mutation(async ({ ctx, input }) => {
                   requireClubManager(ctx.user);

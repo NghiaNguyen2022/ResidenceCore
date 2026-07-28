@@ -52,9 +52,9 @@ beforeEach(() => vi.clearAllMocks());
 describe("clubs router", () => {
       it("blocks residents from club management", async () => {
             const caller = appRouter.createCaller(createContext("resident"));
-            await expect(caller.clubs.list()).rejects.toThrow(
-                  "Bạn không có quyền quản lý câu lạc bộ."
-            );
+            await expect(caller.clubs.list()).rejects.toMatchObject({
+                  code: "FORBIDDEN",
+            });
       });
 
       it("creates a valid club for managers", async () => {
