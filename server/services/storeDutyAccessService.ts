@@ -110,6 +110,27 @@ function getStoreShiftDateKey(shift: any) {
       );
 }
 
+function getConfiguredAccessWindow(shift: any) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(
+            getStoreShiftDateKey(shift),
+      );
+      if (!match) return null;
+
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const isAfternoon = shift?.shiftType === "afternoon";
+
+      return {
+            validFrom: new Date(
+                  Date.UTC(year, month - 1, day, isAfternoon ? 6 : 0),
+            ),
+            validUntil: new Date(
+                  Date.UTC(year, month - 1, day, isAfternoon ? 12 : 7),
+            ),
+      };
+}
+
 function isOpenableShiftStatus(status: unknown) {
       return ![
             "cancelled",
@@ -128,8 +149,13 @@ function isOpenableShiftStatus(status: unknown) {
  * Không được trừ thêm 7 giờ lần nữa.
  */
 function isWithinAccessWindow(shift: any, now = new Date()) {
-      const validFrom = asDate(shift?.accessValidFrom);
-      const validUntil = asDate(shift?.accessValidUntil);
+      const configuredWindow = getConfiguredAccessWindow(shift);
+      const validFrom =
+            configuredWindow?.validFrom ||
+            asDate(shift?.accessValidFrom);
+      const validUntil =
+            configuredWindow?.validUntil ||
+            asDate(shift?.accessValidUntil);
 
       return Boolean(
             validFrom &&
@@ -274,7 +300,11 @@ export const storeDutyAccessService = {
                                           input.shiftDate)
                         );
                   })
-                  .map((item: any) => ({
+                  .map((item: any) => {
+                        const accessWindow =
+                              getConfiguredAccessWindow(item);
+
+                        return {
                         storeShiftId: Number(
                               item.storeShiftId,
                         ),
@@ -288,12 +318,16 @@ export const storeDutyAccessService = {
                         shiftType: item.shiftType,
                         scheduledFrom: item.scheduledFrom,
                         scheduledTo: item.scheduledTo,
-                        validFrom: item.accessValidFrom,
+                        validFrom:
+                              accessWindow?.validFrom ||
+                              item.accessValidFrom,
                         validUntil:
+                              accessWindow?.validUntil ||
                               item.accessValidUntil,
                         status: item.shiftStatus,
                         memberRole: item.memberRole,
-                  }));
+                        };
+                  });
       },
 
       async openMyAssignedShift(input: {
@@ -519,7 +553,8 @@ export const storeDutyAccessService = {
                   lastStoreActivityAt: verifiedAt,
                   sessionExpiresAt: minDate(
                         addMinutes(verifiedAt, STORE_IDLE_TIMEOUT_MINUTES),
-                        asDate(shift.accessValidUntil)!,
+                        getConfiguredAccessWindow(shift)?.validUntil ||
+                              asDate(shift.accessValidUntil)!,
                   ),
                   status: "active",
             } as any);
@@ -621,6 +656,8 @@ export const storeDutyAccessService = {
             const now = new Date();
             const operation = input.operation || "write";
             const isCurrentShift = isWithinAccessWindow(shift, now);
+            const accessWindow =
+                  getConfiguredAccessWindow(shift);
 
             if (!isCurrentShift && operation === "write") {
                   throw new Error(
@@ -647,7 +684,12 @@ export const storeDutyAccessService = {
                   shiftType: shift.shiftType,
                   isCurrentShift,
                   operation,
-                  validUntil: shift.accessValidUntil,
+                  validFrom:
+                        accessWindow?.validFrom ||
+                        shift.accessValidFrom,
+                  validUntil:
+                        accessWindow?.validUntil ||
+                        shift.accessValidUntil,
             };
       },
 

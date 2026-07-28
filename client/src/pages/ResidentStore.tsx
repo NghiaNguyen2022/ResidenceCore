@@ -289,11 +289,69 @@ export default function ResidentStore() {
               }
             : null;
 
-      const shiftSession = access as any;
+      const accessSessionQuery =
+            residentApi?.getMyStoreAccessSession?.useQuery?.(
+                  access
+                        ? {
+                                storeShiftId: access.storeShiftId,
+                                accessToken: access.accessToken,
+                          }
+                        : {
+                                storeShiftId: 1,
+                                accessToken:
+                                      "inactive-store-access-token",
+                          },
+                  {
+                        enabled: Boolean(access),
+                        retry: false,
+                        refetchOnWindowFocus: true,
+                        refetchInterval: 60_000,
+                  },
+            ) ?? {
+                  data: null,
+                  isLoading: false,
+            };
+
+      const serverSession = accessSessionQuery.data as any;
+      const serverAccess =
+            serverSession?.active === true
+                  ? serverSession.access
+                  : null;
+      const shiftSession = serverAccess || access;
       const isAfternoon =
             shiftSession?.shiftType === "afternoon";
-      const canWriteStore = isWithinShiftWindow(access);
+      const canWriteStore = serverAccess
+            ? Boolean(serverAccess.isCurrentShift)
+            : isWithinShiftWindow(access);
       const isReadOnlyShift = Boolean(access && !canWriteStore);
+
+      useEffect(() => {
+            if (!access || !serverAccess) return;
+
+            const validFrom =
+                  serverAccess.validFrom || access.validFrom || null;
+            const validUntil =
+                  serverAccess.validUntil || access.validUntil || null;
+
+            if (
+                  validFrom === access.validFrom &&
+                  validUntil === access.validUntil
+            ) {
+                  return;
+            }
+
+            const refreshedAccess = {
+                  ...access,
+                  validFrom,
+                  validUntil,
+            };
+            saveStoredAccess(refreshedAccess);
+            setAccess(refreshedAccess);
+      }, [
+            access,
+            serverAccess?.validFrom,
+            serverAccess?.validUntil,
+      ]);
 
       useEffect(() => {
             if (
@@ -1440,9 +1498,9 @@ export default function ResidentStore() {
                                                                               {item.partnerName ||
                                                                                     "Không có đối tác"}{" "}
                                                                               ·{" "}
-                                                                              {
-                                                                                    item.transactionDate
-                                                                              }
+                                                                              {formatDateTime(
+                                                                                    item.transactionDate,
+                                                                              )}
                                                                         </p>
                                                                   </div>
                                                                   <p

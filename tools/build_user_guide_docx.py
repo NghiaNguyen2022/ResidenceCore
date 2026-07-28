@@ -20,6 +20,61 @@ MUTED = RGBColor(91, 105, 120)
 LIGHT_BLUE = "E8EEF5"
 LIGHT_YELLOW = "FFF8E8"
 
+FEATURE_GROUPS = [
+    (1, "Khởi động và kiểm tra hệ thống", 1, 3, [
+        "Đăng nhập hệ thống",
+        "Kiểm tra Dashboard sau khi reset",
+        "Kiểm tra cơ cấu tổ chức",
+    ]),
+    (2, "Hồ sơ học viên và lưu trú", 4, 10, [
+        "Tạo hồ sơ nữ sinh",
+        "Thêm liên hệ gia đình",
+        "Tạo phòng nữ sinh",
+        "Gán nữ sinh vào phòng",
+        "Khai báo thông tin học tập",
+        "Tạo lịch học",
+        "Kiểm tra tài khoản học viên",
+    ]),
+    (3, "Tổ chức, công tác và sinh hoạt", 11, 18, [
+        "Phân học viên vào Tổ và Ban",
+        "Bổ nhiệm chức vụ nhiệm kỳ",
+        "Kiểm tra cơ cấu và lịch sử bổ nhiệm",
+        "Tạo và theo dõi công tác",
+        "Thiết lập và thực hiện điểm danh",
+        "Bổ sung khung giờ sinh hoạt hằng ngày",
+        "Tạo hoạt động và sự kiện",
+        "Thiết lập nội quy và nhắc nhở",
+    ]),
+    (4, "Quản lý cửa hàng", 19, 22, [
+        "Tạo dữ liệu sản phẩm",
+        "Mua hàng và nhập kho",
+        "Bán hàng và cập nhật tồn kho",
+        "Chốt ngày và đẩy dữ liệu sang sổ chung",
+    ]),
+    (5, "Tài chính lưu xá", 23, 25, [
+        "Tạo kỳ thu và khoản phải thu",
+        "Thu tiền theo học viên",
+        "Ghi nhận khoản chi ngoài học viên",
+    ]),
+    (6, "Thông báo và thiết lập", 26, 26, [
+        "Thiết lập phương thức nhận thông báo",
+    ]),
+    (7, "Portal học viên", 27, 31, [
+        "Đăng nhập và kiểm tra portal",
+        "Kiểm tra thông báo công tác và kỳ thu",
+        "Kiểm tra hoạt động và tài chính",
+        "Phản hồi công tác cá nhân, Tổ và Ban",
+        "Kiểm tra quyền vào cửa hàng",
+    ]),
+    (8, "Vai trò và phạm vi phụ trách", 32, 34, [
+        "Kiểm tra vai trò và cơ cấu phụ trách",
+        "Kiểm tra thành viên Tổ và Ban",
+        "Theo dõi công tác theo vai trò phụ trách",
+    ]),
+]
+
+_active_group_number = None
+
 
 def set_font(run, size=11, bold=False, italic=False, color=INK):
     run.font.name = "Calibri"
@@ -89,9 +144,47 @@ def add_callout(doc, title, body, fill=LIGHT_YELLOW):
     doc.add_paragraph().paragraph_format.space_after = Pt(0)
 
 
+def create_restarted_numbering(doc):
+    numbering = doc.part.numbering_part.element
+    style = doc.styles["List Number"]
+    style_num_id = style._element.pPr.numPr.numId.val
+    style_num = next(
+        node
+        for node in numbering.findall(qn("w:num"))
+        if int(node.get(qn("w:numId"))) == int(style_num_id)
+    )
+    abstract_num_id = style_num.find(qn("w:abstractNumId")).get(qn("w:val"))
+
+    existing_ids = [
+        int(node.get(qn("w:numId")))
+        for node in numbering.findall(qn("w:num"))
+    ]
+    new_num_id = max(existing_ids, default=0) + 1
+
+    num = OxmlElement("w:num")
+    num.set(qn("w:numId"), str(new_num_id))
+    abstract = OxmlElement("w:abstractNumId")
+    abstract.set(qn("w:val"), abstract_num_id)
+    num.append(abstract)
+    override = OxmlElement("w:lvlOverride")
+    override.set(qn("w:ilvl"), "0")
+    start = OxmlElement("w:startOverride")
+    start.set(qn("w:val"), "1")
+    override.append(start)
+    num.append(override)
+    numbering.append(num)
+
+    return new_num_id
+
+
 def add_numbered_steps(doc, steps):
+    num_id = create_restarted_numbering(doc)
     for text in steps:
-        p = doc.add_paragraph(style="List Number")
+        p = doc.add_paragraph()
+        p_pr = p._p.get_or_add_pPr()
+        num_pr = p_pr.get_or_add_numPr()
+        num_pr.get_or_add_ilvl().set(qn("w:val"), "0")
+        num_pr.get_or_add_numId().set(qn("w:val"), str(num_id))
         p.paragraph_format.left_indent = Inches(0.375)
         p.paragraph_format.first_line_indent = Inches(-0.188)
         p.paragraph_format.space_after = Pt(4)
@@ -129,19 +222,43 @@ def add_figure(doc, filename, caption, width=6.3):
     set_font(r, 9.5, italic=True, color=MUTED)
 
 
+def get_feature_group(step_number):
+    for group in FEATURE_GROUPS:
+        if group[2] <= step_number <= group[3]:
+            return group
+    raise ValueError(f"Không tìm thấy nhóm cho bước {step_number}")
+
+
 def add_step_section(doc, number, title, purpose, actions, figures, checks):
-    h = doc.add_heading(f"Bước {number}. {title}", level=1)
-    h.paragraph_format.page_break_before = True
+    global _active_group_number
+
+    group_number, group_title, group_start, _, _ = get_feature_group(number)
+    is_first_in_group = _active_group_number != group_number
+    if is_first_in_group:
+        group_heading = doc.add_heading(
+            f"Nhóm {group_number}. {group_title}",
+            level=1,
+        )
+        group_heading.paragraph_format.page_break_before = True
+        _active_group_number = group_number
+
+    local_step_number = number - group_start + 1
+    h = doc.add_heading(
+        f"{group_number}.{local_step_number}. {title}",
+        level=2,
+    )
+    if not is_first_in_group:
+        h.paragraph_format.page_break_before = True
     p = doc.add_paragraph()
     r = p.add_run("Mục đích: ")
     set_font(r, 11, bold=True, color=DARK_BLUE)
     r = p.add_run(purpose)
     set_font(r, 11)
-    doc.add_heading("Cách thực hiện", level=2)
+    doc.add_heading("Cách thực hiện", level=3)
     add_numbered_steps(doc, actions)
     for filename, caption in figures:
         add_figure(doc, filename, caption)
-    doc.add_heading("Kiểm tra sau thao tác", level=2)
+    doc.add_heading("Kiểm tra sau thao tác", level=3)
     add_bullets(doc, checks)
 
 
@@ -223,12 +340,45 @@ set_font(cr, 11.5, italic=True, color=MUTED)
 
 meta = doc.add_paragraph()
 meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-mr = meta.add_run("Phiên bản hướng dẫn: 27/07/2026  |  Môi trường kiểm thử nội bộ")
+mr = meta.add_run("Phiên bản hướng dẫn: 28/07/2026  |  Môi trường kiểm thử nội bộ")
 set_font(mr, 10, bold=True, color=MUTED)
 
 doc.add_page_break()
 
-doc.add_heading("1. Phạm vi và nguyên tắc sử dụng", level=1)
+doc.add_heading("Danh mục nội dung theo nhóm tính năng", level=1)
+doc.add_paragraph(
+    "Tài liệu được tổ chức theo nhóm nghiệp vụ. Trong mỗi nhóm, số mục bắt đầu lại "
+    "từ 1 và được trình bày theo dạng Nhóm.Mục để dễ tra cứu."
+)
+for group_number, group_title, _, _, feature_titles in FEATURE_GROUPS:
+    group_paragraph = doc.add_paragraph()
+    group_paragraph.paragraph_format.space_before = Pt(8)
+    group_paragraph.paragraph_format.space_after = Pt(3)
+    group_run = group_paragraph.add_run(f"Nhóm {group_number}. {group_title}")
+    set_font(group_run, 11.5, bold=True, color=DARK_BLUE)
+    add_bullets(
+        doc,
+        [
+            f"{group_number}.{feature_number}. {feature_title}"
+            for feature_number, feature_title in enumerate(feature_titles, start=1)
+        ],
+    )
+
+support_paragraph = doc.add_paragraph()
+support_paragraph.paragraph_format.space_before = Pt(8)
+support_run = support_paragraph.add_run("Nhóm 9. Hỗ trợ vận hành và kiểm thử")
+set_font(support_run, 11.5, bold=True, color=DARK_BLUE)
+add_bullets(
+    doc,
+    [
+        "9.1. Xử lý khi không thấy menu Người dùng",
+        "9.2. Checklist vận hành tiếp theo",
+        "9.3. Nhật ký kiểm thử của tài liệu",
+    ],
+)
+
+doc.add_page_break()
+doc.add_heading("Giới thiệu, phạm vi và nguyên tắc sử dụng", level=1)
 doc.add_paragraph(
     "Tài liệu hướng dẫn quy trình thiết lập dữ liệu nền và tiếp nhận một nữ sinh "
     "vào lưu xá từ trạng thái hệ thống sạch. Các màn hình được chụp trực tiếp "
@@ -653,7 +803,7 @@ add_step_section(
         "Lịch ngày thường có 12 khung giờ đang áp dụng.",
         "Khung “Điểm danh tối” hiển thị đúng 21:00–21:15.",
         "Dữ liệu vẫn tồn tại sau khi tải lại trang.",
-        "Khung giờ kết nối hợp lý với lịch điểm danh 21:00 đã tạo ở Bước 15.",
+        "Khung giờ kết nối hợp lý với lịch điểm danh 21:00 đã tạo ở mục 3.5.",
     ],
 )
 
@@ -1211,7 +1361,10 @@ add_step_section(
     ],
 )
 
-doc.add_heading("35. Nếu không thấy menu Người dùng", level=1)
+support_heading = doc.add_heading("Nhóm 9. Hỗ trợ vận hành và kiểm thử", level=1)
+support_heading.paragraph_format.page_break_before = True
+
+doc.add_heading("9.1. Nếu không thấy menu Người dùng", level=2)
 doc.add_paragraph(
     "Trước đây mục “Người dùng & quyền truy cập” chỉ xuất hiện ở Chế độ chi tiết, "
     "nên người quản lý dùng Chế độ đơn giản không thấy tài khoản học viên vừa tạo. "
@@ -1228,7 +1381,7 @@ add_numbered_steps(
     ],
 )
 
-doc.add_heading("36. Checklist vận hành tiếp theo", level=1)
+doc.add_heading("9.2. Checklist vận hành tiếp theo", level=2)
 doc.add_paragraph(
     "Sau quy trình tiếp nhận ban đầu, người quản lý tiếp tục hoàn thiện hồ sơ "
     "và vận hành các phân hệ sau:"
@@ -1279,13 +1432,13 @@ add_callout(
     fill=LIGHT_BLUE,
 )
 
-doc.add_heading("37. Nhật ký kiểm thử của tài liệu", level=1)
+doc.add_heading("9.3. Nhật ký kiểm thử của tài liệu", level=2)
 add_bullets(
     doc,
     [
         "Database được backup trước khi reset.",
         "Reset hoàn tất trong transaction và giữ đúng admin, cơ cấu, mẫu/khung công tác.",
-        "Toàn bộ 34 bước trong tài liệu đã được thực hiện lại trên giao diện.",
+        "Toàn bộ 34 mục thuộc 8 nhóm nghiệp vụ đã được thực hiện lại trên giao diện.",
         "Kết quả tạo học viên, liên hệ, phòng, gán phòng, thông tin học tập và lịch học đều đạt.",
         "Đã hoàn thiện dữ liệu nền: 19 học viên, 4 Tổ, 4 Ban, 12 lượt bổ nhiệm và 4 công tác đại diện.",
         "Menu Người dùng đã được bổ sung vào Chế độ đơn giản và kiểm tra trực tiếp tài khoản an.nguyen.",
@@ -1310,7 +1463,7 @@ add_bullets(
         "Đã kiểm tra điều kiện vào cửa hàng và xác nhận nút truy cập bị khóa khi không có ca trực.",
         "Đã kiểm tra tổng quan vai trò, cơ cấu, 5 thành viên Tổ 1 và 5 thành viên Ban Thanh nhạc.",
         "Đã kiểm tra công tác điều hành/Tổ/Ban và phát hiện các thẻ thống kê phạm vi dùng sai số toàn hệ thống.",
-        "Ảnh Bước 17 và Bước 18 được chụp lại ở viewport desktop 1600×1100, không dùng ảnh mobile hoặc ảnh full-page bị co layout.",
+        "Ảnh mục 3.7 và mục 3.8 được chụp lại ở viewport desktop 1600×1100, không dùng ảnh mobile hoặc ảnh full-page bị co layout.",
         "Ảnh minh họa được chụp trực tiếp trong cùng lượt kiểm thử ngày 27/07/2026.",
     ],
 )

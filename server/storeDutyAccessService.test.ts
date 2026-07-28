@@ -37,15 +37,16 @@ const currentShift = {
       scheduledFrom: new Date("2026-07-25T00:00:00.000Z"),
       scheduledTo: new Date("2026-07-25T05:00:00.000Z"),
       accessValidFrom: new Date("2026-07-25T00:00:00.000Z"),
-      accessValidUntil: new Date("2026-07-25T06:00:00.000Z"),
+      accessValidUntil: new Date("2026-07-25T07:00:00.000Z"),
       status: "opened",
 };
 
 const expiredShift = {
       ...currentShift,
       id: 502,
+      shiftDate: "2026-07-24",
       accessValidFrom: new Date("2026-07-24T00:00:00.000Z"),
-      accessValidUntil: new Date("2026-07-24T06:00:00.000Z"),
+      accessValidUntil: new Date("2026-07-24T07:00:00.000Z"),
 };
 
 beforeEach(() => {
