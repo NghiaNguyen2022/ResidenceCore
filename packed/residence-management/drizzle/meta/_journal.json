@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1779787192772,
+      "tag": "0000_red_lady_deathstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1779787386837,
+      "tag": "0001_unique_albert_cleary",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1779847853931,
+      "tag": "0002_magical_salo",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1780039298735,
+      "tag": "0003_lyrical_mandarin",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1780046169320,
+      "tag": "0004_left_omega_red",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1780124827160,
+      "tag": "0004_add_financial_tables",
+      "breakpoints": true
+    },
+  ]
+}

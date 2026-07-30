@@ -68,6 +68,10 @@ export function serveStatic(app: Express) {
     );
   }
 
+  const appBasePath = (process.env.APP_BASE_PATH || "").replace(/\/+$/, "");
+  if (appBasePath) {
+    app.use(appBasePath, express.static(distPath));
+  }
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist

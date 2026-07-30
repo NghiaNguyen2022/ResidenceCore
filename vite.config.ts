@@ -151,6 +151,7 @@ function vitePluginManusDebugCollector(): Plugin {
 }
 
 export default defineConfig(({ mode }) => ({
+  base: process.env.VITE_APP_BASE_PATH || "/",
   plugins: [
     react(),
     tailwindcss(),

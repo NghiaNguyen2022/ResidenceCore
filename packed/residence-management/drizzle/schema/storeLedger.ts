@@ -1,6 +1,6 @@
-import { mysqlTable, int, varchar, text, mediumtext, timestamp, boolean, date, mysqlEnum, decimal, foreignKey, index, unique } from "drizzle-orm/mysql-core";
-import { users } from "./core";
-import { residents } from "./residents";
+import { mysqlTable, int, varchar, text, mediumtext, timestamp, boolean, date, mysqlEnum, decimal, index, unique } from "drizzle-orm/mysql-core";
+import { users } from "./core.ts";
+import { residents } from "./residents.ts";
 
 // Keep column names explicit. Do not reuse a mysqlEnum builder with a generic name,
 // because Drizzle uses the enum builder name as the SQL column name.
@@ -99,7 +99,10 @@ export const storeDutyMembers = mysqlTable(
             id: int("id").autoincrement().primaryKey(),
 
             storeDutyAssignmentId: int("storeDutyAssignmentId")
-                  .notNull(),
+                  .notNull()
+                  .references(() => storeDutyAssignments.id, {
+                        onDelete: "cascade",
+                  }),
 
             residentId: int("residentId")
                   .notNull()
@@ -126,11 +129,6 @@ export const storeDutyMembers = mysqlTable(
             updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
       },
       (table) => ({
-            assignmentFk: foreignKey({
-                  columns: [table.storeDutyAssignmentId],
-                  foreignColumns: [storeDutyAssignments.id],
-                  name: "storeDutyMembers_assignment_fk",
-            }).onDelete("cascade"),
             assignmentIdx: index("storeDutyMembers_assignment_idx").on(
                   table.storeDutyAssignmentId
             ),
@@ -264,7 +262,10 @@ export const storeDutyAccessSessions = mysqlTable(
                   .references(() => storeShifts.id, { onDelete: "cascade" }),
 
             storeDutyAssignmentId: int("storeDutyAssignmentId")
-                  .notNull(),
+                  .notNull()
+                  .references(() => storeDutyAssignments.id, {
+                        onDelete: "cascade",
+                  }),
 
             residentId: int("residentId")
                   .notNull()
@@ -303,11 +304,6 @@ export const storeDutyAccessSessions = mysqlTable(
             updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
       },
       (table) => ({
-            assignmentFk: foreignKey({
-                  columns: [table.storeDutyAssignmentId],
-                  foreignColumns: [storeDutyAssignments.id],
-                  name: "storeDutyAccess_assignment_fk",
-            }).onDelete("cascade"),
             shiftResidentIdx: index("storeDutyAccessSessions_shift_resident_idx").on(
                   table.storeShiftId,
                   table.residentId
@@ -536,7 +532,7 @@ export const storeLedgerTransactions = mysqlTable(
             ledgerId: int("ledgerId").notNull().references(() => storeLedgers.id, { onDelete: "restrict" }),
             dailyClosingId: int("dailyClosingId").references(() => storeDailyClosings.id, { onDelete: "set null" }),
             storeShiftId: int("storeShiftId").references(() => storeShifts.id, { onDelete: "set null" }),
-            storeDutyAssignmentId: int("storeDutyAssignmentId"),
+            storeDutyAssignmentId: int("storeDutyAssignmentId").references(() => storeDutyAssignments.id, { onDelete: "set null" }),
             createdByResidentId: int("createdByResidentId").references(() => residents.id, { onDelete: "set null" }),
             transactionCode: varchar("transactionCode", { length: 50 }).notNull(),
             direction: mysqlEnum("direction", ["in", "out"]).notNull(),
@@ -554,11 +550,6 @@ export const storeLedgerTransactions = mysqlTable(
             updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
       },
       (table) => ({
-            dutyAssignmentFk: foreignKey({
-                  columns: [table.storeDutyAssignmentId],
-                  foreignColumns: [storeDutyAssignments.id],
-                  name: "storeLedgerTx_duty_assignment_fk",
-            }).onDelete("set null"),
             ledgerIdx: index("storeLedgerTransactions_ledger_idx").on(table.ledgerId),
             closingIdx: index("storeLedgerTransactions_closing_idx").on(table.dailyClosingId),
             shiftIdx: index("storeLedgerTransactions_shift_idx").on(table.storeShiftId),

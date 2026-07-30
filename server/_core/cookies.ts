@@ -32,6 +32,7 @@ export function getSessionCookieOptions(
   const hostname = req.hostname;
   const isLocal = isLocalhost(hostname);
   const isSecure = isSecureRequest(req);
+  const cookiePath = process.env.COOKIE_PATH || "/";
 
   console.log("[Cookies] Hostname:", hostname);
   console.log("[Cookies] Is localhost:", isLocal);
@@ -43,7 +44,7 @@ export function getSessionCookieOptions(
     console.log("[Cookies] Using development cookie options");
     return {
       httpOnly: true,
-      path: "/",
+      path: cookiePath,
       sameSite: "lax",
       secure: false,
     };
@@ -53,7 +54,7 @@ export function getSessionCookieOptions(
   console.log("[Cookies] Using production cookie options");
   return {
     httpOnly: true,
-    path: "/",
+    path: cookiePath,
     sameSite: "none",
     secure: true,
   };

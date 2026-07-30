@@ -9,6 +9,8 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 
+const APP_BASE_PATH = (process.env.APP_BASE_PATH || "").replace(/\/+$/, "");
+
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
     const server = net.createServer();
@@ -37,13 +39,14 @@ async function startServer() {
   registerStorageProxy(app);
   // registerOAuthRoutes(app); // OAuth disabled - using local auth
   // tRPC API
-  app.use(
-    "/api/trpc",
-    createExpressMiddleware({
-      router: appRouter,
-      createContext,
-    })
-  );
+  const trpcMiddleware = createExpressMiddleware({
+    router: appRouter,
+    createContext,
+  });
+  app.use("/api/trpc", trpcMiddleware);
+  if (APP_BASE_PATH) {
+    app.use(`${APP_BASE_PATH}/api/trpc`, trpcMiddleware);
+  }
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
