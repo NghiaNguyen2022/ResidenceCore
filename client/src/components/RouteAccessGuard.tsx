@@ -6,6 +6,7 @@ import { useLocation } from "wouter";
 import { getPostLoginPath } from "@/lib/authRedirect";
 import { canAccessRoute, getRouteAccess } from "@/lib/routeAccess";
 import { trpc } from "@/lib/trpc";
+import { getLoginUrl } from "@/const";
 
 type RouteAccessGuardProps = {
       children: ReactNode;
@@ -45,7 +46,7 @@ export function RouteAccessGuard({
             if (!requiresAuthentication) return;
             if (authQuery.isLoading || authQuery.isFetching || user) return;
 
-            window.location.href = `/login?returnTo=${encodeURIComponent(pathname)}`;
+            window.location.href = `${getLoginUrl()}?returnTo=${encodeURIComponent(pathname)}`;
       }, [
             authQuery.isFetching,
             authQuery.isLoading,

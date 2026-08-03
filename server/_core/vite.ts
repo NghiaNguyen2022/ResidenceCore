@@ -3,10 +3,14 @@ import fs from "fs";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
 import path from "path";
-import { createServer as createViteServer } from "vite";
-import viteConfig from "../../vite.config";
 
 export async function setupVite(app: Express, server: Server) {
+  // Keep Vite and its plugins out of the production server dependency graph.
+  // They are development-only and are not installed by cPanel in production mode.
+  const viteModuleName = "vite";
+  const viteConfigPath = "../../vite.config";
+  const [{ createServer: createViteServer }, { default: viteConfig }] =
+    await Promise.all([import(viteModuleName), import(viteConfigPath)]);
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },

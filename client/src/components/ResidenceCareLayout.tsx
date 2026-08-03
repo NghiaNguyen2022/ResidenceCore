@@ -13,6 +13,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { useSystemDisplayMode } from "@/hooks/useSystemDisplayMode";
 import { MandatoryChangePasswordModal } from "@/components/MandatoryChangePasswordModal";
+import { getLoginUrl } from "@/const";
 
 type ResidenceCareLayoutProps = {
       children: ReactNode;
@@ -566,7 +567,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
 
       const logoutMutation = trpc.auth.logout.useMutation({
             onSuccess: () => {
-                  window.location.href = "/login";
+                  window.location.href = getLoginUrl();
             },
       });
 
@@ -574,7 +575,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
 
       useEffect(() => {
             if (authQuery.isLoading || authQuery.isFetching || user) return;
-            window.location.href = "/login";
+            window.location.href = getLoginUrl();
       }, [authQuery.isFetching, authQuery.isLoading, user]);
 
       const accessContextQuery = trpc.residentPortal.getMyAccessContext.useQuery(undefined, {
@@ -630,7 +631,7 @@ export function ResidenceCareLayout({ children }: ResidenceCareLayoutProps) {
                   localStorage.removeItem("token");
                   localStorage.removeItem("authToken");
                   localStorage.removeItem("user");
-                  window.location.href = "/login";
+                  window.location.href = getLoginUrl();
             }
       }
       const { isDetailed } = useSystemDisplayMode();

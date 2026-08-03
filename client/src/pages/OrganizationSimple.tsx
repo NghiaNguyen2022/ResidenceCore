@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cx, residenceMediumAccents, residenceMediumStyle } from '@/components/shared/styleMedium';
+import { toAppUrl } from '@/const';
 
 type SimpleTab = 'structure' | 'assignments' | 'units' | 'terms';
 type OrganizationFocusAction = 'add_team_member' | 'transfer_team_member' | 'add_committee_member' | 'create_assignment';
@@ -2824,7 +2825,7 @@ export default function OrganizationSimple() {
                                                                   type="button"
                                                                   onClick={() => {
                                                                         setHandoverResidentId(null);
-                                                                        window.history.replaceState(null, '', '/organization');
+                                                                        window.history.replaceState(null, '', toAppUrl('/organization'));
                                                                         setMessage(null);
                                                                   }}
                                                                   className="rounded-2xl border border-amber-200 bg-white px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100"

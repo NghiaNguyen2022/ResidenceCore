@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cx, residenceMediumStyle } from "@/components/shared/styleMedium";
 import { toast } from "sonner";
+import { toAppUrl } from "@/const";
 
 type MyDutyAssignment = {
       id: number;
@@ -120,7 +121,7 @@ export default function MyDuties() {
                         setStoreAccessCode("");
                         storeAccessQuery.refetch();
                         toast.success(result.message || "Đã mở quyền Cửa hàng.");
-                        window.location.href = "/resident/store";
+                        window.location.href = toAppUrl("/resident/store");
                   },
                   onError: (error) => {
                         toast.error(error.message || "Mã truy cập không hợp lệ.");

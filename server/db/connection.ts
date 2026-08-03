@@ -8,6 +8,7 @@ const pool = mysql.createPool({
   user: process.env.DATABASE_USER || "residencecare",
   password: process.env.DATABASE_PASSWORD || "ResidenceCare@123",
   database: process.env.DATABASE_NAME || "residence_care",
+  charset: "utf8mb4_unicode_ci",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

@@ -28,6 +28,7 @@ import {
       getSalePriceReference,
 } from "@/lib/storePriceDefaults";
 import { trpc } from "@/lib/trpc";
+import { toAppUrl } from "@/const";
 
 type ResidentStoreAccess = {
       accessToken: string;
@@ -622,7 +623,7 @@ export default function ResidentStore() {
                                     "Đã chốt ngày. Quản lý sẽ review và xác nhận.",
                         );
                         clearStoredAccess();
-                        window.location.replace("/my-duties");
+                        window.location.replace(toAppUrl("/my-duties"));
                   },
                   onError: (error: any) =>
                         toast.error(
