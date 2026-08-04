@@ -92,6 +92,8 @@ export function ContactsListModal({
       const [formData, setFormData] = useState<ContactFormData>(defaultContactFormData);
       const [error, setError] = useState<string | null>(null);
 
+      const utils = trpc.useUtils();
+
       const contactsQuery = trpc.members.listParents.useQuery(
             {
                   search: searchTerm.trim() || undefined,
@@ -116,6 +118,13 @@ export function ContactsListModal({
       const createParentMutation = trpc.members.createParent.useMutation({
             onSuccess: async () => {
                   await contactsQuery.refetch();
+                  // ParentsSection (tab Liên hệ trong hồ sơ học viên) dùng query
+                  // members.getParents riêng theo residentId — không nằm trong
+                  // contactsQuery ở trên nên phải invalidate riêng, nếu không
+                  // danh sách liên hệ trong hồ sơ vẫn hiện "Chưa có liên hệ" cũ
+                  // cho tới khi F5. Invalidate không kèm input để refetch đúng
+                  // bất kể đang mở hồ sơ của resident nào.
+                  await utils.members.getParents.invalidate();
                   await onChanged?.();
             },
       });
@@ -123,6 +132,7 @@ export function ContactsListModal({
       const updateParentMutation = trpc.members.updateParent.useMutation({
             onSuccess: async () => {
                   await contactsQuery.refetch();
+                  await utils.members.getParents.invalidate();
                   await onChanged?.();
             },
       });

@@ -60,9 +60,10 @@ function extractWallTimeText(timeValue?: string | Date | null) {
       if (!timeValue) return '';
 
       if (timeValue instanceof Date) {
-            return `${String(timeValue.getHours()).padStart(2, '0')}:${String(
-                  timeValue.getMinutes()
-            ).padStart(2, '0')}:${String(timeValue.getSeconds()).padStart(2, '0')}`;
+            // getUTC*, không dùng getHours()/getMinutes(): xem ghi chú trong formatTime (lib/format.ts).
+            return `${String(timeValue.getUTCHours()).padStart(2, '0')}:${String(
+                  timeValue.getUTCMinutes()
+            ).padStart(2, '0')}:${String(timeValue.getUTCSeconds()).padStart(2, '0')}`;
       }
 
       const text = String(timeValue).trim();
@@ -127,7 +128,9 @@ function getDutyName(assignment: any) {
 function formatTimeText(value?: string | Date | null) {
       if (!value) return '--:--';
 
-      if (value instanceof Date) return value.toTimeString().slice(0, 5);
+      if (value instanceof Date) {
+            return `${String(value.getUTCHours()).padStart(2, '0')}:${String(value.getUTCMinutes()).padStart(2, '0')}`;
+      }
 
       const text = String(value);
       if (text.includes('T')) return text.slice(11, 16);

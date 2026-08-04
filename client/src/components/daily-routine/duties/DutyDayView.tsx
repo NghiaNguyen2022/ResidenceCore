@@ -17,6 +17,7 @@ import {
       getAssigneeTypeLabel,
       getDutyVisualState,
 } from '@/components/daily-routine/shared';
+import { formatTime as formatTimeText } from '@/lib/format';
 
 type DutyStatusFilter =
       | 'all'
@@ -61,15 +62,6 @@ function isFinalDutyStatus(status?: string | null) {
       return ['completed', 'skipped', 'absent', 'cancelled'].includes(
             normalizeDutyStatus(status)
       );
-}
-
-function formatTimeText(value?: string | Date | null) {
-      if (!value) return '--:--';
-      if (value instanceof Date) return value.toTimeString().slice(0, 5);
-
-      const text = String(value);
-      if (text.includes('T')) return text.slice(11, 16);
-      return text.slice(0, 5);
 }
 
 function getDutyName(assignment: any) {

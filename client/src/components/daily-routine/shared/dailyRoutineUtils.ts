@@ -89,9 +89,10 @@ export function getTimeValue(dateText: string, timeValue?: string | Date | null)
       if (!dateText || !timeValue) return null;
 
       if (timeValue instanceof Date) {
-            const hours = String(timeValue.getHours()).padStart(2, '0');
-            const minutes = String(timeValue.getMinutes()).padStart(2, '0');
-            const seconds = String(timeValue.getSeconds()).padStart(2, '0');
+            // getUTC*, không dùng getHours()/getMinutes(): xem ghi chú trong formatTime (lib/format.ts).
+            const hours = String(timeValue.getUTCHours()).padStart(2, '0');
+            const minutes = String(timeValue.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(timeValue.getUTCSeconds()).padStart(2, '0');
 
             return new Date(`${dateText}T${hours}:${minutes}:${seconds}`).getTime();
       }

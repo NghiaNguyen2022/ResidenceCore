@@ -9,23 +9,13 @@ import {
       getWeekDateValues,
       getWeekdayLabel,
 } from '@/components/daily-routine/shared';
+import { formatTime as formatTimeText } from '@/lib/format';
 
 type DutyWeekViewProps = {
       selectedDate: string;
       assignments: any[];
       onSelectDate: (date: string) => void;
 };
-
-function formatTimeText(value?: string | Date | null) {
-      if (!value) return '--:--';
-
-      if (value instanceof Date) return value.toTimeString().slice(0, 5);
-
-      const text = String(value);
-      if (text.includes('T')) return text.slice(11, 16);
-
-      return text.slice(0, 5);
-}
 
 function getDutyName(assignment: any) {
       return (

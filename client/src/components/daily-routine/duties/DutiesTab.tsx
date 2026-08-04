@@ -8,6 +8,7 @@ import DutyDayView from './DutyDayView';
 import DutyMonthView from './DutyMonthView';
 import DutyViewSwitcher from './DutyViewSwitcher';
 import DutyWeekView from './DutyWeekView';
+import { formatTime } from '@/lib/format';
 
 type DutyStatusFilter = 'all' | 'open' | 'overdue' | 'completed' | 'skipped' | 'absent' | 'cancelled';
 type AssignToType = 'resident' | 'team' | 'room' | 'committee';
@@ -193,15 +194,7 @@ export function DutiesTab({
 
       const formatDutyTime = (value?: string | Date | null) => {
             if (!value) return '';
-
-            if (value instanceof Date) {
-                  return value.toTimeString().slice(0, 5);
-            }
-
-            const text = String(value);
-            if (text.includes('T')) return text.slice(11, 16);
-
-            return text.slice(0, 5);
+            return formatTime(value);
       };
 
       const handleAssignDutyConfig = (dutyConfig: any) => {

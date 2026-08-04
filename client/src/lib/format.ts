@@ -4,11 +4,17 @@
 
 // ─── Time ────────────────────────────────────────────────────────────────────
 
-/** Extract HH:MM from a time string, Date, or "YYYY-MM-DD HH:MM:SS" / ISO datetime. */
+/**
+ * Extract HH:MM from a time string, Date, or "YYYY-MM-DD HH:MM:SS" / ISO datetime.
+ * Dùng getUTC*, không dùng getHours()/getMinutes(): mysql2/tRPC trả các cột giờ dạng
+ * Date với giờ tường (wall time, ví dụ "08:00") đã đóng gói vào UTC. Nếu đọc lại bằng
+ * getter local, trình duyệt sẽ cộng thêm lệch múi giờ của máy client (ví dụ +7 ở VN),
+ * gây lệch giờ hiển thị so với giá trị đã lưu.
+ */
 export function formatTime(value?: string | Date | null): string {
       if (!value) return '--:--';
       if (value instanceof Date) {
-            return `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
+            return `${String(value.getUTCHours()).padStart(2, '0')}:${String(value.getUTCMinutes()).padStart(2, '0')}`;
       }
       const text = String(value);
       if (text.includes(' ')) return text.split(' ')[1]?.slice(0, 5) || '--:--';
